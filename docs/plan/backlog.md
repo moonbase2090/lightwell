@@ -3,3 +3,6 @@
 
 ## Commit diff view (added 2026-10-03)
 Pick a git commit (or a range) and see its changes on the map in detail: highlight the blocks and connections that were added, changed or removed, show line counts per block, and let you click a changed block to see its full side-by-side diff. Useful for reviewing a PR or understanding what a commit really touched.
+
+## Code inspector (added 2026-10-03)
+Click a block on the map to open its source in a read-only Monaco editor panel inside the app: syntax highlighting, go-to-definition within the project, search, and jumping between the block's files. Read only, with no editing; an "Open in editor" button hands off to your real editor. Pairs with the commit diff view, using Monaco's diff mode.
