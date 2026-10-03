@@ -6,3 +6,6 @@ Pick a git commit (or a range) and see its changes on the map in detail: highlig
 
 ## Code inspector (added 2026-10-03)
 Click a block on the map to open its source in a read-only Monaco editor panel inside the app: syntax highlighting, go-to-definition within the project, search, and jumping between the block's files. Read only, with no editing; an "Open in editor" button hands off to your real editor. Pairs with the commit diff view, using Monaco's diff mode.
+
+## Branding idea (added 2026-10-03)
+Tagline: "Turning the lights on in the Dark Factory." Pick a light-related product name to match (candidates under discussion: Floodlight, Lantern, Lumen, Klieg, Beacon). Check name and domain availability before choosing.
