@@ -9,3 +9,6 @@ Click a block on the map to open its source in a read-only Monaco editor panel i
 
 ## Branding idea (added 2026-10-03)
 Tagline: "Turning the lights on in the Dark Factory." Pick a light-related product name to match (candidates under discussion: Floodlight, Lantern, Lumen, Klieg, Beacon). Check name and domain availability before choosing.
+
+## Website art direction (added 2026-10-03)
+Atmospheric dark factory: a near-black, moody industrial space with soft volumetric light shafts cutting through haze and lighting up the machinery, in the spirit of Playdead's Inside (muted palette, silhouettes, side-on depth, fog). As you scroll, more light shafts open and reveal the map. Pairs with the tagline "Turning the lights on in the Dark Factory" and a light-related name (Lightwell is a top contender). Use original art only, never game assets.
