@@ -1,0 +1,1242 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "workspace:scorecard",
+    "name": "Scorecard",
+    "rootPath": "."
+  },
+  "blocks": [
+    {
+      "id": "workspace:scorecard",
+      "label": "Scorecard",
+      "type": "workspace",
+      "parentId": null,
+      "children": [
+        "crate:sc-cli",
+        "crate:sc-core",
+        "crate:sc-engines",
+        "crate:sc-graph",
+        "crate:sc-llm",
+        "crate:sc-mcp",
+        "crate:sc-mutation",
+        "crate:sc-sarif"
+      ],
+      "sourcePath": "Cargo.toml",
+      "fingerprint": "eba51e8636aea1b90436f217fbf0fa227bf6344b080bddb909584a1065e081fd",
+      "memberCount": 8
+    },
+    {
+      "id": "crate:sc-cli",
+      "label": "sc-cli",
+      "type": "crate",
+      "packageName": "sc-cli",
+      "version": "0.1.6",
+      "description": "sc command line",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "app:sc-cli:sc",
+        "module:sc-cli:crate root",
+        "cargo-feature:sc-cli:default"
+      ],
+      "sourcePath": "crates/sc-cli/Cargo.toml",
+      "fingerprint": "e9e3752b820c0dad1769e355d53e97e5aa2516d13cdb52a5d592c32bc205263d"
+    },
+    {
+      "id": "app:sc-cli:sc",
+      "label": "sc",
+      "type": "app",
+      "packageName": "sc-cli",
+      "targetName": "sc",
+      "targetKind": "bin",
+      "entryPath": "crates/sc-cli/src/main.rs",
+      "parentId": "crate:sc-cli",
+      "children": [],
+      "sourcePath": "crates/sc-cli/src/main.rs",
+      "fingerprint": "60c2be456a4176cab783883c2e59cfce539d7a7cc30643f0bdbe2d2f09e8fe90"
+    },
+    {
+      "id": "module:sc-cli:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "sc-cli",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/sc-cli/Cargo.toml",
+      "parentId": "crate:sc-cli",
+      "children": [
+        "module:sc-cli:crate root::format",
+        "module:sc-cli:crate root::pretty",
+        "module:sc-cli:crate root::report",
+        "module:sc-cli:crate root::setup",
+        "module:sc-cli:crate root::user_config"
+      ],
+      "sourcePath": "crates/sc-cli/src/lib.rs",
+      "fingerprint": "bbc94e1c3608bcbb682731ce6d58a972c2ae3cbc1353193fd7a174e536b34ea2",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-cli:crate root::format",
+      "label": "format",
+      "type": "module",
+      "packageName": "sc-cli",
+      "modulePath": "crate root::format",
+      "declaredByPath": "crates/sc-cli/src/lib.rs",
+      "parentId": "module:sc-cli:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-cli/src/format.rs",
+      "fingerprint": "a100380b896b52f1e6c3f13ce97d2022eee347ede9ad897c8529e1089ee0fe6f",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-cli:crate root::pretty",
+      "label": "pretty",
+      "type": "module",
+      "packageName": "sc-cli",
+      "modulePath": "crate root::pretty",
+      "declaredByPath": "crates/sc-cli/src/lib.rs",
+      "parentId": "module:sc-cli:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-cli/src/pretty.rs",
+      "fingerprint": "918b1813cf3f1f97f3f355dd694f2ed5edf901ff4586729cd0ae7e8c54ef4a99",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-cli:crate root::report",
+      "label": "report",
+      "type": "module",
+      "packageName": "sc-cli",
+      "modulePath": "crate root::report",
+      "declaredByPath": "crates/sc-cli/src/lib.rs",
+      "parentId": "module:sc-cli:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-cli/src/report.rs",
+      "fingerprint": "2cbce75f8c2174bcdc24c3ef3fd24740d6aa40ceb9aa0a0d6463bda9813ab0e8",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-cli:crate root::setup",
+      "label": "setup",
+      "type": "module",
+      "packageName": "sc-cli",
+      "modulePath": "crate root::setup",
+      "declaredByPath": "crates/sc-cli/src/lib.rs",
+      "parentId": "module:sc-cli:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-cli/src/setup.rs",
+      "fingerprint": "93da87e90840fc83f18d042db0274613ca5408c8f1ca79a6cb80fe5554730ceb",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-cli:crate root::user_config",
+      "label": "user_config",
+      "type": "module",
+      "packageName": "sc-cli",
+      "modulePath": "crate root::user_config",
+      "declaredByPath": "crates/sc-cli/src/lib.rs",
+      "parentId": "module:sc-cli:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-cli/src/user_config.rs",
+      "fingerprint": "549e51064c86085be2ec2217c74da817c25f1ace62c4c4a252fef34ee556f88d",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "cargo-feature:sc-cli:default",
+      "label": "default",
+      "type": "cargo_feature",
+      "packageName": "sc-cli",
+      "featureName": "default",
+      "parentId": "crate:sc-cli",
+      "children": [],
+      "sourcePath": "crates/sc-cli/Cargo.toml",
+      "fingerprint": "5cc0d5fd403a746607495d1702d09e258580f09c2d1b9836ebc07d9a7a2c9f67"
+    },
+    {
+      "id": "crate:sc-core",
+      "label": "sc-core",
+      "type": "crate",
+      "packageName": "sc-core",
+      "version": "0.1.6",
+      "description": "Scorecard model, config, and scoring",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:sc-core:crate root"
+      ],
+      "sourcePath": "crates/sc-core/Cargo.toml",
+      "fingerprint": "b940313d333d41360a9fd635f786f4cfa0df95c274e0aa6ef24ec061227b1316"
+    },
+    {
+      "id": "module:sc-core:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "sc-core",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/sc-core/Cargo.toml",
+      "parentId": "crate:sc-core",
+      "children": [
+        "module:sc-core:crate root::config",
+        "module:sc-core:crate root::model",
+        "module:sc-core:crate root::score"
+      ],
+      "sourcePath": "crates/sc-core/src/lib.rs",
+      "fingerprint": "b21ecd95b9a2894fa4a9b765715b502080747919c86d9e3674e424bb28ea8cf1",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-core:crate root::config",
+      "label": "config",
+      "type": "module",
+      "packageName": "sc-core",
+      "modulePath": "crate root::config",
+      "declaredByPath": "crates/sc-core/src/lib.rs",
+      "parentId": "module:sc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-core/src/config.rs",
+      "fingerprint": "07107fef91924fb2e48f340860cfbc1f28b1e18c4bcb75c7ad210294aedb8acf",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-core:crate root::model",
+      "label": "model",
+      "type": "module",
+      "packageName": "sc-core",
+      "modulePath": "crate root::model",
+      "declaredByPath": "crates/sc-core/src/lib.rs",
+      "parentId": "module:sc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-core/src/model.rs",
+      "fingerprint": "bf2d332f223ee609406f76a318ba86bd9b29a5bc8d0810a281df630b9774fe9a",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-core:crate root::score",
+      "label": "score",
+      "type": "module",
+      "packageName": "sc-core",
+      "modulePath": "crate root::score",
+      "declaredByPath": "crates/sc-core/src/lib.rs",
+      "parentId": "module:sc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-core/src/score.rs",
+      "fingerprint": "5a0a44e2fd465a02e6a5b307deda7f9ba8b051a1f8a3d756c10620543ad277fb",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:sc-engines",
+      "label": "sc-engines",
+      "type": "crate",
+      "packageName": "sc-engines",
+      "version": "0.1.6",
+      "description": "Deterministic compile, test, coverage, and CRAP engines",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:sc-engines:crate root"
+      ],
+      "sourcePath": "crates/sc-engines/Cargo.toml",
+      "fingerprint": "3a654d7257dcdca108e77a28802f685a71e87ef9e7c5255e1b440e6b39642401"
+    },
+    {
+      "id": "module:sc-engines:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/sc-engines/Cargo.toml",
+      "parentId": "crate:sc-engines",
+      "children": [
+        "module:sc-engines:crate root::a11y",
+        "module:sc-engines:crate root::cargo_test",
+        "module:sc-engines:crate root::command",
+        "module:sc-engines:crate root::compile",
+        "module:sc-engines:crate root::coverage",
+        "module:sc-engines:crate root::crap",
+        "module:sc-engines:crate root::facts",
+        "module:sc-engines:crate root::html_doc",
+        "module:sc-engines:crate root::links",
+        "module:sc-engines:crate root::manifest",
+        "module:sc-engines:crate root::mutation",
+        "module:sc-engines:crate root::pack",
+        "module:sc-engines:crate root::pack_cov",
+        "module:sc-engines:crate root::pipeline",
+        "module:sc-engines:crate root::poly_cc",
+        "module:sc-engines:crate root::python",
+        "module:sc-engines:crate root::rust_toolchain",
+        "module:sc-engines:crate root::scope",
+        "module:sc-engines:crate root::secrets",
+        "module:sc-engines:crate root::spec_check",
+        "module:sc-engines:crate root::toolchain"
+      ],
+      "sourcePath": "crates/sc-engines/src/lib.rs",
+      "fingerprint": "d3fde5bb8b4785c89b40c0ee5ff5abd6fbe8915f34d7c9dc8a1ff4cdd5d2d66b",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::a11y",
+      "label": "a11y",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::a11y",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/a11y.rs",
+      "fingerprint": "281b8f83b10d772fb873f97f750e9de0fd4e4c8181d3d5cbfb5f589f931a46f1",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::cargo_test",
+      "label": "cargo_test",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::cargo_test",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/cargo_test.rs",
+      "fingerprint": "7d6a72ebff9f151e2e8fdff1715b20fdb039a85105d652637f4f519c34302823",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::command",
+      "label": "command",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::command",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/command.rs",
+      "fingerprint": "548979a75b71e336bda425382b39e4ba21e5819ff27cc54cd2f6c1d723c1567e",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::compile",
+      "label": "compile",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::compile",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/compile.rs",
+      "fingerprint": "545ee5c69ffc18a521c9e7886874398e186b5347a986a1f7f09c56777d6494e1",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::coverage",
+      "label": "coverage",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::coverage",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/coverage.rs",
+      "fingerprint": "1416d331703bbc779e24b6bba341dcd00fc88a94e9f823281353aa87a4360f11",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::crap",
+      "label": "crap",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::crap",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/crap.rs",
+      "fingerprint": "bdb293add711fe789c64f23307fa1d9955493e95fbfb6abc1e3d3bac71b07d30",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::facts",
+      "label": "facts",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::facts",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/facts.rs",
+      "fingerprint": "25cdc2a7506de9c8a8a54cffb59ee14b9765de7d61e5a02d71b228f7eb170862",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::html_doc",
+      "label": "html_doc",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::html_doc",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/html_doc.rs",
+      "fingerprint": "6b4ef367c3e508a176b1cdbe9c2edd4f1eeea6f9d8e3e69f5e9bcd9fc0d81d76",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::links",
+      "label": "links",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::links",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/links.rs",
+      "fingerprint": "a710b5d2ec6f073f310bbbb391b3ba56af4227a395afeb8eadcbccd8f43ecd16",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::manifest",
+      "label": "manifest",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::manifest",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/manifest.rs",
+      "fingerprint": "9670812c7a132545df18bde5b90d1184d9125d09080c7597a5cb83e1e327dd15",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::mutation",
+      "label": "mutation",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::mutation",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/mutation.rs",
+      "fingerprint": "3ce8f16425fe506469a67d443095312aefe31549b2099a6e16738bea5320520a",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::pack",
+      "label": "pack",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::pack",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/pack.rs",
+      "fingerprint": "e87796c641162a21588e13e85e74af71b8425ab8fe3b1cf0cfb05674ca0c6e3d",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::pack_cov",
+      "label": "pack_cov",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::pack_cov",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/pack_cov.rs",
+      "fingerprint": "2d6f58233724f9385f8bd16da1c35e779f4d5b751a6928f397d7049de3c4dc48",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::pipeline",
+      "label": "pipeline",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::pipeline",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/pipeline.rs",
+      "fingerprint": "575a50dbd52ae7dae6a6bf01d5b4159a3c0841e757f8fa2eeec59365cb4bd987",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::poly_cc",
+      "label": "poly_cc",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::poly_cc",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/poly_cc.rs",
+      "fingerprint": "d01439621faeded5abc7827c9293f00351617d73c1432bcf8e8bbb8a85739314",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::python",
+      "label": "python",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::python",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/python.rs",
+      "fingerprint": "2e288879f46cf69c422889326db6f59e3cbe8311731b85c82fd14d95cd54ea1d",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::rust_toolchain",
+      "label": "rust_toolchain",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::rust_toolchain",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/rust_toolchain.rs",
+      "fingerprint": "90b17aa8e322c580d1894b823aab1e26f5c9adf27f09b313e88e95b62298b3cb",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::scope",
+      "label": "scope",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::scope",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/scope.rs",
+      "fingerprint": "06edb5d001d94c48d4c8da82c72e6fe8736798493c45f8935a40d74f578fe138",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::secrets",
+      "label": "secrets",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::secrets",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/secrets.rs",
+      "fingerprint": "e15e5251383d11a5953ef039ff29f1c0497aad035afab43d9eb52200cff4abf9",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::spec_check",
+      "label": "spec_check",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::spec_check",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/spec_check.rs",
+      "fingerprint": "fb94e5fadcc7b57db8c09d7822ca5c6c83b5c5dae79a742404bb5e626749f507",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-engines:crate root::toolchain",
+      "label": "toolchain",
+      "type": "module",
+      "packageName": "sc-engines",
+      "modulePath": "crate root::toolchain",
+      "declaredByPath": "crates/sc-engines/src/lib.rs",
+      "parentId": "module:sc-engines:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-engines/src/toolchain.rs",
+      "fingerprint": "cb0dff219c5d9c0ad0bf54fe1ba89f2e5bf535836b360a3076290e8cd57fdcda",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:sc-graph",
+      "label": "sc-graph",
+      "type": "crate",
+      "packageName": "sc-graph",
+      "version": "0.1.6",
+      "description": "Rust source discovery and cyclomatic complexity",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:sc-graph:crate root"
+      ],
+      "sourcePath": "crates/sc-graph/Cargo.toml",
+      "fingerprint": "b3b55271b9ddd3bc6cadb7d0665f5f6b42ee7c0d7db0792af81cd3231e241f7e"
+    },
+    {
+      "id": "module:sc-graph:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "sc-graph",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/sc-graph/Cargo.toml",
+      "parentId": "crate:sc-graph",
+      "children": [
+        "module:sc-graph:crate root::complexity",
+        "module:sc-graph:crate root::discover",
+        "module:sc-graph:crate root::imports",
+        "module:sc-graph:crate root::perf",
+        "module:sc-graph:crate root::pubs",
+        "module:sc-graph:crate root::walk"
+      ],
+      "sourcePath": "crates/sc-graph/src/lib.rs",
+      "fingerprint": "84f252d64520e2280ddf88eed0660f07f71ea9081b8660b959fa6749d1ced0ec",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-graph:crate root::complexity",
+      "label": "complexity",
+      "type": "module",
+      "packageName": "sc-graph",
+      "modulePath": "crate root::complexity",
+      "declaredByPath": "crates/sc-graph/src/lib.rs",
+      "parentId": "module:sc-graph:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-graph/src/complexity.rs",
+      "fingerprint": "041dfd3ecf5bb015dd0056e858951622372f04c1ec192a7ce135de096a03e158",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-graph:crate root::discover",
+      "label": "discover",
+      "type": "module",
+      "packageName": "sc-graph",
+      "modulePath": "crate root::discover",
+      "declaredByPath": "crates/sc-graph/src/lib.rs",
+      "parentId": "module:sc-graph:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-graph/src/discover.rs",
+      "fingerprint": "b6e32dcf410f00f6b193a8709a6756011510fb5e499e63ef116d4a276ac42d38",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-graph:crate root::imports",
+      "label": "imports",
+      "type": "module",
+      "packageName": "sc-graph",
+      "modulePath": "crate root::imports",
+      "declaredByPath": "crates/sc-graph/src/lib.rs",
+      "parentId": "module:sc-graph:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-graph/src/imports.rs",
+      "fingerprint": "ff1e03269f72d2a9b9940eb85f03c2f077d2fd95f5a04d3f17db640e35859e28",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-graph:crate root::perf",
+      "label": "perf",
+      "type": "module",
+      "packageName": "sc-graph",
+      "modulePath": "crate root::perf",
+      "declaredByPath": "crates/sc-graph/src/lib.rs",
+      "parentId": "module:sc-graph:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-graph/src/perf.rs",
+      "fingerprint": "bcdb56038814f69c575da322e51518ac86ab88ee633b5d376d1ca9f8890bf179",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-graph:crate root::pubs",
+      "label": "pubs",
+      "type": "module",
+      "packageName": "sc-graph",
+      "modulePath": "crate root::pubs",
+      "declaredByPath": "crates/sc-graph/src/lib.rs",
+      "parentId": "module:sc-graph:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-graph/src/pubs.rs",
+      "fingerprint": "694ef8e496cc26ffae6e8d003f14fe4b514815a51adb6a416f57a2486ece0c20",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:sc-graph:crate root::walk",
+      "label": "walk",
+      "type": "module",
+      "packageName": "sc-graph",
+      "modulePath": "crate root::walk",
+      "declaredByPath": "crates/sc-graph/src/lib.rs",
+      "parentId": "module:sc-graph:crate root",
+      "children": [],
+      "sourcePath": "crates/sc-graph/src/walk.rs",
+      "fingerprint": "44493c0dac21077094d0159c2a48e9a341eeb7c60a95525e0c0a62b8cc3c0632",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:sc-llm",
+      "label": "sc-llm",
+      "type": "crate",
+      "packageName": "sc-llm",
+      "version": "0.1.6",
+      "description": "Optional OpenAI-compatible spec review",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:sc-llm:crate root"
+      ],
+      "sourcePath": "crates/sc-llm/Cargo.toml",
+      "fingerprint": "1fe00c8531127afc8305595428da55fccf077ee5bf8895624ebe50f09f8bf1f2"
+    },
+    {
+      "id": "module:sc-llm:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "sc-llm",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/sc-llm/Cargo.toml",
+      "parentId": "crate:sc-llm",
+      "children": [],
+      "sourcePath": "crates/sc-llm/src/lib.rs",
+      "fingerprint": "683a50b99a1aa89e64f1f56216d83f89df1f7bda77ce886db3bed2018e3cd820",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:sc-mcp",
+      "label": "sc-mcp",
+      "type": "crate",
+      "packageName": "sc-mcp",
+      "version": "0.1.6",
+      "description": "MCP server for sc",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "app:sc-mcp:sc-mcp",
+        "module:sc-mcp:crate root"
+      ],
+      "sourcePath": "crates/sc-mcp/Cargo.toml",
+      "fingerprint": "7f3824d53e781d5614a8f5f8e75f5b3505f3cc4893a73cc9e326baf260e8dac8"
+    },
+    {
+      "id": "app:sc-mcp:sc-mcp",
+      "label": "sc-mcp",
+      "type": "app",
+      "packageName": "sc-mcp",
+      "targetName": "sc-mcp",
+      "targetKind": "bin",
+      "entryPath": "crates/sc-mcp/src/main.rs",
+      "parentId": "crate:sc-mcp",
+      "children": [],
+      "sourcePath": "crates/sc-mcp/src/main.rs",
+      "fingerprint": "4bff455a39b95474b5794eebfcf3fe1f3b3d48c716c35bc0ad614372e80ac392"
+    },
+    {
+      "id": "module:sc-mcp:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "sc-mcp",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/sc-mcp/Cargo.toml",
+      "parentId": "crate:sc-mcp",
+      "children": [],
+      "sourcePath": "crates/sc-mcp/src/lib.rs",
+      "fingerprint": "7a85a8448cf03e88a410c164e78f5b4504dacccc54d39043a6d12c91332c509d",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:sc-mutation",
+      "label": "sc-mutation",
+      "type": "crate",
+      "packageName": "sc-mutation",
+      "version": "0.1.6",
+      "description": "Workspace marker. The mutation runner lives in sc-engines.",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:sc-mutation:crate root"
+      ],
+      "sourcePath": "crates/sc-mutation/Cargo.toml",
+      "fingerprint": "8278bd5b33d15fd2572791cfa5cdd0d32645de4c178f976222fa107441364856"
+    },
+    {
+      "id": "module:sc-mutation:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "sc-mutation",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/sc-mutation/Cargo.toml",
+      "parentId": "crate:sc-mutation",
+      "children": [],
+      "sourcePath": "crates/sc-mutation/src/lib.rs",
+      "fingerprint": "904d825123af48373393e597a36593690a2a8e6c75d84e0370a384cd73b35e9c",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:sc-sarif",
+      "label": "sc-sarif",
+      "type": "crate",
+      "packageName": "sc-sarif",
+      "version": "0.1.6",
+      "description": "SARIF 2.1.0 export for sc scorecards",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:sc-sarif:crate root"
+      ],
+      "sourcePath": "crates/sc-sarif/Cargo.toml",
+      "fingerprint": "c3f90f67b5be323caad4949064b76a2ad9b22bb2fd2a6cedc47fe79f3d9e275e"
+    },
+    {
+      "id": "module:sc-sarif:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "sc-sarif",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/sc-sarif/Cargo.toml",
+      "parentId": "crate:sc-sarif",
+      "children": [],
+      "sourcePath": "crates/sc-sarif/src/lib.rs",
+      "fingerprint": "5b6d9656d42c0c2ce528672bd6aa700d69eda2340b7c89060dd6b6488a791eb4",
+      "cfgAttributes": [],
+      "unresolved": false
+    }
+  ],
+  "connections": [
+    {
+      "id": "contains:workspace:scorecard->crate:sc-cli",
+      "source": "workspace:scorecard",
+      "target": "crate:sc-cli",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-cli->app:sc-cli:sc",
+      "source": "crate:sc-cli",
+      "target": "app:sc-cli:sc",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-cli->module:sc-cli:crate root",
+      "source": "crate:sc-cli",
+      "target": "module:sc-cli:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-cli:crate root->module:sc-cli:crate root::format",
+      "source": "module:sc-cli:crate root",
+      "target": "module:sc-cli:crate root::format",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-cli:crate root->module:sc-cli:crate root::pretty",
+      "source": "module:sc-cli:crate root",
+      "target": "module:sc-cli:crate root::pretty",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-cli:crate root->module:sc-cli:crate root::report",
+      "source": "module:sc-cli:crate root",
+      "target": "module:sc-cli:crate root::report",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-cli:crate root->module:sc-cli:crate root::setup",
+      "source": "module:sc-cli:crate root",
+      "target": "module:sc-cli:crate root::setup",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-cli:crate root->module:sc-cli:crate root::user_config",
+      "source": "module:sc-cli:crate root",
+      "target": "module:sc-cli:crate root::user_config",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-cli->cargo-feature:sc-cli:default",
+      "source": "crate:sc-cli",
+      "target": "cargo-feature:sc-cli:default",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:scorecard->crate:sc-core",
+      "source": "workspace:scorecard",
+      "target": "crate:sc-core",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-core->module:sc-core:crate root",
+      "source": "crate:sc-core",
+      "target": "module:sc-core:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-core:crate root->module:sc-core:crate root::config",
+      "source": "module:sc-core:crate root",
+      "target": "module:sc-core:crate root::config",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-core:crate root->module:sc-core:crate root::model",
+      "source": "module:sc-core:crate root",
+      "target": "module:sc-core:crate root::model",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-core:crate root->module:sc-core:crate root::score",
+      "source": "module:sc-core:crate root",
+      "target": "module:sc-core:crate root::score",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:scorecard->crate:sc-engines",
+      "source": "workspace:scorecard",
+      "target": "crate:sc-engines",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-engines->module:sc-engines:crate root",
+      "source": "crate:sc-engines",
+      "target": "module:sc-engines:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::a11y",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::a11y",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::cargo_test",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::cargo_test",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::command",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::command",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::compile",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::compile",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::coverage",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::coverage",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::crap",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::crap",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::facts",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::facts",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::html_doc",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::html_doc",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::links",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::links",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::manifest",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::manifest",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::mutation",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::mutation",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::pack",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::pack",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::pack_cov",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::pack_cov",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::pipeline",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::pipeline",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::poly_cc",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::poly_cc",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::python",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::python",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::rust_toolchain",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::rust_toolchain",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::scope",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::scope",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::secrets",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::secrets",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::spec_check",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::spec_check",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-engines:crate root->module:sc-engines:crate root::toolchain",
+      "source": "module:sc-engines:crate root",
+      "target": "module:sc-engines:crate root::toolchain",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:scorecard->crate:sc-graph",
+      "source": "workspace:scorecard",
+      "target": "crate:sc-graph",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-graph->module:sc-graph:crate root",
+      "source": "crate:sc-graph",
+      "target": "module:sc-graph:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-graph:crate root->module:sc-graph:crate root::complexity",
+      "source": "module:sc-graph:crate root",
+      "target": "module:sc-graph:crate root::complexity",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-graph:crate root->module:sc-graph:crate root::discover",
+      "source": "module:sc-graph:crate root",
+      "target": "module:sc-graph:crate root::discover",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-graph:crate root->module:sc-graph:crate root::imports",
+      "source": "module:sc-graph:crate root",
+      "target": "module:sc-graph:crate root::imports",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-graph:crate root->module:sc-graph:crate root::perf",
+      "source": "module:sc-graph:crate root",
+      "target": "module:sc-graph:crate root::perf",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-graph:crate root->module:sc-graph:crate root::pubs",
+      "source": "module:sc-graph:crate root",
+      "target": "module:sc-graph:crate root::pubs",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:sc-graph:crate root->module:sc-graph:crate root::walk",
+      "source": "module:sc-graph:crate root",
+      "target": "module:sc-graph:crate root::walk",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:scorecard->crate:sc-llm",
+      "source": "workspace:scorecard",
+      "target": "crate:sc-llm",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-llm->module:sc-llm:crate root",
+      "source": "crate:sc-llm",
+      "target": "module:sc-llm:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:scorecard->crate:sc-mcp",
+      "source": "workspace:scorecard",
+      "target": "crate:sc-mcp",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-mcp->app:sc-mcp:sc-mcp",
+      "source": "crate:sc-mcp",
+      "target": "app:sc-mcp:sc-mcp",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-mcp->module:sc-mcp:crate root",
+      "source": "crate:sc-mcp",
+      "target": "module:sc-mcp:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:scorecard->crate:sc-mutation",
+      "source": "workspace:scorecard",
+      "target": "crate:sc-mutation",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-mutation->module:sc-mutation:crate root",
+      "source": "crate:sc-mutation",
+      "target": "module:sc-mutation:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:scorecard->crate:sc-sarif",
+      "source": "workspace:scorecard",
+      "target": "crate:sc-sarif",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:sc-sarif->module:sc-sarif:crate root",
+      "source": "crate:sc-sarif",
+      "target": "module:sc-sarif:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "depends_on:crate:sc-cli->crate:sc-core",
+      "source": "crate:sc-cli",
+      "target": "crate:sc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:sc-cli->crate:sc-engines",
+      "source": "crate:sc-cli",
+      "target": "crate:sc-engines",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:sc-cli->crate:sc-sarif",
+      "source": "crate:sc-cli",
+      "target": "crate:sc-sarif",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:sc-engines->crate:sc-core",
+      "source": "crate:sc-engines",
+      "target": "crate:sc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:sc-engines->crate:sc-graph",
+      "source": "crate:sc-engines",
+      "target": "crate:sc-graph",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:sc-engines->crate:sc-llm",
+      "source": "crate:sc-engines",
+      "target": "crate:sc-llm",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:sc-graph->crate:sc-core",
+      "source": "crate:sc-graph",
+      "target": "crate:sc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:sc-mcp->crate:sc-core",
+      "source": "crate:sc-mcp",
+      "target": "crate:sc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:sc-mcp->crate:sc-engines",
+      "source": "crate:sc-mcp",
+      "target": "crate:sc-engines",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:sc-sarif->crate:sc-core",
+      "source": "crate:sc-sarif",
+      "target": "crate:sc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    }
+  ],
+  "groups": [
+    {
+      "id": "group:crates",
+      "label": "Workspace crates",
+      "memberIds": [
+        "crate:sc-cli",
+        "crate:sc-core",
+        "crate:sc-engines",
+        "crate:sc-graph",
+        "crate:sc-llm",
+        "crate:sc-mcp",
+        "crate:sc-mutation",
+        "crate:sc-sarif"
+      ]
+    }
+  ],
+  "stats": {
+    "blocks": 55,
+    "connections": 64,
+    "crates": 8,
+    "apps": 2,
+    "modules": 43,
+    "cargoFeatures": 1
+  }
+}

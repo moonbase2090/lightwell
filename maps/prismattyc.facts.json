@@ -1,0 +1,3391 @@
+{
+  "schemaVersion": 1,
+  "project": {
+    "id": "workspace:prismattyc",
+    "name": "Prismattyc",
+    "rootPath": "."
+  },
+  "blocks": [
+    {
+      "id": "workspace:prismattyc",
+      "label": "Prismattyc",
+      "type": "workspace",
+      "parentId": null,
+      "children": [
+        "crate:pmux-mcp",
+        "crate:prismattyc",
+        "crate:prismattyc-core",
+        "crate:prismattyc-emulator",
+        "crate:prismattyc-host",
+        "crate:prismattyc-labs",
+        "crate:prismattyc-mux",
+        "crate:prismattyc-protocol",
+        "crate:prismattyc-render",
+        "crate:prismattyc-rich-client"
+      ],
+      "sourcePath": "Cargo.toml",
+      "fingerprint": "0d9c95a0c8c02956810534c81525a20782b2ff09987032216c4c90d337ddb4a1",
+      "memberCount": 10
+    },
+    {
+      "id": "crate:pmux-mcp",
+      "label": "pmux-mcp",
+      "type": "crate",
+      "packageName": "pmux-mcp",
+      "version": "0.2.28",
+      "description": "MCP stdio adapter over the pmux Mail* socket",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "app:pmux-mcp:pmux-mcp"
+      ],
+      "sourcePath": "crates/pmux-mcp/Cargo.toml",
+      "fingerprint": "b14a818aba960a5a5ddac3f8e3ac380ee8d75751b3ccbfdd751c5a480684ebb6"
+    },
+    {
+      "id": "app:pmux-mcp:pmux-mcp",
+      "label": "pmux-mcp",
+      "type": "app",
+      "packageName": "pmux-mcp",
+      "targetName": "pmux-mcp",
+      "targetKind": "bin",
+      "entryPath": "crates/pmux-mcp/src/main.rs",
+      "parentId": "crate:pmux-mcp",
+      "children": [
+        "module:pmux-mcp:pmux-mcp::mail",
+        "module:pmux-mcp:pmux-mcp::supervisor"
+      ],
+      "sourcePath": "crates/pmux-mcp/src/main.rs",
+      "fingerprint": "80f943cd164d6825696005a48851d20ab4e29e73de19cd373d92aac19cfba97d"
+    },
+    {
+      "id": "module:pmux-mcp:pmux-mcp::mail",
+      "label": "mail",
+      "type": "module",
+      "packageName": "pmux-mcp",
+      "modulePath": "pmux-mcp::mail",
+      "declaredByPath": "crates/pmux-mcp/src/main.rs",
+      "parentId": "app:pmux-mcp:pmux-mcp",
+      "children": [],
+      "sourcePath": "crates/pmux-mcp/src/mail.rs",
+      "fingerprint": "2dc91aebdc75ea6beb2f183aba88ae2dc45927afe47f9c38db16867fdf1e3eff",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:pmux-mcp:pmux-mcp::supervisor",
+      "label": "supervisor",
+      "type": "module",
+      "packageName": "pmux-mcp",
+      "modulePath": "pmux-mcp::supervisor",
+      "declaredByPath": "crates/pmux-mcp/src/main.rs",
+      "parentId": "app:pmux-mcp:pmux-mcp",
+      "children": [],
+      "sourcePath": "crates/pmux-mcp/src/supervisor.rs",
+      "fingerprint": "dec97114f3d576c0ceafb2af5ace7b56d359c4725fcfd425e66344929912dde8",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:prismattyc",
+      "label": "prismattyc",
+      "type": "crate",
+      "packageName": "prismattyc",
+      "version": "0.2.28",
+      "description": null,
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "app:prismattyc:prismattyc"
+      ],
+      "sourcePath": "crates/prismattyc/Cargo.toml",
+      "fingerprint": "5d4660fcc896540d827649ac6a11f67fd21e2840c9c15fc33b5570b6c49b68a0"
+    },
+    {
+      "id": "app:prismattyc:prismattyc",
+      "label": "prismattyc",
+      "type": "app",
+      "packageName": "prismattyc",
+      "targetName": "prismattyc",
+      "targetKind": "bin",
+      "entryPath": "crates/prismattyc/src/main.rs",
+      "parentId": "crate:prismattyc",
+      "children": [
+        "module:prismattyc:prismattyc::splash"
+      ],
+      "sourcePath": "crates/prismattyc/src/main.rs",
+      "fingerprint": "75de7f4c2ee05887a884e4ea845ecdc0575bc5d1bc5cfefb2dea35dd105c0a40"
+    },
+    {
+      "id": "module:prismattyc:prismattyc::splash",
+      "label": "splash",
+      "type": "module",
+      "packageName": "prismattyc",
+      "modulePath": "prismattyc::splash",
+      "declaredByPath": "crates/prismattyc/src/main.rs",
+      "parentId": "app:prismattyc:prismattyc",
+      "children": [],
+      "sourcePath": "crates/prismattyc/src/splash.rs",
+      "fingerprint": "7ffe76b148b02c4375d916222163adbbdd397c677a58e12099fc49ee400d4aba",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:prismattyc-core",
+      "label": "prismattyc-core",
+      "type": "crate",
+      "packageName": "prismattyc-core",
+      "version": "0.2.28",
+      "description": null,
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:prismattyc-core:crate root"
+      ],
+      "sourcePath": "crates/prismattyc-core/Cargo.toml",
+      "fingerprint": "80d35431d4c28a9c4ec696078adaf1e21b4f4e9bb1995d599a68515e2bd6ac01"
+    },
+    {
+      "id": "module:prismattyc-core:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "prismattyc-core",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/prismattyc-core/Cargo.toml",
+      "parentId": "crate:prismattyc-core",
+      "children": [
+        "module:prismattyc-core:crate root::cell_grid",
+        "module:prismattyc-core:crate root::clusters",
+        "module:prismattyc-core:crate root::damage",
+        "module:prismattyc-core:crate root::history_budget",
+        "module:prismattyc-core:crate root::reflow",
+        "module:prismattyc-core:crate root::test_time",
+        "module:prismattyc-core:crate root::version",
+        "module:prismattyc-core:crate root::splash"
+      ],
+      "sourcePath": "crates/prismattyc-core/src/lib.rs",
+      "fingerprint": "61531697425c075dd942c407607e45fe503a520c736bd04ea77dd419dc2aa930",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-core:crate root::cell_grid",
+      "label": "cell_grid",
+      "type": "module",
+      "packageName": "prismattyc-core",
+      "modulePath": "crate root::cell_grid",
+      "declaredByPath": "crates/prismattyc-core/src/lib.rs",
+      "parentId": "module:prismattyc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-core/src/cell_grid.rs",
+      "fingerprint": "f0db49b74109b7a8bc2485c65432356922a4bda5a9c532187664fe783d953987",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-core:crate root::clusters",
+      "label": "clusters",
+      "type": "module",
+      "packageName": "prismattyc-core",
+      "modulePath": "crate root::clusters",
+      "declaredByPath": "crates/prismattyc-core/src/lib.rs",
+      "parentId": "module:prismattyc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-core/src/clusters.rs",
+      "fingerprint": "e28f311da9abf291914f934ca180e5023d0e74eb7f168d818c21f41e82152347",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-core:crate root::damage",
+      "label": "damage",
+      "type": "module",
+      "packageName": "prismattyc-core",
+      "modulePath": "crate root::damage",
+      "declaredByPath": "crates/prismattyc-core/src/lib.rs",
+      "parentId": "module:prismattyc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-core/src/damage.rs",
+      "fingerprint": "aa390453d866a406d67732f2a66b89314f3ed62df42431bbc97b2039a7981e47",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-core:crate root::history_budget",
+      "label": "history_budget",
+      "type": "module",
+      "packageName": "prismattyc-core",
+      "modulePath": "crate root::history_budget",
+      "declaredByPath": "crates/prismattyc-core/src/lib.rs",
+      "parentId": "module:prismattyc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-core/src/history_budget.rs",
+      "fingerprint": "cc4c1a8eb0ef4d7d685df41eef81e0d8bdf14818217072fb549f551029d0931f",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-core:crate root::reflow",
+      "label": "reflow",
+      "type": "module",
+      "packageName": "prismattyc-core",
+      "modulePath": "crate root::reflow",
+      "declaredByPath": "crates/prismattyc-core/src/lib.rs",
+      "parentId": "module:prismattyc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-core/src/reflow.rs",
+      "fingerprint": "9e0dfa8e0d58da05a802c3381e1f052ef428ceb4696c0e510de637e99ba6b4b1",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-core:crate root::test_time",
+      "label": "test_time",
+      "type": "module",
+      "packageName": "prismattyc-core",
+      "modulePath": "crate root::test_time",
+      "declaredByPath": "crates/prismattyc-core/src/lib.rs",
+      "parentId": "module:prismattyc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-core/src/test_time.rs",
+      "fingerprint": "c691d72574286dd13ec21dbdbd6987bbf83a83b3330dc99d3cc3af9c8ed22516",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-core:crate root::version",
+      "label": "version",
+      "type": "module",
+      "packageName": "prismattyc-core",
+      "modulePath": "crate root::version",
+      "declaredByPath": "crates/prismattyc-core/src/lib.rs",
+      "parentId": "module:prismattyc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-core/src/version.rs",
+      "fingerprint": "87d8b2d4bbf7f469311a95501eb961fb824e01bc6ef8563135ffd1a58ab61b2d",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-core:crate root::splash",
+      "label": "splash",
+      "type": "module",
+      "packageName": "prismattyc-core",
+      "modulePath": "crate root::splash",
+      "declaredByPath": "crates/prismattyc-core/src/lib.rs",
+      "parentId": "module:prismattyc-core:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-core/src/splash.rs",
+      "fingerprint": "bad3ef294f7401f59e353f784028ddeb9fa0a9c6c48acffa9c9fe00cc9cb5335",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:prismattyc-emulator",
+      "label": "prismattyc-emulator",
+      "type": "crate",
+      "packageName": "prismattyc-emulator",
+      "version": "0.2.28",
+      "description": null,
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:prismattyc-emulator:crate root"
+      ],
+      "sourcePath": "crates/prismattyc-emulator/Cargo.toml",
+      "fingerprint": "74f247d0c31c9f9aac8a1a54beced78f1c32602dbc1458948bfbab4a457a7031"
+    },
+    {
+      "id": "module:prismattyc-emulator:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "prismattyc-emulator",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/prismattyc-emulator/Cargo.toml",
+      "parentId": "crate:prismattyc-emulator",
+      "children": [
+        "module:prismattyc-emulator:crate root::graphics",
+        "module:prismattyc-emulator:crate root::stream_parser"
+      ],
+      "sourcePath": "crates/prismattyc-emulator/src/lib.rs",
+      "fingerprint": "5bc3be089cb73488c389c6cba3cdc6f53744c3f3e70b19e95f87afd119889949",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-emulator:crate root::graphics",
+      "label": "graphics",
+      "type": "module",
+      "packageName": "prismattyc-emulator",
+      "modulePath": "crate root::graphics",
+      "declaredByPath": "crates/prismattyc-emulator/src/lib.rs",
+      "parentId": "module:prismattyc-emulator:crate root",
+      "children": [
+        "module:prismattyc-emulator:crate root::graphics::base64",
+        "module:prismattyc-emulator:crate root::graphics::command",
+        "module:prismattyc-emulator:crate root::graphics::decode",
+        "module:prismattyc-emulator:crate root::graphics::file_transport",
+        "module:prismattyc-emulator:crate root::graphics::placeholder"
+      ],
+      "sourcePath": "crates/prismattyc-emulator/src/graphics/mod.rs",
+      "fingerprint": "77070f97632fd3502fdd3abcb398b84c0de4b7191b7d5750680228cd24c23967",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-emulator:crate root::graphics::base64",
+      "label": "base64",
+      "type": "module",
+      "packageName": "prismattyc-emulator",
+      "modulePath": "crate root::graphics::base64",
+      "declaredByPath": "crates/prismattyc-emulator/src/graphics/mod.rs",
+      "parentId": "module:prismattyc-emulator:crate root::graphics",
+      "children": [],
+      "sourcePath": "crates/prismattyc-emulator/src/graphics/base64.rs",
+      "fingerprint": "33aa0d174abae054b117214eb1fd23b699297bd68863b1bf57786c9871968534",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-emulator:crate root::graphics::command",
+      "label": "command",
+      "type": "module",
+      "packageName": "prismattyc-emulator",
+      "modulePath": "crate root::graphics::command",
+      "declaredByPath": "crates/prismattyc-emulator/src/graphics/mod.rs",
+      "parentId": "module:prismattyc-emulator:crate root::graphics",
+      "children": [],
+      "sourcePath": "crates/prismattyc-emulator/src/graphics/command.rs",
+      "fingerprint": "793d9643ef4d00a5febda34167cdc37893bb39c705d8e2230bd640e0801bf51c",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-emulator:crate root::graphics::decode",
+      "label": "decode",
+      "type": "module",
+      "packageName": "prismattyc-emulator",
+      "modulePath": "crate root::graphics::decode",
+      "declaredByPath": "crates/prismattyc-emulator/src/graphics/mod.rs",
+      "parentId": "module:prismattyc-emulator:crate root::graphics",
+      "children": [],
+      "sourcePath": "crates/prismattyc-emulator/src/graphics/decode.rs",
+      "fingerprint": "bbe593aef77b2d55f3d6914857c92cac3da0927df3a28571b0519ddc2ba7e049",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-emulator:crate root::graphics::file_transport",
+      "label": "file_transport",
+      "type": "module",
+      "packageName": "prismattyc-emulator",
+      "modulePath": "crate root::graphics::file_transport",
+      "declaredByPath": "crates/prismattyc-emulator/src/graphics/mod.rs",
+      "parentId": "module:prismattyc-emulator:crate root::graphics",
+      "children": [],
+      "sourcePath": "crates/prismattyc-emulator/src/graphics/file_transport.rs",
+      "fingerprint": "8fe8a9970556ce16a8e8fbcd9e7e3f7a68c6f7a973f8af68d99d3d2ce3a3901b",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-emulator:crate root::graphics::placeholder",
+      "label": "placeholder",
+      "type": "module",
+      "packageName": "prismattyc-emulator",
+      "modulePath": "crate root::graphics::placeholder",
+      "declaredByPath": "crates/prismattyc-emulator/src/graphics/mod.rs",
+      "parentId": "module:prismattyc-emulator:crate root::graphics",
+      "children": [],
+      "sourcePath": "crates/prismattyc-emulator/src/graphics/placeholder.rs",
+      "fingerprint": "4c542eb511f398cd2a3954a135221f4dc7208d91e0341db6afba67eb237bb894",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-emulator:crate root::stream_parser",
+      "label": "stream_parser",
+      "type": "module",
+      "packageName": "prismattyc-emulator",
+      "modulePath": "crate root::stream_parser",
+      "declaredByPath": "crates/prismattyc-emulator/src/lib.rs",
+      "parentId": "module:prismattyc-emulator:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-emulator/src/stream_parser.rs",
+      "fingerprint": "ba8905569468ac3ceb6a2e969e0b4a53ec49e09e8fded114da2d1bc5b355fd85",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:prismattyc-host",
+      "label": "prismattyc-host",
+      "type": "crate",
+      "packageName": "prismattyc-host",
+      "version": "0.2.28",
+      "description": "Windowed OS host for Prismattyc — own window, not nested in Kitty/Ghostty",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "app:prismattyc-host:prismattyc-host",
+        "cargo-feature:prismattyc-host:default",
+        "cargo-feature:prismattyc-host:gpu"
+      ],
+      "sourcePath": "crates/prismattyc-host/Cargo.toml",
+      "fingerprint": "da7cae53052f19722664166595125094d221598fe438382f8f20a63fcb61d476"
+    },
+    {
+      "id": "app:prismattyc-host:prismattyc-host",
+      "label": "prismattyc-host",
+      "type": "app",
+      "packageName": "prismattyc-host",
+      "targetName": "prismattyc-host",
+      "targetKind": "bin",
+      "entryPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "crate:prismattyc-host",
+      "children": [
+        "module:prismattyc-host:prismattyc-host::a11y",
+        "module:prismattyc-host:prismattyc-host::attach_adopt",
+        "module:prismattyc-host:prismattyc-host::attach_log",
+        "module:prismattyc-host:prismattyc-host::attach_tabs",
+        "module:prismattyc-host:prismattyc-host::border_underlay",
+        "module:prismattyc-host:prismattyc-host::config",
+        "module:prismattyc-host:prismattyc-host::config_template",
+        "module:prismattyc-host:prismattyc-host::frame_damage",
+        "module:prismattyc-host:prismattyc-host::git_info",
+        "module:prismattyc-host:prismattyc-host::gpu",
+        "module:prismattyc-host:prismattyc-host::hyperlink",
+        "module:prismattyc-host:prismattyc-host::icon",
+        "module:prismattyc-host:prismattyc-host::keybind",
+        "module:prismattyc-host:prismattyc-host::keys",
+        "module:prismattyc-host:prismattyc-host::local_views",
+        "module:prismattyc-host:prismattyc-host::mac_present",
+        "module:prismattyc-host:prismattyc-host::macos_menu",
+        "module:prismattyc-host:prismattyc-host::macos_window",
+        "module:prismattyc-host:prismattyc-host::move_target",
+        "module:prismattyc-host:prismattyc-host::mux",
+        "module:prismattyc-host:prismattyc-host::notify",
+        "module:prismattyc-host:prismattyc-host::palette",
+        "module:prismattyc-host:prismattyc-host::pane_bell",
+        "module:prismattyc-host:prismattyc-host::pixel_alpha",
+        "module:prismattyc-host:prismattyc-host::present_tiles",
+        "module:prismattyc-host:prismattyc-host::rail_resize",
+        "module:prismattyc-host:prismattyc-host::raster",
+        "module:prismattyc-host:prismattyc-host::regroup",
+        "module:prismattyc-host:prismattyc-host::remote_catalog",
+        "module:prismattyc-host:prismattyc-host::remote_rail",
+        "module:prismattyc-host:prismattyc-host::render_diagnostics",
+        "module:prismattyc-host:prismattyc-host::restart",
+        "module:prismattyc-host:prismattyc-host::terminal_switcher",
+        "module:prismattyc-host:prismattyc-host::restore_prompt",
+        "module:prismattyc-host:prismattyc-host::rich",
+        "module:prismattyc-host:prismattyc-host::session_prompt",
+        "module:prismattyc-host:prismattyc-host::space_open",
+        "module:prismattyc-host:prismattyc-host::space_outcome",
+        "module:prismattyc-host:prismattyc-host::space_panel",
+        "module:prismattyc-host:prismattyc-host::space_rail",
+        "module:prismattyc-host:prismattyc-host::space_view",
+        "module:prismattyc-host:prismattyc-host::spaces_polish",
+        "module:prismattyc-host:prismattyc-host::splash",
+        "module:prismattyc-host:prismattyc-host::system_fonts",
+        "module:prismattyc-host:prismattyc-host::theme",
+        "module:prismattyc-host:prismattyc-host::title_row",
+        "module:prismattyc-host:prismattyc-host::walkthrough",
+        "module:prismattyc-host:prismattyc-host::walkthrough_audio",
+        "module:prismattyc-host:prismattyc-host::wayland_shm"
+      ],
+      "sourcePath": "crates/prismattyc-host/src/main.rs",
+      "fingerprint": "708ac9cec95bcfc2903593dd9b0bee044dfb02fe3d946ce81d67537711f3f421"
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::a11y",
+      "label": "a11y",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::a11y",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/a11y.rs",
+      "fingerprint": "bde6ab9a75992a629cb07ef138bb5d3ed9b4912fee8cde86f951eeacb4c99c38",
+      "cfgAttributes": [
+        "#![cfg_attr(windows, windows_subsystem = \"windows\")]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::attach_adopt",
+      "label": "attach_adopt",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::attach_adopt",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/attach_adopt.rs",
+      "fingerprint": "a30ec66ba5f448995154331a104c5461e9f5b89d70aabc5c8e0d25a7eb0d9ae2",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::attach_log",
+      "label": "attach_log",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::attach_log",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/attach_log.rs",
+      "fingerprint": "0c241de389b0838fc54f037658e8c756eb547c6cb802ab6e6c5f7dd7cdade487",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::attach_tabs",
+      "label": "attach_tabs",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::attach_tabs",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/attach_tabs.rs",
+      "fingerprint": "49048e4ad9b7c519a8dd5d506912d36fda45f99f710e4a8251fc5c9b9e35d80a",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::border_underlay",
+      "label": "border_underlay",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::border_underlay",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/border_underlay.rs",
+      "fingerprint": "21f40ab264b7e2e0423d0e391057e9e74c7a4db18f025f9dd462c7e25fe689d2",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::config",
+      "label": "config",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::config",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/config.rs",
+      "fingerprint": "85e1d1bae2b452bca06a69daca92c13902612d72113f334a3919905f81a40fd5",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::config_template",
+      "label": "config_template",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::config_template",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/config_template.rs",
+      "fingerprint": "f0c264aadd514edf6e8af509c20ee472bb71f821d0a1340c7d9a82afe7653dfa",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::frame_damage",
+      "label": "frame_damage",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::frame_damage",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/frame_damage.rs",
+      "fingerprint": "f5810874fa27aa144a102a6b870995631bdd51beb64e60e76d88880c37f60123",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::git_info",
+      "label": "git_info",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::git_info",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/git_info.rs",
+      "fingerprint": "e810f410a49eaf7d623bcfbd2a62e1453ca893a2b4eae378ca45d75dbb0cfa58",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::gpu",
+      "label": "gpu",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::gpu",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/gpu.rs",
+      "fingerprint": "bf36325dac874c18b6e5c54e95fc0096ad7f72a50bb181c184cd60ff44eea8e9",
+      "cfgAttributes": [
+        "#[cfg(feature = \"gpu\")]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::hyperlink",
+      "label": "hyperlink",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::hyperlink",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/hyperlink.rs",
+      "fingerprint": "afd82090637807de67f023495ca11f16c7d9970aa43c4c5f0193f805e0af6d98",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::icon",
+      "label": "icon",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::icon",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/icon.rs",
+      "fingerprint": "125564372e03c86c5afb7277003757b21d6dfed1d8f914c1a0b2d6a495c49c34",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::keybind",
+      "label": "keybind",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::keybind",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/keybind.rs",
+      "fingerprint": "610073f3b3e6e1f90528187c3300b19a1d01019dc09bc66b9a6eb25db2114b11",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::keys",
+      "label": "keys",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::keys",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/keys.rs",
+      "fingerprint": "ac23abdd4f5997487f66ff4339e9ae3313cd1d5e9b8bcc2755e9dfb8073da741",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::local_views",
+      "label": "local_views",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::local_views",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/local_views.rs",
+      "fingerprint": "d6f7ada85ca2a31ab433bf076a610edbbf9a0f58ee70065236d09918f04fecee",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::mac_present",
+      "label": "mac_present",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::mac_present",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/mac_present.rs",
+      "fingerprint": "4f361d3fc4cf18d0dddbbbffe66987507472bb844f0b871406d9eba4de2cb42e",
+      "cfgAttributes": [
+        "#[cfg(target_os = \"macos\")]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::macos_menu",
+      "label": "macos_menu",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::macos_menu",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/macos_menu.rs",
+      "fingerprint": "6ff2ebb4cda3567c61be35ea326cd60a58b413a9256e837a49cdf824f03971c8",
+      "cfgAttributes": [
+        "#[cfg(target_os = \"macos\")]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::macos_window",
+      "label": "macos_window",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::macos_window",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/macos_window.rs",
+      "fingerprint": "47396645988e2f875d0f9c71e4d4a845d6f841fc97f247d0a28aab08974f9cab",
+      "cfgAttributes": [
+        "#[cfg(target_os = \"macos\")]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::move_target",
+      "label": "move_target",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::move_target",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/move_target.rs",
+      "fingerprint": "e7150d05215dad4b7203ce175a3ec476aff960197591ecd2f8a2e6f6b9010a31",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::mux",
+      "label": "mux",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::mux",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [
+        "module:prismattyc-host:prismattyc-host::mux::local"
+      ],
+      "sourcePath": "crates/prismattyc-host/src/mux.rs",
+      "fingerprint": "68e0bb02570f99d45cae6ab7f59ead5e64be5af79fc13f2d1599044257d1b2b3",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::mux::local",
+      "label": "local",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::mux::local",
+      "declaredByPath": "crates/prismattyc-host/src/mux.rs",
+      "parentId": "module:prismattyc-host:prismattyc-host::mux",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/mux_local.rs",
+      "fingerprint": "f6740c4f71c9e7cb1ecfaeedb3cba7eb22128f764425e8adb0e4892a21726643",
+      "cfgAttributes": [
+        "#[path = \"mux_local.rs\"]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::notify",
+      "label": "notify",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::notify",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/notify.rs",
+      "fingerprint": "513eccdf6f73ea717794e2f2fa0136d654f9116af644be993d06ae07f60c78c9",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::palette",
+      "label": "palette",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::palette",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/palette.rs",
+      "fingerprint": "07e0c999e6bc072d6c3e1e2a9b9f9341f0bd34c2eddeaba7108f7dc8c69b3390",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::pane_bell",
+      "label": "pane_bell",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::pane_bell",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/pane_bell.rs",
+      "fingerprint": "fe659999886f01580a1aa171d0b36f867f03d8786344684a963ddd566a212cbb",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::pixel_alpha",
+      "label": "pixel_alpha",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::pixel_alpha",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/pixel_alpha.rs",
+      "fingerprint": "73aab2988fd6a9d81dc0e734a85cfc53effcc5c80decf0c621b7ed7a752bce9b",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::present_tiles",
+      "label": "present_tiles",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::present_tiles",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/present_tiles.rs",
+      "fingerprint": "d7266df6d926bb86674c384ff39e9fb165fc7677487b9e5991070a85c77cb3ac",
+      "cfgAttributes": [
+        "#[cfg(any(target_os = \"macos\", test))]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::rail_resize",
+      "label": "rail_resize",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::rail_resize",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/rail_resize.rs",
+      "fingerprint": "d68fef7a4cc7f100ee1739f7a8d076bc35ed7b9d813d08183e1d0d7fe0ed675b",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::raster",
+      "label": "raster",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::raster",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/raster.rs",
+      "fingerprint": "5278b7ac583d3d87f058d918c806985622eb4917f0415a80d79ed57c6976996d",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::regroup",
+      "label": "regroup",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::regroup",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/regroup.rs",
+      "fingerprint": "bad315174132155de3dbd07f19a8533b78f9f57d6559aab790c6e08b5fc18f2b",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::remote_catalog",
+      "label": "remote_catalog",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::remote_catalog",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/remote_catalog.rs",
+      "fingerprint": "57fdb3198ca404692c0c25050ba95523a61c779733142f8e5a29f262db108041",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::remote_rail",
+      "label": "remote_rail",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::remote_rail",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/remote_rail.rs",
+      "fingerprint": "6369b131098e37244f825a55f408cb6f510542c19e37235b957e5abf2de40a11",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::render_diagnostics",
+      "label": "render_diagnostics",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::render_diagnostics",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/render_diagnostics.rs",
+      "fingerprint": "03460b55534b45059acd2cb5e31b5018d1dc4b7104f8562712b1eabaea2d7446",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::restart",
+      "label": "restart",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::restart",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/restart.rs",
+      "fingerprint": "5aa2bd8e8631401d9b8c1018c9124f34fc731dacd5d15ca348e1480951cb051c",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::terminal_switcher",
+      "label": "terminal_switcher",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::terminal_switcher",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/terminal_switcher.rs",
+      "fingerprint": "20fc32bcaea83df64fd4d7ebb28031dae03ec3cb0a10e8fb42e925b87726909f",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::restore_prompt",
+      "label": "restore_prompt",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::restore_prompt",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/restore_prompt.rs",
+      "fingerprint": "110b033129bc1d900f1b8c9f51285e54ce0ad02aa672498d397268ff30642fdc",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::rich",
+      "label": "rich",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::rich",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/rich.rs",
+      "fingerprint": "8be27ce70896df2612b4a4dd1a63fe471169105d5f64231531d0c5df2c3cb8e0",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::session_prompt",
+      "label": "session_prompt",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::session_prompt",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/session_prompt.rs",
+      "fingerprint": "4a3d15a293b6b8c0693021fb20c3ce0d78318bbc91d2b6dd20f7fc26ce08d8e0",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::space_open",
+      "label": "space_open",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::space_open",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/space_open.rs",
+      "fingerprint": "a276ec184af610249b2c9b19c37cb3c34784d9cbb82cb3878c3db38f20927492",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::space_outcome",
+      "label": "space_outcome",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::space_outcome",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/space_outcome.rs",
+      "fingerprint": "96e166fa8e2b096265116782080d26e4de48eacd6f4966876b469515f1390ef9",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::space_panel",
+      "label": "space_panel",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::space_panel",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/space_panel.rs",
+      "fingerprint": "0358277ead3303401f75db8d514847835672abbd0fa2bef78096b56befa69822",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::space_rail",
+      "label": "space_rail",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::space_rail",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/space_rail.rs",
+      "fingerprint": "33f820745ff0a883fe01c99c4903122ffd7152fa58c19552de6d8fc1e0e0c52b",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::space_view",
+      "label": "space_view",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::space_view",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/space_view.rs",
+      "fingerprint": "4ebe6d2439d2301c811dfb34c274e7be0ef0b8738e85eb92de606b1c670a44cc",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::spaces_polish",
+      "label": "spaces_polish",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::spaces_polish",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/spaces_polish.rs",
+      "fingerprint": "83a481c3acac14078bdecb57aea5bf7404de9c438dd4f2f21630d5d71d992a47",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::splash",
+      "label": "splash",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::splash",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/splash.rs",
+      "fingerprint": "5653cae14ea014a2a8007b2ed6db69360d39080dc275628d55e3bed42bc5e2a5",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::system_fonts",
+      "label": "system_fonts",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::system_fonts",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/system_fonts.rs",
+      "fingerprint": "cea7011fde4e80cfaa24d1e0a153495f0a3cceb3f1c387bae732fc00a68ff858",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::theme",
+      "label": "theme",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::theme",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/theme.rs",
+      "fingerprint": "5dcdc7ece2e5537b9784f549e0368ca96a9a715e8b6657e9cecc012c17fe16a7",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::title_row",
+      "label": "title_row",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::title_row",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/title_row.rs",
+      "fingerprint": "22af6cc6d7365df280fb10b9e173775cb8f4a4d68c54a253ed5bc9e5ec9ca9b5",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::walkthrough",
+      "label": "walkthrough",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::walkthrough",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/walkthrough.rs",
+      "fingerprint": "a36da8b3a4edfeb5971ff1d8294602423da0e46251eefb3e9591c23fc7e37348",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::walkthrough_audio",
+      "label": "walkthrough_audio",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::walkthrough_audio",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/walkthrough_audio.rs",
+      "fingerprint": "f1b77fa532713611a48842348a2424d599dcf0b9cfac4d11222ee2670688d780",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::wayland_shm",
+      "label": "wayland_shm",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::wayland_shm",
+      "declaredByPath": "crates/prismattyc-host/src/main.rs",
+      "parentId": "app:prismattyc-host:prismattyc-host",
+      "children": [
+        "module:prismattyc-host:prismattyc-host::wayland_shm::buffer_age"
+      ],
+      "sourcePath": "crates/prismattyc-host/src/wayland_shm.rs",
+      "fingerprint": "5c74e904cdd27eef5cafa1b01be826237c471cc03c9626d1fa7a3062bc1eb40e",
+      "cfgAttributes": [
+        "#[cfg(target_os = \"linux\")]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-host:prismattyc-host::wayland_shm::buffer_age",
+      "label": "buffer_age",
+      "type": "module",
+      "packageName": "prismattyc-host",
+      "modulePath": "prismattyc-host::wayland_shm::buffer_age",
+      "declaredByPath": "crates/prismattyc-host/src/wayland_shm.rs",
+      "parentId": "module:prismattyc-host:prismattyc-host::wayland_shm",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/src/wayland_shm/buffer_age.rs",
+      "fingerprint": "32a981a294625b360d0ce8ad7e8b634a63f92539b324b43a3c590aeaaf8016d3",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "cargo-feature:prismattyc-host:default",
+      "label": "default",
+      "type": "cargo_feature",
+      "packageName": "prismattyc-host",
+      "featureName": "default",
+      "parentId": "crate:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/Cargo.toml",
+      "fingerprint": "862d1701f92553243966b7d5e8a3be3d9957e1140c079526752a0b7ff280bbe5"
+    },
+    {
+      "id": "cargo-feature:prismattyc-host:gpu",
+      "label": "gpu",
+      "type": "cargo_feature",
+      "packageName": "prismattyc-host",
+      "featureName": "gpu",
+      "parentId": "crate:prismattyc-host",
+      "children": [],
+      "sourcePath": "crates/prismattyc-host/Cargo.toml",
+      "fingerprint": "862d1701f92553243966b7d5e8a3be3d9957e1140c079526752a0b7ff280bbe5"
+    },
+    {
+      "id": "crate:prismattyc-labs",
+      "label": "prismattyc-labs",
+      "type": "crate",
+      "packageName": "prismattyc-labs",
+      "version": "0.2.28",
+      "description": "Browser labs POC: in-memory agent mail + splash attract (wasm32)",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:prismattyc-labs:crate root"
+      ],
+      "sourcePath": "crates/prismattyc-labs/Cargo.toml",
+      "fingerprint": "42184a1a2dcfdd02428abd481a54462d6e01529ae67e0ac42148d82e32e528d9"
+    },
+    {
+      "id": "module:prismattyc-labs:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "prismattyc-labs",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/prismattyc-labs/Cargo.toml",
+      "parentId": "crate:prismattyc-labs",
+      "children": [
+        "module:prismattyc-labs:crate root::agent_id",
+        "module:prismattyc-labs:crate root::mailbox",
+        "module:prismattyc-labs:crate root::wasm_lab"
+      ],
+      "sourcePath": "crates/prismattyc-labs/src/lib.rs",
+      "fingerprint": "9ea96f03000ba549ee16c53ba71a46eb142a9127fecad9983ff56a05883f039d",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-labs:crate root::agent_id",
+      "label": "agent_id",
+      "type": "module",
+      "packageName": "prismattyc-labs",
+      "modulePath": "crate root::agent_id",
+      "declaredByPath": "crates/prismattyc-labs/src/lib.rs",
+      "parentId": "module:prismattyc-labs:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-labs/src/agent_id.rs",
+      "fingerprint": "5377627d3de1c0f0b8f7c41aa38104684775cba55d03884bce01a53f2e4fd2d4",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-labs:crate root::mailbox",
+      "label": "mailbox",
+      "type": "module",
+      "packageName": "prismattyc-labs",
+      "modulePath": "crate root::mailbox",
+      "declaredByPath": "crates/prismattyc-labs/src/lib.rs",
+      "parentId": "module:prismattyc-labs:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-labs/src/mailbox.rs",
+      "fingerprint": "6b09542e89a6ed4f35a02ce96735a8dcc57901215562cb1d4bd9df61f566f751",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-labs:crate root::wasm_lab",
+      "label": "wasm_lab",
+      "type": "module",
+      "packageName": "prismattyc-labs",
+      "modulePath": "crate root::wasm_lab",
+      "declaredByPath": "crates/prismattyc-labs/src/lib.rs",
+      "parentId": "module:prismattyc-labs:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-labs/src/wasm_lab.rs",
+      "fingerprint": "bcbbaa1f2e857031e904c175f7dc6f45d84c502b7ee25c97a85ce209cc96761f",
+      "cfgAttributes": [
+        "#[cfg(target_arch = \"wasm32\")]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "crate:prismattyc-mux",
+      "label": "prismattyc-mux",
+      "type": "crate",
+      "packageName": "prismattyc-mux",
+      "version": "0.2.28",
+      "description": null,
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "app:prismattyc-mux:pmux",
+        "app:prismattyc-mux:pmux-attach",
+        "app:prismattyc-mux:pmuxd",
+        "module:prismattyc-mux:crate root"
+      ],
+      "sourcePath": "crates/prismattyc-mux/Cargo.toml",
+      "fingerprint": "f6d8e70766def38b2d4ed51e85092636d2b47bd2a9a30ebe79b30de4d9faf997"
+    },
+    {
+      "id": "app:prismattyc-mux:pmux",
+      "label": "pmux",
+      "type": "app",
+      "packageName": "prismattyc-mux",
+      "targetName": "pmux",
+      "targetKind": "bin",
+      "entryPath": "crates/prismattyc-mux/src/bin/pmux.rs",
+      "parentId": "crate:prismattyc-mux",
+      "children": [
+        "module:prismattyc-mux:pmux::lifecycle",
+        "module:prismattyc-mux:pmux::pane_write",
+        "module:prismattyc-mux:pmux::skills",
+        "module:prismattyc-mux:pmux::space_commands"
+      ],
+      "sourcePath": "crates/prismattyc-mux/src/bin/pmux.rs",
+      "fingerprint": "506a7106feff9c25970da8c4db3d6c71069f60fcc2848a3bb953db78b1dfed27"
+    },
+    {
+      "id": "module:prismattyc-mux:pmux::lifecycle",
+      "label": "lifecycle",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "pmux::lifecycle",
+      "declaredByPath": "crates/prismattyc-mux/src/bin/pmux.rs",
+      "parentId": "app:prismattyc-mux:pmux",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/bin/pmux/lifecycle.rs",
+      "fingerprint": "ac5f5baad19db816321fed2331d4791abbff19e98d1095199e2a877cd3169c83",
+      "cfgAttributes": [
+        "#[path = \"pmux/lifecycle.rs\"]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:pmux::pane_write",
+      "label": "pane_write",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "pmux::pane_write",
+      "declaredByPath": "crates/prismattyc-mux/src/bin/pmux.rs",
+      "parentId": "app:prismattyc-mux:pmux",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/bin/pmux/pane_write.rs",
+      "fingerprint": "0b7c224a07c2e5fed044d218617924f6a19cd53a9f62c8a7fdba6769683103bb",
+      "cfgAttributes": [
+        "#[path = \"pmux/pane_write.rs\"]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:pmux::skills",
+      "label": "skills",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "pmux::skills",
+      "declaredByPath": "crates/prismattyc-mux/src/bin/pmux.rs",
+      "parentId": "app:prismattyc-mux:pmux",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/bin/pmux/skills.rs",
+      "fingerprint": "7352fa59115ded4f4090213ba9028ea63e25ac0ca46f81ac0de2fda8c8df231e",
+      "cfgAttributes": [
+        "#[path = \"pmux/skills.rs\"]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:pmux::space_commands",
+      "label": "space_commands",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "pmux::space_commands",
+      "declaredByPath": "crates/prismattyc-mux/src/bin/pmux.rs",
+      "parentId": "app:prismattyc-mux:pmux",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/bin/pmux/spaces.rs",
+      "fingerprint": "b394ee79a38309b86954013621aabcf0ad5749c604f5d8f0db371836a7aefc98",
+      "cfgAttributes": [
+        "#[path = \"pmux/spaces.rs\"]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "app:prismattyc-mux:pmux-attach",
+      "label": "pmux-attach",
+      "type": "app",
+      "packageName": "prismattyc-mux",
+      "targetName": "pmux-attach",
+      "targetKind": "bin",
+      "entryPath": "crates/prismattyc-mux/src/bin/pmux-attach.rs",
+      "parentId": "crate:prismattyc-mux",
+      "children": [
+        "module:prismattyc-mux:pmux-attach::windows_terminal"
+      ],
+      "sourcePath": "crates/prismattyc-mux/src/bin/pmux-attach.rs",
+      "fingerprint": "af9bda4e7ec373432f4d191be7d4655afa8d198232a60b638aff59c3724f9e9a"
+    },
+    {
+      "id": "module:prismattyc-mux:pmux-attach::windows_terminal",
+      "label": "windows_terminal",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "pmux-attach::windows_terminal",
+      "declaredByPath": "crates/prismattyc-mux/src/bin/pmux-attach.rs",
+      "parentId": "app:prismattyc-mux:pmux-attach",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/bin/pmux-attach/windows_terminal.rs",
+      "fingerprint": "243209bbda8096870e5b5d610db8e75375a7652ffc51308a94246fdba356ecc3",
+      "cfgAttributes": [
+        "#[cfg(windows)]",
+        "#[path = \"pmux-attach/windows_terminal.rs\"]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "app:prismattyc-mux:pmuxd",
+      "label": "pmuxd",
+      "type": "app",
+      "packageName": "prismattyc-mux",
+      "targetName": "pmuxd",
+      "targetKind": "bin",
+      "entryPath": "crates/prismattyc-mux/src/bin/pmuxd.rs",
+      "parentId": "crate:prismattyc-mux",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/bin/pmuxd.rs",
+      "fingerprint": "3540bff479dbe079f0afd38ffe1721d2ed5ba82b5a1a81c98abee9310bff2ddb"
+    },
+    {
+      "id": "module:prismattyc-mux:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/prismattyc-mux/Cargo.toml",
+      "parentId": "crate:prismattyc-mux",
+      "children": [
+        "module:prismattyc-mux:crate root::attach_focus",
+        "module:prismattyc-mux:crate root::attach_scan",
+        "module:prismattyc-mux:crate root::attach_tabs",
+        "module:prismattyc-mux:crate root::attention",
+        "module:prismattyc-mux:crate root::component_restart",
+        "module:prismattyc-mux:crate root::config",
+        "module:prismattyc-mux:crate root::control",
+        "module:prismattyc-mux:crate root::domain",
+        "module:prismattyc-mux:crate root::geometry",
+        "module:prismattyc-mux:crate root::host_register",
+        "module:prismattyc-mux:crate root::host_render_status",
+        "module:prismattyc-mux:crate root::ids",
+        "module:prismattyc-mux:crate root::image_paste",
+        "module:prismattyc-mux:crate root::inject_submit",
+        "module:prismattyc-mux:crate root::layout",
+        "module:prismattyc-mux:crate root::layout_file",
+        "module:prismattyc-mux:crate root::live",
+        "module:prismattyc-mux:crate root::mailbox",
+        "module:prismattyc-mux:crate root::pane_log",
+        "module:prismattyc-mux:crate root::pane_log_persist",
+        "module:prismattyc-mux:crate root::procinfo",
+        "module:prismattyc-mux:crate root::release_update",
+        "module:prismattyc-mux:crate root::remote_catalog",
+        "module:prismattyc-mux:crate root::remote_size",
+        "module:prismattyc-mux:crate root::rich",
+        "module:prismattyc-mux:crate root::session_name",
+        "module:prismattyc-mux:crate root::space_team",
+        "module:prismattyc-mux:crate root::space_template",
+        "module:prismattyc-mux:crate root::supervisor",
+        "module:prismattyc-mux:crate root::team_attention",
+        "module:prismattyc-mux:crate root::uninstall",
+        "module:prismattyc-mux:crate root::update",
+        "module:prismattyc-mux:crate root::walkthrough",
+        "module:prismattyc-mux:crate root::local_socket",
+        "module:prismattyc-mux:crate root::path_shim",
+        "module:prismattyc-mux:crate root::platform"
+      ],
+      "sourcePath": "crates/prismattyc-mux/src/lib.rs",
+      "fingerprint": "d947a9bd6ad0fe65ddd956a54505ce9c3828543008ae071f8c49d51a34483c8a",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::attach_focus",
+      "label": "attach_focus",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::attach_focus",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/attach_focus.rs",
+      "fingerprint": "4a3deef0db253b936868eeb830e928a3cb95f8122c1ee0e907cba69f67b9e611",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::attach_scan",
+      "label": "attach_scan",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::attach_scan",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/attach_scan.rs",
+      "fingerprint": "8e90cf8602cdde523c65ef40d9aa410e6f5a4cdb03d14896b95a6099631f81f4",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::attach_tabs",
+      "label": "attach_tabs",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::attach_tabs",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/attach_tabs.rs",
+      "fingerprint": "affb2cb400bd75fc88dc28e9ac31d0957a56c49b72aa71ef2790b33957bb25c1",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::attention",
+      "label": "attention",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::attention",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/attention.rs",
+      "fingerprint": "d70dfe083f17a0a60695a213016596ed28bf8e4a3a9e1e8ee618d25c820f11b9",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::component_restart",
+      "label": "component_restart",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::component_restart",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/component_restart.rs",
+      "fingerprint": "2f8429375a15620ccbc0fdc9cdafbe313c2413d06d2e21588c6e7e02cac8dc15",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::config",
+      "label": "config",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::config",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/config.rs",
+      "fingerprint": "731d792bef00c0f2d96119540ca4490bf165891841738f8ece5c8cb9401a2efb",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::control",
+      "label": "control",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::control",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [
+        "module:prismattyc-mux:crate root::control::pane_write"
+      ],
+      "sourcePath": "crates/prismattyc-mux/src/control.rs",
+      "fingerprint": "a27ed117b3f7e64d8b59c08c65cc372a57e64e4178d9c3703dd1e96cdca714ad",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::control::pane_write",
+      "label": "pane_write",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::control::pane_write",
+      "declaredByPath": "crates/prismattyc-mux/src/control.rs",
+      "parentId": "module:prismattyc-mux:crate root::control",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/control/pane_write.rs",
+      "fingerprint": "7891aee1f463db31f1a954a94ce079d1ae307f108c6a1eb81a2f130549789bd3",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::domain",
+      "label": "domain",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::domain",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/domain.rs",
+      "fingerprint": "f5f7ef300bbdd91ad68d7c583af0508617e49f84b2ea730f1f71f462ba3826be",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::geometry",
+      "label": "geometry",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::geometry",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/geometry.rs",
+      "fingerprint": "4ce2d566b328e054ad9ca7e657fa1017138639cf713d2c1d5ee51844a2c87deb",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::host_register",
+      "label": "host_register",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::host_register",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/host_register.rs",
+      "fingerprint": "4f29034a7f418b0f9cfcdc5197add940208e64541eb7db9b2e118aba8bdd1b2c",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::host_render_status",
+      "label": "host_render_status",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::host_render_status",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/host_render_status.rs",
+      "fingerprint": "7538a9ec3a9507bd6048797fd944b449f8fe45b2d0c3f6d888881acee7079e1a",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::ids",
+      "label": "ids",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::ids",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/ids.rs",
+      "fingerprint": "0cc71e3274d2f6643a7113ba09c00c79c338359a1f58832ceb6a1eda66cd161f",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::image_paste",
+      "label": "image_paste",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::image_paste",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/image_paste.rs",
+      "fingerprint": "b63952793c81efdf8477b436655941848e6ad7f000272eae93b1b32c3744cae9",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::inject_submit",
+      "label": "inject_submit",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::inject_submit",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/inject_submit.rs",
+      "fingerprint": "5f32549bcde19b4a15798a29f821e624ae4a2e220171c994139f83eba853f132",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::layout",
+      "label": "layout",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::layout",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/layout.rs",
+      "fingerprint": "49dafe9b9e4e65ad6a735b5dd6e206f066d0d38ae9b15ed0d3662df08c2f3455",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::layout_file",
+      "label": "layout_file",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::layout_file",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/layout_file.rs",
+      "fingerprint": "372221dfc04a54eb3a6cb0f7c305b976794d80985da38d44e2c091fa49bcf636",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::live",
+      "label": "live",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::live",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/live.rs",
+      "fingerprint": "1a27b99d66034715e3d93e2e96170852774bbbdb86580dfbc3f75e52b8913f50",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::mailbox",
+      "label": "mailbox",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::mailbox",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [
+        "module:prismattyc-mux:crate root::mailbox::agent_id",
+        "module:prismattyc-mux:crate root::mailbox::agents",
+        "module:prismattyc-mux:crate root::mailbox::store",
+        "module:prismattyc-mux:crate root::mailbox::watch"
+      ],
+      "sourcePath": "crates/prismattyc-mux/src/mailbox/mod.rs",
+      "fingerprint": "6fe07555c0a25b000e47cab7803d2654e730c977a6ab213c6c568499f426c271",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::mailbox::agent_id",
+      "label": "agent_id",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::mailbox::agent_id",
+      "declaredByPath": "crates/prismattyc-mux/src/mailbox/mod.rs",
+      "parentId": "module:prismattyc-mux:crate root::mailbox",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/mailbox/agent_id.rs",
+      "fingerprint": "971c25b65feff6fcd3f04cef571696994c765e8e1d3f724c29ddafeef6ae2f2e",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::mailbox::agents",
+      "label": "agents",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::mailbox::agents",
+      "declaredByPath": "crates/prismattyc-mux/src/mailbox/mod.rs",
+      "parentId": "module:prismattyc-mux:crate root::mailbox",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/mailbox/agents.rs",
+      "fingerprint": "9d7a01d6d08229d524145c3c36396cf5ea6050909c509c7e56251a67adc2a466",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::mailbox::store",
+      "label": "store",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::mailbox::store",
+      "declaredByPath": "crates/prismattyc-mux/src/mailbox/mod.rs",
+      "parentId": "module:prismattyc-mux:crate root::mailbox",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/mailbox/store.rs",
+      "fingerprint": "74a2b219d140583f1ae6003d49c6ee49001fbbb72c00bd20785d105e7089bb80",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::mailbox::watch",
+      "label": "watch",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::mailbox::watch",
+      "declaredByPath": "crates/prismattyc-mux/src/mailbox/mod.rs",
+      "parentId": "module:prismattyc-mux:crate root::mailbox",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/mailbox/watch.rs",
+      "fingerprint": "b0a9f44cbedb4f6d35da0dae3d1a22aa96e565d74759c6f9ea9f20bb59cb82fa",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::pane_log",
+      "label": "pane_log",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::pane_log",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/pane_log.rs",
+      "fingerprint": "575aacd2a68bcd0a51e832b92e6831f65d6708c0bf570b05931fd262227744d9",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::pane_log_persist",
+      "label": "pane_log_persist",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::pane_log_persist",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/pane_log_persist.rs",
+      "fingerprint": "9b0f664995e8670c0068254e9007e83e56c69f9d8b1dfa63538d77d49809dce2",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::procinfo",
+      "label": "procinfo",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::procinfo",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [
+        "module:prismattyc-mux:crate root::procinfo::macos",
+        "module:prismattyc-mux:crate root::procinfo::windows"
+      ],
+      "sourcePath": "crates/prismattyc-mux/src/procinfo.rs",
+      "fingerprint": "86bb40d4c0c2ab0e471d468860134ff4c51f10989444ad179fa06e05eab11e5c",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::procinfo::macos",
+      "label": "macos",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::procinfo::macos",
+      "declaredByPath": "crates/prismattyc-mux/src/procinfo.rs",
+      "parentId": "module:prismattyc-mux:crate root::procinfo",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/procinfo.rs",
+      "fingerprint": "86bb40d4c0c2ab0e471d468860134ff4c51f10989444ad179fa06e05eab11e5c",
+      "cfgAttributes": [
+        "#[cfg(target_os = \"macos\")]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::procinfo::windows",
+      "label": "windows",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::procinfo::windows",
+      "declaredByPath": "crates/prismattyc-mux/src/procinfo.rs",
+      "parentId": "module:prismattyc-mux:crate root::procinfo",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/procinfo.rs",
+      "fingerprint": "86bb40d4c0c2ab0e471d468860134ff4c51f10989444ad179fa06e05eab11e5c",
+      "cfgAttributes": [
+        "#[cfg(windows)]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::release_update",
+      "label": "release_update",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::release_update",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [
+        "module:prismattyc-mux:crate root::release_update::windows_update"
+      ],
+      "sourcePath": "crates/prismattyc-mux/src/release_update.rs",
+      "fingerprint": "dcb92863cd2d5cb2f26dcf260a87f682e8e4d067932b8f64f09be6153a01fa9c",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::release_update::windows_update",
+      "label": "windows_update",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::release_update::windows_update",
+      "declaredByPath": "crates/prismattyc-mux/src/release_update.rs",
+      "parentId": "module:prismattyc-mux:crate root::release_update",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/release_update.rs",
+      "fingerprint": "dcb92863cd2d5cb2f26dcf260a87f682e8e4d067932b8f64f09be6153a01fa9c",
+      "cfgAttributes": [
+        "#[cfg(windows)]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::remote_catalog",
+      "label": "remote_catalog",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::remote_catalog",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/remote_catalog.rs",
+      "fingerprint": "a8514a7453621e5083cb48c00cdcf7f0d8d61a26f170d1a5242e165dd51fdae2",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::remote_size",
+      "label": "remote_size",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::remote_size",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/remote_size.rs",
+      "fingerprint": "ff70b380bd7fd1ffc531b656bae5fd28ad524f98c964586daf2f53788a035d97",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::rich",
+      "label": "rich",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::rich",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/rich.rs",
+      "fingerprint": "ed2fdc08bddafe0e42bc08ddca0fbf5dd94e40e123bc05064749c37a4299de6c",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::session_name",
+      "label": "session_name",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::session_name",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/session_name.rs",
+      "fingerprint": "5dd25973d70f3848ae0469953c708cca681d42ea951010716f8687df17d1f02e",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::space_team",
+      "label": "space_team",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::space_team",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/space_team.rs",
+      "fingerprint": "d588f251a698726de659de308dd7ee726a627ddc9c59a21e36e1bf3e8ad5bf77",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::space_template",
+      "label": "space_template",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::space_template",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/space_template.rs",
+      "fingerprint": "7281b0502240b96b7719dc5a85c45dd352dee6fe02f14cc2faf044bde2e65d63",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::supervisor",
+      "label": "supervisor",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::supervisor",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/supervisor.rs",
+      "fingerprint": "b44a60b22c8bc043c32eef7148ae7ad7d38267d04b9ab2d86fb3ccadbfeacb49",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::team_attention",
+      "label": "team_attention",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::team_attention",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/team_attention.rs",
+      "fingerprint": "57816fc9d54ef449db29389cd09cd3ce6bb8be8345f2b12216072e1dd737ad36",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::uninstall",
+      "label": "uninstall",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::uninstall",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/uninstall.rs",
+      "fingerprint": "1261ec4d290e2a424cab98539b501b3db80c2b8171df3e8994f7a3a65dd285ef",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::update",
+      "label": "update",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::update",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/update.rs",
+      "fingerprint": "a8a0e14e75744835d9755b47b200f0e58fd7b143aa839a7ed94a2598c22f516d",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::walkthrough",
+      "label": "walkthrough",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::walkthrough",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/walkthrough.rs",
+      "fingerprint": "4e6fbe5574dda225ad07f5c5dc8b406c1003352f6e035de5517566d9dcb77134",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::local_socket",
+      "label": "local_socket",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::local_socket",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/local_socket.rs",
+      "fingerprint": "b99b24b3b4db1494ad3222fc26a0647d502c88d06940104ef3a2ecc83022a90d",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::path_shim",
+      "label": "path_shim",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::path_shim",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/path_shim.rs",
+      "fingerprint": "7edb1f4e19a85da325b16efd7e80cebb2e1df6cc7a34e02a23a4bb7d535474a2",
+      "cfgAttributes": [
+        "#[cfg(any(target_os = \"macos\", all(test, unix)))]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::platform",
+      "label": "platform",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::platform",
+      "declaredByPath": "crates/prismattyc-mux/src/lib.rs",
+      "parentId": "module:prismattyc-mux:crate root",
+      "children": [
+        "module:prismattyc-mux:crate root::platform::windows"
+      ],
+      "sourcePath": "crates/prismattyc-mux/src/platform.rs",
+      "fingerprint": "0b228e76d365c0467a74428b951930fc1583928eb4fff359e09777f523e8c7b2",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-mux:crate root::platform::windows",
+      "label": "windows",
+      "type": "module",
+      "packageName": "prismattyc-mux",
+      "modulePath": "crate root::platform::windows",
+      "declaredByPath": "crates/prismattyc-mux/src/platform.rs",
+      "parentId": "module:prismattyc-mux:crate root::platform",
+      "children": [],
+      "sourcePath": "crates/prismattyc-mux/src/platform.rs",
+      "fingerprint": "0b228e76d365c0467a74428b951930fc1583928eb4fff359e09777f523e8c7b2",
+      "cfgAttributes": [
+        "#[cfg(windows)]"
+      ],
+      "unresolved": false
+    },
+    {
+      "id": "crate:prismattyc-protocol",
+      "label": "prismattyc-protocol",
+      "type": "crate",
+      "packageName": "prismattyc-protocol",
+      "version": "0.2.28",
+      "description": null,
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:prismattyc-protocol:crate root"
+      ],
+      "sourcePath": "crates/prismattyc-protocol/Cargo.toml",
+      "fingerprint": "c1059ba0967165353d624cf9e8ef9eba9f15725420ba7ea5d93bce6eb8691c6c"
+    },
+    {
+      "id": "module:prismattyc-protocol:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "prismattyc-protocol",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/prismattyc-protocol/Cargo.toml",
+      "parentId": "crate:prismattyc-protocol",
+      "children": [
+        "module:prismattyc-protocol:crate root::semantics",
+        "module:prismattyc-protocol:crate root::graphics_apc"
+      ],
+      "sourcePath": "crates/prismattyc-protocol/src/lib.rs",
+      "fingerprint": "4ef122c00402f463f6c43b2192200dacce05ef6684c54c50890709fe26ecb070",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-protocol:crate root::semantics",
+      "label": "semantics",
+      "type": "module",
+      "packageName": "prismattyc-protocol",
+      "modulePath": "crate root::semantics",
+      "declaredByPath": "crates/prismattyc-protocol/src/lib.rs",
+      "parentId": "module:prismattyc-protocol:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-protocol/src/semantics.rs",
+      "fingerprint": "1711d9b3a8822ba20a4ace52543016ab10ddf9eb159345da99b256d482d3eef2",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-protocol:crate root::graphics_apc",
+      "label": "graphics_apc",
+      "type": "module",
+      "packageName": "prismattyc-protocol",
+      "modulePath": "crate root::graphics_apc",
+      "declaredByPath": "crates/prismattyc-protocol/src/lib.rs",
+      "parentId": "module:prismattyc-protocol:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-protocol/src/graphics_apc.rs",
+      "fingerprint": "dffc9fe68ee062d46ce4d361e2d0f5beefcb1a76d4f3827496932eed7cb32825",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:prismattyc-render",
+      "label": "prismattyc-render",
+      "type": "crate",
+      "packageName": "prismattyc-render",
+      "version": "0.2.28",
+      "description": null,
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:prismattyc-render:crate root"
+      ],
+      "sourcePath": "crates/prismattyc-render/Cargo.toml",
+      "fingerprint": "ef374c1bd64494972a7faf4a15d2bcb142a57f4a1a08e16d789675cdbf3e44ee"
+    },
+    {
+      "id": "module:prismattyc-render:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "prismattyc-render",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/prismattyc-render/Cargo.toml",
+      "parentId": "crate:prismattyc-render",
+      "children": [],
+      "sourcePath": "crates/prismattyc-render/src/lib.rs",
+      "fingerprint": "593f06c0898d3227b9428332f16ec5c460ee2fd5150d4d9de72816a0440faa15",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "crate:prismattyc-rich-client",
+      "label": "prismattyc-rich-client",
+      "type": "crate",
+      "packageName": "prismattyc-rich-client",
+      "version": "0.2.28",
+      "description": "Public 0.1/0.2 rich-session client",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:prismattyc-rich-client:crate root"
+      ],
+      "sourcePath": "crates/prismattyc-rich-client/Cargo.toml",
+      "fingerprint": "ada54aad6862eeecb117770be0c009d2629cf1f312f13181f6d1f970acdfd301"
+    },
+    {
+      "id": "module:prismattyc-rich-client:crate root",
+      "label": "crate root",
+      "type": "module",
+      "packageName": "prismattyc-rich-client",
+      "modulePath": "crate root",
+      "declaredByPath": "crates/prismattyc-rich-client/Cargo.toml",
+      "parentId": "crate:prismattyc-rich-client",
+      "children": [
+        "module:prismattyc-rich-client:crate root::raw"
+      ],
+      "sourcePath": "crates/prismattyc-rich-client/src/lib.rs",
+      "fingerprint": "f123b20c769802961743b3d32da3bacfcaf56caeb0cc8ed1d0c48867fe234c9a",
+      "cfgAttributes": [],
+      "unresolved": false
+    },
+    {
+      "id": "module:prismattyc-rich-client:crate root::raw",
+      "label": "raw",
+      "type": "module",
+      "packageName": "prismattyc-rich-client",
+      "modulePath": "crate root::raw",
+      "declaredByPath": "crates/prismattyc-rich-client/src/lib.rs",
+      "parentId": "module:prismattyc-rich-client:crate root",
+      "children": [],
+      "sourcePath": "crates/prismattyc-rich-client/src/raw.rs",
+      "fingerprint": "5a924c53b1bb958d5b53a1e4e87293fb7ee93e7b6197f0ca52f6c775aee6ea77",
+      "cfgAttributes": [
+        "#[cfg(unix)]"
+      ],
+      "unresolved": false
+    }
+  ],
+  "connections": [
+    {
+      "id": "contains:workspace:prismattyc->crate:pmux-mcp",
+      "source": "workspace:prismattyc",
+      "target": "crate:pmux-mcp",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:pmux-mcp->app:pmux-mcp:pmux-mcp",
+      "source": "crate:pmux-mcp",
+      "target": "app:pmux-mcp:pmux-mcp",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:pmux-mcp:pmux-mcp->module:pmux-mcp:pmux-mcp::mail",
+      "source": "app:pmux-mcp:pmux-mcp",
+      "target": "module:pmux-mcp:pmux-mcp::mail",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:pmux-mcp:pmux-mcp->module:pmux-mcp:pmux-mcp::supervisor",
+      "source": "app:pmux-mcp:pmux-mcp",
+      "target": "module:pmux-mcp:pmux-mcp::supervisor",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:prismattyc->crate:prismattyc",
+      "source": "workspace:prismattyc",
+      "target": "crate:prismattyc",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc->app:prismattyc:prismattyc",
+      "source": "crate:prismattyc",
+      "target": "app:prismattyc:prismattyc",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc:prismattyc->module:prismattyc:prismattyc::splash",
+      "source": "app:prismattyc:prismattyc",
+      "target": "module:prismattyc:prismattyc::splash",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:prismattyc->crate:prismattyc-core",
+      "source": "workspace:prismattyc",
+      "target": "crate:prismattyc-core",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-core->module:prismattyc-core:crate root",
+      "source": "crate:prismattyc-core",
+      "target": "module:prismattyc-core:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-core:crate root->module:prismattyc-core:crate root::cell_grid",
+      "source": "module:prismattyc-core:crate root",
+      "target": "module:prismattyc-core:crate root::cell_grid",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-core:crate root->module:prismattyc-core:crate root::clusters",
+      "source": "module:prismattyc-core:crate root",
+      "target": "module:prismattyc-core:crate root::clusters",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-core:crate root->module:prismattyc-core:crate root::damage",
+      "source": "module:prismattyc-core:crate root",
+      "target": "module:prismattyc-core:crate root::damage",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-core:crate root->module:prismattyc-core:crate root::history_budget",
+      "source": "module:prismattyc-core:crate root",
+      "target": "module:prismattyc-core:crate root::history_budget",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-core:crate root->module:prismattyc-core:crate root::reflow",
+      "source": "module:prismattyc-core:crate root",
+      "target": "module:prismattyc-core:crate root::reflow",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-core:crate root->module:prismattyc-core:crate root::test_time",
+      "source": "module:prismattyc-core:crate root",
+      "target": "module:prismattyc-core:crate root::test_time",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-core:crate root->module:prismattyc-core:crate root::version",
+      "source": "module:prismattyc-core:crate root",
+      "target": "module:prismattyc-core:crate root::version",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-core:crate root->module:prismattyc-core:crate root::splash",
+      "source": "module:prismattyc-core:crate root",
+      "target": "module:prismattyc-core:crate root::splash",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:prismattyc->crate:prismattyc-emulator",
+      "source": "workspace:prismattyc",
+      "target": "crate:prismattyc-emulator",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-emulator->module:prismattyc-emulator:crate root",
+      "source": "crate:prismattyc-emulator",
+      "target": "module:prismattyc-emulator:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-emulator:crate root->module:prismattyc-emulator:crate root::graphics",
+      "source": "module:prismattyc-emulator:crate root",
+      "target": "module:prismattyc-emulator:crate root::graphics",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-emulator:crate root::graphics->module:prismattyc-emulator:crate root::graphics::base64",
+      "source": "module:prismattyc-emulator:crate root::graphics",
+      "target": "module:prismattyc-emulator:crate root::graphics::base64",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-emulator:crate root::graphics->module:prismattyc-emulator:crate root::graphics::command",
+      "source": "module:prismattyc-emulator:crate root::graphics",
+      "target": "module:prismattyc-emulator:crate root::graphics::command",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-emulator:crate root::graphics->module:prismattyc-emulator:crate root::graphics::decode",
+      "source": "module:prismattyc-emulator:crate root::graphics",
+      "target": "module:prismattyc-emulator:crate root::graphics::decode",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-emulator:crate root::graphics->module:prismattyc-emulator:crate root::graphics::file_transport",
+      "source": "module:prismattyc-emulator:crate root::graphics",
+      "target": "module:prismattyc-emulator:crate root::graphics::file_transport",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-emulator:crate root::graphics->module:prismattyc-emulator:crate root::graphics::placeholder",
+      "source": "module:prismattyc-emulator:crate root::graphics",
+      "target": "module:prismattyc-emulator:crate root::graphics::placeholder",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-emulator:crate root->module:prismattyc-emulator:crate root::stream_parser",
+      "source": "module:prismattyc-emulator:crate root",
+      "target": "module:prismattyc-emulator:crate root::stream_parser",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:prismattyc->crate:prismattyc-host",
+      "source": "workspace:prismattyc",
+      "target": "crate:prismattyc-host",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-host->app:prismattyc-host:prismattyc-host",
+      "source": "crate:prismattyc-host",
+      "target": "app:prismattyc-host:prismattyc-host",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::a11y",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::a11y",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::attach_adopt",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::attach_adopt",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::attach_log",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::attach_log",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::attach_tabs",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::attach_tabs",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::border_underlay",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::border_underlay",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::config",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::config",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::config_template",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::config_template",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::frame_damage",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::frame_damage",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::git_info",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::git_info",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::gpu",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::gpu",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::hyperlink",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::hyperlink",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::icon",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::icon",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::keybind",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::keybind",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::keys",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::keys",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::local_views",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::local_views",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::mac_present",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::mac_present",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::macos_menu",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::macos_menu",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::macos_window",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::macos_window",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::move_target",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::move_target",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::mux",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::mux",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-host:prismattyc-host::mux->module:prismattyc-host:prismattyc-host::mux::local",
+      "source": "module:prismattyc-host:prismattyc-host::mux",
+      "target": "module:prismattyc-host:prismattyc-host::mux::local",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::notify",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::notify",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::palette",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::palette",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::pane_bell",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::pane_bell",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::pixel_alpha",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::pixel_alpha",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::present_tiles",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::present_tiles",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::rail_resize",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::rail_resize",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::raster",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::raster",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::regroup",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::regroup",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::remote_catalog",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::remote_catalog",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::remote_rail",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::remote_rail",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::render_diagnostics",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::render_diagnostics",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::restart",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::restart",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::terminal_switcher",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::terminal_switcher",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::restore_prompt",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::restore_prompt",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::rich",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::rich",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::session_prompt",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::session_prompt",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::space_open",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::space_open",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::space_outcome",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::space_outcome",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::space_panel",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::space_panel",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::space_rail",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::space_rail",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::space_view",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::space_view",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::spaces_polish",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::spaces_polish",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::splash",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::splash",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::system_fonts",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::system_fonts",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::theme",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::theme",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::title_row",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::title_row",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::walkthrough",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::walkthrough",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::walkthrough_audio",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::walkthrough_audio",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-host:prismattyc-host->module:prismattyc-host:prismattyc-host::wayland_shm",
+      "source": "app:prismattyc-host:prismattyc-host",
+      "target": "module:prismattyc-host:prismattyc-host::wayland_shm",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-host:prismattyc-host::wayland_shm->module:prismattyc-host:prismattyc-host::wayland_shm::buffer_age",
+      "source": "module:prismattyc-host:prismattyc-host::wayland_shm",
+      "target": "module:prismattyc-host:prismattyc-host::wayland_shm::buffer_age",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-host->cargo-feature:prismattyc-host:default",
+      "source": "crate:prismattyc-host",
+      "target": "cargo-feature:prismattyc-host:default",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-host->cargo-feature:prismattyc-host:gpu",
+      "source": "crate:prismattyc-host",
+      "target": "cargo-feature:prismattyc-host:gpu",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:prismattyc->crate:prismattyc-labs",
+      "source": "workspace:prismattyc",
+      "target": "crate:prismattyc-labs",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-labs->module:prismattyc-labs:crate root",
+      "source": "crate:prismattyc-labs",
+      "target": "module:prismattyc-labs:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-labs:crate root->module:prismattyc-labs:crate root::agent_id",
+      "source": "module:prismattyc-labs:crate root",
+      "target": "module:prismattyc-labs:crate root::agent_id",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-labs:crate root->module:prismattyc-labs:crate root::mailbox",
+      "source": "module:prismattyc-labs:crate root",
+      "target": "module:prismattyc-labs:crate root::mailbox",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-labs:crate root->module:prismattyc-labs:crate root::wasm_lab",
+      "source": "module:prismattyc-labs:crate root",
+      "target": "module:prismattyc-labs:crate root::wasm_lab",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:prismattyc->crate:prismattyc-mux",
+      "source": "workspace:prismattyc",
+      "target": "crate:prismattyc-mux",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-mux->app:prismattyc-mux:pmux",
+      "source": "crate:prismattyc-mux",
+      "target": "app:prismattyc-mux:pmux",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-mux:pmux->module:prismattyc-mux:pmux::lifecycle",
+      "source": "app:prismattyc-mux:pmux",
+      "target": "module:prismattyc-mux:pmux::lifecycle",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-mux:pmux->module:prismattyc-mux:pmux::pane_write",
+      "source": "app:prismattyc-mux:pmux",
+      "target": "module:prismattyc-mux:pmux::pane_write",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-mux:pmux->module:prismattyc-mux:pmux::skills",
+      "source": "app:prismattyc-mux:pmux",
+      "target": "module:prismattyc-mux:pmux::skills",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-mux:pmux->module:prismattyc-mux:pmux::space_commands",
+      "source": "app:prismattyc-mux:pmux",
+      "target": "module:prismattyc-mux:pmux::space_commands",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-mux->app:prismattyc-mux:pmux-attach",
+      "source": "crate:prismattyc-mux",
+      "target": "app:prismattyc-mux:pmux-attach",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:app:prismattyc-mux:pmux-attach->module:prismattyc-mux:pmux-attach::windows_terminal",
+      "source": "app:prismattyc-mux:pmux-attach",
+      "target": "module:prismattyc-mux:pmux-attach::windows_terminal",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-mux->app:prismattyc-mux:pmuxd",
+      "source": "crate:prismattyc-mux",
+      "target": "app:prismattyc-mux:pmuxd",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-mux->module:prismattyc-mux:crate root",
+      "source": "crate:prismattyc-mux",
+      "target": "module:prismattyc-mux:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::attach_focus",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::attach_focus",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::attach_scan",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::attach_scan",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::attach_tabs",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::attach_tabs",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::attention",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::attention",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::component_restart",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::component_restart",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::config",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::config",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::control",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::control",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root::control->module:prismattyc-mux:crate root::control::pane_write",
+      "source": "module:prismattyc-mux:crate root::control",
+      "target": "module:prismattyc-mux:crate root::control::pane_write",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::domain",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::domain",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::geometry",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::geometry",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::host_register",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::host_register",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::host_render_status",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::host_render_status",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::ids",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::ids",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::image_paste",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::image_paste",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::inject_submit",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::inject_submit",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::layout",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::layout",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::layout_file",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::layout_file",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::live",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::live",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::mailbox",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::mailbox",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root::mailbox->module:prismattyc-mux:crate root::mailbox::agent_id",
+      "source": "module:prismattyc-mux:crate root::mailbox",
+      "target": "module:prismattyc-mux:crate root::mailbox::agent_id",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root::mailbox->module:prismattyc-mux:crate root::mailbox::agents",
+      "source": "module:prismattyc-mux:crate root::mailbox",
+      "target": "module:prismattyc-mux:crate root::mailbox::agents",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root::mailbox->module:prismattyc-mux:crate root::mailbox::store",
+      "source": "module:prismattyc-mux:crate root::mailbox",
+      "target": "module:prismattyc-mux:crate root::mailbox::store",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root::mailbox->module:prismattyc-mux:crate root::mailbox::watch",
+      "source": "module:prismattyc-mux:crate root::mailbox",
+      "target": "module:prismattyc-mux:crate root::mailbox::watch",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::pane_log",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::pane_log",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::pane_log_persist",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::pane_log_persist",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::procinfo",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::procinfo",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root::procinfo->module:prismattyc-mux:crate root::procinfo::macos",
+      "source": "module:prismattyc-mux:crate root::procinfo",
+      "target": "module:prismattyc-mux:crate root::procinfo::macos",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root::procinfo->module:prismattyc-mux:crate root::procinfo::windows",
+      "source": "module:prismattyc-mux:crate root::procinfo",
+      "target": "module:prismattyc-mux:crate root::procinfo::windows",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::release_update",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::release_update",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root::release_update->module:prismattyc-mux:crate root::release_update::windows_update",
+      "source": "module:prismattyc-mux:crate root::release_update",
+      "target": "module:prismattyc-mux:crate root::release_update::windows_update",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::remote_catalog",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::remote_catalog",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::remote_size",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::remote_size",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::rich",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::rich",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::session_name",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::session_name",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::space_team",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::space_team",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::space_template",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::space_template",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::supervisor",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::supervisor",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::team_attention",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::team_attention",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::uninstall",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::uninstall",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::update",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::update",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::walkthrough",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::walkthrough",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::local_socket",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::local_socket",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::path_shim",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::path_shim",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root->module:prismattyc-mux:crate root::platform",
+      "source": "module:prismattyc-mux:crate root",
+      "target": "module:prismattyc-mux:crate root::platform",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-mux:crate root::platform->module:prismattyc-mux:crate root::platform::windows",
+      "source": "module:prismattyc-mux:crate root::platform",
+      "target": "module:prismattyc-mux:crate root::platform::windows",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:prismattyc->crate:prismattyc-protocol",
+      "source": "workspace:prismattyc",
+      "target": "crate:prismattyc-protocol",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-protocol->module:prismattyc-protocol:crate root",
+      "source": "crate:prismattyc-protocol",
+      "target": "module:prismattyc-protocol:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-protocol:crate root->module:prismattyc-protocol:crate root::semantics",
+      "source": "module:prismattyc-protocol:crate root",
+      "target": "module:prismattyc-protocol:crate root::semantics",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-protocol:crate root->module:prismattyc-protocol:crate root::graphics_apc",
+      "source": "module:prismattyc-protocol:crate root",
+      "target": "module:prismattyc-protocol:crate root::graphics_apc",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:prismattyc->crate:prismattyc-render",
+      "source": "workspace:prismattyc",
+      "target": "crate:prismattyc-render",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-render->module:prismattyc-render:crate root",
+      "source": "crate:prismattyc-render",
+      "target": "module:prismattyc-render:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:workspace:prismattyc->crate:prismattyc-rich-client",
+      "source": "workspace:prismattyc",
+      "target": "crate:prismattyc-rich-client",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:crate:prismattyc-rich-client->module:prismattyc-rich-client:crate root",
+      "source": "crate:prismattyc-rich-client",
+      "target": "module:prismattyc-rich-client:crate root",
+      "kind": "contains"
+    },
+    {
+      "id": "contains:module:prismattyc-rich-client:crate root->module:prismattyc-rich-client:crate root::raw",
+      "source": "module:prismattyc-rich-client:crate root",
+      "target": "module:prismattyc-rich-client:crate root::raw",
+      "kind": "contains"
+    },
+    {
+      "id": "depends_on:crate:pmux-mcp->crate:prismattyc-core",
+      "source": "crate:pmux-mcp",
+      "target": "crate:prismattyc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:pmux-mcp->crate:prismattyc-mux",
+      "source": "crate:pmux-mcp",
+      "target": "crate:prismattyc-mux",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc->crate:prismattyc-core",
+      "source": "crate:prismattyc",
+      "target": "crate:prismattyc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc->crate:prismattyc-emulator",
+      "source": "crate:prismattyc",
+      "target": "crate:prismattyc-emulator",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc->crate:prismattyc-mux",
+      "source": "crate:prismattyc",
+      "target": "crate:prismattyc-mux",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc->crate:prismattyc-protocol",
+      "source": "crate:prismattyc",
+      "target": "crate:prismattyc-protocol",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc->crate:prismattyc-render",
+      "source": "crate:prismattyc",
+      "target": "crate:prismattyc-render",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-emulator->crate:prismattyc-core",
+      "source": "crate:prismattyc-emulator",
+      "target": "crate:prismattyc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-emulator->crate:prismattyc-protocol",
+      "source": "crate:prismattyc-emulator",
+      "target": "crate:prismattyc-protocol",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-host->crate:prismattyc-core",
+      "source": "crate:prismattyc-host",
+      "target": "crate:prismattyc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-host->crate:prismattyc-emulator",
+      "source": "crate:prismattyc-host",
+      "target": "crate:prismattyc-emulator",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-host->crate:prismattyc-mux",
+      "source": "crate:prismattyc-host",
+      "target": "crate:prismattyc-mux",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-host->crate:prismattyc-protocol",
+      "source": "crate:prismattyc-host",
+      "target": "crate:prismattyc-protocol",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-host->crate:prismattyc-render",
+      "source": "crate:prismattyc-host",
+      "target": "crate:prismattyc-render",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-labs->crate:prismattyc-core",
+      "source": "crate:prismattyc-labs",
+      "target": "crate:prismattyc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-mux->crate:prismattyc-core",
+      "source": "crate:prismattyc-mux",
+      "target": "crate:prismattyc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-mux->crate:prismattyc-emulator",
+      "source": "crate:prismattyc-mux",
+      "target": "crate:prismattyc-emulator",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-mux->crate:prismattyc-protocol",
+      "source": "crate:prismattyc-mux",
+      "target": "crate:prismattyc-protocol",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-mux->crate:prismattyc-render",
+      "source": "crate:prismattyc-mux",
+      "target": "crate:prismattyc-render",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-render->crate:prismattyc-core",
+      "source": "crate:prismattyc-render",
+      "target": "crate:prismattyc-core",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-render->crate:prismattyc-protocol",
+      "source": "crate:prismattyc-render",
+      "target": "crate:prismattyc-protocol",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    },
+    {
+      "id": "depends_on:crate:prismattyc-rich-client->crate:prismattyc-protocol",
+      "source": "crate:prismattyc-rich-client",
+      "target": "crate:prismattyc-protocol",
+      "kind": "depends_on",
+      "dependencyScope": "normal"
+    }
+  ],
+  "groups": [
+    {
+      "id": "group:crates",
+      "label": "Workspace crates",
+      "memberIds": [
+        "crate:pmux-mcp",
+        "crate:prismattyc",
+        "crate:prismattyc-core",
+        "crate:prismattyc-emulator",
+        "crate:prismattyc-host",
+        "crate:prismattyc-labs",
+        "crate:prismattyc-mux",
+        "crate:prismattyc-protocol",
+        "crate:prismattyc-render",
+        "crate:prismattyc-rich-client"
+      ]
+    }
+  ],
+  "stats": {
+    "blocks": 151,
+    "connections": 172,
+    "crates": 10,
+    "apps": 6,
+    "modules": 132,
+    "cargoFeatures": 2
+  }
+}

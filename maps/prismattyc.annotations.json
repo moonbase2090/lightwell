@@ -1,0 +1,1109 @@
+{
+  "schemaVersion": 1,
+  "projectId": "workspace:prismattyc",
+  "blocks": {
+    "workspace:prismattyc": {
+      "description": "Prismattyc is a desktop terminal with session management, saved Spaces, and the pmux command line.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "0d9c95a0c8c02956810534c81525a20782b2ff09987032216c4c90d337ddb4a1"
+    },
+    "crate:pmux-mcp": {
+      "description": "MCP stdio adapter over the pmux Mail* socket",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "b14a818aba960a5a5ddac3f8e3ac380ee8d75751b3ccbfdd751c5a480684ebb6"
+    },
+    "app:pmux-mcp:pmux-mcp": {
+      "description": "Exposes pmux session and mail actions through MCP over stdio.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "80f943cd164d6825696005a48851d20ab4e29e73de19cd373d92aac19cfba97d"
+    },
+    "module:pmux-mcp:pmux-mcp::mail": {
+      "description": "One Mail* round-trip on the pmux control socket. Each MCP tool call is one connection: RegisterClient, MailHello, one mailbox op, drop. Identity is the process `--as` / env agent; `MailSend` has no `from` field.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "2dc91aebdc75ea6beb2f183aba88ae2dc45927afe47f9c38db16867fdf1e3eff"
+    },
+    "module:pmux-mcp:pmux-mcp::supervisor": {
+      "description": "Transparent stdio supervisor for MCP hosts that do not respawn a failed server process. MCP stdio is a stateful JSON-RPC session. Merely starting a fresh child after EOF is insufficient: the replacement must see the original `initialize` request and `notifications/initialized` notification before it may serve tools.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "dec97114f3d576c0ceafb2af5ace7b56d359c4725fcfd425e66344929912dde8"
+    },
+    "crate:prismattyc": {
+      "description": "Command-line entry point for running the Prismattyc terminal renderer.",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "5d4660fcc896540d827649ac6a11f67fd21e2840c9c15fc33b5570b6c49b68a0"
+    },
+    "app:prismattyc:prismattyc": {
+      "description": "Runs the terminal renderer inside an existing terminal.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "75de7f4c2ee05887a884e4ea845ecdc0575bc5d1bc5cfefb2dea35dd105c0a40"
+    },
+    "module:prismattyc:prismattyc::splash": {
+      "description": "Launch splash screen (Kiro-style): ASCII art, version, a rotating tip, and a single-key menu. Shown only on a bare interactive `prism` launch (no explicit PROGRAM, stdin/stdout are TTYs); `--no-splash` or `PRISMATTYC_NO_SPLASH=1` opts out. Runs in the host terminal before the PTY is spawned, so it never touches the child or the mux.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "7ffe76b148b02c4375d916222163adbbdd397c677a58e12099fc49ee400d4aba"
+    },
+    "crate:prismattyc-core": {
+      "description": "Shared classic-terminal screen model used by the renderer and host.",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "80d35431d4c28a9c4ec696078adaf1e21b4f4e9bb1995d599a68515e2bd6ac01"
+    },
+    "module:prismattyc-core:crate root": {
+      "description": "Shared classic-terminal screen model for Prismattyc.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "61531697425c075dd942c407607e45fe503a520c736bd04ea77dd419dc2aa930"
+    },
+    "module:prismattyc-core:crate root::cell_grid": {
+      "description": "Keep rows contiguous while moving row identities instead of screenfuls of cells.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "f0db49b74109b7a8bc2485c65432356922a4bda5a9c532187664fe783d953987"
+    },
+    "module:prismattyc-core:crate root::clusters": {
+      "description": "Screen-local storage for trailing grapheme scalars.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "e28f311da9abf291914f934ca180e5023d0e74eb7f168d818c21f41e82152347"
+    },
+    "module:prismattyc-core:crate root::damage": {
+      "description": "Per-frame grid damage for the host paint path (PT-242). Cell dirty and row dirty track writes. Scroll events are recorded separately so a consumer can blit without walking the grid.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "aa390453d866a406d67732f2a66b89314f3ed62df42431bbc97b2039a7981e47"
+    },
+    "module:prismattyc-core:crate root::history_budget": {
+      "description": "Retained-row allocation accounting. Shared cluster storage is separate.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "cc4c1a8eb0ef4d7d685df41eef81e0d8bdf14818217072fb549f551029d0931f"
+    },
+    "module:prismattyc-core:crate root::reflow": {
+      "description": "Repack primary logical lines; the alternate screen remains a cell grid.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "9e0dfa8e0d58da05a802c3381e1f052ef428ceb4696c0e510de637e99ba6b4b1"
+    },
+    "module:prismattyc-core:crate root::test_time": {
+      "description": "Wall-clock scale for test duration budgets (PT-254).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "c691d72574286dd13ec21dbdbd6987bbf83a83b3330dc99d3cc3af9c8ed22516"
+    },
+    "module:prismattyc-core:crate root::version": {
+      "description": "Package version and the source revision captured at build time.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "87d8b2d4bbf7f469311a95501eb961fb824e01bc6ef8563135ffd1a58ab61b2d"
+    },
+    "module:prismattyc-core:crate root::splash": {
+      "description": "Shared launch-splash content for the `prismattyc` CLI (ANSI, host terminal) and `prismattyc-host` (rasterized, in-window). One source so the art, tips, and brand palette cannot drift between the two front-ends.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "bad3ef294f7401f59e353f784028ddeb9fa0a9c6c48acffa9c9fe00cc9cb5335"
+    },
+    "crate:prismattyc-emulator": {
+      "description": "Parses terminal escape sequences and integrates terminal screens with child processes.",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "74f247d0c31c9f9aac8a1a54beced78f1c32602dbc1458948bfbab4a457a7031"
+    },
+    "module:prismattyc-emulator:crate root": {
+      "description": "Classic VT parsing and PTY integration for Prismattyc. Rich document models stay out of this crate. A dependency-light [`prismattyc_protocol::ApcCollector`] sidecar recovers APC bodies because VTE 0.15 swallows APC without delivering the payload to [`vte::Perform`].",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5bc3be089cb73488c389c6cba3cdc6f53744c3f3e70b19e95f87afd119889949"
+    },
+    "module:prismattyc-emulator:crate root::graphics": {
+      "description": "Retains Kitty graphics images and placements for each terminal screen. It validates image sizes, tracks cell anchors, and applies upload commands.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "77070f97632fd3502fdd3abcb398b84c0de4b7191b7d5750680228cd24c23967"
+    },
+    "module:prismattyc-emulator:crate root::graphics::base64": {
+      "description": "Minimal RFC 4648 base64 decoder for Kitty graphics payloads. Hand-rolled to avoid a new dependency (matches the no-dep-CLI style).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "33aa0d174abae054b117214eb1fd23b699297bd68863b1bf57786c9871968534"
+    },
+    "module:prismattyc-emulator:crate root::graphics::command": {
+      "description": "Parse Kitty graphics control data (comma-separated `key=value`).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "793d9643ef4d00a5febda34167cdc37893bb39c705d8e2230bd640e0801bf51c"
+    },
+    "module:prismattyc-emulator:crate root::graphics::decode": {
+      "description": "Bounded PNG decode. Rejects on IHDR dimensions and a byte cap BEFORE allocating pixel buffers (decompression-bomb defense), then normalizes to 8-bit RGBA.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "bbe593aef77b2d55f3d6914857c92cac3da0927df3a28571b0519ddc2ba7e049"
+    },
+    "module:prismattyc-emulator:crate root::graphics::file_transport": {
+      "description": "Safe, bounded read of a child-supplied file (Kitty `t=f`). Opens the path, then validates the OPEN fd (no re-lookup) to defeat TOCTOU.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "8fe8a9970556ce16a8e8fbcd9e7e3f7a68c6f7a973f8af68d99d3d2ce3a3901b"
+    },
+    "module:prismattyc-emulator:crate root::graphics::placeholder": {
+      "description": "Kitty unicode-placeholder cells (`U+10EEEE` + diacritics). Ghostty `graphics_unicode.zig` is the layout reference.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "4c542eb511f398cd2a3954a135221f4dc7208d91e0341db6afba67eb237bb894"
+    },
+    "module:prismattyc-emulator:crate root::stream_parser": {
+      "description": "Complete a split UTF-8 scalar without allowing parser lookahead to consume following characters. Ordinary buffers still use VTE's bulk advance path.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "ba8905569468ac3ceb6a2e969e0b4a53ec49e09e8fded114da2d1bc5b355fd85"
+    },
+    "crate:prismattyc-host": {
+      "description": "Windowed OS host for Prismattyc — own window, not nested in Kitty/Ghostty",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "da7cae53052f19722664166595125094d221598fe438382f8f20a63fcb61d476"
+    },
+    "app:prismattyc-host:prismattyc-host": {
+      "description": "Opens the windowed Prismattyc terminal application.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "708ac9cec95bcfc2903593dd9b0bee044dfb02fe3d946ce81d67537711f3f421"
+    },
+    "module:prismattyc-host:prismattyc-host::a11y": {
+      "description": "AccessKit chrome tree for `prismattyc-host` (PT-173 / PT-174 / PT-175, accessibility). Tree shape is a pure function of [`ChromeSnapshot`]. Window, mux, and AccessKit side effects stay in the caller.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "bde6ab9a75992a629cb07ef138bb5d3ed9b4912fee8cde86f951eeacb4c99c38"
+    },
+    "module:prismattyc-host:prismattyc-host::attach_adopt": {
+      "description": "Adopt nested TTY attaches (PT-210). `pmux new NAME` or `pmux attach` typed into a host pane runs a `pmux-attach` child under that pane's shell. The host never spawned it, so the pane carried no attach mark: the tab cache omitted it, `pmux space save` recorded no tabs, and `space open` fanned the sessions out one tab per session.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "a30ec66ba5f448995154331a104c5461e9f5b89d70aabc5c8e0d25a7eb0d9ae2"
+    },
+    "module:prismattyc-host:prismattyc-host::attach_log": {
+      "description": "Log-backed attach pane (PT-111). The windowed host used to attach a pmuxd session by spawning `pmux attach --session-id ID` as a PTY child and running a second emulator over the ANSI that child painted. This module replaces that child with two control-plane connections: * a **reader** connection parked in `SubscribePane`, which turns the per-pane event log into [`LogMessage`]s for [`crate::mux::PaneRuntime`]; * a **writer** connection that sends key bytes with `WritePane` under the controller lease (acquired on the first key, released after [`LEASE_IDLE`]) and pushes host geometry to the server with `Resize`.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "0c241de389b0838fc54f037658e8c756eb547c6cb802ab6e6c5f7dd7cdade487"
+    },
+    "module:prismattyc-host:prismattyc-host::attach_tabs": {
+      "description": "Attach-tabs cache helpers. Contract: `docs/mux-cli.md` (Where things live).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "49048e4ad9b7c519a8dd5d506912d36fda45f99f710e4a8251fc5c9b9e35d80a"
+    },
+    "module:prismattyc-host:prismattyc-host::border_underlay": {
+      "description": "Retain only pixels covered by a transient border, including its head.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "21f40ab264b7e2e0423d0e391057e9e74c7a4db18f025f9dd462c7e25fe689d2"
+    },
+    "module:prismattyc-host:prismattyc-host::config": {
+      "description": "Optional user config file with hot reload. `$PRISMATTYC_CONFIG`, else `$XDG_CONFIG_HOME/prismattyc/config.toml`, else `~/.config/prismattyc/config.toml`. CLI flags and `PRISMATTYC_*` env vars always win over the file, at startup and across reloads.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "85e1d1bae2b452bca06a69daca92c13902612d72113f334a3919905f81a40fd5"
+    },
+    "module:prismattyc-host:prismattyc-host::config_template": {
+      "description": "Full commented `config.toml` template (PT-84). [`CONFIG_KEYS`] is the source of truth for names, docs, ranges, and defaults. The generator, `--help`, and the field-coverage test read it.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "f0c264aadd514edf6e8af509c20ee472bb71f821d0a1340c7d9a82afe7653dfa"
+    },
+    "module:prismattyc-host:prismattyc-host::frame_damage": {
+      "description": "Pixel-space damage retained by presentation backends. The compositor passes the returned [`FrameDamage`] to the PT-244 aged buffer repair layer. The layer unions this frame with every newer frame that the selected wl_shm slot missed (including age 2 and age 3 slots) before copying pixels.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "f5810874fa27aa144a102a6b870995631bdd51beb64e60e76d88880c37f60123"
+    },
+    "module:prismattyc-host:prismattyc-host::git_info": {
+      "description": "Background Git labels for pane working directories.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "e810f410a49eaf7d623bcfbd2a62e1453ca893a2b4eae378ca45d75dbb0cfa58"
+    },
+    "module:prismattyc-host:prismattyc-host::gpu": {
+      "description": "Feature-gated wgpu present of the existing CPU `u32` framebuffer. Glyphs stay on the CPU. This module only uploads the softbuffer-shaped buffer and draws a nearest-neighbor fullscreen triangle.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "bf36325dac874c18b6e5c54e95fc0096ad7f72a50bb181c184cd60ff44eea8e9"
+    },
+    "module:prismattyc-host:prismattyc-host::hyperlink": {
+      "description": "Resolve explicit OSC 8 hyperlinks and auto-detected HTTP(S) runs. OSC 8 wins when a cell carries an explicit target. Unsafe explicit targets remain non-clickable and never fall through to displayed-text detection.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "afd82090637807de67f023495ca11f16c7d9970aa43c4c5f0193f805e0af6d98"
+    },
+    "module:prismattyc-host:prismattyc-host::icon": {
+      "description": "App icon for the windowed host (brand assets under `assets/brand/`).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "125564372e03c86c5afb7277003757b21d6dfed1d8f914c1a0b2d6a495c49c34"
+    },
+    "module:prismattyc-host:prismattyc-host::keybind": {
+      "description": "User keybindings for host actions (keybindings, PT-41). One table maps named [`Action`]s to [`Chord`]s. Dispatch, the chord strip, `--help`, and `docs/config.md` all read this table, so a rebinding shows up everywhere.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "610073f3b3e6e1f90528187c3300b19a1d01019dc09bc66b9a6eb25db2114b11"
+    },
+    "module:prismattyc-host:prismattyc-host::keys": {
+      "description": "Keyboard encoding for the windowed host (legacy xterm subset). winit delivers keys as [`Key::Named`], [`Key::Character`], and optional `text` / physical [`KeyCode`]. Terminal hosts must handle **all three** — Space was dropped because it arrives as `NamedKey::Space`, not `\" \"`. This module encodes host key events using the active Kitty or xterm keyboard mode reported by the focused child.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "ac23abdd4f5997487f66ff4339e9ae3313cd1d5e9b8bcc2755e9dfb8073da741"
+    },
+    "module:prismattyc-host:prismattyc-host::local_views": {
+      "description": "Window-local Space views containing explicit blank terminals. Keep the complete runtime so PTYs, split ratios, tabs, and focus survive a switch. Stable Space IDs distinguish a rename from a replacement Space.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "d6f7ada85ca2a31ab433bf076a610edbbf9a0f58ee70065236d09918f04fecee"
+    },
+    "module:prismattyc-host:prismattyc-host::mac_present": {
+      "description": "Alpha-capable presentation above the AppKit blur backdrop. Keep straight ARGB pixels between frames. Only damaged tiles are copied, premultiplied, and published as immutable Core Graphics images.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "4f361d3fc4cf18d0dddbbbffe66987507472bb844f0b871406d9eba4de2cb42e"
+    },
+    "module:prismattyc-host:prismattyc-host::macos_menu": {
+      "description": "macOS menu integration (menu bar and Dock menu). winit 0.30 owns the `NSApplicationDelegate`. To surface a Dock right-click \"New Window\", we add `applicationDockMenu:` to winit's delegate class at runtime (Task 4 spiked delegate reachability; Task 7 promotes it to a real injection wired to the same action target as the File menu, Task 5).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "6ff2ebb4cda3567c61be35ea326cd60a58b413a9256e837a49cdf824f03971c8"
+    },
+    "module:prismattyc-host:prismattyc-host::macos_window": {
+      "description": "Small AppKit integration for window properties that winit does not expose.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "47396645988e2f875d0f9c71e4d4a845d6f841fc97f247d0a28aab08974f9cab"
+    },
+    "module:prismattyc-host:prismattyc-host::move_target": {
+      "description": "Freeze the visible terminal's identity, including nested attaches, before a move.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "e7150d05215dad4b7203ce175a3ec476aff960197591ecd2f8a2e6f6b9010a31"
+    },
+    "module:prismattyc-host:prismattyc-host::mux": {
+      "description": "Multi-pane runtime binding for the windowed host.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "68e0bb02570f99d45cae6ab7f59ead5e64be5af79fc13f2d1599044257d1b2b3"
+    },
+    "module:prismattyc-host:prismattyc-host::mux::local": {
+      "description": "Serializable local-shell layout recipes. No command or process state is saved.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "f6740c4f71c9e7cb1ecfaeedb3cba7eb22128f764425e8adb0e4892a21726643"
+    },
+    "module:prismattyc-host:prismattyc-host::notify": {
+      "description": "Desktop notifications for the windowed host (PT-39). Spawn-and-forget over the platform CLI: `notify-send` on Linux/BSD, `osascript` on macOS. Every failure — missing binary, no notification daemon, no session bus — is swallowed, so a bell can never take the host down.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "513eccdf6f73ea717794e2f2fa0136d654f9116af644be993d06ae07f60c78c9"
+    },
+    "module:prismattyc-host:prismattyc-host::palette": {
+      "description": "Pure command-palette state and keyboard behavior (PT-92, direction C): a query row, filter chips, a RECENT section, a MATCHES section, and a detail box for the selected row. No pixels here; `raster.rs` paints the [`PaletteView`] this module builds.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "07e0c999e6bc072d6c3e1e2a9b9f9341f0bd34c2eddeaba7108f7dc8c69b3390"
+    },
+    "module:prismattyc-host:prismattyc-host::pane_bell": {
+      "description": "A static, pane-owned visual bell with one cleanup deadline.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "fe659999886f01580a1aa171d0b36f867f03d8786344684a963ddd566a212cbb"
+    },
+    "module:prismattyc-host:prismattyc-host::pixel_alpha": {
+      "description": "Pixel conversion shared by presentation backends and native probes.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "73aab2988fd6a9d81dc0e734a85cfc53effcc5c80decf0c621b7ed7a752bce9b"
+    },
+    "module:prismattyc-host:prismattyc-host::present_tiles": {
+      "description": "Bounded image updates for the retained macOS compositor layers.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "d7266df6d926bb86674c384ff39e9fb165fc7677487b9e5991070a85c77cb3ac"
+    },
+    "module:prismattyc-host:prismattyc-host::rail_resize": {
+      "description": "A fixed side rail width. Pointer dragging changes geometry immediately.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "d68fef7a4cc7f100ee1739f7a8d076bc35ed7b9d813d08183e1d0d7fe0ed675b"
+    },
+    "module:prismattyc-host:prismattyc-host::raster": {
+      "description": "Software cell-grid rasterizer for the windowed host.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5278b7ac583d3d87f058d918c806985622eb4917f0415a80d79ed57c6976996d"
+    },
+    "module:prismattyc-host:prismattyc-host::regroup": {
+      "description": "Apply an attach-tabs file to a live host (PT-65, PT-213). Sessions already attached move (identity preserved). Sessions in the file but not attached get a new pane via `pmux attach`.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "bad315174132155de3dbd07f19a8533b78f9f57d6559aab790c6e08b5fc18f2b"
+    },
+    "module:prismattyc-host:prismattyc-host::remote_catalog": {
+      "description": "Background SSH catalog requests for remote Spaces (issue #24). Contract: `docs/design/remote-spaces-ssh.md`. One bounded, non-PTY `ssh … pmux space catalog` runs per explicit connect or refresh; nothing polls a disconnected destination.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "57fdb3198ca404692c0c25050ba95523a61c779733142f8e5a29f262db108041"
+    },
+    "module:prismattyc-host:prismattyc-host::remote_rail": {
+      "description": "Remote destinations in the Space rail (issue #24, option B). One chip per configured `[[remote]]` destination follows the local chips. Selecting a chip connects (or refreshes) that destination and opens its Space list.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "6369b131098e37244f825a55f408cb6f510542c19e37235b957e5abf2de40a11"
+    },
+    "module:prismattyc-host:prismattyc-host::render_diagnostics": {
+      "description": "Complete render guard diagnostics. The legacy reason keeps its priority order.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "03460b55534b45059acd2cb5e31b5018d1dc4b7104f8562712b1eabaea2d7446"
+    },
+    "module:prismattyc-host:prismattyc-host::restart": {
+      "description": "Cooperative host restart. Blank/local PTYs require the old process to stay.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5aa2bd8e8631401d9b8c1018c9124f34fc731dacd5d15ca348e1480951cb051c"
+    },
+    "module:prismattyc-host:prismattyc-host::terminal_switcher": {
+      "description": "Search existing terminals across Space views. Navigation never starts a session.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "20fc32bcaea83df64fd4d7ebb28031dae03ec3cb0a10e8fb42e925b87726909f"
+    },
+    "module:prismattyc-host:prismattyc-host::restore_prompt": {
+      "description": "One startup decision before the registered host consumes its saved cache.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "110b033129bc1d900f1b8c9f51285e54ce0ad02aa672498d397268ff30642fdc"
+    },
+    "module:prismattyc-host:prismattyc-host::rich": {
+      "description": "Per-pane experimental rich session. Windowed host rich peer: frozen 0.1/0.2 overlays plus the bounded 0.3 reserved-workspace/tree slice. Grant-after-flush is unchanged.",
+      "kind": "MODULE",
+      "status": "wip",
+      "sourceFingerprint": "8be27ce70896df2612b4a4dd1a63fe471169105d5f64231531d0c5df2c3cb8e0"
+    },
+    "module:prismattyc-host:prismattyc-host::session_prompt": {
+      "description": "One name creates or renames a session and its mailbox.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "4a3d15a293b6b8c0693021fb20c3ce0d78318bbc91d2b6dd20f7fc26ce08d8e0"
+    },
+    "module:prismattyc-host:prismattyc-host::space_open": {
+      "description": "Serialize host requests across the CLI child and the host cache apply.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "a276ec184af610249b2c9b19c37cb3c34784d9cbb82cb3878c3db38f20927492"
+    },
+    "module:prismattyc-host:prismattyc-host::space_outcome": {
+      "description": "Phase 1 open feedback. Session facts come from bounded daemon snapshots.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "96e166fa8e2b096265116782080d26e4de48eacd6f4966876b469515f1390ef9"
+    },
+    "module:prismattyc-host:prismattyc-host::space_panel": {
+      "description": "Optional team details in the existing keyboard-accessible Space menu.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "0358277ead3303401f75db8d514847835672abbd0fa2bef78096b56befa69822"
+    },
+    "module:prismattyc-host:prismattyc-host::space_rail": {
+      "description": "Spaces rail (PT-91): the saved spaces (`spaces/*.json`) as fixed-width chips on one edge of the window, the space counterpart of the tab strip. The rail is a view over the spaces directory. It never owns a Session: a chip opens a space through `pmux space open`, renames the file, or deletes it after a confirm.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "33f820745ff0a883fe01c99c4903122ffd7152fa58c19552de6d8fc1e0e0c52b"
+    },
+    "module:prismattyc-host:prismattyc-host::space_view": {
+      "description": "Project daemon ownership into a window and the live pane-name rail.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "4ebe6d2439d2301c811dfb34c274e7be0ef0b8738e85eb92de606b1c670a44cc"
+    },
+    "module:prismattyc-host:prismattyc-host::spaces_polish": {
+      "description": "Space preferences, visible save state, and guarded undo of membership edits.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "83a481c3acac14078bdecb57aea5bf7404de9c438dd4f2f21630d5d71d992a47"
+    },
+    "module:prismattyc-host:prismattyc-host::splash": {
+      "description": "In-window launch splash for bare `prismattyc-host` launches — the same content as the `prismattyc` CLI splash (shared via `prismattyc_core::splash`), rasterized into the window instead of printed to a terminal. Shown on the first window only; `--no-splash`, `PRISMATTYC_NO_SPLASH=1`, and config `splash = false` opt out. Attach launches skip it (attaching drops you into live sessions, the same way an explicit PROGRAM skips the CLI splash).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5653cae14ea014a2a8007b2ed6db69360d39080dc275628d55e3bed42bc5e2a5"
+    },
+    "module:prismattyc-host:prismattyc-host::system_fonts": {
+      "description": "System font discovery for glyphs the bundled faces omit. Ghostty reference (`src/font/discovery.zig`): - Linux: fontconfig charset match (`FcFontMatch` + `FC_CHARSET`) - macOS: Core Text cascade / `CTFontCreateForString` for Han - Never return LastResort tofu - Do not bundle CJK or color-emoji; use whatever the OS has Prismattyc keeps a short well-known path list (fast, no FFI) and on Linux asks fontconfig for any other installed script.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "cea7011fde4e80cfaa24d1e0a153495f0a3cceb3f1c387bae732fc00a68ff858"
+    },
+    "module:prismattyc-host:prismattyc-host::theme": {
+      "description": "Named host themes: terminal defaults + ANSI 0-15 + Prismattyc chrome tokens. Built-ins are embedded from reviewable TOML files. A config may also name a file in the sibling `themes/` directory or use an absolute file path.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5dcdc7ece2e5537b9784f549e0368ca96a9a715e8b6657e9cecc012c17fe16a7"
+    },
+    "module:prismattyc-host:prismattyc-host::title_row": {
+      "description": "Title-row label and unfocused-pane notice (PT-190). Pure decisions. Window, mux, and paint side effects stay in the caller.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "22af6cc6d7365df280fb10b9e173775cb8f4a4d68c54a253ed5bc9e5ec9ca9b5"
+    },
+    "module:prismattyc-host:prismattyc-host::walkthrough": {
+      "description": "Walkthrough session, caption band, and host detectors (PT-192–196). Catalog, progress, and `detect_step` live in `prismattyc_mux::walkthrough`. This module keeps `WalkthroughLive`, caption geometry, and hit testing.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "a36da8b3a4edfeb5971ff1d8294602423da0e46251eefb3e9591c23fc7e37348"
+    },
+    "module:prismattyc-host:prismattyc-host::walkthrough_audio": {
+      "description": "Bundled walkthrough narration (PT-197). Clips are generated offline by `scripts/walkthrough-voice.sh`. Runtime never calls ElevenLabs.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "f1b77fa532713611a48842348a2424d599dcf0b9cfac4d11222ee2670688d780"
+    },
+    "module:prismattyc-host:prismattyc-host::wayland_shm": {
+      "description": "Native Wayland `wl_shm` present with per-pixel alpha (PT-118). softbuffer 0.4 hardcodes `wl_shm` `Xrgb8888`, so its Wayland path drops the alpha byte. This module presents `Argb8888` buffers on the winit window's own `wl_surface` through a guest handle on the same connection. ARGB8888 is one of the two `wl_shm` formats every compositor must accept, so the path is portable by specification rather than by probing. winit clears the opaque region on `with_transparent(true)` windows (`reload_transparency_hint`), so an ARGB buffer alone gives real show-through; no EGL/Vulkan driver path is involved.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5c74e904cdd27eef5cafa1b01be826237c471cc03c9626d1fa7a3062bc1eb40e"
+    },
+    "module:prismattyc-host:prismattyc-host::wayland_shm::buffer_age": {
+      "description": "Straight-alpha canonical framebuffer and bounded shm buffer-age repair.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "32a981a294625b360d0ce8ad7e8b634a63f92539b324b43a3c590aeaaf8016d3"
+    },
+    "cargo-feature:prismattyc-host:default": {
+      "description": "Enables the default compile-time feature set declared for the windowed host.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "sourceFingerprint": "862d1701f92553243966b7d5e8a3be3d9957e1140c079526752a0b7ff280bbe5"
+    },
+    "cargo-feature:prismattyc-host:gpu": {
+      "description": "Enables the optional wgpu presentation path for the windowed host.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "sourceFingerprint": "862d1701f92553243966b7d5e8a3be3d9957e1140c079526752a0b7ff280bbe5"
+    },
+    "crate:prismattyc-labs": {
+      "description": "Browser labs POC: in-memory agent mail + splash attract (wasm32)",
+      "kind": "CRATE",
+      "status": "wip",
+      "sourceFingerprint": "42184a1a2dcfdd02428abd481a54462d6e01529ae67e0ac42148d82e32e528d9"
+    },
+    "module:prismattyc-labs:crate root": {
+      "description": "Prismattyc browser labs (PT-106 POC). Pure client WASM: in-memory agent mail + splash `art_frame` from core. No PTYs, sockets, or pmuxd.",
+      "kind": "MODULE",
+      "status": "wip",
+      "sourceFingerprint": "9ea96f03000ba549ee16c53ba71a46eb142a9127fecad9983ff56a05883f039d"
+    },
+    "module:prismattyc-labs:crate root::agent_id": {
+      "description": "Agent identity validation for the browser lab. Ported from `prismattyc-mux::mailbox::agent_id` so the lab rejects exactly what `pmuxd` rejects, with the same error text. Keep the rules and the messages in sync with that module.",
+      "kind": "MODULE",
+      "status": "wip",
+      "sourceFingerprint": "5377627d3de1c0f0b8f7c41aa38104684775cba55d03884bce01a53f2e4fd2d4"
+    },
+    "module:prismattyc-labs:crate root::mailbox": {
+      "description": "In-memory agent mailbox for the browser lab. Mirrors the `prismattyc-mux` mailbox lifecycle (open → held → commit/release) without SQLite or Unix sockets — pure client WASM per PT-106. The contract this file must keep true (see `prismattyc-mux/src/mailbox/store.rs`): - letters are keyed by recipient agent id, never by session; - **open** letters wait to be claimed; **held** letters are claimed but uncommitted; - `claim` returns every uncommitted letter (open become held, already-held are re-listed — the reconnect recovery path); - `commit` deletes held letters **by id**; `release` returns held letters **by id** to open; ids this agent does not currently hold are ignored, not an error; - `depth` reports both tiers, `(open, held)`.",
+      "kind": "MODULE",
+      "status": "wip",
+      "sourceFingerprint": "6b09542e89a6ed4f35a02ce96735a8dcc57901215562cb1d4bd9df61f566f751"
+    },
+    "module:prismattyc-labs:crate root::wasm_lab": {
+      "description": "`wasm_bindgen` browser surface (wasm32 only). The mail verbs mirror the `pmuxd` control plane: a connection is bound to one agent identity, and every verb acts on that identity only. `mailSend` derives `from` from the binding — there is no way to forge a sender — and claim/commit/release/peek take no agent argument, because the daemon's `Mail*` requests take none either.",
+      "kind": "MODULE",
+      "status": "wip",
+      "sourceFingerprint": "bcbbaa1f2e857031e904c175f7dc6f45d84c502b7ee25c97a85ce209cc96761f"
+    },
+    "crate:prismattyc-mux": {
+      "description": "Owns pmux sessions, windows, panes, layouts, and the background session server.",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "f6d8e70766def38b2d4ed51e85092636d2b47bd2a9a30ebe79b30de4d9faf997"
+    },
+    "app:prismattyc-mux:pmux": {
+      "description": "Manages Prismattyc sessions from a terminal or script.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "506a7106feff9c25970da8c4db3d6c71069f60fcc2848a3bb953db78b1dfed27"
+    },
+    "module:prismattyc-mux:pmux::lifecycle": {
+      "description": "User-facing restart coordinator. Live PTY owners are deferred by default.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "ac5f5baad19db816321fed2331d4791abbff19e98d1095199e2a877cd3169c83"
+    },
+    "module:prismattyc-mux:pmux::pane_write": {
+      "description": "CLI for the intentional pane-write protocol.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "0b7c224a07c2e5fed044d218617924f6a19cd53a9f62c8a7fdba6769683103bb"
+    },
+    "module:prismattyc-mux:pmux::skills": {
+      "description": "Install the embedded pmux Agent Skill into user-level agent directories.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "7352fa59115ded4f4090213ba9028ea63e25ac0ca46f81ac0de2fda8c8df231e"
+    },
+    "module:prismattyc-mux:pmux::space_commands": {
+      "description": "Exclusive Space operations. The daemon owns live membership; the store serializes definitions and retains an interrupted transaction for recovery.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "b394ee79a38309b86954013621aabcf0ad5749c604f5d8f0db371836a7aefc98"
+    },
+    "app:prismattyc-mux:pmux-attach": {
+      "description": "Connects an existing terminal to a pmux session.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "af9bda4e7ec373432f4d191be7d4655afa8d198232a60b638aff59c3724f9e9a"
+    },
+    "module:prismattyc-mux:pmux-attach::windows_terminal": {
+      "description": "Console byte input and socket wakeups share native wait handles.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "243209bbda8096870e5b5d610db8e75375a7652ffc51308a94246fdba356ecc3"
+    },
+    "app:prismattyc-mux:pmuxd": {
+      "description": "Keeps pmux sessions running in the background.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "3540bff479dbe079f0afd38ffe1721d2ed5ba82b5a1a81c98abee9310bff2ddb"
+    },
+    "module:prismattyc-mux:crate root": {
+      "description": "Session, window, pane, and layout management for Prismattyc (Phase 2 / 2A). Architecture: `docs/architecture.md`; mux domain contract: mux architecture. This crate owns mux topology and the optional long-lived server runtime.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "d947a9bd6ad0fe65ddd956a54505ce9c3828543008ae071f8c49d51a34483c8a"
+    },
+    "module:prismattyc-mux:crate root::attach_focus": {
+      "description": "Live, window-local identity for a nested terminal attach. No daemon restart required.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "4a3deef0db253b936868eeb830e928a3cb95f8122c1ee0e907cba69f67b9e611"
+    },
+    "module:prismattyc-mux:crate root::attach_scan": {
+      "description": "Scan live `pmux-attach` clients. Used by `pmux doctor` / `kick` / `ls` to tell a host-side viewer from a nested attach inside a pane child tree. No control-plane verbs.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "8e90cf8602cdde523c65ef40d9aa410e6f5a4cdb03d14896b95a6099631f81f4"
+    },
+    "module:prismattyc-mux:crate root::attach_tabs": {
+      "description": "Host attach-tabs cache: `{stem}.attach-tabs.json` beside the mux socket. Contract: [docs/mux-cli.md](../../../docs/mux-cli.md) (Where things live). `save` writes a temp file in the same directory and renames it.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "affb2cb400bd75fc88dc28e9ac31d0957a56c49b72aa71ef2790b33957bb25c1"
+    },
+    "module:prismattyc-mux:crate root::attention": {
+      "description": "Hive ↔ Prismattyc mail loop (ADR-0039). Forward: `cells.list` + `attention.peek` → join pane by `bound_pid` → `MailAttentionSet` (Hive `queue_rev`) → `InjectMail` → `inject.report`. Reverse: when peek is drained, clear `pane.mail` so attach/host drop the letter.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "d70dfe083f17a0a60695a213016596ed28bf8e4a3a9e1e8ee618d25c820f11b9"
+    },
+    "module:prismattyc-mux:crate root::component_restart": {
+      "description": "Cooperative component restart requests. A component handles its own state; the coordinator never signals an arbitrary PID or replays guest input.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "2f8429375a15620ccbc0fdc9cdafbe313c2413d06d2e21588c6e7e02cac8dc15"
+    },
+    "module:prismattyc-mux:crate root::config": {
+      "description": "Shared `[mux]` table in the Prismattyc config file. Same path as `prismattyc-host`: `$PRISMATTYC_CONFIG`, else `$XDG_CONFIG_HOME/prismattyc/config.toml`, else `~/.config/prismattyc/config.toml`. CLI flags and `PMUX_*` env vars always win over the file.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "731d792bef00c0f2d96119540ca4490bf165891841738f8ece5c8cb9401a2efb"
+    },
+    "module:prismattyc-mux:crate root::control": {
+      "description": "Versioned local control plane for Prismattyc's in-process mux (PRD §2.8.7). The wire format is one bounded JSON object per line. Each connection owns a monotonically increasing request-id space.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "a27ed117b3f7e64d8b59c08c65cc372a57e64e4178d9c3703dd1e96cdca714ad"
+    },
+    "module:prismattyc-mux:crate root::control::pane_write": {
+      "description": "Intentional, single-pane collaboration input.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "7891aee1f463db31f1a954a94ce079d1ae307f108c6a1eb81a2f130549789bd3"
+    },
+    "module:prismattyc-mux:crate root::domain": {
+      "description": "Domain root: sessions → windows → pane layout → panes. **Server topology only** (PRD §2.8.3): focus and active-tab selection are per-client view state ([`ClientView`]), not stored on [`Window`]/[`Session`].",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "f5f7ef300bbdd91ad68d7c583af0508617e49f84b2ea730f1f71f462ba3826be"
+    },
+    "module:prismattyc-mux:crate root::geometry": {
+      "description": "Integer-cell layout geometry (PRD §2.8.6).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "4ce2d566b328e054ad9ca7e657fa1017138639cf713d2c1d5ee51844a2c87deb"
+    },
+    "module:prismattyc-mux:crate root::host_register": {
+      "description": "Registered windowed host next to the mux socket (PT-65). The host writes `{stem}.host.pid` at start and removes it on exit. Alive means `kill(pid, 0)` succeeds.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "4f29034a7f418b0f9cfcdc5197add940208e64541eb7db9b2e118aba8bdd1b2c"
+    },
+    "module:prismattyc-mux:crate root::host_render_status": {
+      "description": "Read-only snapshots of the registered host's render guards.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "7538a9ec3a9507bd6048797fd944b449f8fe45b2d0c3f6d888881acee7079e1a"
+    },
+    "module:prismattyc-mux:crate root::ids": {
+      "description": "Opaque stable typed IDs. Never reused for the lifetime of a [`crate::Domain`].",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "0cc71e3274d2f6643a7113ba09c00c79c338359a1f58832ceb6a1eda66cd161f"
+    },
+    "module:prismattyc-mux:crate root::image_paste": {
+      "description": "Clipboard image → temp PNG → child paste text. Agent CLIs cannot consume `image/png` on a PTY. paste is text-only; an image-only clipboard currently fails `get_text` (windowed host) or arrives as an empty bracketed paste (mux-attach). Cursor then shows `[image omitted]`.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "b63952793c81efdf8477b436655941848e6ad7f000272eae93b1b32c3744cae9"
+    },
+    "module:prismattyc-mux:crate root::inject_submit": {
+      "description": "Per-CLI submit bytes for `InjectMail`. The doorbell text is the fixed token `PMUX_MAIL`. The terminator depends on the guest TUI (live probes, 2026-08-15): - Grok: one CR submits (Enter).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5f32549bcde19b4a15798a29f821e624ae4a2e220171c994139f83eba853f132"
+    },
+    "module:prismattyc-mux:crate root::layout": {
+      "description": "Binary pane layout tree (geometry algorithms land in).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "49dafe9b9e4e65ad6a735b5dd6e206f066d0d38ae9b15ed0d3662df08c2f3455"
+    },
+    "module:prismattyc-mux:crate root::layout_file": {
+      "description": "Saved mux layouts and multi-session spaces: snapshot → JSON file → split plan. Files do not store pane ids. Single-session layouts store spawn-time cwd.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "372221dfc04a54eb3a6cb0f7c305b976794d80985da38d44e2c091fa49bcf636"
+    },
+    "module:prismattyc-mux:crate root::live": {
+      "description": "Server-owned PTY/emulator runtimes for Phase 2B.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "1a27b99d66034715e3d93e2e96170852774bbbdb86580dfbc3f75e52b8913f50"
+    },
+    "module:prismattyc-mux:crate root::mailbox": {
+      "description": "Durable agent mailbox inside pmuxd. SQLite store, Mail* dispatch, and in-process doorbell.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "6fe07555c0a25b000e47cab7803d2654e730c977a6ab213c6c568499f426c271"
+    },
+    "module:prismattyc-mux:crate root::mailbox::agent_id": {
+      "description": "Defines stable agent IDs for pmux mailboxes and validates their accepted form.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "971c25b65feff6fcd3f04cef571696994c765e8e1d3f724c29ddafeef6ae2f2e"
+    },
+    "module:prismattyc-mux:crate root::mailbox::agents": {
+      "description": "Persist session-name → agent_id across pmuxd restarts. Live uniqueness is enforced in [`crate::Domain`]. This file is the durable map so a later recreate of the same session name can be rebound by the operator with `--agent`.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "9d7a01d6d08229d524145c3c36396cf5ea6050909c509c7e56251a67adc2a466"
+    },
+    "module:prismattyc-mux:crate root::mailbox::store": {
+      "description": "SQLite mailbox store for pmuxd (agent-keyed since). Letter send/claim/commit/release/broadcast. Mail must survive pmuxd restarts.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "74a2b219d140583f1ae6003d49c6ee49001fbbb72c00bd20785d105e7089bb80"
+    },
+    "module:prismattyc-mux:crate root::mailbox::watch": {
+      "description": "Mailbox arrival notification for `MailWait` (dispatch lands in). One condvar for the whole daemon. The predicate is evaluated under the watch lock and [`MailboxWatch::ring`] takes the same lock before notifying, so a ring can never slip between a waiter's predicate check and its park — the lost-wakeup window is closed by construction.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "b0a9f44cbedb4f6d35da0dae3d1a22aa96e565d74759c6f9ea9f20bb59cb82fa"
+    },
+    "module:prismattyc-mux:crate root::pane_log": {
+      "description": "Per-pane event log (PT-76) and SubscribePane catch-up (PT-77). Sequence numbers are monotonic and never reused. The ring is bounded by payload bytes (default 4 MiB), not event count.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "575aacd2a68bcd0a51e832b92e6831f65d6708c0bf570b05931fd262227744d9"
+    },
+    "module:prismattyc-mux:crate root::pane_log_persist": {
+      "description": "Persist pane-log snapshot + tail next to `mail.db` (PT-115). The file is instance-keyed (`pane-log-<instance>.json`). Restore matches session name and pane index, not pane slot order.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "9b0f664995e8670c0068254e9007e83e56c69f9d8b1dfa63538d77d49809dce2"
+    },
+    "module:prismattyc-mux:crate root::procinfo": {
+      "description": "Portable process inspection for mux/host. Linux uses `/proc`. macOS uses `sysctl` / libproc. Other unix: `kill(0)` only.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "86bb40d4c0c2ab0e471d468860134ff4c51f10989444ad179fa06e05eab11e5c"
+    },
+    "module:prismattyc-mux:crate root::procinfo::macos": {
+      "description": "Portable process inspection for mux/host. Linux uses `/proc`. macOS uses `sysctl` / libproc. Other unix: `kill(0)` only.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "86bb40d4c0c2ab0e471d468860134ff4c51f10989444ad179fa06e05eab11e5c"
+    },
+    "module:prismattyc-mux:crate root::procinfo::windows": {
+      "description": "Portable process inspection for mux/host. Linux uses `/proc`. macOS uses `sysctl` / libproc. Other unix: `kill(0)` only.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "86bb40d4c0c2ab0e471d468860134ff4c51f10989444ad179fa06e05eab11e5c"
+    },
+    "module:prismattyc-mux:crate root::release_update": {
+      "description": "Immutable GitHub releases, verified downloads, and atomic version activation. No git checkout or relationship to the pre-0.2 repository is required.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "dcb92863cd2d5cb2f26dcf260a87f682e8e4d067932b8f64f09be6153a01fa9c"
+    },
+    "module:prismattyc-mux:crate root::release_update::windows_update": {
+      "description": "Immutable GitHub releases, verified downloads, and atomic version activation. No git checkout or relationship to the pre-0.2 repository is required.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "dcb92863cd2d5cb2f26dcf260a87f682e8e4d067932b8f64f09be6153a01fa9c"
+    },
+    "module:prismattyc-mux:crate root::remote_catalog": {
+      "description": "Remote Space catalog schema and SSH destination identities (issue #24). Contract: `docs/design/remote-spaces-ssh.md`. The remote CLI builds a [`Catalog`] from saved Space files joined with a live daemon snapshot; the host parses it with [`parse_catalog`].",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "a8514a7453621e5083cb48c00cdcf7f0d8d61a26f170d1a5242e165dd51fdae2"
+    },
+    "module:prismattyc-mux:crate root::remote_size": {
+      "description": "Pane-size arbitration for shared attach (PT-200). The most recently active client sets the pane size (tmux `window-size latest`). `--fit` always wins.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "ff70b380bd7fd1ffc531b656bae5fd28ad524f98c964586daf2f53788a035d97"
+    },
+    "module:prismattyc-mux:crate root::rich": {
+      "description": "Server-side experimental rich sidecar. Flag-gated APC session on each live pane. Grant-after-flush.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "ed2fdc08bddafe0e42bc08ddca0fbf5dd94e40e123bc05064749c37a4299de6c"
+    },
+    "module:prismattyc-mux:crate root::session_name": {
+      "description": "Human-readable session names shared by the CLI and host naming popup.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5dd25973d70f3848ae0469953c708cca681d42ea951010716f8687df17d1f02e"
+    },
+    "module:prismattyc-mux:crate root::space_team": {
+      "description": "Shared Space details for the desktop, CLI, and MCP.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "d588f251a698726de659de308dd7ee726a627ddc9c59a21e36e1bf3e8ad5bf77"
+    },
+    "module:prismattyc-mux:crate root::space_template": {
+      "description": "Reusable definitions. Preview has no daemon or process side effects.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "7281b0502240b96b7719dc5a85c45dd352dee6fe02f14cc2faf044bde2e65d63"
+    },
+    "module:prismattyc-mux:crate root::supervisor": {
+      "description": "Hive supervisor client for Prismattyc mux-server (ADR-0037 lane B–C). One long-lived intent: act as an **operator-privileged** Hive control client and emit `supervisor.cell_exited` on pane liveness edges. The send path is **best-effort and non-blocking from the mux's point of view** — notices are enqueued with `try_send`; a full or disconnected queue drops + logs rather than stalling PTY drain or the control loop.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "b44a60b22c8bc043c32eef7148ae7ad7d38267d04b9ab2d86fb3ccadbfeacb49"
+    },
+    "module:prismattyc-mux:crate root::team_attention": {
+      "description": "Explicit requests for human input. Mail delivery remains independent.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "57816fc9d54ef449db29389cd09cd3ce6bb8be8345f2b12216072e1dd737ad36"
+    },
+    "module:prismattyc-mux:crate root::uninstall": {
+      "description": "`pmux uninstall` / `prismattyc uninstall` — one shared command that removes everything Prismattyc installed or wrote on this machine. Mirrors the shared [`crate::update`] command: both front-door binaries call [`run_uninstall`], which resolves the same base directories used by the installer and the self-updater ([`crate::platform`]) and never touches a path outside the product's own inventory. # Behaviour - Print exactly what will be removed, then confirm (unless `--yes`). - After confirmation, stop the daemon and sessions cleanly, warning first. - Default removes everything, including Spaces and config data. - `--keep-data` keeps Spaces and config. - `--dry-run` lists the inventory and removes nothing. - Anything that cannot be removed is reported with what, why and the fix; the rest is still removed. - Exit non-zero if anything is left; end by confirming it is fully gone or naming the leftovers. Path safety: only paths in the computed inventory are ever removed.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "1261ec4d290e2a424cab98539b501b3db80c2b8171df3e8994f7a3a65dd285ef"
+    },
+    "module:prismattyc-mux:crate root::update": {
+      "description": "Checkout `main`, pull, and `cargo install` host / mux / pmux-mcp / prismattyc binaries.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "a8a0e14e75744835d9755b47b200f0e58fd7b143aa839a7ed94a2598c22f516d"
+    },
+    "module:prismattyc-mux:crate root::walkthrough": {
+      "description": "Shared walkthrough catalog, progress, and detectors (PT-192–198). Pure parse, validation, XDG progress load/save, `detect_step`, and the boss snapshot matcher. Host caption geometry and `WalkthroughLive` stay in `prismattyc-host`.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "4e6fbe5574dda225ad07f5c5dc8b406c1003352f6e035de5517566d9dcb77134"
+    },
+    "module:prismattyc-mux:crate root::local_socket": {
+      "description": "Native filesystem-addressed local sockets on Unix and Windows.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "b99b24b3b4db1494ad3222fc26a0647d502c88d06940104ef3a2ecc83022a90d"
+    },
+    "module:prismattyc-mux:crate root::path_shim": {
+      "description": "Installs and removes the app-bundled `pmux` PATH link on macOS.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "7edb1f4e19a85da325b16efd7e80cebb2e1df6cc7a34e02a23a4bb7d535474a2"
+    },
+    "module:prismattyc-mux:crate root::platform": {
+      "description": "OS operations shared by the daemon, clients and host.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "0b228e76d365c0467a74428b951930fc1583928eb4fff359e09777f523e8c7b2"
+    },
+    "module:prismattyc-mux:crate root::platform::windows": {
+      "description": "OS operations shared by the daemon, clients and host.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "0b228e76d365c0467a74428b951930fc1583928eb4fff359e09777f523e8c7b2"
+    },
+    "crate:prismattyc-protocol": {
+      "description": "Defines bounded control and graphics protocol types shared across Prismattyc components.",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "c1059ba0967165353d624cf9e8ef9eba9f15725420ba7ea5d93bce6eb8691c6c"
+    },
+    "module:prismattyc-protocol:crate root": {
+      "description": "Dependency-light Prismattyc control protocol types and bounded wire codecs. Streaming APC **body** collection lives here so the classic emulator can hand off complete bodies without depending on a rich document model.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "4ef122c00402f463f6c43b2192200dacce05ef6684c54c50890709fe26ecb070"
+    },
+    "module:prismattyc-protocol:crate root::semantics": {
+      "description": "Logical semantic documents, ranges, and decoration-free projection.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "1711d9b3a8822ba20a4ace52543016ab10ddf9eb159345da99b256d482d3eef2"
+    },
+    "module:prismattyc-protocol:crate root::graphics_apc": {
+      "description": "Sidecar collector for Kitty graphics APC sequences: `ESC _ G <ctrl>;<payload> ESC \\`. VTE swallows APC without delivering it to `Perform`, so we scan the raw byte stream in parallel (same technique as `ApcCollector`, but scoped to the `G` graphics namespace, with a much larger body cap for base64 pixels).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "dffc9fe68ee062d46ce4d361e2d0f5beefcb1a76d4f3827496932eed7cb32825"
+    },
+    "crate:prismattyc-render": {
+      "description": "Renders terminal cells into pixels for the desktop host and terminal client.",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "ef374c1bd64494972a7faf4a15d2bcb142a57f4a1a08e16d789675cdbf3e44ee"
+    },
+    "module:prismattyc-render:crate root": {
+      "description": "Classic cell-grid rendering and future swappable backends for Prismattyc.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "593f06c0898d3227b9428332f16ec5c460ee2fd5150d4d9de72816a0440faa15"
+    },
+    "crate:prismattyc-rich-client": {
+      "description": "Public 0.1/0.2 rich-session client",
+      "kind": "CRATE",
+      "status": "wip",
+      "sourceFingerprint": "ada54aad6862eeecb117770be0c009d2629cf1f312f13181f6d1f970acdfd301"
+    },
+    "module:prismattyc-rich-client:crate root": {
+      "description": "Public app-side client for Prismattyc rich wire 0.1/0.2 plus the bounded 0.3 reserved-workspace slice. This crate owns negotiation, raw-TTY lifecycle, local generation/revision tracking, event validation, detach, workspace snapshots, and classic fallback. It depends only on `prismattyc-protocol`.",
+      "kind": "MODULE",
+      "status": "wip",
+      "sourceFingerprint": "f123b20c769802961743b3d32da3bacfcaf56caeb0cc8ed1d0c48867fe234c9a"
+    },
+    "module:prismattyc-rich-client:crate root::raw": {
+      "description": "Raw / noecho stdin for PTY-attached clients (capability-protocol.md).",
+      "kind": "MODULE",
+      "status": "wip",
+      "sourceFingerprint": "5a924c53b1bb958d5b53a1e4e87293fb7ee93e7b6197f0ca52f6c775aee6ea77"
+    }
+  },
+  "features": [
+    {
+      "id": "feature:terminal-workspace",
+      "label": "Desktop terminal",
+      "description": "The windowed host renders terminal panes, keeps keyboard and theme settings, and organizes sessions in Spaces.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "crate:prismattyc-host",
+        "app:prismattyc-host:prismattyc-host",
+        "crate:prismattyc-core",
+        "crate:prismattyc-render",
+        "crate:prismattyc-emulator",
+        "module:prismattyc-host:prismattyc-host::space_rail",
+        "module:prismattyc-host:prismattyc-host::space_view",
+        "module:prismattyc-host:prismattyc-host::theme",
+        "module:prismattyc-host:prismattyc-host::keybind",
+        "module:prismattyc-host:prismattyc-host::palette"
+      ],
+      "sourceFingerprints": {
+        "crate:prismattyc-host": "da7cae53052f19722664166595125094d221598fe438382f8f20a63fcb61d476",
+        "app:prismattyc-host:prismattyc-host": "708ac9cec95bcfc2903593dd9b0bee044dfb02fe3d946ce81d67537711f3f421",
+        "crate:prismattyc-core": "80d35431d4c28a9c4ec696078adaf1e21b4f4e9bb1995d599a68515e2bd6ac01",
+        "crate:prismattyc-render": "ef374c1bd64494972a7faf4a15d2bcb142a57f4a1a08e16d789675cdbf3e44ee",
+        "crate:prismattyc-emulator": "74f247d0c31c9f9aac8a1a54beced78f1c32602dbc1458948bfbab4a457a7031",
+        "module:prismattyc-host:prismattyc-host::space_rail": "33f820745ff0a883fe01c99c4903122ffd7152fa58c19552de6d8fc1e0e0c52b",
+        "module:prismattyc-host:prismattyc-host::space_view": "4ebe6d2439d2301c811dfb34c274e7be0ef0b8738e85eb92de606b1c670a44cc",
+        "module:prismattyc-host:prismattyc-host::theme": "5dcdc7ece2e5537b9784f549e0368ca96a9a715e8b6657e9cecc012c17fe16a7",
+        "module:prismattyc-host:prismattyc-host::keybind": "610073f3b3e6e1f90528187c3300b19a1d01019dc09bc66b9a6eb25db2114b11",
+        "module:prismattyc-host:prismattyc-host::palette": "07e0c999e6bc072d6c3e1e2a9b9f9341f0bd34c2eddeaba7108f7dc8c69b3390"
+      },
+      "pathLabel": "10 linked code blocks"
+    },
+    {
+      "id": "feature:session-control",
+      "label": "Session control",
+      "description": "The mux owns sessions, windows, panes, layout, and the local control protocol. The pmux tools manage sessions from scripts and terminals.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "crate:prismattyc-mux",
+        "app:prismattyc-mux:pmux",
+        "app:prismattyc-mux:pmuxd",
+        "app:prismattyc-mux:pmux-attach",
+        "module:prismattyc-mux:crate root::domain",
+        "module:prismattyc-mux:crate root::layout_file",
+        "module:prismattyc-mux:crate root::control",
+        "module:prismattyc-host:prismattyc-host::mux"
+      ],
+      "sourceFingerprints": {
+        "crate:prismattyc-mux": "f6d8e70766def38b2d4ed51e85092636d2b47bd2a9a30ebe79b30de4d9faf997",
+        "app:prismattyc-mux:pmux": "506a7106feff9c25970da8c4db3d6c71069f60fcc2848a3bb953db78b1dfed27",
+        "app:prismattyc-mux:pmuxd": "3540bff479dbe079f0afd38ffe1721d2ed5ba82b5a1a81c98abee9310bff2ddb",
+        "app:prismattyc-mux:pmux-attach": "af9bda4e7ec373432f4d191be7d4655afa8d198232a60b638aff59c3724f9e9a",
+        "module:prismattyc-mux:crate root::domain": "f5f7ef300bbdd91ad68d7c583af0508617e49f84b2ea730f1f71f462ba3826be",
+        "module:prismattyc-mux:crate root::layout_file": "372221dfc04a54eb3a6cb0f7c305b976794d80985da38d44e2c091fa49bcf636",
+        "module:prismattyc-mux:crate root::control": "a27ed117b3f7e64d8b59c08c65cc372a57e64e4178d9c3703dd1e96cdca714ad",
+        "module:prismattyc-host:prismattyc-host::mux": "68e0bb02570f99d45cae6ab7f59ead5e64be5af79fc13f2d1599044257d1b2b3"
+      },
+      "pathLabel": "8 linked code blocks"
+    },
+    {
+      "id": "feature:agent-mail",
+      "label": "Agent mail",
+      "description": "pmux stores local agent messages in the session server. The MCP adapter exposes mailbox actions to MCP clients.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "crate:pmux-mcp",
+        "app:pmux-mcp:pmux-mcp",
+        "module:prismattyc-mux:crate root::mailbox",
+        "module:prismattyc-mux:crate root::attention",
+        "module:prismattyc-host:prismattyc-host::session_prompt"
+      ],
+      "sourceFingerprints": {
+        "crate:pmux-mcp": "b14a818aba960a5a5ddac3f8e3ac380ee8d75751b3ccbfdd751c5a480684ebb6",
+        "app:pmux-mcp:pmux-mcp": "80f943cd164d6825696005a48851d20ab4e29e73de19cd373d92aac19cfba97d",
+        "module:prismattyc-mux:crate root::mailbox": "6fe07555c0a25b000e47cab7803d2654e730c977a6ab213c6c568499f426c271",
+        "module:prismattyc-mux:crate root::attention": "d70dfe083f17a0a60695a213016596ed28bf8e4a3a9e1e8ee618d25c820f11b9",
+        "module:prismattyc-host:prismattyc-host::session_prompt": "4a3d15a293b6b8c0693021fb20c3ce0d78318bbc91d2b6dd20f7fc26ce08d8e0"
+      },
+      "pathLabel": "5 linked code blocks"
+    },
+    {
+      "id": "feature:remote-spaces",
+      "label": "Remote Spaces",
+      "description": "The host requests remote Space catalogs over SSH and shows remote destinations in its Space rail.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "module:prismattyc-host:prismattyc-host::remote_catalog",
+        "module:prismattyc-host:prismattyc-host::remote_rail",
+        "module:prismattyc-mux:crate root::remote_catalog",
+        "module:prismattyc-mux:crate root::remote_size"
+      ],
+      "sourceFingerprints": {
+        "module:prismattyc-host:prismattyc-host::remote_catalog": "57fdb3198ca404692c0c25050ba95523a61c779733142f8e5a29f262db108041",
+        "module:prismattyc-host:prismattyc-host::remote_rail": "6369b131098e37244f825a55f408cb6f510542c19e37235b957e5abf2de40a11",
+        "module:prismattyc-mux:crate root::remote_catalog": "a8514a7453621e5083cb48c00cdcf7f0d8d61a26f170d1a5242e165dd51fdae2",
+        "module:prismattyc-mux:crate root::remote_size": "ff70b380bd7fd1ffc531b656bae5fd28ad524f98c964586daf2f53788a035d97"
+      },
+      "pathLabel": "4 linked code blocks"
+    },
+    {
+      "id": "feature:terminal-graphics",
+      "label": "Terminal graphics",
+      "description": "The emulator decodes and retains Kitty graphics payloads. The host has an optional GPU presentation path.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "crate:prismattyc-emulator",
+        "crate:prismattyc-protocol",
+        "module:prismattyc-emulator:crate root::graphics",
+        "module:prismattyc-protocol:crate root::graphics_apc",
+        "module:prismattyc-host:prismattyc-host::gpu"
+      ],
+      "sourceFingerprints": {
+        "crate:prismattyc-emulator": "74f247d0c31c9f9aac8a1a54beced78f1c32602dbc1458948bfbab4a457a7031",
+        "crate:prismattyc-protocol": "c1059ba0967165353d624cf9e8ef9eba9f15725420ba7ea5d93bce6eb8691c6c",
+        "module:prismattyc-emulator:crate root::graphics": "77070f97632fd3502fdd3abcb398b84c0de4b7191b7d5750680228cd24c23967",
+        "module:prismattyc-protocol:crate root::graphics_apc": "dffc9fe68ee062d46ce4d361e2d0f5beefcb1a76d4f3827496932eed7cb32825",
+        "module:prismattyc-host:prismattyc-host::gpu": "bf36325dac874c18b6e5c54e95fc0096ad7f72a50bb181c184cd60ff44eea8e9"
+      },
+      "pathLabel": "5 linked code blocks"
+    },
+    {
+      "id": "feature:rich-sessions",
+      "label": "Rich sessions",
+      "description": "The host and mux contain experimental rich-session code, with a separate public client crate for the wire protocol.",
+      "kind": "FEATURE",
+      "status": "wip",
+      "memberIds": [
+        "crate:prismattyc-rich-client",
+        "module:prismattyc-rich-client:crate root::raw",
+        "module:prismattyc-host:prismattyc-host::rich",
+        "module:prismattyc-mux:crate root::rich"
+      ],
+      "sourceFingerprints": {
+        "crate:prismattyc-rich-client": "ada54aad6862eeecb117770be0c009d2629cf1f312f13181f6d1f970acdfd301",
+        "module:prismattyc-rich-client:crate root::raw": "5a924c53b1bb958d5b53a1e4e87293fb7ee93e7b6197f0ca52f6c775aee6ea77",
+        "module:prismattyc-host:prismattyc-host::rich": "8be27ce70896df2612b4a4dd1a63fe471169105d5f64231531d0c5df2c3cb8e0",
+        "module:prismattyc-mux:crate root::rich": "ed2fdc08bddafe0e42bc08ddca0fbf5dd94e40e123bc05064749c37a4299de6c"
+      },
+      "pathLabel": "4 linked code blocks"
+    },
+    {
+      "id": "feature:browser-labs",
+      "label": "Browser lab",
+      "description": "The WebAssembly lab is a proof of concept with in-memory agent mail and a browser surface.",
+      "kind": "FEATURE",
+      "status": "wip",
+      "memberIds": [
+        "crate:prismattyc-labs",
+        "module:prismattyc-labs:crate root::mailbox",
+        "module:prismattyc-labs:crate root::wasm_lab"
+      ],
+      "sourceFingerprints": {
+        "crate:prismattyc-labs": "42184a1a2dcfdd02428abd481a54462d6e01529ae67e0ac42148d82e32e528d9",
+        "module:prismattyc-labs:crate root::mailbox": "6b09542e89a6ed4f35a02ce96735a8dcc57901215562cb1d4bd9df61f566f751",
+        "module:prismattyc-labs:crate root::wasm_lab": "bcbbaa1f2e857031e904c175f7dc6f45d84c502b7ee25c97a85ce209cc96761f"
+      },
+      "pathLabel": "3 linked code blocks"
+    }
+  ],
+  "groups": [
+    {
+      "id": "group:desktop",
+      "label": "Desktop",
+      "featureIds": [
+        "feature:terminal-workspace",
+        "feature:remote-spaces"
+      ]
+    },
+    {
+      "id": "group:sessions",
+      "label": "Sessions",
+      "featureIds": [
+        "feature:session-control",
+        "feature:agent-mail"
+      ]
+    },
+    {
+      "id": "group:terminal",
+      "label": "Terminal",
+      "featureIds": [
+        "feature:terminal-graphics",
+        "feature:rich-sessions"
+      ]
+    },
+    {
+      "id": "group:lab",
+      "label": "Lab",
+      "featureIds": [
+        "feature:browser-labs"
+      ]
+    }
+  ]
+}

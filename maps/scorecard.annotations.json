@@ -1,0 +1,540 @@
+{
+  "schemaVersion": 1,
+  "projectId": "workspace:scorecard",
+  "blocks": {
+    "workspace:scorecard": {
+      "description": "Scorecard is a local code-quality gate that runs project checks and reports results for people, agents, and CI.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "eba51e8636aea1b90436f217fbf0fa227bf6344b080bddb909584a1065e081fd"
+    },
+    "crate:sc-cli": {
+      "description": "sc command line",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "e9e3752b820c0dad1769e355d53e97e5aa2516d13cdb52a5d592c32bc205263d"
+    },
+    "app:sc-cli:sc": {
+      "description": "Runs Scorecard analysis and prints a human-readable or machine-readable report.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "60c2be456a4176cab783883c2e59cfce539d7a7cc30643f0bdbe2d2f09e8fe90"
+    },
+    "module:sc-cli:crate root": {
+      "description": "CLI for the `sc` scorecard gate. User-facing analyze output is the scorecard, rendered as JSON and/or Markdown.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "bbc94e1c3608bcbb682731ce6d58a972c2ae3cbc1353193fd7a174e536b34ea2"
+    },
+    "module:sc-cli:crate root::format": {
+      "description": "Formats scorecards as JSON and Markdown, including their findings and project summary.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "a100380b896b52f1e6c3f13ce97d2022eee347ede9ad897c8529e1089ee0fe6f"
+    },
+    "module:sc-cli:crate root::pretty": {
+      "description": "Human-readable scorecard for a terminal. Color follows `NO_COLOR`, `CLICOLOR_FORCE`, and whether stdout is a TTY. The plain style uses ASCII so a captured transcript stays readable.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "918b1813cf3f1f97f3f355dd694f2ed5edf901ff4586729cd0ae7e8c54ef4a99"
+    },
+    "module:sc-cli:crate root::report": {
+      "description": "Self-contained HTML scorecard report. `to_html` renders one `.html` file with inline CSS and no external requests, so it works from `file://` and from any static server. It mirrors the linear-flow visual language: pipeline strip, in/out chips, terminal-styled runs, and pass/fail pills.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "2cbce75f8c2174bcdc24c3ef3fd24740d6aa40ceb9aa0a0d6463bda9813ab0e8"
+    },
+    "module:sc-cli:crate root::setup": {
+      "description": "Install the agent skill and register the `sc-mcp` server.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "93da87e90840fc83f18d042db0274613ca5408c8f1ca79a6cb80fe5554730ceb"
+    },
+    "module:sc-cli:crate root::user_config": {
+      "description": "User-level `~/.config/sc/analyzer.toml`.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "549e51064c86085be2ec2217c74da817c25f1ace62c4c4a252fef34ee556f88d"
+    },
+    "cargo-feature:sc-cli:default": {
+      "description": "Uses the default compile-time feature set declared for the sc command.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "sourceFingerprint": "5cc0d5fd403a746607495d1702d09e258580f09c2d1b9836ebc07d9a7a2c9f67"
+    },
+    "crate:sc-core": {
+      "description": "Scorecard model, config, and scoring",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "b940313d333d41360a9fd635f786f4cfa0df95c274e0aa6ef24ec061227b1316"
+    },
+    "module:sc-core:crate root": {
+      "description": "Scorecard contract, configuration, and score formulas.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "b21ecd95b9a2894fa4a9b765715b502080747919c86d9e3674e424bb28ea8cf1"
+    },
+    "module:sc-core:crate root::config": {
+      "description": "`analyzer.toml` loading. Search order: `--config`, then `./analyzer.toml` in the project, then `~/.config/sc/analyzer.toml`.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "07107fef91924fb2e48f340860cfbc1f28b1e18c4bcb75c7ad210294aedb8acf"
+    },
+    "module:sc-core:crate root::model": {
+      "description": "JSON contract. Field names are part of the stable scorecard schema.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "bf2d332f223ee609406f76a318ba86bd9b29a5bc8d0810a281df630b9774fe9a"
+    },
+    "module:sc-core:crate root::score": {
+      "description": "Dimension scores and the CRAP formula. Dimension scores are in `0.0..=1.0`. Each score starts at 1.0.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5a0a44e2fd465a02e6a5b307deda7f9ba8b051a1f8a3d756c10620543ad277fb"
+    },
+    "crate:sc-engines": {
+      "description": "Deterministic compile, test, coverage, and CRAP engines",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "3a654d7257dcdca108e77a28802f685a71e87ef9e7c5255e1b440e6b39642401"
+    },
+    "module:sc-engines:crate root": {
+      "description": "Deterministic engines. They return findings and never print diagnostics.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "d3fde5bb8b4785c89b40c0ee5ff5abd6fbe8915f34d7c9dc8a1ff4cdd5d2d66b"
+    },
+    "module:sc-engines:crate root::a11y": {
+      "description": "Static accessibility checks mapped to WCAG 2.2 success criteria. HTML comes from the web pack. JSX and TSX come from the node pack.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "281b8f83b10d772fb873f97f750e9de0fd4e4c8181d3d5cbfb5f589f931a46f1"
+    },
+    "module:sc-engines:crate root::cargo_test": {
+      "description": "Runs Cargo tests and turns process results into scorecard findings. It also selects targeted Rust tests when the project supports them.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "7d6a72ebff9f151e2e8fdff1715b20fdb039a85105d652637f4f519c34302823"
+    },
+    "module:sc-engines:crate root::command": {
+      "description": "Runs external commands with time limits and captures their output and failure details.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "548979a75b71e336bda425382b39e4ba21e5819ff27cc54cd2f6c1d723c1567e"
+    },
+    "module:sc-engines:crate root::compile": {
+      "description": "Runs project compilation and maps compiler diagnostics into scorecard findings.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "545ee5c69ffc18a521c9e7886874398e186b5347a986a1f7f09c56777d6494e1"
+    },
+    "module:sc-engines:crate root::coverage": {
+      "description": "Function line coverage from `cargo llvm-cov --workspace --json`. Names are demangled and crate disambiguator hashes are stripped, then matched to syn symbols. A miss means coverage was not measured for that function.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "1416d331703bbc779e24b6bba341dcd00fc88a94e9f823281353aa87a4360f11"
+    },
+    "module:sc-engines:crate root::crap": {
+      "description": "Compares function complexity with measured test coverage and reports CRAP scores.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "bdb293add711fe789c64f23307fa1d9955493e95fbfb6abc1e3d3bac71b07d30"
+    },
+    "module:sc-engines:crate root::facts": {
+      "description": "Collects project source facts and cache keys for repeatable engine runs.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "25cdc2a7506de9c8a8a54cffb59ee14b9765de7d61e5a02d71b228f7eb170862"
+    },
+    "module:sc-engines:crate root::html_doc": {
+      "description": "HTML document parse for the web pack. `html5ever` builds the tree and reports parse errors with the current line. A separate tag stack reports unclosed and misnested tags, because the HTML parser closes many of those for you.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "6b4ef367c3e508a176b1cdbe9c2edd4f1eeea6f9d8e3e69f5e9bcd9fc0d81d76"
+    },
+    "module:sc-engines:crate root::links": {
+      "description": "Internal link check. No network requests.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "a710b5d2ec6f073f310bbbb391b3ba56af4227a395afeb8eadcbccd8f43ecd16"
+    },
+    "module:sc-engines:crate root::manifest": {
+      "description": "Reads package manifests to resolve workspace ownership and declared dependencies.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "9670812c7a132545df18bde5b90d1184d9125d09080c7597a5cb83e1e327dd15"
+    },
+    "module:sc-engines:crate root::mutation": {
+      "description": "Runs mutation checks and summarizes which source changes the project's tests detected.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "3ce8f16425fe506469a67d443095312aefe31549b2099a6e16738bea5320520a"
+    },
+    "module:sc-engines:crate root::pack": {
+      "description": "Language pack detection. One marker selects a pack. Several markers stay ambiguous unless only one of them has source files.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "e87796c641162a21588e13e85e74af71b8425ab8fe3b1cf0cfb05674ca0c6e3d"
+    },
+    "module:sc-engines:crate root::pack_cov": {
+      "description": "Line coverage reports for the non-Rust packs. Each parser returns statement hits inside a function span. Missing reports leave those functions without a CRAP row.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "2d6f58233724f9385f8bd16da1c35e779f4d5b751a6928f397d7049de3c4dc48"
+    },
+    "module:sc-engines:crate root::pipeline": {
+      "description": "Assemble a scorecard from the deterministic engines. Engines return structured findings. Nothing in this crate writes user-facing diagnostics; the CLI formats the scorecard.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "575a50dbd52ae7dae6a6bf01d5b4159a3c0841e757f8fa2eeec59365cb4bd987"
+    },
+    "module:sc-engines:crate root::poly_cc": {
+      "description": "Cyclomatic complexity for the non-Rust packs. Python uses the stdlib `ast` module. The other packs count decision points in each function body.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "d01439621faeded5abc7827c9293f00351617d73c1432bcf8e8bbb8a85739314"
+    },
+    "module:sc-engines:crate root::python": {
+      "description": "Python pack: compile, pytest, Ruff, and imports checked against pyproject.toml. A local module is not a finding. An installed or published import missing from pyproject is an undeclared dependency.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "2e288879f46cf69c422889326db6f59e3cbe8311731b85c82fd14d95cd54ea1d"
+    },
+    "module:sc-engines:crate root::rust_toolchain": {
+      "description": "Choose how Cargo commands pick a rustup toolchain. - `analyzer.toml` `toolchain` sets `RUSTUP_TOOLCHAIN` to that channel. - A `rust-toolchain.toml` / `rust-toolchain` at or above the project clears an inherited `RUSTUP_TOOLCHAIN` so rustup reads the file (channel, components, targets, profile). - Otherwise the inherited environment is left alone.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "90b17aa8e322c580d1894b823aab1e26f5c9adf27f09b313e88e95b62298b3cb"
+    },
+    "module:sc-engines:crate root::scope": {
+      "description": "Selects the files and packages included in an analysis run according to project scope rules.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "06edb5d001d94c48d4c8da82c72e6fe8736798493c45f8935a40d74f578fe138"
+    },
+    "module:sc-engines:crate root::secrets": {
+      "description": "Scans project text for supported credential patterns and emits security findings.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "e15e5251383d11a5953ef039ff29f1c0497aad035afab43d9eb52200cff4abf9"
+    },
+    "module:sc-engines:crate root::spec_check": {
+      "description": "Compares stated requirements with source and file evidence to report possible specification gaps.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "fb94e5fadcc7b57db8c09d7822ca5c6c83b5c5dae79a742404bb5e626749f507"
+    },
+    "module:sc-engines:crate root::toolchain": {
+      "description": "Compile, test, and lint commands for the non-Rust, non-Python packs. A missing compiler is reported and does not fail the process. A command that runs is enforced.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "cb0dff219c5d9c0ad0bf54fe1ba89f2e5bf535836b360a3076290e8cd57fdcda"
+    },
+    "crate:sc-graph": {
+      "description": "Rust source discovery and cyclomatic complexity",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "b3b55271b9ddd3bc6cadb7d0665f5f6b42ee7c0d7db0792af81cd3231e241f7e"
+    },
+    "module:sc-graph:crate root": {
+      "description": "Source discovery and cyclomatic complexity. Complexity is McCabe cyclomatic complexity, not cognitive complexity. Macros are not expanded.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "84f252d64520e2280ddf88eed0660f07f71ea9081b8660b959fa6749d1ced0ec"
+    },
+    "module:sc-graph:crate root::complexity": {
+      "description": "Parses Rust items and calculates cyclomatic complexity for functions and closures.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "041dfd3ecf5bb015dd0056e858951622372f04c1ec192a7ce135de096a03e158"
+    },
+    "module:sc-graph:crate root::discover": {
+      "description": "Walks project files to find source code while applying ignore, generated-file, and scope rules.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "b6e32dcf410f00f6b193a8709a6756011510fb5e499e63ef116d4a276ac42d38"
+    },
+    "module:sc-graph:crate root::imports": {
+      "description": "Reads source import paths and local names for dependency checks.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "ff1e03269f72d2a9b9940eb85f03c2f077d2fd95f5a04d3f17db640e35859e28"
+    },
+    "module:sc-graph:crate root::perf": {
+      "description": "Performance hints. Off by default (`engines.perf = false`). When enabled, a nested loop and a `.clone()` inside a loop are `perf.*` findings (disposition `ignore`).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "bcdb56038814f69c575da322e51518ac86ab88ee633b5d376d1ca9f8890bf179"
+    },
+    "module:sc-graph:crate root::pubs": {
+      "description": "Collects public item declarations from Rust source files.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "694ef8e496cc26ffae6e8d003f14fe4b514815a51adb6a416f57a2486ece0c20"
+    },
+    "module:sc-graph:crate root::walk": {
+      "description": "Directories Scorecard leaves out by default. Dot-directories are also skipped, except the generated and dependency directories listed here can be included with `scope.include_generated`.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "44493c0dac21077094d0159c2a48e9a341eeb7c60a95525e0c0a62b8cc3c0632"
+    },
+    "crate:sc-llm": {
+      "description": "Optional OpenAI-compatible spec review",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "1fe00c8531127afc8305595428da55fccf077ee5bf8895624ebe50f09f8bf1f2"
+    },
+    "module:sc-llm:crate root": {
+      "description": "Optional spec-gap review over an OpenAI-compatible chat endpoint. The built-in default endpoint is local Ollama. When `XAI_API_KEY` is set and the endpoint is still that default, the call uses SpaceXAI (`https://api.x.ai/v1`, model `grok-4.5`).",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "683a50b99a1aa89e64f1f56216d83f89df1f7bda77ce886db3bed2018e3cd820"
+    },
+    "crate:sc-mcp": {
+      "description": "MCP server for sc",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "7f3824d53e781d5614a8f5f8e75f5b3505f3cc4893a73cc9e326baf260e8dac8"
+    },
+    "app:sc-mcp:sc-mcp": {
+      "description": "Exposes Scorecard analysis tools through an MCP server.",
+      "kind": "APP",
+      "status": "ready",
+      "sourceFingerprint": "4bff455a39b95474b5794eebfcf3fe1f3b3d48c716c35bc0ad614372e80ac392"
+    },
+    "module:sc-mcp:crate root": {
+      "description": "MCP server for four scorecard tools. `analyze_paths`, `analyze_diff`, `explain`, and `list_findings`. There is no chat tool.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "7a85a8448cf03e88a410c164e78f5b4504dacccc54d39043a6d12c91332c509d"
+    },
+    "crate:sc-mutation": {
+      "description": "Workspace marker. The mutation runner lives in sc-engines.",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "8278bd5b33d15fd2572791cfa5cdd0d32645de4c178f976222fa107441364856"
+    },
+    "module:sc-mutation:crate root": {
+      "description": "The mutation runner lives in `sc-engines`. This crate remains so the workspace layout stays in place.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "904d825123af48373393e597a36593690a2a8e6c75d84e0370a384cd73b35e9c"
+    },
+    "crate:sc-sarif": {
+      "description": "SARIF 2.1.0 export for sc scorecards",
+      "kind": "CRATE",
+      "status": "ready",
+      "sourceFingerprint": "c3f90f67b5be323caad4949064b76a2ad9b22bb2fd2a6cedc47fe79f3d9e275e"
+    },
+    "module:sc-sarif:crate root": {
+      "description": "SARIF 2.1.0 export of a scorecard.",
+      "kind": "MODULE",
+      "status": "ready",
+      "sourceFingerprint": "5b6d9656d42c0c2ce528672bd6aa700d69eda2340b7c89060dd6b6488a791eb4"
+    }
+  },
+  "features": [
+    {
+      "id": "feature:quality-gate",
+      "label": "Quality gate",
+      "description": "The sc command assembles engine findings into a scorecard with enforced and advisory gates.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "crate:sc-cli",
+        "app:sc-cli:sc",
+        "crate:sc-core",
+        "crate:sc-engines",
+        "module:sc-engines:crate root::pipeline",
+        "module:sc-cli:crate root::report",
+        "module:sc-cli:crate root::pretty"
+      ],
+      "sourceFingerprints": {
+        "crate:sc-cli": "e9e3752b820c0dad1769e355d53e97e5aa2516d13cdb52a5d592c32bc205263d",
+        "app:sc-cli:sc": "60c2be456a4176cab783883c2e59cfce539d7a7cc30643f0bdbe2d2f09e8fe90",
+        "crate:sc-core": "b940313d333d41360a9fd635f786f4cfa0df95c274e0aa6ef24ec061227b1316",
+        "crate:sc-engines": "3a654d7257dcdca108e77a28802f685a71e87ef9e7c5255e1b440e6b39642401",
+        "module:sc-engines:crate root::pipeline": "575a50dbd52ae7dae6a6bf01d5b4159a3c0841e757f8fa2eeec59365cb4bd987",
+        "module:sc-cli:crate root::report": "2cbce75f8c2174bcdc24c3ef3fd24740d6aa40ceb9aa0a0d6463bda9813ab0e8",
+        "module:sc-cli:crate root::pretty": "918b1813cf3f1f97f3f355dd694f2ed5edf901ff4586729cd0ae7e8c54ef4a99"
+      },
+      "pathLabel": "7 linked code blocks"
+    },
+    {
+      "id": "feature:source-analysis",
+      "label": "Source analysis",
+      "description": "Source discovery, imports, public items, and complexity analysis feed the project facts used by the engines.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "crate:sc-graph",
+        "module:sc-graph:crate root::discover",
+        "module:sc-graph:crate root::imports",
+        "module:sc-graph:crate root::pubs",
+        "module:sc-graph:crate root::complexity",
+        "module:sc-engines:crate root::facts"
+      ],
+      "sourceFingerprints": {
+        "crate:sc-graph": "b3b55271b9ddd3bc6cadb7d0665f5f6b42ee7c0d7db0792af81cd3231e241f7e",
+        "module:sc-graph:crate root::discover": "b6e32dcf410f00f6b193a8709a6756011510fb5e499e63ef116d4a276ac42d38",
+        "module:sc-graph:crate root::imports": "ff1e03269f72d2a9b9940eb85f03c2f077d2fd95f5a04d3f17db640e35859e28",
+        "module:sc-graph:crate root::pubs": "694ef8e496cc26ffae6e8d003f14fe4b514815a51adb6a416f57a2486ece0c20",
+        "module:sc-graph:crate root::complexity": "041dfd3ecf5bb015dd0056e858951622372f04c1ec192a7ce135de096a03e158",
+        "module:sc-engines:crate root::facts": "25cdc2a7506de9c8a8a54cffb59ee14b9765de7d61e5a02d71b228f7eb170862"
+      },
+      "pathLabel": "6 linked code blocks"
+    },
+    {
+      "id": "feature:test-coverage",
+      "label": "Tests and coverage",
+      "description": "The engines run project tests, collect line coverage, and compare coverage with function complexity.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "module:sc-engines:crate root::cargo_test",
+        "module:sc-engines:crate root::coverage",
+        "module:sc-engines:crate root::crap",
+        "module:sc-engines:crate root::compile"
+      ],
+      "sourceFingerprints": {
+        "module:sc-engines:crate root::cargo_test": "7d6a72ebff9f151e2e8fdff1715b20fdb039a85105d652637f4f519c34302823",
+        "module:sc-engines:crate root::coverage": "1416d331703bbc779e24b6bba341dcd00fc88a94e9f823281353aa87a4360f11",
+        "module:sc-engines:crate root::crap": "bdb293add711fe789c64f23307fa1d9955493e95fbfb6abc1e3d3bac71b07d30",
+        "module:sc-engines:crate root::compile": "545ee5c69ffc18a521c9e7886874398e186b5347a986a1f7f09c56777d6494e1"
+      },
+      "pathLabel": "4 linked code blocks"
+    },
+    {
+      "id": "feature:security-checks",
+      "label": "Security checks",
+      "description": "The secrets engine scans project files for supported credential patterns and reports findings through the scorecard.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "module:sc-engines:crate root::secrets",
+        "module:sc-engines:crate root::scope",
+        "module:sc-engines:crate root::manifest"
+      ],
+      "sourceFingerprints": {
+        "module:sc-engines:crate root::secrets": "e15e5251383d11a5953ef039ff29f1c0497aad035afab43d9eb52200cff4abf9",
+        "module:sc-engines:crate root::scope": "06edb5d001d94c48d4c8da82c72e6fe8736798493c45f8935a40d74f578fe138",
+        "module:sc-engines:crate root::manifest": "9670812c7a132545df18bde5b90d1184d9125d09080c7597a5cb83e1e327dd15"
+      },
+      "pathLabel": "3 linked code blocks"
+    },
+    {
+      "id": "feature:language-packs",
+      "label": "Language packs",
+      "description": "Pack detection selects language-specific compile, test, coverage, and lint commands for supported project types.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "module:sc-engines:crate root::pack",
+        "module:sc-engines:crate root::python",
+        "module:sc-engines:crate root::toolchain",
+        "module:sc-engines:crate root::poly_cc"
+      ],
+      "sourceFingerprints": {
+        "module:sc-engines:crate root::pack": "e87796c641162a21588e13e85e74af71b8425ab8fe3b1cf0cfb05674ca0c6e3d",
+        "module:sc-engines:crate root::python": "2e288879f46cf69c422889326db6f59e3cbe8311731b85c82fd14d95cd54ea1d",
+        "module:sc-engines:crate root::toolchain": "cb0dff219c5d9c0ad0bf54fe1ba89f2e5bf535836b360a3076290e8cd57fdcda",
+        "module:sc-engines:crate root::poly_cc": "d01439621faeded5abc7827c9293f00351617d73c1432bcf8e8bbb8a85739314"
+      },
+      "pathLabel": "4 linked code blocks"
+    },
+    {
+      "id": "feature:reports-integrations",
+      "label": "Reports and integrations",
+      "description": "Scorecards can be rendered as terminal, HTML, Markdown, JSON, or SARIF output. The MCP server exposes analysis tools.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "crate:sc-sarif",
+        "module:sc-sarif:crate root",
+        "module:sc-cli:crate root::format",
+        "module:sc-cli:crate root::report",
+        "crate:sc-mcp",
+        "app:sc-mcp:sc-mcp",
+        "module:sc-mcp:crate root"
+      ],
+      "sourceFingerprints": {
+        "crate:sc-sarif": "c3f90f67b5be323caad4949064b76a2ad9b22bb2fd2a6cedc47fe79f3d9e275e",
+        "module:sc-sarif:crate root": "5b6d9656d42c0c2ce528672bd6aa700d69eda2340b7c89060dd6b6488a791eb4",
+        "module:sc-cli:crate root::format": "a100380b896b52f1e6c3f13ce97d2022eee347ede9ad897c8529e1089ee0fe6f",
+        "module:sc-cli:crate root::report": "2cbce75f8c2174bcdc24c3ef3fd24740d6aa40ceb9aa0a0d6463bda9813ab0e8",
+        "crate:sc-mcp": "7f3824d53e781d5614a8f5f8e75f5b3505f3cc4893a73cc9e326baf260e8dac8",
+        "app:sc-mcp:sc-mcp": "4bff455a39b95474b5794eebfcf3fe1f3b3d48c716c35bc0ad614372e80ac392",
+        "module:sc-mcp:crate root": "7a85a8448cf03e88a410c164e78f5b4504dacccc54d39043a6d12c91332c509d"
+      },
+      "pathLabel": "7 linked code blocks"
+    },
+    {
+      "id": "feature:spec-review",
+      "label": "Spec review",
+      "description": "An optional OpenAI-compatible review checks requirement coverage and reports possible specification gaps.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "crate:sc-llm",
+        "module:sc-llm:crate root",
+        "module:sc-engines:crate root::spec_check"
+      ],
+      "sourceFingerprints": {
+        "crate:sc-llm": "1fe00c8531127afc8305595428da55fccf077ee5bf8895624ebe50f09f8bf1f2",
+        "module:sc-llm:crate root": "683a50b99a1aa89e64f1f56216d83f89df1f7bda77ce886db3bed2018e3cd820",
+        "module:sc-engines:crate root::spec_check": "fb94e5fadcc7b57db8c09d7822ca5c6c83b5c5dae79a742404bb5e626749f507"
+      },
+      "pathLabel": "3 linked code blocks"
+    },
+    {
+      "id": "feature:mutation-check",
+      "label": "Mutation checks",
+      "description": "The mutation engine changes code in controlled ways and checks whether the project's tests detect those changes.",
+      "kind": "FEATURE",
+      "status": "ready",
+      "memberIds": [
+        "crate:sc-mutation",
+        "module:sc-engines:crate root::mutation"
+      ],
+      "sourceFingerprints": {
+        "crate:sc-mutation": "8278bd5b33d15fd2572791cfa5cdd0d32645de4c178f976222fa107441364856",
+        "module:sc-engines:crate root::mutation": "3ce8f16425fe506469a67d443095312aefe31549b2099a6e16738bea5320520a"
+      },
+      "pathLabel": "2 linked code blocks"
+    }
+  ],
+  "groups": [
+    {
+      "id": "group:quality",
+      "label": "Quality",
+      "featureIds": [
+        "feature:quality-gate",
+        "feature:source-analysis"
+      ]
+    },
+    {
+      "id": "group:verification",
+      "label": "Verification",
+      "featureIds": [
+        "feature:test-coverage",
+        "feature:mutation-check"
+      ]
+    },
+    {
+      "id": "group:security",
+      "label": "Security",
+      "featureIds": [
+        "feature:security-checks"
+      ]
+    },
+    {
+      "id": "group:output",
+      "label": "Output",
+      "featureIds": [
+        "feature:reports-integrations",
+        "feature:spec-review",
+        "feature:language-packs"
+      ]
+    }
+  ]
+}
