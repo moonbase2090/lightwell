@@ -97,15 +97,12 @@ fn map_workspace(
         )?;
     }
 
-    let mut crate_fingerprints = crate_fingerprints;
-    crate_fingerprints.sort_by(|left, right| left.0.cmp(&right.0));
-    let workspace_fingerprint = hash_text(
-        &crate_fingerprints
-            .iter()
-            .map(|(name, fingerprint)| format!("{name}:{fingerprint}"))
-            .collect::<Vec<_>>()
-            .join("\n"),
-    );
+    let mut workspace_inputs: Vec<_> = crate_fingerprints
+        .into_iter()
+        .map(|(name, fingerprint)| format!("{name}:{fingerprint}"))
+        .collect();
+    workspace_inputs.sort();
+    let workspace_fingerprint = hash_text(&workspace_inputs.join("\n"));
     blocks.insert(
         0,
         FactBlock::Workspace(WorkspaceBlock {
