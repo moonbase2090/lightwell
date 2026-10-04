@@ -197,7 +197,7 @@ fn source_offset(source: &str, location: LineColumn) -> Option<usize> {
         return None;
     }
     let mut line = 1;
-    let mut offset = 0;
+    let mut offset: usize = 0;
     for text in source.split_inclusive('\n') {
         if line == location.line {
             return offset.checked_add(location.column);
