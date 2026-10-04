@@ -14,7 +14,7 @@ Port the TypeScript extractor into `lightwell-core` so the app and CLI have one 
 
 Language detection order:
 
-1. **Rust:** detect `Cargo.toml`; use Cargo metadata for workspace packages, targets, features, and path dependencies, then walk Rust module declarations from each target.
+1. **Rust:** detect `Cargo.toml`; discover workspace packages, targets, features, and path dependencies using the approach MB2090 chooses, then walk Rust module declarations from each target. Keep M1 implementation paused until this approach is decided.
 2. **TypeScript and JavaScript:** detect `package.json`, with `tsconfig.json` or `jsconfig.json` as project hints; read source imports and package entry/export declarations.
 3. **Python:** detect `pyproject.toml`, `setup.cfg`, or `setup.py`; map Python files, packages, and imports.
 4. **Go:** detect `go.mod`; map packages and imports from Go source files.
@@ -27,7 +27,7 @@ The note file location and first-write behavior remain open. Once decided, key n
 
 ## Editor action
 
-Clicking a block opens its source in a read-only Monaco inspector, scrolled to that block. Use **Open in editor** to edit the file in another application. By default, launch the operating system's default app for that file type with `open` on macOS or `xdg-open` on Linux. A user-defined command template overrides the default and may include file, line, and column placeholders. Ship a few ready-made templates for common launch forms, including JetBrains IDEs, Kiro, Zed, VS Code, Cursor, and vim in a terminal. These presets are examples, not an allowlist; accept arbitrary templates. If no app or template is available, fall back to `VISUAL`, then `EDITOR`.
+Clicking a block opens its source in a read-only Monaco inspector, scrolled to that block. Use **Open in editor** to edit the file in another application. By default, launch the operating system's default app for that file type with `open` on macOS or `xdg-open` on Linux. A user-defined command template overrides the default and may include file, line, and column placeholders. Ship a few ready-made templates for common launch forms, including JetBrains IDEs, Kiro, Zed, VS Code, Cursor, and vim in a terminal. These presets are examples, not an allowlist; accept arbitrary templates. If the OS handler or configured template cannot launch, or no handler is available, fall back to `VISUAL`, then `EDITOR`.
 
 ## Packaging
 
@@ -52,7 +52,7 @@ Sizes are relative engineering estimates, not calendar commitments.
 
 ## Open questions for MB2090
 
-- Which business model should Lightwell use? One option is a free local app and CLI with a paid hosted team service later.
+- Should Lightwell use an open-core model, a fully proprietary local app, or a free local app and CLI with a paid hosted team service later?
 - Which license should Lightwell use? Keep the repository private until MB2090 chooses one.
 - Should Rust extraction use Cargo on the user's machine, or parse manifests and sources without Cargo?
 - Where should Lightwell store project notes, and when should it create the file?
