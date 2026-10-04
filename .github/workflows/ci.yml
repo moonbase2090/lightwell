@@ -30,6 +30,8 @@ jobs:
         run: cargo run --quiet --locked -p lightwell-core --example schema_v1 > "$RUNNER_TEMP/lightwell-schema-v1.json"
       - name: Validate the Rust map with the viewer schema
         run: node_modules/.bin/tsx scripts/check-map.ts "$RUNNER_TEMP/lightwell-schema-v1.json"
+      - name: Compare Rust extraction with Prismattyc and Scorecard maps
+        run: node scripts/check-rust-map-parity.mjs
       - name: Compare Cargo metadata with no-Cargo manifest and source discovery
         run: |
           mkdir -p "$RUNNER_TEMP/no-cargo"
