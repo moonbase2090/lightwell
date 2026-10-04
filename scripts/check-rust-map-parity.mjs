@@ -38,42 +38,51 @@ function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function firstDifference(actual, expected, location = "$") {
-  if (Object.is(actual, expected)) return null;
+function findDifferences(actual, expected, location = "$", differences = []) {
+  if (Object.is(actual, expected) || differences.length === 25) return differences;
   if (Array.isArray(actual) || Array.isArray(expected)) {
     if (!Array.isArray(actual) || !Array.isArray(expected)) {
-      return `${location}: array shape differs`;
+      differences.push(`${location}: array shape differs`);
+      return differences;
     }
     if (actual.length !== expected.length) {
-      return `${location}: expected ${expected.length} items, got ${actual.length}`;
+      differences.push(`${location}: expected ${expected.length} items, got ${actual.length}`);
+      return differences;
     }
     for (let index = 0; index < actual.length; index += 1) {
-      const difference = firstDifference(actual[index], expected[index], `${location}[${index}]`);
-      if (difference !== null) return difference;
+      findDifferences(actual[index], expected[index], `${location}[${index}]`, differences);
+      if (differences.length === 25) return differences;
     }
-    return null;
+    return differences;
   }
   if (isRecord(actual) || isRecord(expected)) {
-    if (!isRecord(actual) || !isRecord(expected)) return `${location}: object shape differs`;
+    if (!isRecord(actual) || !isRecord(expected)) {
+      differences.push(`${location}: object shape differs`);
+      return differences;
+    }
     const keys = [...new Set([...Object.keys(actual), ...Object.keys(expected)])].sort();
     for (const key of keys) {
       if (!Object.hasOwn(actual, key)) {
-        return `${location}.${key}: key missing from actual output`;
+        differences.push(`${location}.${key}: key missing from actual output`);
+      } else if (!Object.hasOwn(expected, key)) {
+        differences.push(`${location}.${key}: unexpected key in actual output`);
+      } else {
+        findDifferences(actual[key], expected[key], `${location}.${key}`, differences);
       }
-      if (!Object.hasOwn(expected, key)) {
-        return `${location}.${key}: unexpected key in actual output`;
-      }
-      const difference = firstDifference(actual[key], expected[key], `${location}.${key}`);
-      if (difference !== null) return difference;
+      if (differences.length === 25) return differences;
     }
-    return null;
+    return differences;
   }
-  return `${location}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`;
+  differences.push(`${location}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  return differences;
 }
 
 function assertEqual(actual, expected, description) {
-  const difference = firstDifference(actual, expected);
-  if (difference !== null) throw new Error(`${description}: ${difference}`);
+  const differences = findDifferences(actual, expected);
+  if (differences.length > 0) {
+    const suffix = differences.length === 25 ? "\nFurther differences omitted." : "";
+    throw new Error(`${description}:\n${differences.join("\n")}${suffix}`);
+  }
 }
 
 const temporaryRoot = mkdtempSync(path.join(os.tmpdir(), "lightwell-map-parity-"));
