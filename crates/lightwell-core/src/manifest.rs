@@ -683,7 +683,13 @@ fn add_explicit_target(
         }
         _ => {
             let name = configured_name.unwrap_or(kind);
-            (name.to_owned(), format!("{kind}s/{name}.rs"))
+            let directory = match kind {
+                "example" => "examples",
+                "test" => "tests",
+                "bench" => "benches",
+                _ => kind,
+            };
+            (name.to_owned(), format!("{directory}/{name}.rs"))
         }
     };
     let name = configured_name.unwrap_or(&default_name).to_owned();
