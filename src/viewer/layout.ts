@@ -1,7 +1,7 @@
 import ELK from "elkjs/lib/elk.bundled.js";
 import { MarkerType, type Edge } from "@xyflow/react";
 import type { FactConnection, DisplayBlock } from "../model.js";
-import type { CodeMapNode, BlockNodeData } from "./BlockNode.js";
+import type { MapNode, BlockNodeData } from "./BlockNode.js";
 
 const elk = new ELK();
 const nodeWidth = 222;
@@ -10,11 +10,11 @@ const nodeHeight = 94;
 export async function layoutBlocks(args: {
   readonly blocks: readonly DisplayBlock[];
   readonly connections: readonly FactConnection[];
-}): Promise<{ readonly nodes: CodeMapNode[]; readonly edges: Edge[] }> {
+}): Promise<{ readonly nodes: MapNode[]; readonly edges: Edge[] }> {
   const visibleIds = new Set(args.blocks.map((block) => block.id));
   const connections = args.connections.filter((connection) => visibleIds.has(connection.source) && visibleIds.has(connection.target));
   const layout = await elk.layout({
-    id: "codemap",
+    id: "lightwell",
     layoutOptions: {
       "elk.algorithm": "layered",
       "elk.direction": "DOWN",
@@ -32,7 +32,7 @@ export async function layoutBlocks(args: {
     })),
   });
   const positions = new Map((layout.children ?? []).map((child) => [child.id, { x: child.x ?? 0, y: child.y ?? 0 }]));
-  const nodes: CodeMapNode[] = args.blocks.map((block) => {
+  const nodes: MapNode[] = args.blocks.map((block) => {
     const position = positions.get(block.id) ?? { x: 0, y: 0 };
     const data: BlockNodeData = {
       block,
@@ -62,12 +62,12 @@ export async function layoutBlocks(args: {
 }
 
 export function emphasizeGraph(args: {
-  readonly nodes: readonly CodeMapNode[];
+  readonly nodes: readonly MapNode[];
   readonly edges: readonly Edge[];
   readonly activeNodeId: string | null;
   readonly activeFeatureMemberIds: ReadonlySet<string> | null;
   readonly onHover: (id: string | null) => void;
-}): { readonly nodes: CodeMapNode[]; readonly edges: Edge[] } {
+}): { readonly nodes: MapNode[]; readonly edges: Edge[] } {
   const directNeighbors = args.activeNodeId === null
     ? new Set<string>()
     : new Set([

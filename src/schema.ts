@@ -95,7 +95,7 @@ export function parseFactMap(value: unknown): FactMap {
     || !Array.isArray(value.groups)
     || !value.groups.every(isFactGroup)
     || !isStats(value.stats)) {
-    throw new Error("The facts file does not match codemap schema v1.");
+    throw new Error("The facts file does not match Lightwell schema v1.");
   }
   return {
     schemaVersion: 1,
@@ -144,7 +144,7 @@ export function parseAnnotationOverlay(value: unknown): AnnotationOverlay {
     || !value.features.every(isFeatureAnnotation)
     || !Array.isArray(value.groups)
     || !value.groups.every(isOverlayGroup)) {
-    throw new Error("The annotation file does not match codemap schema v1.");
+    throw new Error("The notes file does not match Lightwell schema v1.");
   }
   const blocks: Record<string, BlockAnnotation> = {};
   for (const [id, annotation] of Object.entries(value.blocks)) {

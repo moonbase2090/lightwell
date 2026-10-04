@@ -1,3 +1,4 @@
 node_modules/
 dist/
+.sc/
 .DS_Store
