@@ -39,13 +39,21 @@ fn modules_in_file(
                 path: source_path.to_owned(),
                 reason: source.to_string(),
             })?;
-        modules_from_items(
+        let mut modules = modules_from_items(
             &file.items,
             &source,
             source_path,
             parent_directory,
             active_sources,
-        )
+        )?;
+        if matches!(file.items.first(), Some(Item::Mod(module)) if !is_test_only(&module.attrs)) {
+            if let Some(first_module) = modules.first_mut() {
+                let mut attributes = source_attributes(&source, &file.attrs);
+                attributes.append(&mut first_module.attributes);
+                first_module.attributes = attributes;
+            }
+        }
+        Ok(modules)
     })();
     active_sources.remove(&source_key);
     result
@@ -97,11 +105,7 @@ fn modules_from_items(
                 )?,
                 (None, None) => Vec::new(),
             };
-            let attributes = module
-                .attrs
-                .iter()
-                .map(|attribute| attribute_source(source, attribute))
-                .collect();
+            let attributes = source_attributes(source, &module.attrs);
 
             Ok(RustModule {
                 name,
@@ -190,6 +194,17 @@ fn attribute_source(source: &str, attribute: &Attribute) -> String {
             .unwrap_or_else(|| attribute.to_token_stream().to_string()),
         _ => attribute.to_token_stream().to_string(),
     }
+}
+
+fn source_attributes(source: &str, attributes: &[Attribute]) -> Vec<String> {
+    attributes
+        .iter()
+        .map(|attribute| attribute_source(source, attribute))
+        .filter(|attribute| {
+            let attribute = attribute.trim_start();
+            attribute.starts_with("#[") || attribute.starts_with("#![")
+        })
+        .collect()
 }
 
 fn source_offset(source: &str, location: LineColumn) -> Option<usize> {

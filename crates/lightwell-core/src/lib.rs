@@ -1,8 +1,10 @@
+mod extract;
 mod facts;
 mod manifest;
 mod metadata;
 mod rust_source;
 
+pub use extract::{extract_cargo_map, MapExtractionError};
 pub use facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock, MAP_SCHEMA_VERSION,
