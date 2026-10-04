@@ -756,7 +756,7 @@ fn add_default_target(
     kind: &str,
 ) {
     let source_path = package_root.join(relative_path);
-    if source_path.is_file() {
+    if source_path.is_file() && !has_target_source(targets, &source_path) {
         add_target(targets, source_path, name, vec![kind.to_owned()]);
     }
 }
@@ -791,6 +791,9 @@ fn add_automatic_targets(
     entries.sort();
     for entry in entries {
         if entry.is_file() && entry.extension().is_some_and(|extension| extension == "rs") {
+            if has_target_source(targets, &entry) {
+                continue;
+            }
             let name = entry
                 .file_stem()
                 .and_then(|stem| stem.to_str())
@@ -799,7 +802,7 @@ fn add_automatic_targets(
             add_target(targets, entry, name, vec![kind.to_owned()]);
         } else if entry.is_dir() {
             let main = entry.join("main.rs");
-            if main.is_file() {
+            if main.is_file() && !has_target_source(targets, &main) {
                 let name = entry
                     .file_name()
                     .and_then(|name| name.to_str())
@@ -810,6 +813,15 @@ fn add_automatic_targets(
         }
     }
     Ok(())
+}
+
+fn has_target_source(targets: &[CargoTarget], source_path: &Path) -> bool {
+    let source_path = source_path
+        .canonicalize()
+        .unwrap_or_else(|_| source_path.to_owned());
+    targets
+        .iter()
+        .any(|target| target.source_path == source_path)
 }
 
 fn add_target(
