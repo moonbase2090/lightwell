@@ -47,10 +47,18 @@ function findDifferences(actual, expected, location = "$", differences = []) {
     }
     if (actual.length !== expected.length) {
       differences.push(`${location}: expected ${expected.length} items, got ${actual.length}`);
-      return differences;
     }
-    for (let index = 0; index < actual.length; index += 1) {
+    const sharedLength = Math.min(actual.length, expected.length);
+    for (let index = 0; index < sharedLength; index += 1) {
       findDifferences(actual[index], expected[index], `${location}[${index}]`, differences);
+      if (differences.length === 25) return differences;
+    }
+    for (let index = sharedLength; index < actual.length; index += 1) {
+      differences.push(`${location}[${index}]: unexpected item ${JSON.stringify(actual[index])}`);
+      if (differences.length === 25) return differences;
+    }
+    for (let index = sharedLength; index < expected.length; index += 1) {
+      differences.push(`${location}[${index}]: missing item ${JSON.stringify(expected[index])}`);
       if (differences.length === 25) return differences;
     }
     return differences;
