@@ -30,8 +30,15 @@ jobs:
         run: cargo run --quiet --locked -p lightwell-core --example schema_v1 > "$RUNNER_TEMP/lightwell-schema-v1.json"
       - name: Validate the Rust map with the viewer schema
         run: node_modules/.bin/tsx scripts/check-map.ts "$RUNNER_TEMP/lightwell-schema-v1.json"
-      - name: Exercise Cargo metadata discovery
-        run: cargo run --quiet --locked -p lightwell-core --example cargo_metadata -- .
+      - name: Compare Cargo metadata with no-Cargo manifest and source discovery
+        run: |
+          mkdir -p "$RUNNER_TEMP/no-cargo"
+          for project in . crates/lightwell-core/fixtures/no-cargo-workspace; do
+            cargo run --quiet --locked -p lightwell-core --example cargo_metadata -- "$project" > "$RUNNER_TEMP/with-cargo.txt"
+            env -i PATH="$RUNNER_TEMP/no-cargo" "$GITHUB_WORKSPACE/target/debug/examples/cargo_metadata" "$project" > "$RUNNER_TEMP/without-cargo.txt"
+            diff -u "$RUNNER_TEMP/with-cargo.txt" "$RUNNER_TEMP/without-cargo.txt"
+            cat "$RUNNER_TEMP/without-cargo.txt"
+          done
       - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
       - uses: moonbase2090/Scorecard/action@v0.1.6
         with:

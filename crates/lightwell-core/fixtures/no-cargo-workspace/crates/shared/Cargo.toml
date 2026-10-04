@@ -1,0 +1,5 @@
+[package]
+name = "fixture-shared"
+version.workspace = true
+description.workspace = true
+edition = "2021"
