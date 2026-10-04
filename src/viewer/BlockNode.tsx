@@ -10,7 +10,7 @@ export interface BlockNodeData extends Record<string, unknown> {
   readonly onHover: (id: string | null) => void;
 }
 
-export type CodeMapNode = Node<BlockNodeData, "codeBlock">;
+export type MapNode = Node<BlockNodeData, "codeBlock">;
 
 function shortPath(sourcePath: string | null): string {
   if (sourcePath === null) return "source path unresolved";
@@ -30,7 +30,7 @@ function statusLabel(status: DisplayBlock["status"]): string {
   }
 }
 
-function BlockNodeView({ data, selected }: NodeProps<CodeMapNode>) {
+function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
   const { block } = data;
   return (
     <div

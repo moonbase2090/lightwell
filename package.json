@@ -1,17 +1,17 @@
 {
-  "name": "moonbase-codemap",
+  "name": "lightwell",
   "version": "0.1.0",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "bin": {
-    "codemap": "bin/codemap.mjs"
+    "lightwell": "bin/lightwell.mjs"
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "extract": "tsx src/cli.ts extract",
-    "codemap": "tsx src/cli.ts",
+    "lightwell": "tsx src/cli.ts",
     "check:licenses": "node scripts/check-dependency-licenses.mjs",
     "preview": "vite preview --host 127.0.0.1"
   },

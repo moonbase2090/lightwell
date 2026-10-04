@@ -35,7 +35,7 @@ import scorecardFacts from "../maps/scorecard.facts.json";
 import scorecardAnnotations from "../maps/scorecard.annotations.json";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
-import BlockNodeView, { type CodeMapNode } from "./viewer/BlockNode.js";
+import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
 
 interface MapSource {
@@ -334,7 +334,7 @@ function App() {
   const [activeGroupId, setActiveGroupId] = useState("");
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
-  const [baseGraph, setBaseGraph] = useState<{ readonly nodes: CodeMapNode[]; readonly edges: ReturnType<typeof emphasizeGraph>["edges"] }>({ nodes: [], edges: [] });
+  const [baseGraph, setBaseGraph] = useState<{ readonly nodes: MapNode[]; readonly edges: ReturnType<typeof emphasizeGraph>["edges"] }>({ nodes: [], edges: [] });
   const [graphError, setGraphError] = useState("");
   const shellRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -444,7 +444,7 @@ function App() {
     setScopePath(ancestors.length > 1 ? ancestors.slice(0, -1) : ancestors);
   }, [map]);
 
-  const onNodeClick: NodeMouseHandler<CodeMapNode> = useCallback((_event, node) => {
+  const onNodeClick: NodeMouseHandler<MapNode> = useCallback((_event, node) => {
     const block = map?.blockById.get(node.id);
     if (block !== undefined) activateBlock(block);
   }, [activateBlock, map]);
@@ -511,7 +511,7 @@ function App() {
       <header className="topbar">
         <div className="brand-block">
           <div className="brand-mark"><Waypoints size={17} strokeWidth={1.8} /></div>
-          <div><div className="brand-name">codemap<span className="brand-version">LOCAL</span></div><div className="brand-caption">source-backed architecture</div></div>
+          <div><div className="brand-name">Lightwell<span className="brand-version">LOCAL</span></div><div className="brand-caption">turning the lights on in the Dark Factory</div></div>
         </div>
         <div className="project-select-wrap">
           <label htmlFor="project-select">PROJECT</label>
