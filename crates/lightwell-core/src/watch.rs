@@ -63,7 +63,7 @@ impl MapWatcher {
     pub fn next_changed_map(&mut self) -> Result<FactMap, MapWatchError> {
         loop {
             let result = self.events.recv().map_err(MapWatchError::EventsClosed)?;
-            let events = result.map_err(MapWatchError::DebouncedEvents)?;
+            let events = result.map_err(MapWatchError::DebouncedEvent)?;
             if !events.iter().any(|event| {
                 event_is_relevant(&self.repository_path, &self.current_map, &event.path)
             }) {
@@ -89,7 +89,7 @@ pub enum MapWatchError {
     },
     Watch(notify::Error),
     Extraction(MapExtractionError),
-    DebouncedEvents(Vec<notify::Error>),
+    DebouncedEvent(notify::Error),
     EventsClosed(RecvError),
 }
 
@@ -103,15 +103,9 @@ impl Display for MapWatchError {
             ),
             Self::Watch(source) => write!(formatter, "Could not watch project files: {source}"),
             Self::Extraction(source) => Display::fmt(source, formatter),
-            Self::DebouncedEvents(sources) => write!(
-                formatter,
-                "File watcher reported errors: {}",
-                sources
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join("; ")
-            ),
+            Self::DebouncedEvent(source) => {
+                write!(formatter, "File watcher reported an error: {source}")
+            }
             Self::EventsClosed(source) => {
                 write!(formatter, "File watcher stopped unexpectedly: {source}")
             }
@@ -125,7 +119,7 @@ impl Error for MapWatchError {
             Self::RepositoryPath { source, .. } => Some(source),
             Self::Watch(source) => Some(source),
             Self::Extraction(source) => Some(source),
-            Self::DebouncedEvents(_) => None,
+            Self::DebouncedEvent(source) => Some(source),
             Self::EventsClosed(source) => Some(source),
         }
     }
