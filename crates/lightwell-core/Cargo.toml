@@ -9,6 +9,4 @@ description = "Shared extraction model and schema-v1 map types for Lightwell"
 
 [dependencies]
 serde.workspace = true
-
-[dev-dependencies]
 serde_json.workspace = true
