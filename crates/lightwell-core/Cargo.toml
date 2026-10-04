@@ -8,5 +8,10 @@ rust-version.workspace = true
 description = "Shared extraction model and schema-v1 map types for Lightwell"
 
 [dependencies]
+glob.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+syn.workspace = true
+toml.workspace = true

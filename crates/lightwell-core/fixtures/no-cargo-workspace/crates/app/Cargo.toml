@@ -1,0 +1,23 @@
+[package]
+name = "fixture-app"
+version.workspace = true
+description.workspace = true
+edition = "2021"
+build = "build.rs"
+
+[lib]
+path = "src/lib.rs"
+
+[features]
+default = ["fast"]
+fast = []
+
+[dependencies]
+
+[dependencies.fixture-shared]
+workspace = true
+optional = true
+
+[[bin]]
+name = "fixture-tool"
+path = "tools/main.rs"
