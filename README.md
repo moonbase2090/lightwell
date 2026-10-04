@@ -45,7 +45,7 @@ The seed command refuses to overwrite an existing overlay. Edit the overlay to c
 
 When a block's fingerprint no longer matches its note, the viewer marks it as changed. Review the block and update its `sourceFingerprint`. Update affected feature `sourceFingerprints` when their descriptions still match the source. Extraction never writes to note overlays.
 
-The project note file location and first-write behavior are still open. See [the schema reference](docs/schema.md) for block types, connection rules, note fields, and stale fingerprint behavior.
+Project notes will live in `.lightwell/notes.json`, created on the first saved note. See [the schema reference](docs/schema.md) for block types, connection rules, note fields, and stale fingerprint behavior.
 
 ## Data flow
 
@@ -72,6 +72,10 @@ The viewer starts at the Cargo workspace. Click a block with children to open it
 The runtime dependencies are React and React DOM (MIT), `@xyflow/react` (MIT), `elkjs` (EPL-2.0 or GPL-3.0-or-later), and `lucide-react` (ISC). Vite is MIT, TypeScript is Apache-2.0, and `tsx` is MIT. `package-lock.json` records resolved versions. Transitive packages also include ISC, BSD-3-Clause, and MPL-2.0 components.
 
 Print the installed dependency license inventory with `npm run check:licenses`.
+
+## License
+
+Lightwell is licensed under the Mozilla Public License 2.0. The source repository remains private.
 
 ## Screenshots
 
