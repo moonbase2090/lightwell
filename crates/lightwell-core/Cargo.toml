@@ -1,0 +1,14 @@
+[package]
+name = "lightwell-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Shared extraction model and schema-v1 map types for Lightwell"
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

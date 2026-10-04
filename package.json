@@ -2,7 +2,7 @@
   "name": "lightwell",
   "version": "0.1.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "MPL-2.0",
   "type": "module",
   "bin": {
     "lightwell": "bin/lightwell.mjs"
