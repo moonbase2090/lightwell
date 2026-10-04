@@ -99,31 +99,35 @@ mkdirSync(noCargoPath);
 try {
   for (const fixture of cases) {
     const checkout = path.join(temporaryRoot, fixture.label);
+    const cargoOutput = path.join(temporaryRoot, `${fixture.label}-cargo.json`);
+    const noCargoOutput = path.join(temporaryRoot, `${fixture.label}-no-cargo.json`);
     run("git", ["clone", "--quiet", "--filter=blob:none", "--no-checkout", fixture.repository, checkout]);
     run("git", ["-C", checkout, "checkout", "--quiet", "--detach", fixture.revision]);
-    const cargoOutput = run("cargo", [
+    run("cargo", [
       "run",
       "--quiet",
       "--locked",
       "-p",
-      "lightwell-core",
-      "--example",
-      "extract_map",
+      "lightwell-cli",
       "--",
+      "extract",
       checkout,
+      "-o",
+      cargoOutput,
+      "--name",
+      fixture.label,
     ]);
     const noCargoExecutable = path.join(
       root,
       "target",
       "debug",
-      "examples",
-      process.platform === "win32" ? "extract_map.exe" : "extract_map",
+      process.platform === "win32" ? "lightwell.exe" : "lightwell",
     );
-    const noCargoOutput = run(noCargoExecutable, [checkout], {
+    run(noCargoExecutable, ["extract", checkout, "-o", noCargoOutput, "--name", fixture.label], {
       env: { ...process.env, PATH: noCargoPath },
     });
-    const actual = JSON.parse(cargoOutput);
-    const withoutCargo = JSON.parse(noCargoOutput);
+    const actual = JSON.parse(readFileSync(cargoOutput, "utf8"));
+    const withoutCargo = JSON.parse(readFileSync(noCargoOutput, "utf8"));
     const expected = JSON.parse(readFileSync(path.join(root, fixture.facts), "utf8"));
     assertEqual(actual, expected, `Rust extraction differs from ${fixture.facts}`);
     assertEqual(withoutCargo, actual, `No-Cargo extraction differs for ${fixture.label}`);
