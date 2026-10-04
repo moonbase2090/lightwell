@@ -60,7 +60,7 @@ fn map_workspace(
     workspace: CargoWorkspace,
     project_name: Option<&str>,
 ) -> Result<FactMap, MapExtractionError> {
-    let root_path = workspace.root;
+    let root_path = workspace.root.clone();
     let project_label = project_name
         .map(str::to_owned)
         .or_else(|| {
