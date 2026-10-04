@@ -21,16 +21,23 @@ npm run build
 
 The output is in `dist/`.
 
-## Extract maps
+## Rust CLI
 
-Run extraction from this project directory. Repository and output paths can be relative:
+Install the Rust CLI from the repository root:
 
 ```sh
-npm run lightwell -- extract ../Prismattyc --name Prismattyc -o maps/prismattyc.facts.json
-npm run lightwell -- extract ../Scorecard --name Scorecard -o maps/scorecard.facts.json
+cargo install --path crates/lightwell-cli
 ```
 
-The `lightwell` CLI currently runs `cargo metadata --no-deps`. It records workspace crates, app targets, internal path dependencies, declared Cargo features, Rust modules, and source fingerprints. It omits test-only modules. Paths in each output file are relative to the source repository.
+Extract a map with:
+
+```sh
+lightwell extract ../Prismattyc --name Prismattyc -o maps/prismattyc.facts.json
+```
+
+The Rust CLI calls `lightwell-core`. It uses `cargo metadata --no-deps` when Cargo is installed and otherwise reads the manifests and Rust sources directly. It records workspace crates, app targets, internal path dependencies, declared Cargo features, Rust modules, and source fingerprints. It omits test-only modules. Paths in each output file are relative to the source repository.
+
+The `npm run lightwell -- ...` command remains available for the TypeScript preview workflow while the app migrates to the shared Rust extractor.
 
 ## Preview notes
 

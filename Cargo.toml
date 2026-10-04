@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/lightwell-core"]
+members = ["crates/lightwell-core", "crates/lightwell-cli"]
 resolver = "2"
 
 [workspace.package]

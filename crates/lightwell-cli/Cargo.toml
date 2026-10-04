@@ -1,0 +1,16 @@
+[package]
+name = "lightwell-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Command-line interface for Lightwell Rust workspace maps"
+
+[[bin]]
+name = "lightwell"
+path = "src/main.rs"
+
+[dependencies]
+lightwell-core = { path = "../lightwell-core" }
+serde_json.workspace = true
