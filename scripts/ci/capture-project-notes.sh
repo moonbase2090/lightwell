@@ -71,6 +71,7 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     sleep 3
     xdotool mousemove --window "$window_id" 900 202 click 1
     sleep 2
+    xdotool mousemove --window "$window_id" 760 455 click 1
     xdotool type --clearmodifiers --delay 35 "Architecture note one."
     xdotool mousemove --window "$window_id" 995 704 click 1
     for _ in $(seq 1 15); do
@@ -87,6 +88,7 @@ const fs = require("node:fs");
 const [path, blockId, expectedText] = process.argv.slice(2);
 const document = JSON.parse(fs.readFileSync(path, "utf8"));
 if (document.schemaVersion !== 1 || document.notes?.[blockId]?.text !== expectedText) {
+  process.stderr.write(`Unexpected notes document: ${JSON.stringify(document)}\n`);
   throw new Error("The first saved project note did not match the workspace file.");
 }
 NODE
