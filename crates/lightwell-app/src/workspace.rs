@@ -1,4 +1,7 @@
-use lightwell_core::{extract_cargo_map, FactMap, MapWatchError, MapWatcher};
+use lightwell_core::{
+    extract_cargo_map, project_notes_for_map, remove_project_note, set_project_note_for_map,
+    update_project_note_text, FactMap, MapWatchError, MapWatcher, NotesError, ProjectNoteView,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -23,6 +26,14 @@ pub struct WorkspaceEntry {
 pub struct WorkspaceMapDocument {
     facts: FactMap,
     annotations: Value,
+    project_notes: ProjectNotesState,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ProjectNotesState {
+    Ready { notes: Vec<ProjectNoteView> },
+    Error { message: String },
 }
 
 #[derive(Clone, Serialize)]
@@ -34,6 +45,24 @@ struct WorkspaceMapUpdate {
 
 #[derive(Clone, Default)]
 pub struct WorkspaceWatchers(Arc<Mutex<HashMap<PathBuf, Arc<RwLock<FactMap>>>>>);
+
+impl WorkspaceWatchers {
+    fn current_map(&self, root: &Path) -> Result<FactMap, String> {
+        let current = self
+            .0
+            .lock()
+            .map_err(|_| "The workspace watcher registry is unavailable.".to_owned())?
+            .get(root)
+            .cloned();
+        match current {
+            Some(current) => current
+                .read()
+                .map(|facts| facts.clone())
+                .map_err(|_| "The workspace map cache is unavailable.".to_owned()),
+            None => extract_cargo_map(root, None).map_err(|error| error.to_string()),
+        }
+    }
+}
 
 #[tauri::command]
 pub fn recent_workspaces(app: AppHandle) -> Result<Vec<WorkspaceEntry>, String> {
@@ -57,7 +86,7 @@ pub fn load_workspace_map(app: AppHandle, path: String) -> Result<WorkspaceMapDo
     let root = workspace_root(&path)?;
     let facts = extract_cargo_map(&root, None).map_err(|error| error.to_string())?;
     remember_workspace(&app, &root, &facts)?;
-    Ok(workspace_map_document(facts))
+    Ok(workspace_map_document(&root, facts))
 }
 
 #[tauri::command]
@@ -68,6 +97,54 @@ pub fn watch_workspace(
 ) -> Result<WorkspaceMapDocument, String> {
     let root = workspace_root(&path)?;
     start_workspace_watcher(&app, watchers.inner(), root)
+}
+
+#[tauri::command]
+pub fn add_workspace_note(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+    block_id: String,
+    text: String,
+) -> Result<ProjectNotesState, String> {
+    let root = workspace_root(&path)?;
+    let facts = watchers.current_map(&root)?;
+    set_project_note_for_map(&root, &facts, &block_id, &text)
+        .map(|notes| ProjectNotesState::Ready { notes })
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn edit_workspace_note(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+    block_id: String,
+    text: String,
+) -> Result<ProjectNotesState, String> {
+    let root = workspace_root(&path)?;
+    let facts = watchers.current_map(&root)?;
+    let notes = match set_project_note_for_map(&root, &facts, &block_id, &text) {
+        Ok(notes) => notes,
+        Err(NotesError::BlockNotFound(_)) => {
+            update_project_note_text(&root, &facts, &block_id, &text)
+                .map_err(|error| error.to_string())?
+        }
+        Err(error) => return Err(error.to_string()),
+    };
+    Ok(ProjectNotesState::Ready { notes })
+}
+
+#[tauri::command]
+pub fn remove_workspace_note(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+    block_id: String,
+) -> Result<ProjectNotesState, String> {
+    let root = workspace_root(&path)?;
+    let facts = watchers.current_map(&root)?;
+    remove_project_note(&root, &block_id).map_err(|error| error.to_string())?;
+    project_notes_for_map(&root, &facts)
+        .map(|notes| ProjectNotesState::Ready { notes })
+        .map_err(|error| error.to_string())
 }
 
 fn start_workspace_watcher(
@@ -84,7 +161,7 @@ fn start_workspace_watcher(
             .read()
             .map_err(|_| "The workspace map cache is unavailable.".to_owned())?
             .clone();
-        return Ok(workspace_map_document(facts));
+        return Ok(workspace_map_document(&root, facts));
     }
 
     let mut watcher = MapWatcher::new(&root, None).map_err(|error| error.to_string())?;
@@ -110,7 +187,7 @@ fn start_workspace_watcher(
                         }
                         let update = WorkspaceMapUpdate {
                             workspace_id: thread_root.to_string_lossy().into_owned(),
-                            document: workspace_map_document(facts),
+                            document: workspace_map_document(&thread_root, facts),
                         };
                         if let Err(error) = thread_app.emit("workspace-map-changed", update) {
                             eprintln!("Lightwell could not send a workspace map update: {error}");
@@ -150,7 +227,7 @@ fn start_workspace_watcher(
         .read()
         .map_err(|_| "The workspace map cache is unavailable.".to_owned())?
         .clone();
-    Ok(workspace_map_document(facts))
+    Ok(workspace_map_document(&root, facts))
 }
 
 fn workspace_root(path: &str) -> Result<PathBuf, String> {
@@ -183,9 +260,19 @@ fn empty_annotations(facts: &FactMap) -> Value {
     })
 }
 
-fn workspace_map_document(facts: FactMap) -> WorkspaceMapDocument {
+fn workspace_map_document(root: &Path, facts: FactMap) -> WorkspaceMapDocument {
     let annotations = empty_annotations(&facts);
-    WorkspaceMapDocument { facts, annotations }
+    let project_notes = match project_notes_for_map(root, &facts) {
+        Ok(notes) => ProjectNotesState::Ready { notes },
+        Err(error) => ProjectNotesState::Error {
+            message: error.to_string(),
+        },
+    };
+    WorkspaceMapDocument {
+        facts,
+        annotations,
+        project_notes,
+    }
 }
 
 fn recent_workspaces_path(app: &AppHandle) -> Result<PathBuf, String> {

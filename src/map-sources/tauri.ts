@@ -1,13 +1,37 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { MapSource } from "../map-source.js";
+import type { MapSource, ProjectNoteInput, ProjectNotesSource } from "../map-source.js";
 import {
   parseMapSourceDocument,
   parseMapSourceEntries,
   parseMapSourceEntry,
+  parseProjectNotesSnapshot,
   parseWorkspaceMapUpdate,
 } from "./tauri-types.js";
+
+const projectNotesApi: ProjectNotesSource = {
+  add(input: ProjectNoteInput) {
+    return invoke<unknown>("add_workspace_note", {
+      path: input.workspaceId,
+      blockId: input.blockId,
+      text: input.text,
+    }).then(parseProjectNotesSnapshot);
+  },
+  edit(input: ProjectNoteInput) {
+    return invoke<unknown>("edit_workspace_note", {
+      path: input.workspaceId,
+      blockId: input.blockId,
+      text: input.text,
+    }).then(parseProjectNotesSnapshot);
+  },
+  remove(input: Omit<ProjectNoteInput, "text">) {
+    return invoke<unknown>("remove_workspace_note", {
+      path: input.workspaceId,
+      blockId: input.blockId,
+    }).then(parseProjectNotesSnapshot);
+  },
+};
 
 export const tauriMapSource: MapSource = {
   listMaps() {
@@ -51,4 +75,5 @@ export const tauriMapSource: MapSource = {
       throw error;
     }
   },
+  ...(import.meta.env.VITE_ENABLE_PROJECT_NOTES === "true" ? { projectNotes: projectNotesApi } : {}),
 };

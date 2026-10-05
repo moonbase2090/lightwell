@@ -18,6 +18,7 @@ import {
   CircleAlert,
   Command,
   FileCode2,
+  FileText,
   FolderOpen,
   GitBranch,
   Layers3,
@@ -32,14 +33,16 @@ import {
   type Viewport,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import type { MapSource, MapSourceDocument, MapSourceEntry } from "./map-source.js";
+import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNotesSnapshot } from "./map-source.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
+import ProjectNotesDialog from "./ProjectNotesDialog.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
 
 const nodeTypes = { codeBlock: BlockNodeView };
 const featureColors = ["#88a8ff", "#5ed7c0", "#d19af5", "#efba78", "#80c7f2", "#f08db4", "#a8d989", "#e4cf73"];
+const emptyProjectNotes: ProjectNotesSnapshot = { kind: "ready", notes: [] };
 
 type MapCatalogState =
   | { readonly kind: "loading" }
@@ -48,7 +51,12 @@ type MapCatalogState =
 
 type LoadedMapState =
   | { readonly kind: "loading"; readonly id: string | null }
-  | { readonly kind: "ready"; readonly id: string; readonly map: ResolvedMap }
+  | {
+      readonly kind: "ready";
+      readonly id: string;
+      readonly map: ResolvedMap;
+      readonly projectNotes: ProjectNotesSnapshot;
+    }
   | { readonly kind: "error"; readonly id: string; readonly message: string };
 
 interface ConnectorPath {
@@ -396,6 +404,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [loadedMap, setLoadedMap] = useState<LoadedMapState>({ kind: "loading", id: null });
   const [workspaceError, setWorkspaceError] = useState("");
   const [openingWorkspace, setOpeningWorkspace] = useState(false);
+  const [projectNotesOpen, setProjectNotesOpen] = useState(false);
   const [mapRequestVersion, setMapRequestVersion] = useState(0);
   const [mapRefreshVersion, setMapRefreshVersion] = useState(0);
   const [scopePath, setScopePath] = useState<string[]>([]);
@@ -481,7 +490,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         );
         if (!cancelled) {
           setWorkspaceError("");
-          setLoadedMap({ kind: "ready", id: mapKey, map });
+          setLoadedMap({
+            kind: "ready",
+            id: mapKey,
+            map,
+            projectNotes: document.projectNotes ?? { kind: "ready", notes: [] },
+          });
           setMapCatalog((current) => current.kind === "ready"
             ? {
                 kind: "ready",
@@ -499,7 +513,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                 parseAnnotationOverlay(updatedDocument.annotations),
               );
               setLoadedMap((current) => current.kind === "ready" && current.id === mapKey
-                ? { ...current, map: updatedMap }
+                ? {
+                    ...current,
+                    map: updatedMap,
+                    projectNotes: updatedDocument.projectNotes ?? current.projectNotes,
+                  }
                 : current);
               setMapCatalog((current) => current.kind === "ready"
                 ? {
@@ -553,6 +571,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     : undefined;
   const openWorkspaceAction = mapSource.openWorkspace === undefined ? undefined : handleOpenWorkspace;
   const map = loadedMap.kind === "ready" && loadedMap.id === mapKey ? loadedMap.map : null;
+  const projectNotes = loadedMap.kind === "ready" && loadedMap.id === mapKey
+    ? loadedMap.projectNotes
+    : emptyProjectNotes;
+  const projectNotesSource = mapSource.projectNotes;
   const rootId = map?.facts.project.id ?? "";
   const validPath = map !== null && scopePath.length > 0 && scopePath[0] === rootId
     ? scopePath.filter((id) => map.blockById.has(id))
@@ -576,6 +598,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setActiveNodeId(id);
     if (id !== null) setActiveFeatureId(null);
   }, []);
+
+  const closeProjectNotes = useCallback(() => setProjectNotesOpen(false), []);
+  const acceptProjectNotes = useCallback((snapshot: ProjectNotesSnapshot) => {
+    setLoadedMap((current) => current.kind === "ready" && current.id === mapKey
+      ? { ...current, projectNotes: snapshot }
+      : current);
+  }, [mapKey]);
 
   useEffect(() => {
     if (map === null || initializedMapKeyRef.current === mapKey) return;
@@ -831,6 +860,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
               <span className="legend-item"><i className="legend-line dependency-line" />depends on <b>{directConnectionSummary.depends}</b></span>
               {staleCount > 0 && <span className="stale-count"><CircleAlert size={12} />{staleCount} changed</span>}
             </div>
+            {projectNotesSource !== undefined && (
+              <button className="project-notes-open-button" type="button" onClick={() => setProjectNotesOpen(true)}>
+                <FileText size={13} /> Notes
+                {projectNotes.kind === "ready" && projectNotes.notes.length > 0 && <span>{projectNotes.notes.length}</span>}
+              </button>
+            )}
           </div>
 
           <div className="graph-canvas" aria-label={`${map.facts.project.name} architecture map`}>
@@ -894,6 +929,17 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         <span><FileCode2 size={12} /> annotations kept in a separate overlay</span>
         <span className="statusbar-right"><Check size={12} /> {map.facts.stats.crates} crates mapped</span>
       </div>
+      {projectNotesOpen && projectNotesSource !== undefined && (
+        <ProjectNotesDialog
+          workspaceId={mapKey ?? ""}
+          source={projectNotesSource}
+          snapshot={projectNotes}
+          map={map}
+          currentBlockId={map.blockById.has(selected.id) ? selected.id : null}
+          onSnapshot={acceptProjectNotes}
+          onClose={closeProjectNotes}
+        />
+      )}
     </div>
   );
 }

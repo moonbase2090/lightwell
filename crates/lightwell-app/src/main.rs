@@ -11,6 +11,9 @@ fn main() {
             workspace::open_workspace,
             workspace::load_workspace_map,
             workspace::watch_workspace,
+            workspace::add_workspace_note,
+            workspace::edit_workspace_note,
+            workspace::remove_workspace_note,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Lightwell desktop app");
