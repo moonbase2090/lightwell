@@ -8,6 +8,7 @@ rust-version.workspace = true
 description = "Shared extraction model and schema-v1 map types for Lightwell"
 
 [dependencies]
+fs2.workspace = true
 glob.workspace = true
 notify-debouncer-mini.workspace = true
 proc-macro2.workspace = true

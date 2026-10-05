@@ -1,0 +1,491 @@
+use crate::extract::{block_base, map_workspace};
+use crate::{discover_cargo_workspace, FactMap, MapExtractionError};
+use fs2::FileExt;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Write};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+
+const NOTES_SCHEMA_VERSION: u32 = 1;
+static NEXT_TEMP_FILE_ID: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectNoteView {
+    pub block_id: String,
+    pub text: String,
+    pub source_fingerprint: String,
+    pub stale: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectNote {
+    text: String,
+    source_fingerprint: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NotesDocument {
+    schema_version: u32,
+    notes: BTreeMap<String, ProjectNote>,
+}
+
+impl Default for NotesDocument {
+    fn default() -> Self {
+        Self {
+            schema_version: NOTES_SCHEMA_VERSION,
+            notes: BTreeMap::new(),
+        }
+    }
+}
+
+struct ProjectNotesStore {
+    path: PathBuf,
+}
+
+impl ProjectNotesStore {
+    fn new(project_root: &Path) -> Self {
+        Self {
+            path: project_root.join(".lightwell").join("notes.json"),
+        }
+    }
+
+    fn list_for_map(&self, map: &FactMap) -> Result<Vec<ProjectNoteView>, NotesError> {
+        let document = self.read_document()?;
+        let current_fingerprints: BTreeMap<_, _> = map
+            .blocks
+            .iter()
+            .map(|block| {
+                let base = block_base(block);
+                (base.id.as_str(), base.fingerprint.as_str())
+            })
+            .collect();
+
+        Ok(document
+            .notes
+            .into_iter()
+            .map(|(block_id, note)| ProjectNoteView {
+                stale: current_fingerprints
+                    .get(block_id.as_str())
+                    .is_none_or(|fingerprint| *fingerprint != note.source_fingerprint.as_str()),
+                block_id,
+                text: note.text,
+                source_fingerprint: note.source_fingerprint,
+            })
+            .collect())
+    }
+
+    fn set(&self, block_id: &str, text: &str, source_fingerprint: &str) -> Result<(), NotesError> {
+        if text.trim().is_empty() {
+            return Err(NotesError::EmptyText);
+        }
+        self.update(true, |document| {
+            document.notes.insert(
+                block_id.to_owned(),
+                ProjectNote {
+                    text: text.to_owned(),
+                    source_fingerprint: source_fingerprint.to_owned(),
+                },
+            );
+            Ok(true)
+        })
+        .map(|_| ())
+    }
+
+    fn remove(&self, block_id: &str) -> Result<bool, NotesError> {
+        if !self.path.is_file() {
+            return Ok(false);
+        }
+        self.update(false, |document| {
+            Ok(document.notes.remove(block_id).is_some())
+        })
+    }
+
+    fn update(
+        &self,
+        create_parent: bool,
+        update_document: impl FnOnce(&mut NotesDocument) -> Result<bool, NotesError>,
+    ) -> Result<bool, NotesError> {
+        let parent = self.path.parent().unwrap_or_else(|| Path::new("."));
+        if create_parent {
+            fs::create_dir_all(parent).map_err(|source| NotesError::Io {
+                path: parent.to_owned(),
+                source,
+            })?;
+        } else if !parent.is_dir() {
+            return Ok(false);
+        }
+
+        let lock_path = parent.join("notes.lock");
+        let lock_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock_path)
+            .map_err(|source| NotesError::Io {
+                path: lock_path,
+                source,
+            })?;
+        lock_file
+            .lock_exclusive()
+            .map_err(|source| NotesError::Io {
+                path: parent.join("notes.lock"),
+                source,
+            })?;
+        let _lock = ExclusiveLock(lock_file);
+
+        let mut document = self.read_document()?;
+        let changed = update_document(&mut document)?;
+        if changed {
+            self.write_document(&document)?;
+        }
+        Ok(changed)
+    }
+
+    fn read_document(&self) -> Result<NotesDocument, NotesError> {
+        let bytes = match fs::read(&self.path) {
+            Ok(bytes) => bytes,
+            Err(source) if source.kind() == io::ErrorKind::NotFound => {
+                return Ok(NotesDocument::default());
+            }
+            Err(source) => {
+                return Err(NotesError::Io {
+                    path: self.path.clone(),
+                    source,
+                });
+            }
+        };
+        let document: NotesDocument =
+            serde_json::from_slice(&bytes).map_err(|source| NotesError::InvalidJson {
+                path: self.path.clone(),
+                source,
+            })?;
+        if document.schema_version != NOTES_SCHEMA_VERSION {
+            return Err(NotesError::UnsupportedSchema {
+                path: self.path.clone(),
+                version: document.schema_version,
+            });
+        }
+        Ok(document)
+    }
+
+    fn write_document(&self, document: &NotesDocument) -> Result<(), NotesError> {
+        let parent = self.path.parent().unwrap_or_else(|| Path::new("."));
+        let mut contents = serde_json::to_vec_pretty(document).map_err(NotesError::Serialize)?;
+        contents.push(b'\n');
+
+        let (temporary_path, mut temporary_file) = loop {
+            let sequence = NEXT_TEMP_FILE_ID.fetch_add(1, Ordering::Relaxed);
+            let temporary_path =
+                parent.join(format!(".notes-{}-{sequence}.tmp", std::process::id()));
+            match OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&temporary_path)
+            {
+                Ok(file) => break (temporary_path, file),
+                Err(source) if source.kind() == io::ErrorKind::AlreadyExists => continue,
+                Err(source) => {
+                    return Err(NotesError::Io {
+                        path: temporary_path,
+                        source,
+                    });
+                }
+            }
+        };
+
+        let result = (|| {
+            temporary_file
+                .write_all(&contents)
+                .and_then(|()| temporary_file.sync_all())
+                .map_err(|source| NotesError::Io {
+                    path: temporary_path.clone(),
+                    source,
+                })?;
+            drop(temporary_file);
+            fs::rename(&temporary_path, &self.path).map_err(|source| NotesError::Io {
+                path: self.path.clone(),
+                source,
+            })
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&temporary_path);
+        }
+        result
+    }
+}
+
+struct ExclusiveLock(File);
+
+impl Drop for ExclusiveLock {
+    fn drop(&mut self) {
+        let _ = FileExt::unlock(&self.0);
+    }
+}
+
+pub fn list_project_notes(
+    repository_path: impl AsRef<Path>,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
+    let (root, map) = workspace_map(repository_path)?;
+    ProjectNotesStore::new(&root).list_for_map(&map)
+}
+
+pub fn project_notes_for_map(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
+    ProjectNotesStore::new(project_root.as_ref()).list_for_map(map)
+}
+
+pub fn set_project_note(
+    repository_path: impl AsRef<Path>,
+    block_id: &str,
+    text: &str,
+) -> Result<(), NotesError> {
+    let (root, map) = workspace_map(repository_path)?;
+    let block = map
+        .blocks
+        .iter()
+        .find(|block| block_base(block).id == block_id)
+        .ok_or_else(|| NotesError::BlockNotFound(block_id.to_owned()))?;
+    let fingerprint = &block_base(block).fingerprint;
+    ProjectNotesStore::new(&root).set(block_id, text, fingerprint)
+}
+
+pub fn remove_project_note(
+    repository_path: impl AsRef<Path>,
+    block_id: &str,
+) -> Result<bool, NotesError> {
+    let workspace = discover_cargo_workspace(repository_path).map_err(MapExtractionError::from)?;
+    ProjectNotesStore::new(&workspace.root).remove(block_id)
+}
+
+fn workspace_map(repository_path: impl AsRef<Path>) -> Result<(PathBuf, FactMap), NotesError> {
+    let workspace = discover_cargo_workspace(repository_path).map_err(MapExtractionError::from)?;
+    let root = workspace.root.clone();
+    let map = map_workspace(workspace, None)?;
+    Ok((root, map))
+}
+
+#[derive(Debug)]
+pub enum NotesError {
+    Extraction(MapExtractionError),
+    BlockNotFound(String),
+    EmptyText,
+    Io {
+        path: PathBuf,
+        source: io::Error,
+    },
+    InvalidJson {
+        path: PathBuf,
+        source: serde_json::Error,
+    },
+    UnsupportedSchema {
+        path: PathBuf,
+        version: u32,
+    },
+    Serialize(serde_json::Error),
+}
+
+impl Display for NotesError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Extraction(source) => Display::fmt(source, formatter),
+            Self::BlockNotFound(id) => write!(
+                formatter,
+                "No block with ID `{id}` exists in this workspace. Run `lightwell extract . -o /tmp/lightwell-map.json` here and choose a `blocks[].id` value."
+            ),
+            Self::EmptyText => write!(
+                formatter,
+                "Note text cannot be empty. Use `lightwell notes set <block-id> <text...>`."
+            ),
+            Self::Io { path, source } => write!(
+                formatter,
+                "Could not read or update project notes at {}: {source}",
+                path.display()
+            ),
+            Self::InvalidJson { path, source } => write!(
+                formatter,
+                "Could not parse project notes at {}: {source}",
+                path.display()
+            ),
+            Self::UnsupportedSchema { path, version } => write!(
+                formatter,
+                "Project notes at {} use unsupported schema version {version}.",
+                path.display()
+            ),
+            Self::Serialize(source) => write!(formatter, "Could not encode project notes: {source}"),
+        }
+    }
+}
+
+impl Error for NotesError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Extraction(source) => Some(source),
+            Self::Io { source, .. } => Some(source),
+            Self::InvalidJson { source, .. } | Self::Serialize(source) => Some(source),
+            Self::BlockNotFound(_) | Self::EmptyText | Self::UnsupportedSchema { .. } => None,
+        }
+    }
+}
+
+impl From<MapExtractionError> for NotesError {
+    fn from(source: MapExtractionError) -> Self {
+        Self::Extraction(source)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{NotesError, ProjectNotesStore};
+    use crate::facts::{BlockBase, CrateBlock, FactBlock, FactGroup, FactMap, MapStats, Project};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_TEMP_DIR_ID: AtomicU64 = AtomicU64::new(0);
+
+    struct TempProject(PathBuf);
+
+    impl TempProject {
+        fn new() -> Self {
+            let sequence = NEXT_TEMP_DIR_ID.fetch_add(1, Ordering::Relaxed);
+            let path = std::env::temp_dir().join(format!(
+                "lightwell-notes-test-{}-{sequence}",
+                std::process::id()
+            ));
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+    }
+
+    impl Drop for TempProject {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn map(fingerprint: &str) -> FactMap {
+        let block = FactBlock::Crate(CrateBlock {
+            base: BlockBase {
+                id: "crate:core".to_owned(),
+                label: "core".to_owned(),
+                parent_id: Some("workspace:test".to_owned()),
+                children: Vec::new(),
+                source_path: Some("Cargo.toml".to_owned()),
+                fingerprint: fingerprint.to_owned(),
+            },
+            package_name: "core".to_owned(),
+            version: "0.1.0".to_owned(),
+            description: None,
+        });
+        FactMap::schema_v1(
+            Project {
+                id: "workspace:test".to_owned(),
+                name: "test".to_owned(),
+                root_path: ".".to_owned(),
+            },
+            vec![block],
+            Vec::new(),
+            vec![FactGroup {
+                id: "group:crates".to_owned(),
+                label: "Workspace crates".to_owned(),
+                member_ids: vec!["crate:core".to_owned()],
+            }],
+            MapStats {
+                blocks: 1,
+                crates: 1,
+                ..MapStats::default()
+            },
+        )
+    }
+
+    #[test]
+    fn first_save_creates_notes_and_changed_fingerprints_mark_without_deleting() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        let old_map = map("old-fingerprint");
+        let new_map = map("new-fingerprint");
+
+        assert!(store.list_for_map(&old_map).unwrap().is_empty());
+        assert!(!project.0.join(".lightwell").exists());
+        store
+            .set("crate:core", "Remember this crate", "old-fingerprint")
+            .unwrap();
+
+        let notes_path = project.0.join(".lightwell/notes.json");
+        assert!(notes_path.is_file());
+        let stale = store.list_for_map(&new_map).unwrap();
+        assert_eq!(stale.len(), 1);
+        assert!(stale[0].stale);
+        assert_eq!(stale[0].text, "Remember this crate");
+        assert_eq!(stale[0].source_fingerprint, "old-fingerprint");
+        assert_eq!(store.list_for_map(&old_map).unwrap()[0].stale, false);
+        assert!(notes_path.is_file());
+    }
+
+    #[test]
+    fn removing_a_note_is_explicit_and_does_not_remove_other_notes() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        store.set("crate:core", "First", "one").unwrap();
+        store.set("module:core:api", "Second", "two").unwrap();
+
+        assert!(store.remove("crate:core").unwrap());
+        assert!(!store.remove("crate:core").unwrap());
+        let notes = store.list_for_map(&map("two")).unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].block_id, "module:core:api");
+    }
+
+    #[test]
+    fn concurrent_saves_keep_both_notes() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        let left = ProjectNotesStore::new(&project.0);
+        let right = ProjectNotesStore::new(&project.0);
+        std::thread::scope(|scope| {
+            scope.spawn(|| left.set("crate:left", "Left", "left-fingerprint").unwrap());
+            scope.spawn(|| {
+                right
+                    .set("crate:right", "Right", "right-fingerprint")
+                    .unwrap()
+            });
+        });
+
+        let notes = store
+            .list_for_map(&FactMap::schema_v1(
+                Project {
+                    id: "workspace:test".to_owned(),
+                    name: "test".to_owned(),
+                    root_path: ".".to_owned(),
+                },
+                Vec::new(),
+                Vec::new(),
+                Vec::new(),
+                MapStats::default(),
+            ))
+            .unwrap();
+        assert_eq!(notes.len(), 2);
+        assert!(notes.iter().all(|note| note.stale));
+    }
+
+    #[test]
+    fn empty_note_text_is_rejected_without_creating_the_file() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        assert!(matches!(
+            store.set("crate:core", "  ", "fingerprint"),
+            Err(NotesError::EmptyText)
+        ));
+        assert!(!project.0.join(".lightwell").exists());
+    }
+}
