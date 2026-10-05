@@ -36,7 +36,7 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     artifact_dir="$2"
     workspace="$3"
     app_log="$4"
-    block_id="module:notes-proof:sample"
+    block_id="module:notes-proof:crate root::sample"
     notes_file="$workspace/.lightwell/notes.json"
 
     "$app_path" >"$app_log" 2>&1 &
