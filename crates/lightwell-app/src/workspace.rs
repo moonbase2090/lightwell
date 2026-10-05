@@ -1,4 +1,7 @@
-use lightwell_core::{extract_cargo_map, FactMap, MapWatchError, MapWatcher};
+use lightwell_core::{
+    extract_cargo_map, open_block, resolve_block_target, EditorSettings, EditorTemplatePreset,
+    FactMap, MapWatchError, MapWatcher, EDITOR_TEMPLATE_PRESETS,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -10,6 +13,7 @@ use std::thread;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 const MAX_RECENT_WORKSPACES: usize = 10;
+const MAX_EDITOR_TEMPLATE_LENGTH: usize = 4096;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,6 +27,15 @@ pub struct WorkspaceEntry {
 pub struct WorkspaceMapDocument {
     facts: FactMap,
     annotations: Value,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceFileDocument {
+    path: String,
+    content: String,
+    line: usize,
+    column: usize,
 }
 
 #[derive(Clone, Serialize)]
@@ -58,6 +71,64 @@ pub fn load_workspace_map(app: AppHandle, path: String) -> Result<WorkspaceMapDo
     let facts = extract_cargo_map(&root, None).map_err(|error| error.to_string())?;
     remember_workspace(&app, &root, &facts)?;
     Ok(workspace_map_document(facts))
+}
+
+#[tauri::command]
+pub fn inspect_block(
+    workspace_path: String,
+    block_id: String,
+) -> Result<SourceFileDocument, String> {
+    let root = workspace_root(&workspace_path)?;
+    let target = resolve_block_target(&root, &block_id).map_err(|error| error.to_string())?;
+    let content = fs::read_to_string(&target.path).map_err(|error| {
+        format!(
+            "Could not read source file {}: {error}",
+            target.path.display()
+        )
+    })?;
+    let relative_path = target.path.strip_prefix(&root).map_err(|_| {
+        format!(
+            "Source file {} resolves outside the Rust workspace.",
+            target.path.display()
+        )
+    })?;
+    Ok(SourceFileDocument {
+        path: relative_path.to_string_lossy().into_owned(),
+        content,
+        line: target.position.line(),
+        column: target.position.column(),
+    })
+}
+
+#[tauri::command]
+pub fn open_block_in_editor(
+    app: AppHandle,
+    workspace_path: String,
+    block_id: String,
+) -> Result<(), String> {
+    let root = workspace_root(&workspace_path)?;
+    let settings = read_editor_settings(&editor_settings_path(&app)?)?;
+    open_block(&root, &block_id, &settings).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn load_editor_settings(app: AppHandle) -> Result<EditorSettings, String> {
+    read_editor_settings(&editor_settings_path(&app)?)
+}
+
+#[tauri::command]
+pub fn save_editor_settings(
+    app: AppHandle,
+    settings: EditorSettings,
+) -> Result<EditorSettings, String> {
+    let settings = normalize_editor_settings(settings)?;
+    write_editor_settings(&editor_settings_path(&app)?, &settings)?;
+    Ok(settings)
+}
+
+#[tauri::command]
+pub fn editor_template_presets() -> Vec<EditorTemplatePreset> {
+    EDITOR_TEMPLATE_PRESETS.to_vec()
 }
 
 #[tauri::command]
@@ -195,6 +266,78 @@ fn recent_workspaces_path(app: &AppHandle) -> Result<PathBuf, String> {
         .map_err(|error| format!("Could not locate Lightwell's user config folder: {error}"))
 }
 
+fn editor_settings_path(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_config_dir()
+        .map(|directory| directory.join("editor-settings.json"))
+        .map_err(|error| format!("Could not locate Lightwell's user config folder: {error}"))
+}
+
+fn normalize_editor_settings(mut settings: EditorSettings) -> Result<EditorSettings, String> {
+    if let Some(template) = settings.command_template.take() {
+        let trimmed = template.trim();
+        if trimmed.len() > MAX_EDITOR_TEMPLATE_LENGTH {
+            return Err(format!(
+                "Editor command templates must be {MAX_EDITOR_TEMPLATE_LENGTH} characters or shorter."
+            ));
+        }
+        if trimmed.chars().any(char::is_control) {
+            return Err("Editor command templates cannot contain control characters.".to_owned());
+        }
+        settings.command_template = (!trimmed.is_empty()).then(|| trimmed.to_owned());
+    }
+    Ok(settings)
+}
+
+fn read_editor_settings(path: &Path) -> Result<EditorSettings, String> {
+    let contents = match fs::read(path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(EditorSettings::default())
+        }
+        Err(error) => {
+            return Err(format!(
+                "Could not read editor settings from {}: {error}",
+                path.display()
+            ))
+        }
+    };
+    let settings: EditorSettings = serde_json::from_slice(&contents).map_err(|error| {
+        format!(
+            "Could not parse editor settings in {}: {error}",
+            path.display()
+        )
+    })?;
+    normalize_editor_settings(settings)
+}
+
+fn write_editor_settings(path: &Path, settings: &EditorSettings) -> Result<(), String> {
+    let directory = path
+        .parent()
+        .ok_or_else(|| "The Lightwell user config folder has no parent.".to_owned())?;
+    fs::create_dir_all(directory).map_err(|error| {
+        format!(
+            "Could not create Lightwell's user config folder {}: {error}",
+            directory.display()
+        )
+    })?;
+    let temporary = path.with_extension("json.tmp");
+    let contents = serde_json::to_vec_pretty(settings)
+        .map_err(|error| format!("Could not serialize editor settings: {error}"))?;
+    fs::write(&temporary, contents).map_err(|error| {
+        format!(
+            "Could not write editor settings to {}: {error}",
+            temporary.display()
+        )
+    })?;
+    fs::rename(&temporary, path).map_err(|error| {
+        format!(
+            "Could not save editor settings to {}: {error}",
+            path.display()
+        )
+    })
+}
+
 fn remember_workspace(app: &AppHandle, root: &Path, facts: &FactMap) -> Result<(), String> {
     let entry = WorkspaceEntry {
         id: root.to_string_lossy().into_owned(),
@@ -256,7 +399,11 @@ fn write_recent_workspaces(path: &Path, workspaces: &[WorkspaceEntry]) -> Result
 
 #[cfg(test)]
 mod tests {
-    use super::{read_recent_workspaces, workspace_root, write_recent_workspaces, WorkspaceEntry};
+    use super::{
+        normalize_editor_settings, read_editor_settings, read_recent_workspaces, workspace_root,
+        write_editor_settings, write_recent_workspaces, WorkspaceEntry,
+    };
+    use lightwell_core::EditorSettings;
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -294,5 +441,39 @@ mod tests {
         );
         fs::remove_dir_all(config.parent().expect("config path should have a parent"))
             .expect("temporary config folder should be removed");
+    }
+
+    #[test]
+    fn editor_settings_default_and_round_trip_in_user_config_json() {
+        let config = temporary_directory("editor-settings").join("editor-settings.json");
+        assert_eq!(
+            read_editor_settings(&config).expect("missing editor settings should default"),
+            EditorSettings::default()
+        );
+        let expected = EditorSettings {
+            command_template: Some("zed {file}:{line}:{column}".to_owned()),
+        };
+        write_editor_settings(&config, &expected).expect("editor settings should save");
+        assert_eq!(
+            read_editor_settings(&config).expect("editor settings should load"),
+            expected
+        );
+        std::fs::remove_dir_all(config.parent().expect("config path should have a parent"))
+            .expect("temporary config folder should be removed");
+    }
+
+    #[test]
+    fn editor_settings_trim_empty_templates_and_reject_invalid_input() {
+        assert_eq!(
+            normalize_editor_settings(EditorSettings {
+                command_template: Some("  ".to_owned()),
+            })
+            .expect("blank template should select the OS default"),
+            EditorSettings::default()
+        );
+        assert!(normalize_editor_settings(EditorSettings {
+            command_template: Some("editor\n{file}".to_owned()),
+        })
+        .is_err());
     }
 }

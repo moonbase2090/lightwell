@@ -3,13 +3,39 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { MapSource } from "../map-source.js";
 import {
+  parseEditorSettings,
+  parseEditorTemplatePresets,
   parseMapSourceDocument,
   parseMapSourceEntries,
   parseMapSourceEntry,
+  parseSourceFileDocument,
   parseWorkspaceMapUpdate,
 } from "./tauri-types.js";
 
 export const tauriMapSource: MapSource = {
+  editor: {
+    inspectBlock(workspaceId, blockId) {
+      return invoke<unknown>("inspect_block", {
+        workspacePath: workspaceId,
+        blockId,
+      }).then(parseSourceFileDocument);
+    },
+    openBlock(workspaceId, blockId) {
+      return invoke<void>("open_block_in_editor", {
+        workspacePath: workspaceId,
+        blockId,
+      });
+    },
+    loadSettings() {
+      return invoke<unknown>("load_editor_settings").then(parseEditorSettings);
+    },
+    saveSettings(settings) {
+      return invoke<unknown>("save_editor_settings", { settings }).then(parseEditorSettings);
+    },
+    listPresets() {
+      return invoke<unknown>("editor_template_presets").then(parseEditorTemplatePresets);
+    },
+  },
   listMaps() {
     return invoke<unknown>("recent_workspaces").then(parseMapSourceEntries);
   },

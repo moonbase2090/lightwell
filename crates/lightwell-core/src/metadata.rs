@@ -35,6 +35,8 @@ pub struct CargoTarget {
 pub struct RustModule {
     pub name: String,
     pub declaration_path: PathBuf,
+    pub declaration_line: usize,
+    pub declaration_column: usize,
     pub source_path: Option<PathBuf>,
     pub path_attribute: Option<String>,
     pub attributes: Vec<String>,

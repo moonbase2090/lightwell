@@ -79,6 +79,7 @@ fn modules_from_items(
                 .strip_prefix("r#")
                 .unwrap_or(&identifier)
                 .to_owned();
+            let declaration_position = module.ident.span().start();
             let path_attribute = path_attribute(&module.attrs);
             let source_path = if module.content.is_some() {
                 Some(declaration_path.to_owned())
@@ -110,6 +111,8 @@ fn modules_from_items(
             Ok(RustModule {
                 name,
                 declaration_path: declaration_path.to_owned(),
+                declaration_line: declaration_position.line,
+                declaration_column: declaration_position.column,
                 source_path,
                 path_attribute,
                 attributes,

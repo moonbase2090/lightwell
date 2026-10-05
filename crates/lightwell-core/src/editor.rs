@@ -1,12 +1,15 @@
 use crate::extract::{block_base, map_workspace};
+use crate::facts::{FactBlock, ModuleBlock};
+use crate::metadata::{CargoTarget, CargoWorkspace, RustModule};
 use crate::{discover_cargo_workspace, MapExtractionError};
+use serde::{Deserialize, Serialize};
 use shell_words::split;
 use std::env;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command};
 
 const FILE_PLACEHOLDER: &str = "{file}";
 const LINE_PLACEHOLDER: &str = "{line}";
@@ -57,12 +60,14 @@ impl EditorTarget {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct EditorSettings {
     pub command_template: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EditorTemplatePreset {
     pub name: &'static str,
     pub template: &'static str,
@@ -100,24 +105,115 @@ pub fn open_block(
     block_id: &str,
     settings: &EditorSettings,
 ) -> Result<(), EditorError> {
+    let target = resolve_block_target(repository_path, block_id)?;
+    open_target(&target, settings)
+}
+
+pub fn resolve_block_target(
+    repository_path: impl AsRef<Path>,
+    block_id: &str,
+) -> Result<EditorTarget, EditorError> {
     let workspace = discover_cargo_workspace(repository_path).map_err(MapExtractionError::from)?;
     let root = workspace.root.clone();
-    let map = map_workspace(workspace, None)?;
+    let map = map_workspace(workspace.clone(), None)?;
     let block = map
         .blocks
         .iter()
         .find(|block| block_base(block).id == block_id)
         .ok_or_else(|| EditorError::BlockNotFound(block_id.to_owned()))?;
-    let base = block_base(block);
-    let source_path = base
-        .source_path
-        .as_deref()
-        .ok_or_else(|| EditorError::BlockHasNoSource(block_id.to_owned()))?;
+    let (source_path, position) = match block {
+        FactBlock::Module(module) => {
+            let source_path = module
+                .base
+                .source_path
+                .as_deref()
+                .unwrap_or(&module.declared_by_path);
+            let position = if module.base.source_path.as_deref()
+                == Some(module.declared_by_path.as_str())
+                || module.base.source_path.is_none()
+            {
+                module_source_position(&workspace, module)
+                    .unwrap_or_else(SourcePosition::file_start)
+            } else {
+                SourcePosition::file_start()
+            };
+            (source_path, position)
+        }
+        _ => (
+            block_base(block)
+                .source_path
+                .as_deref()
+                .ok_or_else(|| EditorError::BlockHasNoSource(block_id.to_owned()))?,
+            SourcePosition::file_start(),
+        ),
+    };
 
-    open_target(
-        &EditorTarget::at_file_start(root.join(source_path)),
-        settings,
-    )
+    let path = root
+        .join(source_path)
+        .canonicalize()
+        .map_err(|source| EditorError::SourcePath {
+            path: root.join(source_path),
+            source,
+        })?;
+    if !path.starts_with(&root) {
+        return Err(EditorError::SourceOutsideWorkspace(path));
+    }
+    Ok(EditorTarget { path, position })
+}
+
+fn module_source_position(
+    workspace: &CargoWorkspace,
+    block: &ModuleBlock,
+) -> Option<SourcePosition> {
+    workspace
+        .packages
+        .iter()
+        .find(|package| package.name == block.package_name)?
+        .targets
+        .iter()
+        .find_map(|target| {
+            let module_root = if is_library_target(target) {
+                "crate root"
+            } else {
+                target.name.as_str()
+            };
+            find_rust_module(&target.modules, module_root, &block.module_path)
+        })
+        .and_then(|module| {
+            SourcePosition::new(
+                module.declaration_line,
+                module.declaration_column.checked_add(1)?,
+            )
+        })
+}
+
+fn is_library_target(target: &CargoTarget) -> bool {
+    target.kind.iter().any(|kind| {
+        matches!(
+            kind.as_str(),
+            "lib" | "rlib" | "dylib" | "cdylib" | "staticlib"
+        )
+    })
+}
+
+fn find_rust_module<'a>(
+    modules: &'a [RustModule],
+    parent_path: &str,
+    expected_path: &str,
+) -> Option<&'a RustModule> {
+    modules.iter().find_map(|module| {
+        let module_path = format!("{parent_path}::{}", module.name);
+        if module_path == expected_path {
+            Some(module)
+        } else if expected_path
+            .strip_prefix(&module_path)
+            .is_some_and(|remainder| remainder.starts_with("::"))
+        {
+            find_rust_module(&module.children, &module_path, expected_path)
+        } else {
+            None
+        }
+    })
 }
 
 pub fn open_target(target: &EditorTarget, settings: &EditorSettings) -> Result<(), EditorError> {
@@ -262,14 +358,31 @@ fn try_editor_attempts(
 }
 
 fn run_editor_command(command: &EditorCommand) -> Result<(), String> {
-    let status = Command::new(&command.program)
+    let mut child = Command::new(&command.program)
         .args(&command.arguments)
-        .status()
+        .spawn()
         .map_err(|source| format!("could not start `{}`: {source}", command.program))?;
-    if status.success() {
-        Ok(())
+    // Return for long-running terminal editors, but retain fallback behavior for immediate failures.
+    if let Ok(Some(status)) = child.try_wait() {
+        if !status.success() {
+            return Err(format!("exited with status {status}"));
+        }
     } else {
-        Err(format!("exited with status {status}"))
+        reap_editor_child(child);
+    }
+    Ok(())
+}
+
+fn reap_editor_child(child: Child) {
+    if let Err(error) = std::thread::Builder::new()
+        .name("lightwell-editor-reaper".to_owned())
+        .spawn(move || {
+            if let Err(error) = child.wait() {
+                eprintln!("Lightwell could not collect an editor process: {error}");
+            }
+        })
+    {
+        eprintln!("Lightwell could not monitor an editor process: {error}");
     }
 }
 
@@ -278,6 +391,11 @@ pub enum EditorError {
     Extraction(MapExtractionError),
     BlockNotFound(String),
     BlockHasNoSource(String),
+    SourcePath {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    SourceOutsideWorkspace(PathBuf),
     NoEditorAvailable(PathBuf),
     LaunchFailed {
         path: PathBuf,
@@ -296,6 +414,16 @@ impl Display for EditorError {
             Self::BlockHasNoSource(id) => write!(
                 formatter,
                 "Block `{id}` has no resolved source path, so Lightwell cannot open it."
+            ),
+            Self::SourcePath { path, source } => write!(
+                formatter,
+                "Could not access source file {}: {source}",
+                path.display()
+            ),
+            Self::SourceOutsideWorkspace(path) => write!(
+                formatter,
+                "Source file {} resolves outside the Rust workspace.",
+                path.display()
             ),
             Self::NoEditorAvailable(path) => write!(
                 formatter,
@@ -316,8 +444,10 @@ impl Error for EditorError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Extraction(source) => Some(source),
+            Self::SourcePath { source, .. } => Some(source),
             Self::BlockNotFound(_)
             | Self::BlockHasNoSource(_)
+            | Self::SourceOutsideWorkspace(_)
             | Self::NoEditorAvailable(_)
             | Self::LaunchFailed { .. } => None,
         }
@@ -333,16 +463,81 @@ impl From<MapExtractionError> for EditorError {
 #[cfg(test)]
 mod tests {
     use super::{
-        editor_attempts, try_editor_attempts, EditorCommand, EditorPlatform, EditorTarget,
-        SourcePosition,
+        editor_attempts, resolve_block_target, try_editor_attempts, EditorCommand, EditorPlatform,
+        EditorTarget, SourcePosition,
     };
+    use crate::extract::{block_base, extract_cargo_map};
+    use crate::facts::FactBlock;
+    use std::fs;
     use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn target() -> EditorTarget {
         EditorTarget {
             path: PathBuf::from("/project with spaces/src/lib.rs"),
             position: SourcePosition::new(23, 7).unwrap(),
         }
+    }
+
+    fn temporary_directory(label: &str) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after the Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!("lightwell-{label}-{}-{unique}", std::process::id()))
+    }
+
+    #[test]
+    fn resolver_returns_module_declaration_and_external_file_positions() {
+        let root = temporary_directory("editor-source-position");
+        fs::create_dir_all(root.join("src")).expect("fixture source folder should be created");
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"source-position-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .expect("fixture manifest should be written");
+        fs::write(
+            root.join("src/lib.rs"),
+            "#![allow(dead_code)]\npub mod outer {\n    pub mod inner {}\n}\npub mod external;\n",
+        )
+        .expect("fixture library source should be written");
+        fs::write(root.join("src/external.rs"), "pub fn value() {}\n")
+            .expect("external module source should be written");
+
+        let map = extract_cargo_map(&root, None).expect("fixture map should extract");
+        let inline_id = map
+            .blocks
+            .iter()
+            .find(|block| {
+                matches!(block, FactBlock::Module(module) if module.module_path == "crate root::outer::inner")
+            })
+            .map(|block| block_base(block).id.clone())
+            .expect("inline module should have a map block");
+        let external_id = map
+            .blocks
+            .iter()
+            .find(|block| {
+                matches!(block, FactBlock::Module(module) if module.module_path == "crate root::external")
+            })
+            .map(|block| block_base(block).id.clone())
+            .expect("external module should have a map block");
+
+        let inline = resolve_block_target(&root, &inline_id)
+            .expect("inline module should resolve to its declaration");
+        assert_eq!(inline.path, root.join("src/lib.rs").canonicalize().unwrap());
+        assert_eq!(inline.position.line(), 3);
+        assert_eq!(inline.position.column(), 13);
+
+        let external = resolve_block_target(&root, &external_id)
+            .expect("external module should resolve to its source file");
+        assert_eq!(
+            external.path,
+            root.join("src/external.rs").canonicalize().unwrap()
+        );
+        assert_eq!(external.position.line(), 1);
+        assert_eq!(external.position.column(), 1);
+
+        fs::remove_dir_all(root).expect("fixture folder should be removed");
     }
 
     #[test]
