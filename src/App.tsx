@@ -23,6 +23,7 @@ import {
   GitBranch,
   Layers3,
   Search,
+  Settings2,
   Waypoints,
 } from "lucide-react";
 import {
@@ -34,6 +35,8 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNotesSnapshot } from "./map-source.js";
+import EditorSettingsPanel from "./EditorSettingsPanel.js";
+import SourceInspectorPanel, { type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
@@ -413,6 +416,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [activeGroupId, setActiveGroupId] = useState("");
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
+  const [inspectedBlockId, setInspectedBlockId] = useState<string | null>(null);
+  const [inspection, setInspection] = useState<SourceInspectionState>({ kind: "loading" });
+  const [openingEditor, setOpeningEditor] = useState(false);
+  const [editorActionError, setEditorActionError] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [baseGraph, setBaseGraph] = useState<{ readonly nodes: MapNode[]; readonly edges: ReturnType<typeof emphasizeGraph>["edges"] }>({ nodes: [], edges: [] });
   const [layoutRevision, setLayoutRevision] = useState(0);
   const [graphError, setGraphError] = useState("");
@@ -438,6 +446,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         };
       });
       setMapKey(entry.id);
+      setInspectedBlockId(null);
       setMapRequestVersion((version) => version + 1);
     } catch (error: unknown) {
       setWorkspaceError(describeError(error, "Could not open this Rust workspace."));
@@ -663,16 +672,28 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     if (block.children.length > 0) setScopePath((current) => current.at(-1) === block.id ? current : [...current, block.id]);
   }, []);
 
+  const openBlockInspector = useCallback((block: DisplayBlock) => {
+    activateBlock(block);
+    if (mapSource.editor !== undefined) {
+      setInspectedBlockId(block.id);
+      setEditorActionError("");
+    } else {
+      setInspectedBlockId(null);
+    }
+  }, [activateBlock, mapSource.editor]);
+
   const selectSearchNode = useCallback((node: DisplayNode) => {
     setSearch("");
     setActiveNodeId(null);
     if (node.virtual) {
+      setInspectedBlockId(null);
       setSelectedId(node.id);
       const matchingGroup = map?.annotations.groups.find((group) => group.featureIds.includes(node.id));
       if (matchingGroup !== undefined) setActiveGroupId(matchingGroup.id);
       return;
     }
     setSelectedId(node.id);
+    if (mapSource.editor !== undefined) setInspectedBlockId(node.id);
     if (map === null) return;
     const ancestors: string[] = [];
     let cursor: DisplayBlock | undefined = node;
@@ -681,12 +702,47 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       cursor = cursor.parentId === null ? undefined : map.blockById.get(cursor.parentId);
     }
     setScopePath(ancestors.length > 1 ? ancestors.slice(0, -1) : ancestors);
-  }, [map]);
+  }, [map, mapSource.editor]);
 
   const onNodeClick: NodeMouseHandler<MapNode> = useCallback((_event, node) => {
     const block = map?.blockById.get(node.id);
-    if (block !== undefined) activateBlock(block);
-  }, [activateBlock, map]);
+    if (block !== undefined) openBlockInspector(block);
+  }, [map, openBlockInspector]);
+
+  useEffect(() => {
+    const editor = mapSource.editor;
+    if (inspectedBlockId === null || mapKey === null || editor === undefined) {
+      setInspection({ kind: "loading" });
+      return;
+    }
+
+    let cancelled = false;
+    setInspection({ kind: "loading" });
+    void editor.inspectBlock(mapKey, inspectedBlockId)
+      .then((document) => {
+        if (!cancelled) setInspection({ kind: "ready", document });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setInspection({ kind: "error", message: describeError(error, "Could not load this source file.") });
+      });
+    return () => { cancelled = true; };
+  }, [inspectedBlockId, mapKey, mapRefreshVersion, mapSource.editor]);
+
+  const handleOpenInEditor = useCallback(async () => {
+    const editor = mapSource.editor;
+    if (editor === undefined || mapKey === null || inspectedBlockId === null) return;
+    setOpeningEditor(true);
+    setEditorActionError("");
+    try {
+      await editor.openBlock(mapKey, inspectedBlockId);
+    } catch (error: unknown) {
+      setEditorActionError(describeError(error, "Could not open this file in your editor."));
+    } finally {
+      setOpeningEditor(false);
+    }
+  }, [inspectedBlockId, mapKey, mapSource.editor]);
+
+  const closeSettingsPanel = useCallback(() => setSettingsOpen(false), []);
 
   useLayoutEffect(() => {
     if (activeFeatureId === null || shellRef.current === null || map === null) {
@@ -728,6 +784,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setSelectedId(path.at(-1) ?? rootId);
     setActiveFeatureId(null);
     setActiveNodeId(null);
+    setInspectedBlockId(null);
   };
 
   if (mapCatalog.kind === "loading") {
@@ -792,7 +849,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             value={mapKey ?? ""}
             onChange={(event) => {
               const id = event.currentTarget.value;
-              if (mapCatalog.entries.some((entry) => entry.id === id)) setMapKey(id);
+              if (mapCatalog.entries.some((entry) => entry.id === id)) {
+                setMapKey(id);
+                setInspectedBlockId(null);
+              }
             }}
           >
             {mapCatalog.entries.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
@@ -818,7 +878,14 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <kbd><Command size={10} /> K</kbd>
           <SearchResults query={search} nodes={nodeSearch} onChoose={selectSearchNode} />
         </div>
-        <div className="top-status"><span className="live-dot" /><span>LOCAL MAP</span></div>
+        <div className="top-status">
+          {mapSource.editor !== undefined && (
+            <button className="editor-settings-button" type="button" onClick={() => setSettingsOpen(true)}>
+              <Settings2 size={13} />Editor settings
+            </button>
+          )}
+          <span className="local-map-indicator"><span className="live-dot" />LOCAL MAP</span>
+        </div>
       </header>
 
       {workspaceError.length > 0 && (
@@ -907,17 +974,28 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             activeFeatureId={activeFeatureId}
             selectedId={selectedId}
             onGroupChange={(id) => { setActiveGroupId(id); setActiveFeatureId(null); }}
-            onFeatureSelect={(feature) => { setSelectedId(feature.id); setActiveFeatureId(null); setActiveNodeId(null); }}
+            onFeatureSelect={(feature) => { setSelectedId(feature.id); setActiveFeatureId(null); setActiveNodeId(null); setInspectedBlockId(null); }}
             onFeatureHover={(id) => { setActiveFeatureId(id); if (id !== null) setActiveNodeId(null); }}
           />
         </main>
 
-        <DetailsPanel
-          node={selected}
-          map={map}
-          onOpen={(node) => { if (!node.virtual) activateBlock(node); }}
-          onSelectBlock={setSelectedId}
-        />
+        {inspectedBlockId !== null && mapSource.editor !== undefined ? (
+          <SourceInspectorPanel
+            title={map.blockById.get(inspectedBlockId)?.label ?? "Source file"}
+            inspection={inspection}
+            openingEditor={openingEditor}
+            editorError={editorActionError}
+            onOpenInEditor={() => { void handleOpenInEditor(); }}
+            onClose={() => setInspectedBlockId(null)}
+          />
+        ) : (
+          <DetailsPanel
+            node={selected}
+            map={map}
+            onOpen={(node) => { if (!node.virtual) openBlockInspector(node); }}
+            onSelectBlock={setSelectedId}
+          />
+        )}
       </div>
 
       <svg className="connector-layer" aria-hidden="true">
@@ -939,6 +1017,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           onSnapshot={acceptProjectNotes}
           onClose={closeProjectNotes}
         />
+      )}
+      {settingsOpen && mapSource.editor !== undefined && (
+        <EditorSettingsPanel editor={mapSource.editor} onClose={closeSettingsPanel} />
       )}
     </div>
   );

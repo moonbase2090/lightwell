@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import {
+  parseEditorSettings,
+  parseEditorTemplatePresets,
   parseMapSourceDocument,
   parseMapSourceEntries,
   parseMapSourceEntry,
   parseProjectNotesSnapshot,
+  parseSourceFileDocument,
   parseWorkspaceMapUpdate,
 } from "../src/map-sources/tauri-types.js";
 
@@ -39,5 +42,21 @@ assert.throws(() => parseMapSourceDocument({ facts: {} }), /invalid workspace ma
 assert.throws(() => parseWorkspaceMapUpdate({ workspaceId: entry.id, document: {} }), /invalid workspace map/);
 assert.throws(() => parseProjectNotesSnapshot({ kind: "ready", notes: [{ ...note, stale: "false" }] }), /invalid project note/);
 assert.throws(() => parseProjectNotesSnapshot({ kind: "unknown", notes: [] }), /invalid project notes response/);
+assert.deepEqual(parseSourceFileDocument({ path: "src/lib.rs", content: "pub mod map;", line: 1, column: 9 }), {
+  path: "src/lib.rs",
+  content: "pub mod map;",
+  line: 1,
+  column: 9,
+});
+assert.deepEqual(parseEditorSettings({ commandTemplate: null }), { commandTemplate: null });
+assert.deepEqual(parseEditorSettings({ commandTemplate: "zed {file}:{line}:{column}" }), {
+  commandTemplate: "zed {file}:{line}:{column}",
+});
+assert.deepEqual(parseEditorTemplatePresets([{ name: "Zed", template: "zed {file}" }]), [
+  { name: "Zed", template: "zed {file}" },
+]);
+assert.throws(() => parseSourceFileDocument({ path: "src/lib.rs", content: "", line: 0, column: 1 }), /invalid source file/);
+assert.throws(() => parseEditorSettings({ commandTemplate: 3 }), /invalid editor settings/);
+assert.throws(() => parseEditorTemplatePresets([{}]), /invalid editor preset/);
 
-console.log("Tauri map and project notes IPC responses passed boundary checks.");
+console.log("Tauri map, project notes, and editor IPC responses passed boundary checks.");
