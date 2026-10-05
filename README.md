@@ -45,6 +45,8 @@ lightwell watch ../Prismattyc --name Prismattyc
 
 `lightwell watch` writes each complete map to stdout as JSON Lines. Press Ctrl-C to stop it.
 
+CI builds and runs the Rust CLI on macOS with a macOS 11.0 deployment target. Linux CI builds x86_64 and ARM64 binaries with a glibc 2.28 symbol floor and runs each binary on Amazon Linux 2023.
+
 The `npm run lightwell -- ...` command remains available for the TypeScript preview workflow while the app migrates to the shared Rust extractor.
 
 ## Open a block in an editor
