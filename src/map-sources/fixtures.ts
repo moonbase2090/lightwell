@@ -21,14 +21,15 @@ const fixtures = {
   },
 } satisfies Readonly<Record<string, FixtureMap>>;
 
-const entries = Object.entries(fixtures).map(([id, fixture]) => ({ id, label: fixture.label }));
+const fixturesById: ReadonlyMap<string, FixtureMap> = new Map(Object.entries(fixtures));
+const entries = [...fixturesById].map(([id, fixture]) => ({ id, label: fixture.label }));
 
 export const fixtureMapSource: MapSource = {
   async listMaps() {
     return entries;
   },
   async loadMap(id) {
-    const fixture = fixtures[id];
+    const fixture = fixturesById.get(id);
     if (fixture === undefined) {
       throw new Error(`Map \"${id}\" is not available in the browser preview.`);
     }
