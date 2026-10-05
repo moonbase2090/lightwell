@@ -26,6 +26,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           components: rustfmt
+      - run: npm run check:licenses
+      - name: Install Tauri Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
       - run: cargo fmt --all -- --check
       - run: cargo check --workspace --locked
       - run: cargo test -p lightwell-core --lib --locked
@@ -111,3 +116,70 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
         run: scripts/ci/smoke-linux-al2023.sh "target/$TARGET/release" "$GITHUB_WORKSPACE"
+
+  tauri-macos-artifact:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: aarch64-apple-darwin
+      - run: npm ci
+      - name: Build the unsigned Apple Silicon app
+        run: npm run tauri:build -- --target aarch64-apple-darwin --bundles app --no-sign
+      - name: Check the deployment target and unsigned bundle
+        run: |
+          app='target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app'
+          test -d "$app"
+          minimum=$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$app/Contents/Info.plist")
+          test "$minimum" = '11.0'
+          if codesign --verify --deep --strict "$app" 2>/dev/null; then
+            echo 'Expected an unsigned macOS app, but codesign verified the bundle.' >&2
+            exit 1
+          fi
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/Lightwell-macos-arm64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lightwell-macos-arm64-unsigned
+          path: ${{ runner.temp }}/Lightwell-macos-arm64.zip
+          if-no-files-found: error
+
+  tauri-linux-artifact:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.1
+      - name: Install Tauri Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+      - name: Install cargo-zigbuild
+        run: cargo install --locked cargo-zigbuild --version 0.23.4
+      - run: npm ci
+      - name: Build the Linux package for the GLIBC 2.28 floor
+        run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb --no-sign
+      - name: Check the package binary's GLIBC requirement
+        run: |
+          package=$(find target/x86_64-unknown-linux-gnu/release/bundle/deb -maxdepth 1 -type f -name '*.deb' -print -quit)
+          test -n "$package"
+          mkdir -p "$RUNNER_TEMP/lightwell-deb"
+          dpkg-deb -x "$package" "$RUNNER_TEMP/lightwell-deb"
+          binary=$(find "$RUNNER_TEMP/lightwell-deb/usr" -type f -executable -name lightwell -print -quit)
+          test -n "$binary"
+          scripts/ci/check-glibc-floor.sh "$binary" 2.28
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lightwell-linux-x86_64-glibc-2.28
+          path: target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+          if-no-files-found: error
