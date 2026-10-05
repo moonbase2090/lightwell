@@ -18,6 +18,7 @@ import {
   CircleAlert,
   Command,
   FileCode2,
+  FolderOpen,
   GitBranch,
   Layers3,
   Search,
@@ -59,6 +60,14 @@ function labelType(node: DisplayNode): string {
 
 function childCount(block: DisplayBlock): number {
   return block.children.length;
+}
+
+function describeError(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.length > 0) return error.message;
+  if (typeof error === "string" && error.length > 0) return error;
+  if (typeof error === "object" && error !== null && "message" in error
+    && typeof error.message === "string" && error.message.length > 0) return error.message;
+  return fallback;
 }
 
 function pathLabel(block: DisplayBlock): string {
@@ -117,6 +126,38 @@ function Metric({ label, value, tone }: { readonly label: string; readonly value
     <div className={`metric ${tone ?? ""}`}>
       <span className="metric-value">{value.toLocaleString()}</span>
       <span className="metric-label">{label}</span>
+    </div>
+  );
+}
+
+function MapSourceState({
+  message,
+  title,
+  openWorkspace,
+  opening,
+  error = false,
+}: {
+  readonly message: string;
+  readonly title: string;
+  readonly openWorkspace?: () => void;
+  readonly opening?: boolean;
+  readonly error?: boolean;
+}) {
+  const Icon = error ? CircleAlert : Activity;
+  return (
+    <div className="source-state">
+      <section className="source-state-card">
+        <div className="workspace-glyph"><FolderOpen size={18} /></div>
+        <h1>{title}</h1>
+        <p role={error ? "alert" : undefined}>{message}</p>
+        {openWorkspace !== undefined && (
+          <button className="open-workspace-primary" type="button" onClick={openWorkspace} disabled={opening}>
+            {opening ? <Activity size={15} /> : <FolderOpen size={15} />}
+            {opening ? "Opening workspace…" : "Choose Rust workspace"}
+          </button>
+        )}
+        {openWorkspace === undefined && <Icon className="source-state-status" size={15} />}
+      </section>
     </div>
   );
 }
@@ -321,6 +362,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [mapCatalog, setMapCatalog] = useState<MapCatalogState>({ kind: "loading" });
   const [mapKey, setMapKey] = useState<string | null>(null);
   const [loadedMap, setLoadedMap] = useState<LoadedMapState>({ kind: "loading", id: null });
+  const [workspaceError, setWorkspaceError] = useState("");
+  const [openingWorkspace, setOpeningWorkspace] = useState(false);
+  const [mapRequestVersion, setMapRequestVersion] = useState(0);
   const [scopePath, setScopePath] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
@@ -333,6 +377,29 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [connectorPaths, setConnectorPaths] = useState<readonly ConnectorPath[]>([]);
 
+  const handleOpenWorkspace = useCallback(async () => {
+    if (mapSource.openWorkspace === undefined) return;
+    setWorkspaceError("");
+    setOpeningWorkspace(true);
+    try {
+      const entry = await mapSource.openWorkspace();
+      if (entry === null) return;
+      setMapCatalog((current) => {
+        const entries = current.kind === "ready" ? current.entries : [];
+        return {
+          kind: "ready",
+          entries: [entry, ...entries.filter((item) => item.id !== entry.id)],
+        };
+      });
+      setMapKey(entry.id);
+      setMapRequestVersion((version) => version + 1);
+    } catch (error: unknown) {
+      setWorkspaceError(describeError(error, "Could not open this Rust workspace."));
+    } finally {
+      setOpeningWorkspace(false);
+    }
+  }, [mapSource]);
+
   useEffect(() => {
     let cancelled = false;
     setMapCatalog({ kind: "loading" });
@@ -340,14 +407,20 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       .then(() => mapSource.listMaps())
       .then((entries) => {
         if (cancelled) return;
-        setMapCatalog({ kind: "ready", entries });
-        setMapKey((current) => entries.some((entry) => entry.id === current) ? current : entries[0]?.id ?? null);
+        setMapCatalog((current) => {
+          const recent = current.kind === "ready" ? current.entries : [];
+          return {
+            kind: "ready",
+            entries: [...recent, ...entries.filter((entry) => !recent.some((item) => item.id === entry.id))],
+          };
+        });
+        setMapKey((current) => current ?? entries[0]?.id ?? null);
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setMapCatalog({
+          setMapCatalog((current) => current.kind === "ready" ? current : {
             kind: "error",
-            message: error instanceof Error ? error.message : "Could not list available maps.",
+            message: describeError(error, "Could not list available maps."),
           });
         }
       });
@@ -368,23 +441,34 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         parseAnnotationOverlay(document.annotations),
       ))
       .then((map) => {
-        if (!cancelled) setLoadedMap({ kind: "ready", id: mapKey, map });
+        if (!cancelled) {
+          setLoadedMap({ kind: "ready", id: mapKey, map });
+          setMapCatalog((current) => current.kind === "ready"
+            ? {
+                kind: "ready",
+                entries: current.entries.map((entry) => entry.id === mapKey
+                  ? { ...entry, label: map.facts.project.name }
+                  : entry),
+              }
+            : current);
+        }
       })
       .catch((error: unknown) => {
         if (!cancelled) {
           setLoadedMap({
             kind: "error",
             id: mapKey,
-            message: error instanceof Error ? error.message : "Could not load map data.",
+            message: describeError(error, "Could not load map data."),
           });
         }
       });
     return () => { cancelled = true; };
-  }, [mapSource, mapKey]);
+  }, [mapSource, mapKey, mapRequestVersion]);
 
   const source = mapCatalog.kind === "ready"
     ? mapCatalog.entries.find((entry) => entry.id === mapKey)
     : undefined;
+  const openWorkspaceAction = mapSource.openWorkspace === undefined ? undefined : handleOpenWorkspace;
   const map = loadedMap.kind === "ready" && loadedMap.id === mapKey ? loadedMap.map : null;
   const rootId = map?.facts.project.id ?? "";
   const validPath = map !== null && scopePath.length > 0 && scopePath[0] === rootId
@@ -529,28 +613,40 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   };
 
   if (mapCatalog.kind === "loading") {
-    return <div className="load-failure"><Activity size={18} />Loading available maps…</div>;
+    return <MapSourceState
+      title="Loading workspaces"
+      message={workspaceError || "Reading recent workspaces…"}
+      openWorkspace={openWorkspaceAction}
+      opening={openingWorkspace}
+      error={workspaceError.length > 0}
+    />;
   }
   if (mapCatalog.kind === "error") {
-    return <div className="load-failure"><CircleAlert size={18} />{mapCatalog.message}</div>;
+    return <MapSourceState title="Could not load recent workspaces" message={workspaceError || mapCatalog.message} openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
   }
   if (mapCatalog.entries.length === 0) {
-    return <div className="load-failure"><CircleAlert size={18} />The map source has no maps to show.</div>;
+    return <MapSourceState
+      title="Open a Rust workspace"
+      message={workspaceError || "Choose a folder with a Cargo.toml to build its local architecture map."}
+      openWorkspace={openWorkspaceAction}
+      opening={openingWorkspace}
+      error={workspaceError.length > 0}
+    />;
   }
   if (mapKey === null) {
-    return <div className="load-failure"><Activity size={18} />Selecting a map…</div>;
+    return <MapSourceState title="Selecting a workspace" message="Preparing the workspace map…" openWorkspace={openWorkspaceAction} opening={openingWorkspace} />;
   }
   if (source === undefined) {
-    return <div className="load-failure"><CircleAlert size={18} />The selected map is not available from this source.</div>;
+    return <MapSourceState title="Workspace unavailable" message="The selected map is not available from this source." openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
   }
   if (loadedMap.kind === "error" && loadedMap.id === mapKey) {
-    return <div className="load-failure"><CircleAlert size={18} />{loadedMap.message}</div>;
+    return <MapSourceState title="Could not open this Rust workspace" message={loadedMap.message} openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
   }
   if (map === null) {
-    return <div className="load-failure"><Activity size={18} />Loading map data…</div>;
+    return <MapSourceState title="Loading workspace map" message="Extracting Rust packages and modules…" openWorkspace={openWorkspaceAction} opening={openingWorkspace} />;
   }
   if (selected === undefined) {
-    return <div className="load-failure"><CircleAlert size={18} />Map data is unavailable.</div>;
+    return <MapSourceState title="Map data unavailable" message="The selected workspace did not return a usable map." openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
   }
 
   const currentCrumbNames = validPath.map((id) => map.blockById.get(id)).filter((item): item is DisplayBlock => item !== undefined);
@@ -566,7 +662,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
   return (
     <div className="workspace-shell" ref={shellRef}>
-      <header className="topbar">
+      <header className={`topbar${openWorkspaceAction === undefined ? "" : " desktop-topbar"}`}>
         <div className="brand-block">
           <div className="brand-mark"><Waypoints size={17} strokeWidth={1.8} /></div>
           <div><div className="brand-name">Lightwell<span className="brand-version">LOCAL</span></div><div className="brand-caption">turning the lights on in the Dark Factory</div></div>
@@ -585,6 +681,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           </select>
           <ChevronDown size={13} />
         </div>
+        {openWorkspaceAction !== undefined && (
+          <button className="open-workspace-button" type="button" onClick={handleOpenWorkspace} disabled={openingWorkspace}>
+            <FolderOpen size={14} />{openingWorkspace ? "Opening…" : "Open workspace"}
+          </button>
+        )}
         <div className="global-search-wrap">
           <Search size={15} className="search-icon" />
           <input
@@ -601,6 +702,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         </div>
         <div className="top-status"><span className="live-dot" /><span>LOCAL MAP</span></div>
       </header>
+
+      {workspaceError.length > 0 && (
+        <div className="workspace-error" role="alert">
+          <span><CircleAlert size={14} />{workspaceError}</span>
+          <button type="button" onClick={() => setWorkspaceError("")}>Dismiss</button>
+        </div>
+      )}
 
       <div className="overview-row">
         <div className="overview-title">
