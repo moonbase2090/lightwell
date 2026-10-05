@@ -377,6 +377,7 @@ fn reap_editor_child(child: Child) {
     if let Err(error) = std::thread::Builder::new()
         .name("lightwell-editor-reaper".to_owned())
         .spawn(move || {
+            let mut child = child;
             if let Err(error) = child.wait() {
                 eprintln!("Lightwell could not collect an editor process: {error}");
             }
