@@ -3,6 +3,7 @@ mod facts;
 mod manifest;
 mod metadata;
 mod rust_source;
+mod watch;
 
 pub use extract::{extract_cargo_map, MapExtractionError};
 pub use facts::{
@@ -13,3 +14,4 @@ pub use metadata::{
     discover_cargo_workspace, CargoDependency, CargoDependencyKind, CargoDiscoveryError,
     CargoPackage, CargoTarget, CargoWorkspace, RustModule,
 };
+pub use watch::{MapWatchError, MapWatcher};
