@@ -56,7 +56,7 @@ pub fn extract_cargo_map(
     map_workspace(workspace, project_name)
 }
 
-fn map_workspace(
+pub(crate) fn map_workspace(
     workspace: CargoWorkspace,
     project_name: Option<&str>,
 ) -> Result<FactMap, MapExtractionError> {
@@ -487,7 +487,7 @@ fn derive_children(blocks: &mut [FactBlock]) {
     }
 }
 
-fn block_base(block: &FactBlock) -> &BlockBase {
+pub(crate) fn block_base(block: &FactBlock) -> &BlockBase {
     match block {
         FactBlock::Workspace(block) => &block.base,
         FactBlock::Crate(block) => &block.base,

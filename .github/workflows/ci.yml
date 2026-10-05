@@ -26,9 +26,11 @@ jobs:
           components: rustfmt
       - run: cargo fmt --all -- --check
       - run: cargo check --workspace --locked
+      - run: cargo test -p lightwell-core --lib --locked
       - name: Extract a schema-v1 map with the Rust CLI
         run: |
           cargo run --quiet --locked -p lightwell-cli -- --help
+          cargo run --quiet --locked -p lightwell-cli -- open --help
           cargo run --quiet --locked -p lightwell-cli -- extract . -o "$RUNNER_TEMP/lightwell-cli-map.json" --name Lightwell
           node_modules/.bin/tsx scripts/check-map.ts "$RUNNER_TEMP/lightwell-cli-map.json"
       - name: Serialize a Rust schema-v1 map
