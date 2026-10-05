@@ -167,11 +167,26 @@ if (Object.hasOwn(document.notes ?? {}, blockId)) {
   throw new Error("Removing the project note left it in .lightwell/notes.json.");
 }
 NODE
-    import -window "$window_id" "$artifact_dir/notes-removed.png"
+    removed_pixels=0
+    for _ in $(seq 1 15); do
+      import -window "$window_id" "$artifact_dir/notes-removed.png"
+      convert "$artifact_dir/notes-removed.png" -crop "860x640+$dialog_left+$dialog_top" +repage "$artifact_dir/.notes-dialog-removed.png"
+      pixel_metric="$(compare -metric AE "$artifact_dir/.notes-dialog-stale.png" "$artifact_dir/.notes-dialog-removed.png" null: 2>&1 || true)"
+      if [[ "$pixel_metric" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
+        printf -v removed_pixels "%.0f" "$pixel_metric"
+      fi
+      if (( removed_pixels > 100 )); then break; fi
+      sleep 1
+    done
+    if (( removed_pixels <= 100 )); then
+      cat "$app_log" >&2
+      printf "The notes dialog did not visibly update after the saved note was removed.\n" >&2
+      exit 1
+    fi
     read -r width height < <(identify -format "%w %h\n" "$artifact_dir/notes-current.png")
     if (( width < 800 || height < 500 )); then
       printf "Screenshot is too small: %sx%s\n" "$width" "$height" >&2
       exit 1
     fi
-    printf "The built app created, edited, retained as stale, and removed a project note (%s changed pixels after the source edit).\n" "$changed_pixels"
+    printf "The built app created, edited, retained as stale, and removed a project note (%s pixels changed after the source edit; %s after removal).\n" "$changed_pixels" "$removed_pixels"
 BASH
