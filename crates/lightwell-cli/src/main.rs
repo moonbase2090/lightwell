@@ -1,4 +1,6 @@
-use lightwell_core::extract_cargo_map;
+use lightwell_core::{
+    extract_cargo_map, list_project_notes, remove_project_note, set_project_note,
+};
 use std::env;
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
@@ -8,11 +10,18 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 const USAGE: &str =
-    "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell help";
+    "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell notes list\n  lightwell notes set <block-id> <text...>\n  lightwell notes rm <block-id>\n  lightwell help";
 
 enum Invocation {
     Help,
     Extract(ExtractOptions),
+    Notes(NotesCommand),
+}
+
+enum NotesCommand {
+    List,
+    Set { block_id: String, text: String },
+    Remove { block_id: String },
 }
 
 struct ExtractOptions {
@@ -34,6 +43,13 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Ok(Invocation::Notes(command)) => match run_notes_command(command) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("lightwell: {error}");
+                ExitCode::FAILURE
+            }
+        },
         Err(error) => {
             eprintln!("lightwell: {error}\n\n{USAGE}");
             ExitCode::from(2)
@@ -47,6 +63,9 @@ fn parse_invocation(mut arguments: impl Iterator<Item = OsString>) -> Result<Inv
     };
     if is_help(&command) {
         return Ok(Invocation::Help);
+    }
+    if command == OsStr::new("notes") {
+        return parse_notes_command(arguments);
     }
     if command != OsStr::new("extract") {
         return Err(format!("unknown command `{}`", command.to_string_lossy()));
@@ -93,6 +112,95 @@ fn parse_invocation(mut arguments: impl Iterator<Item = OsString>) -> Result<Inv
         output_path,
         project_name,
     }))
+}
+
+fn parse_notes_command(
+    mut arguments: impl Iterator<Item = OsString>,
+) -> Result<Invocation, String> {
+    let Some(subcommand) = arguments.next() else {
+        return Err("a notes command is required".to_owned());
+    };
+    if is_help(&subcommand) {
+        return Ok(Invocation::Help);
+    }
+
+    let command = if subcommand == OsStr::new("list") {
+        if arguments.next().is_some() {
+            return Err("`lightwell notes list` takes no arguments".to_owned());
+        }
+        NotesCommand::List
+    } else if subcommand == OsStr::new("set") {
+        let block_id = required_utf8(&mut arguments, "a block ID")?;
+        let text = arguments
+            .map(|part| {
+                part.into_string()
+                    .map_err(|_| "note text must use UTF-8".to_owned())
+            })
+            .collect::<Result<Vec<_>, _>>()?
+            .join(" ");
+        if text.is_empty() {
+            return Err("`lightwell notes set` requires note text".to_owned());
+        }
+        NotesCommand::Set { block_id, text }
+    } else if subcommand == OsStr::new("rm") {
+        let block_id = required_utf8(&mut arguments, "a block ID")?;
+        if arguments.next().is_some() {
+            return Err("`lightwell notes rm` takes one block ID".to_owned());
+        }
+        NotesCommand::Remove { block_id }
+    } else {
+        return Err(format!(
+            "unknown notes command `{}`",
+            subcommand.to_string_lossy()
+        ));
+    };
+
+    Ok(Invocation::Notes(command))
+}
+
+fn required_utf8(
+    arguments: &mut impl Iterator<Item = OsString>,
+    description: &str,
+) -> Result<String, String> {
+    arguments
+        .next()
+        .ok_or_else(|| format!("{description} is required"))?
+        .into_string()
+        .map_err(|_| format!("{description} must use UTF-8"))
+}
+
+fn run_notes_command(command: NotesCommand) -> Result<(), Box<dyn Error>> {
+    let repository = env::current_dir()?;
+    match command {
+        NotesCommand::List => {
+            let notes = list_project_notes(repository)?;
+            if notes.is_empty() {
+                println!(
+                    "No project notes. Save one with `lightwell notes set <block-id> <text...>`."
+                );
+                return Ok(());
+            }
+            for note in notes {
+                let status = if note.stale { "stale" } else { "current" };
+                println!(
+                    "[{status}] {} (source fingerprint {}): {}",
+                    note.block_id, note.source_fingerprint, note.text
+                );
+            }
+        }
+        NotesCommand::Set { block_id, text } => {
+            set_project_note(repository, &block_id, &text)?;
+            println!("Saved note for `{block_id}` in `.lightwell/notes.json`.");
+        }
+        NotesCommand::Remove { block_id } => {
+            if remove_project_note(repository, &block_id)? {
+                println!("Removed note for `{block_id}`.");
+            } else {
+                println!("No saved note for `{block_id}`.");
+            }
+        }
+    }
+    Ok(())
 }
 
 fn is_help(argument: &OsStr) -> bool {

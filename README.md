@@ -52,7 +52,18 @@ The seed command refuses to overwrite an existing overlay. Edit the overlay to c
 
 When a block's fingerprint no longer matches its note, the viewer marks it as changed. Review the block and update its `sourceFingerprint`. Update affected feature `sourceFingerprints` when their descriptions still match the source. Extraction never writes to note overlays.
 
-Project notes will live in `.lightwell/notes.json`, created on the first saved note. See [the schema reference](docs/schema.md) for block types, connection rules, note fields, and stale fingerprint behavior.
+## Project notes
+
+Save project notes from the workspace root. Lightwell creates `.lightwell/notes.json` on the first save and stores each note by stable block ID with the source fingerprint it describes.
+
+```sh
+lightwell extract . -o /tmp/lightwell-map.json
+lightwell notes set crate:lightwell-core "Review output serialization"
+lightwell notes list
+lightwell notes rm crate:lightwell-core
+```
+
+Use a `blocks[].id` value from the extracted map. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
 
 ## Data flow
 
