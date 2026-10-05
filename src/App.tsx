@@ -28,9 +28,11 @@ import {
   Background,
   Controls,
   ReactFlow,
+  useReactFlow,
+  type Viewport,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import type { MapSource, MapSourceEntry } from "./map-source.js";
+import type { MapSource, MapSourceDocument, MapSourceEntry } from "./map-source.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
@@ -358,6 +360,36 @@ function FeatureFooter({
   );
 }
 
+function RestoreViewport({
+  refreshVersion,
+  layoutRevision,
+  getSavedViewport,
+}: {
+  readonly refreshVersion: number;
+  readonly layoutRevision: number;
+  readonly getSavedViewport: () => Viewport | null;
+}) {
+  const { setViewport } = useReactFlow();
+  const previousRefreshVersion = useRef(refreshVersion);
+  const nextLayoutRevision = useRef(layoutRevision);
+  const waitingForLayout = useRef(false);
+
+  useEffect(() => {
+    if (previousRefreshVersion.current !== refreshVersion) {
+      previousRefreshVersion.current = refreshVersion;
+      nextLayoutRevision.current = layoutRevision + 1;
+      waitingForLayout.current = true;
+    }
+    if (waitingForLayout.current && layoutRevision >= nextLayoutRevision.current) {
+      waitingForLayout.current = false;
+      const viewport = getSavedViewport();
+      if (viewport !== null) void setViewport(viewport, { duration: 0 });
+    }
+  }, [getSavedViewport, layoutRevision, refreshVersion, setViewport]);
+
+  return null;
+}
+
 function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [mapCatalog, setMapCatalog] = useState<MapCatalogState>({ kind: "loading" });
   const [mapKey, setMapKey] = useState<string | null>(null);
@@ -365,6 +397,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [workspaceError, setWorkspaceError] = useState("");
   const [openingWorkspace, setOpeningWorkspace] = useState(false);
   const [mapRequestVersion, setMapRequestVersion] = useState(0);
+  const [mapRefreshVersion, setMapRefreshVersion] = useState(0);
   const [scopePath, setScopePath] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
@@ -372,10 +405,14 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
   const [baseGraph, setBaseGraph] = useState<{ readonly nodes: MapNode[]; readonly edges: ReturnType<typeof emphasizeGraph>["edges"] }>({ nodes: [], edges: [] });
+  const [layoutRevision, setLayoutRevision] = useState(0);
   const [graphError, setGraphError] = useState("");
   const shellRef = useRef<HTMLDivElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const savedViewportRef = useRef<Viewport | null>(null);
+  const initializedMapKeyRef = useRef<string | null>(null);
   const [connectorPaths, setConnectorPaths] = useState<readonly ConnectorPath[]>([]);
+  const getSavedViewport = useCallback(() => savedViewportRef.current, []);
 
   const handleOpenWorkspace = useCallback(async () => {
     if (mapSource.openWorkspace === undefined) return;
@@ -433,15 +470,17 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       return;
     }
     let cancelled = false;
+    let unwatch: (() => void) | undefined;
     setLoadedMap({ kind: "loading", id: mapKey });
     void Promise.resolve()
       .then(() => mapSource.loadMap(mapKey))
-      .then((document) => resolveMap(
-        parseFactMap(document.facts),
-        parseAnnotationOverlay(document.annotations),
-      ))
-      .then((map) => {
+      .then((document) => {
+        const map = resolveMap(
+          parseFactMap(document.facts),
+          parseAnnotationOverlay(document.annotations),
+        );
         if (!cancelled) {
+          setWorkspaceError("");
           setLoadedMap({ kind: "ready", id: mapKey, map });
           setMapCatalog((current) => current.kind === "ready"
             ? {
@@ -450,7 +489,48 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                   ? { ...entry, label: map.facts.project.name }
                   : entry),
               }
-            : current);
+              : current);
+
+          const acceptUpdate = (updatedDocument: MapSourceDocument) => {
+            if (cancelled) return;
+            try {
+              const updatedMap = resolveMap(
+                parseFactMap(updatedDocument.facts),
+                parseAnnotationOverlay(updatedDocument.annotations),
+              );
+              setLoadedMap((current) => current.kind === "ready" && current.id === mapKey
+                ? { ...current, map: updatedMap }
+                : current);
+              setMapCatalog((current) => current.kind === "ready"
+                ? {
+                    kind: "ready",
+                    entries: current.entries.map((entry) => entry.id === mapKey
+                      ? { ...entry, label: updatedMap.facts.project.name }
+                      : entry),
+                  }
+                : current);
+              setWorkspaceError("");
+              setMapRefreshVersion((version) => version + 1);
+            } catch (error: unknown) {
+              setWorkspaceError(`Could not apply a live map update: ${describeError(error, "Invalid map data.")}`);
+            }
+          };
+
+          const watchMap = mapSource.watchMap;
+          if (watchMap !== undefined) {
+            void watchMap.call(mapSource, mapKey, acceptUpdate, (error) => {
+              if (!cancelled) {
+                setWorkspaceError(`Live refresh failed: ${describeError(error, "The workspace watcher stopped.")}`);
+              }
+            }).then((cleanup) => {
+              if (cancelled) cleanup();
+              else unwatch = cleanup;
+            }).catch((error: unknown) => {
+              if (!cancelled) {
+                setWorkspaceError(`Live refresh failed: ${describeError(error, "Could not watch this workspace.")}`);
+              }
+            });
+          }
         }
       })
       .catch((error: unknown) => {
@@ -462,7 +542,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           });
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      unwatch?.();
+    };
   }, [mapSource, mapKey, mapRequestVersion]);
 
   const source = mapCatalog.kind === "ready"
@@ -495,7 +578,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, []);
 
   useEffect(() => {
-    if (map === null) return;
+    if (map === null || initializedMapKeyRef.current === mapKey) return;
+    initializedMapKeyRef.current = mapKey;
     setScopePath([map.facts.project.id]);
     setSelectedId(map.facts.project.id);
     setSearch("");
@@ -523,7 +607,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
     setGraphError("");
     layoutBlocks({ blocks: visibleBlocks, connections: map.connections })
-      .then((graph) => { if (!cancelled) setBaseGraph(graph); })
+      .then((graph) => {
+        if (!cancelled) {
+          setBaseGraph(graph);
+          setLayoutRevision((revision) => revision + 1);
+        }
+      })
       .catch((error: unknown) => {
         if (!cancelled) setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
       });
@@ -756,6 +845,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                 edges={graph.edges}
                 nodeTypes={nodeTypes}
                 onNodeClick={onNodeClick}
+                onMove={(_event, viewport) => { savedViewportRef.current = viewport; }}
                 nodesDraggable={false}
                 nodesConnectable={false}
                 elementsSelectable={false}
@@ -765,6 +855,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                 maxZoom={1.7}
                 defaultEdgeOptions={{ type: "smoothstep" }}
               >
+                <RestoreViewport
+                  refreshVersion={mapRefreshVersion}
+                  layoutRevision={layoutRevision}
+                  getSavedViewport={getSavedViewport}
+                />
                 <Background color="#1b2733" gap={26} size={1} />
                 <Controls showInteractive={false} position="bottom-left" />
               </ReactFlow>

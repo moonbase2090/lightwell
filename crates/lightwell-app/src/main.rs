@@ -4,11 +4,13 @@ mod workspace;
 
 fn main() {
     tauri::Builder::default()
+        .manage(workspace::WorkspaceWatchers::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             workspace::recent_workspaces,
             workspace::open_workspace,
             workspace::load_workspace_map,
+            workspace::watch_workspace,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Lightwell desktop app");
