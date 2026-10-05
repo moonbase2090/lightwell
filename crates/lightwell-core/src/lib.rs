@@ -8,7 +8,8 @@ mod rust_source;
 mod watch;
 
 pub use editor::{
-    open_block, EditorError, EditorSettings, EditorTarget, SourcePosition, EDITOR_TEMPLATE_PRESETS,
+    open_block, resolve_block_target, EditorError, EditorSettings, EditorTarget,
+    EditorTemplatePreset, SourcePosition, EDITOR_TEMPLATE_PRESETS,
 };
 pub use extract::{extract_cargo_map, MapExtractionError};
 pub use facts::{

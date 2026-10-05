@@ -11,6 +11,11 @@ fn main() {
             workspace::open_workspace,
             workspace::load_workspace_map,
             workspace::watch_workspace,
+            workspace::inspect_block,
+            workspace::open_block_in_editor,
+            workspace::load_editor_settings,
+            workspace::save_editor_settings,
+            workspace::editor_template_presets,
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Lightwell desktop app");
