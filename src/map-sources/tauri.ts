@@ -1,13 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { MapSource, MapSourceDocument, MapSourceEntry } from "../map-source.js";
+import type { MapSource } from "../map-source.js";
+import {
+  parseMapSourceDocument,
+  parseMapSourceEntries,
+  parseMapSourceEntry,
+} from "./tauri-types.js";
 
 export const tauriMapSource: MapSource = {
   listMaps() {
-    return invoke<readonly MapSourceEntry[]>("recent_workspaces");
+    return invoke<unknown>("recent_workspaces").then(parseMapSourceEntries);
   },
   loadMap(id) {
-    return invoke<MapSourceDocument>("load_workspace_map", { path: id });
+    return invoke<unknown>("load_workspace_map", { path: id }).then(parseMapSourceDocument);
   },
   async openWorkspace() {
     const selected = await open({
@@ -16,6 +21,7 @@ export const tauriMapSource: MapSource = {
       title: "Open a Rust workspace",
     });
     if (selected === null || Array.isArray(selected)) return null;
-    return invoke<MapSourceEntry>("open_workspace", { path: selected });
+    const result = await invoke<unknown>("open_workspace", { path: selected });
+    return parseMapSourceEntry(result);
   },
 };
