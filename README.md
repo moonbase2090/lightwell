@@ -21,6 +21,17 @@ npm run build
 
 The output is in `dist/`.
 
+## Desktop shell
+
+Start the Tauri v2 app with the same Vite and React viewer:
+
+```sh
+npm ci
+npm run tauri:dev
+```
+
+Build a local desktop bundle with `npm run tauri:build`. Pull request CI uploads an unsigned Apple Silicon `.app` archive and an x86_64 Linux `.deb` built for a GLIBC 2.28 executable floor.
+
 ## Rust CLI
 
 Install the Rust CLI from the repository root:
@@ -113,7 +124,7 @@ The viewer starts at the Cargo workspace. Click a block with children to open it
 
 The runtime dependencies are React and React DOM (MIT), `@xyflow/react` (MIT), `elkjs` (EPL-2.0 or GPL-3.0-or-later), and `lucide-react` (ISC). Vite is MIT, TypeScript is Apache-2.0, and `tsx` is MIT. `package-lock.json` records resolved versions. Transitive packages also include ISC, BSD-3-Clause, and MPL-2.0 components.
 
-Print the installed dependency license inventory with `npm run check:licenses`.
+Print the installed npm and Rust dependency license inventories with `npm run check:licenses`.
 
 ## License
 
