@@ -68,24 +68,33 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
 
     sleep 8
     window_width="$(xdotool getwindowgeometry "$window_id" | sed -n "s/.*Geometry: \\([0-9][0-9]*\\)x.*/\\1/p")"
+    window_height="$(xdotool getwindowgeometry "$window_id" | sed -n "s/.*Geometry: [0-9][0-9]*x\\([0-9][0-9]*\\).*/\\1/p")"
     if [[ ! "$window_width" =~ ^[0-9]+$ ]]; then
       printf "Could not read the Lightwell window width.\n" >&2
       exit 1
     fi
-    settings_x=$((window_width - 164))
+    if [[ ! "$window_height" =~ ^[0-9]+$ ]]; then
+      printf "Could not read the Lightwell window height.\n" >&2
+      exit 1
+    fi
+    settings_button_x=$((window_width - 164))
+    theme_select_x=$((window_width / 2))
+    theme_select_y=$((window_height / 2 - 130))
+    settings_close_x=$((window_width / 2 + 218))
+    settings_close_y=$((window_height / 2 - 245))
 
     capture_theme() {
       theme_name="$1"
       down_count="$2"
-      xdotool mousemove --window "$window_id" "$settings_x" 32 click 1
+      xdotool mousemove --window "$window_id" "$settings_button_x" 32 click 1
       sleep 1
-      xdotool key Tab
+      xdotool mousemove --window "$window_id" "$theme_select_x" "$theme_select_y" click 1
       xdotool key Home
       for _ in $(seq 1 "$down_count"); do xdotool key Down; done
       xdotool key Return
       sleep 2
       import -window "$window_id" "$artifact_dir/theme-settings-$theme_name.png"
-      xdotool key Escape
+      xdotool mousemove --window "$window_id" "$settings_close_x" "$settings_close_y" click 1
       sleep 2
       import -window "$window_id" "$artifact_dir/theme-$theme_name.png"
     }
@@ -95,22 +104,33 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     capture_theme light 2
     capture_theme blueprint 3
 
+    pixel_diff_count() {
+      local raw_count rounded_count
+      raw_count="$(compare -metric AE "$1" "$2" null: 2>&1 || true)"
+      if [[ "$raw_count" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
+        printf -v rounded_count "%.0f" "$raw_count"
+        printf "%s" "$rounded_count"
+      else
+        printf "0"
+      fi
+    }
+
     for image in system dark light blueprint; do
       read -r width height < <(identify -format "%w %h\n" "$artifact_dir/theme-$image.png")
       if (( width < 800 || height < 500 )); then
         printf "Theme screenshot is too small: %sx%s\n" "$width" "$height" >&2
         exit 1
       fi
+      changed_pixels="$(pixel_diff_count "$artifact_dir/theme-settings-$image.png" "$artifact_dir/theme-$image.png")"
+      if (( changed_pixels < 20000 )); then
+        printf "The %s Settings panel did not close before its theme screenshot.\n" "$image" >&2
+        exit 1
+      fi
     done
     for pair in "dark light" "light blueprint"; do
       read -r left right <<<"$pair"
-      changed_pixels="$(compare -metric AE "$artifact_dir/theme-$left.png" "$artifact_dir/theme-$right.png" null: 2>&1 || true)"
-      if [[ "$changed_pixels" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
-        printf -v changed_pixel_count "%.0f" "$changed_pixels"
-      else
-        changed_pixel_count=0
-      fi
-      if (( changed_pixel_count < 20000 )); then
+      changed_pixels="$(pixel_diff_count "$artifact_dir/theme-$left.png" "$artifact_dir/theme-$right.png")"
+      if (( changed_pixels < 20000 )); then
         printf "Themes %s and %s were not visibly different (%s changed pixels).\n" "$left" "$right" "$changed_pixels" >&2
         exit 1
       fi
