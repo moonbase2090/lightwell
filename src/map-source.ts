@@ -11,4 +11,5 @@ export interface MapSourceDocument {
 export interface MapSource {
   listMaps(): Promise<readonly MapSourceEntry[]>;
   loadMap(id: string): Promise<MapSourceDocument>;
+  openWorkspace?(): Promise<MapSourceEntry | null>;
 }
