@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { ArrowUpRight, CircleAlert, LoaderCircle, X } from "lucide-react";
 import type { SourceFileDocument } from "./map-source.js";
+import type { ResolvedTheme } from "./theme.js";
 
 const SourceCodeEditor = lazy(() => import("./SourceCodeEditor.js"));
 
@@ -12,6 +13,7 @@ export type SourceInspectionState =
 export default function SourceInspectorPanel({
   title,
   inspection,
+  theme,
   openingEditor,
   editorError,
   onOpenInEditor,
@@ -19,6 +21,7 @@ export default function SourceInspectorPanel({
 }: {
   readonly title: string;
   readonly inspection: SourceInspectionState;
+  readonly theme: ResolvedTheme;
   readonly openingEditor: boolean;
   readonly editorError: string;
   readonly onOpenInEditor: () => void;
@@ -61,6 +64,7 @@ export default function SourceInspectorPanel({
               line={inspection.document.line}
               column={inspection.document.column}
               path={inspection.document.path}
+              theme={theme}
             />
           </Suspense>
         )}
