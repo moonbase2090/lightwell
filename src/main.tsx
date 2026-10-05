@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.js";
+import { fixtureMapSource } from "./map-sources/fixtures.js";
 import "@xyflow/react/dist/style.css";
 import "./style.css";
 
@@ -9,6 +10,6 @@ if (root === null) throw new Error("The root element is missing.");
 
 createRoot(root).render(
   <React.StrictMode>
-    <App />
+    <App mapSource={fixtureMapSource} />
   </React.StrictMode>,
 );

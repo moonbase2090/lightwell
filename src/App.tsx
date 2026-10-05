@@ -29,37 +29,28 @@ import {
   ReactFlow,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import prismattycFacts from "../maps/prismattyc.facts.json";
-import prismattycAnnotations from "../maps/prismattyc.annotations.json";
-import scorecardFacts from "../maps/scorecard.facts.json";
-import scorecardAnnotations from "../maps/scorecard.annotations.json";
-import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection } from "./model.js";
+import type { MapSource, MapSourceEntry } from "./map-source.js";
+import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
 
-interface MapSource {
-  readonly label: string;
-  readonly facts: unknown;
-  readonly annotations: unknown;
-}
-
-const mapSources: Readonly<Record<string, MapSource>> = {
-  prismattyc: { label: "Prismattyc", facts: prismattycFacts, annotations: prismattycAnnotations },
-  scorecard: { label: "Scorecard", facts: scorecardFacts, annotations: scorecardAnnotations },
-};
 const nodeTypes = { codeBlock: BlockNodeView };
 const featureColors = ["#88a8ff", "#5ed7c0", "#d19af5", "#efba78", "#80c7f2", "#f08db4", "#a8d989", "#e4cf73"];
+
+type MapCatalogState =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly entries: readonly MapSourceEntry[] }
+  | { readonly kind: "error"; readonly message: string };
+
+type LoadedMapState =
+  | { readonly kind: "loading"; readonly id: string | null }
+  | { readonly kind: "ready"; readonly id: string; readonly map: ResolvedMap }
+  | { readonly kind: "error"; readonly id: string; readonly message: string };
 
 interface ConnectorPath {
   readonly d: string;
   readonly color: string;
-}
-
-function requireMap(key: string) {
-  const source = mapSources[key];
-  if (source === undefined) throw new Error(`Unknown map: ${key}`);
-  return resolveMap(parseFactMap(source.facts), parseAnnotationOverlay(source.annotations));
 }
 
 function labelType(node: DisplayNode): string {
@@ -167,7 +158,7 @@ function DetailsPanel({
   onSelectBlock,
 }: {
   readonly node: DisplayNode;
-  readonly map: ReturnType<typeof requireMap>;
+  readonly map: ResolvedMap;
   readonly onOpen: (node: DisplayNode) => void;
   readonly onSelectBlock: (id: string) => void;
 }) {
@@ -266,7 +257,7 @@ function FeatureFooter({
   onFeatureSelect,
   onFeatureHover,
 }: {
-  readonly map: ReturnType<typeof requireMap>;
+  readonly map: ResolvedMap;
   readonly group: AnnotationOverlay["groups"][number] | undefined;
   readonly activeFeatureId: string | null;
   readonly selectedId: string;
@@ -326,8 +317,10 @@ function FeatureFooter({
   );
 }
 
-function App() {
-  const [mapKey, setMapKey] = useState("prismattyc");
+function App({ mapSource }: { readonly mapSource: MapSource }) {
+  const [mapCatalog, setMapCatalog] = useState<MapCatalogState>({ kind: "loading" });
+  const [mapKey, setMapKey] = useState<string | null>(null);
+  const [loadedMap, setLoadedMap] = useState<LoadedMapState>({ kind: "loading", id: null });
   const [scopePath, setScopePath] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
@@ -340,15 +333,59 @@ function App() {
   const searchRef = useRef<HTMLInputElement | null>(null);
   const [connectorPaths, setConnectorPaths] = useState<readonly ConnectorPath[]>([]);
 
-  const source = mapSources[mapKey];
-  const mapResult = useMemo(() => {
-    try {
-      return { map: requireMap(mapKey), error: "" };
-    } catch (error: unknown) {
-      return { map: null, error: error instanceof Error ? error.message : "Could not load map." };
+  useEffect(() => {
+    let cancelled = false;
+    setMapCatalog({ kind: "loading" });
+    void Promise.resolve()
+      .then(() => mapSource.listMaps())
+      .then((entries) => {
+        if (cancelled) return;
+        setMapCatalog({ kind: "ready", entries });
+        setMapKey((current) => entries.some((entry) => entry.id === current) ? current : entries[0]?.id ?? null);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setMapCatalog({
+            kind: "error",
+            message: error instanceof Error ? error.message : "Could not list available maps.",
+          });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [mapSource]);
+
+  useEffect(() => {
+    if (mapKey === null) {
+      setLoadedMap({ kind: "loading", id: null });
+      return;
     }
-  }, [mapKey]);
-  const map = mapResult.map;
+    let cancelled = false;
+    setLoadedMap({ kind: "loading", id: mapKey });
+    void Promise.resolve()
+      .then(() => mapSource.loadMap(mapKey))
+      .then((document) => resolveMap(
+        parseFactMap(document.facts),
+        parseAnnotationOverlay(document.annotations),
+      ))
+      .then((map) => {
+        if (!cancelled) setLoadedMap({ kind: "ready", id: mapKey, map });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setLoadedMap({
+            kind: "error",
+            id: mapKey,
+            message: error instanceof Error ? error.message : "Could not load map data.",
+          });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [mapSource, mapKey]);
+
+  const source = mapCatalog.kind === "ready"
+    ? mapCatalog.entries.find((entry) => entry.id === mapKey)
+    : undefined;
+  const map = loadedMap.kind === "ready" && loadedMap.id === mapKey ? loadedMap.map : null;
   const rootId = map?.facts.project.id ?? "";
   const validPath = map !== null && scopePath.length > 0 && scopePath[0] === rootId
     ? scopePath.filter((id) => map.blockById.has(id))
@@ -491,8 +528,29 @@ function App() {
     setActiveNodeId(null);
   };
 
-  if (source === undefined || map === null || selected === undefined) {
-    return <div className="load-failure"><CircleAlert size={18} />{mapResult.error || "Map data is unavailable."}</div>;
+  if (mapCatalog.kind === "loading") {
+    return <div className="load-failure"><Activity size={18} />Loading available maps…</div>;
+  }
+  if (mapCatalog.kind === "error") {
+    return <div className="load-failure"><CircleAlert size={18} />{mapCatalog.message}</div>;
+  }
+  if (mapCatalog.entries.length === 0) {
+    return <div className="load-failure"><CircleAlert size={18} />The map source has no maps to show.</div>;
+  }
+  if (mapKey === null) {
+    return <div className="load-failure"><Activity size={18} />Selecting a map…</div>;
+  }
+  if (source === undefined) {
+    return <div className="load-failure"><CircleAlert size={18} />The selected map is not available from this source.</div>;
+  }
+  if (loadedMap.kind === "error" && loadedMap.id === mapKey) {
+    return <div className="load-failure"><CircleAlert size={18} />{loadedMap.message}</div>;
+  }
+  if (map === null) {
+    return <div className="load-failure"><Activity size={18} />Loading map data…</div>;
+  }
+  if (selected === undefined) {
+    return <div className="load-failure"><CircleAlert size={18} />Map data is unavailable.</div>;
   }
 
   const currentCrumbNames = validPath.map((id) => map.blockById.get(id)).filter((item): item is DisplayBlock => item !== undefined);
@@ -515,8 +573,15 @@ function App() {
         </div>
         <div className="project-select-wrap">
           <label htmlFor="project-select">PROJECT</label>
-          <select id="project-select" value={mapKey} onChange={(event) => setMapKey(event.currentTarget.value)}>
-            {Object.entries(mapSources).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}
+          <select
+            id="project-select"
+            value={mapKey ?? ""}
+            onChange={(event) => {
+              const id = event.currentTarget.value;
+              if (mapCatalog.entries.some((entry) => entry.id === id)) setMapKey(id);
+            }}
+          >
+            {mapCatalog.entries.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
           </select>
           <ChevronDown size={13} />
         </div>

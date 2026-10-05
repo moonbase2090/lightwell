@@ -21,6 +21,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Load browser fixtures through the map-source adapter
+        run: node_modules/.bin/tsx scripts/check-map-source.ts
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           components: rustfmt
