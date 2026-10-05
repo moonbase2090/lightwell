@@ -62,6 +62,14 @@ function childCount(block: DisplayBlock): number {
   return block.children.length;
 }
 
+function describeError(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.length > 0) return error.message;
+  if (typeof error === "string" && error.length > 0) return error;
+  if (typeof error === "object" && error !== null && "message" in error
+    && typeof error.message === "string" && error.message.length > 0) return error.message;
+  return fallback;
+}
+
 function pathLabel(block: DisplayBlock): string {
   switch (block.type) {
     case "workspace": return "Cargo workspace";
@@ -386,7 +394,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       setMapKey(entry.id);
       setMapRequestVersion((version) => version + 1);
     } catch (error: unknown) {
-      setWorkspaceError(error instanceof Error ? error.message : "Could not open this Rust workspace.");
+      setWorkspaceError(describeError(error, "Could not open this Rust workspace."));
     } finally {
       setOpeningWorkspace(false);
     }
@@ -412,7 +420,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) {
           setMapCatalog((current) => current.kind === "ready" ? current : {
             kind: "error",
-            message: error instanceof Error ? error.message : "Could not list available maps.",
+            message: describeError(error, "Could not list available maps."),
           });
         }
       });
@@ -450,7 +458,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           setLoadedMap({
             kind: "error",
             id: mapKey,
-            message: error instanceof Error ? error.message : "Could not load map data.",
+            message: describeError(error, "Could not load map data."),
           });
         }
       });
@@ -605,10 +613,16 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   };
 
   if (mapCatalog.kind === "loading") {
-    return <MapSourceState title="Loading workspaces" message="Reading recent workspaces…" openWorkspace={openWorkspaceAction} opening={openingWorkspace} />;
+    return <MapSourceState
+      title="Loading workspaces"
+      message={workspaceError || "Reading recent workspaces…"}
+      openWorkspace={openWorkspaceAction}
+      opening={openingWorkspace}
+      error={workspaceError.length > 0}
+    />;
   }
   if (mapCatalog.kind === "error") {
-    return <MapSourceState title="Could not load recent workspaces" message={mapCatalog.message} openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
+    return <MapSourceState title="Could not load recent workspaces" message={workspaceError || mapCatalog.message} openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
   }
   if (mapCatalog.entries.length === 0) {
     return <MapSourceState
