@@ -47,6 +47,29 @@ lightwell watch ../Prismattyc --name Prismattyc
 
 The `npm run lightwell -- ...` command remains available for the TypeScript preview workflow while the app migrates to the shared Rust extractor.
 
+## Open a block in an editor
+
+Run `lightwell open <block-id>` from the workspace root. The command extracts the current map, finds the block source, and opens that file at the start. Schema v1 does not record source spans, so the CLI uses line 1 and column 1.
+
+By default, Lightwell uses `open` on macOS or `xdg-open` on Linux. Set `LIGHTWELL_EDITOR_TEMPLATE` to override the OS handler. Templates accept `{file}`, `{line}`, and `{column}`. Lightwell parses the template into a program and arguments without evaluating it in a shell. If the configured command or OS handler fails, Lightwell tries `VISUAL`, then `EDITOR`.
+
+```sh
+LIGHTWELL_EDITOR_TEMPLATE='code --goto {file}:{line}:{column}' lightwell open crate:lightwell-core
+```
+
+These templates are examples, not a supported-editor list. Use any command available on your system.
+
+| Editor | Template |
+| --- | --- |
+| JetBrains IDE | `idea --line {line} --column {column} {file}` |
+| Kiro | `kiro {file}` |
+| Zed | `zed {file}:{line}:{column}` |
+| Visual Studio Code | `code --goto {file}:{line}:{column}` |
+| Cursor | `cursor {file}` |
+| Vim in a Linux terminal | `x-terminal-emulator -e vim "+call cursor({line},{column})" {file}` |
+
+See the [JetBrains command-line reference](https://www.jetbrains.com/help/idea/opening-files-from-command-line.html), [Zed CLI reference](https://zed.dev/docs/reference/cli), and [Visual Studio Code CLI reference](https://code.visualstudio.com/docs/configure/command-line) for their documented file and location arguments.
+
 ## Preview notes
 
 The checked-in preview uses one notes overlay for each map:

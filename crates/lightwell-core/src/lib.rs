@@ -1,3 +1,4 @@
+mod editor;
 mod extract;
 mod facts;
 mod manifest;
@@ -5,6 +6,9 @@ mod metadata;
 mod rust_source;
 mod watch;
 
+pub use editor::{
+    open_block, EditorError, EditorSettings, EditorTarget, SourcePosition, EDITOR_TEMPLATE_PRESETS,
+};
 pub use extract::{extract_cargo_map, MapExtractionError};
 pub use facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
