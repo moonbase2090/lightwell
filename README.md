@@ -37,6 +37,14 @@ lightwell extract ../Prismattyc --name Prismattyc -o maps/prismattyc.facts.json
 
 The Rust CLI calls `lightwell-core`. It uses `cargo metadata --no-deps` when Cargo is installed and otherwise reads the manifests and Rust sources directly. It records workspace crates, app targets, internal path dependencies, declared Cargo features, Rust modules, and source fingerprints. It omits test-only modules. Paths in each output file are relative to the source repository.
 
+Run `watch` to stream a map and later maps when source fingerprints change:
+
+```sh
+lightwell watch ../Prismattyc --name Prismattyc
+```
+
+`lightwell watch` writes each complete map to stdout as JSON Lines. Press Ctrl-C to stop it.
+
 CI builds and runs the Rust CLI on macOS with a macOS 11.0 deployment target. Linux CI builds x86_64 and ARM64 binaries with a glibc 2.28 symbol floor and runs each binary on Amazon Linux 2023.
 
 The `npm run lightwell -- ...` command remains available for the TypeScript preview workflow while the app migrates to the shared Rust extractor.
