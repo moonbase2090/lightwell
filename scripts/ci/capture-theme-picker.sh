@@ -121,7 +121,7 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
         printf "Theme screenshot is too small: %sx%s\n" "$width" "$height" >&2
         exit 1
       fi
-      visible_map_colors="$(identify -format "%k" -crop 300x120+320+270 +repage "$artifact_dir/theme-$image.png")"
+      visible_map_colors="$(identify -format "%k" -crop 300x120+320+270 "$artifact_dir/theme-$image.png")"
       if [[ ! "$visible_map_colors" =~ ^[0-9]+$ ]] || (( visible_map_colors < 10 )); then
         printf "The %s screenshot is missing its visible map block (%s colors in the block area).\n" "$image" "$visible_map_colors" >&2
         exit 1
