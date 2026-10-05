@@ -9,6 +9,7 @@ description = "Shared extraction model and schema-v1 map types for Lightwell"
 
 [dependencies]
 glob.workspace = true
+notify-debouncer-mini.workspace = true
 proc-macro2.workspace = true
 quote.workspace = true
 sha2.workspace = true

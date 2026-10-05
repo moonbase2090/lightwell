@@ -33,6 +33,8 @@ jobs:
           cargo run --quiet --locked -p lightwell-cli -- open --help
           cargo run --quiet --locked -p lightwell-cli -- extract . -o "$RUNNER_TEMP/lightwell-cli-map.json" --name Lightwell
           node_modules/.bin/tsx scripts/check-map.ts "$RUNNER_TEMP/lightwell-cli-map.json"
+      - name: Watch a Rust source change with the Rust CLI
+        run: node scripts/check-live-refresh.mjs "$GITHUB_WORKSPACE/target/debug/lightwell"
       - name: Serialize a Rust schema-v1 map
         run: cargo run --quiet --locked -p lightwell-core --example schema_v1 > "$RUNNER_TEMP/lightwell-schema-v1.json"
       - name: Validate the Rust map with the viewer schema
