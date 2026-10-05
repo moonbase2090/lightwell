@@ -539,6 +539,10 @@ button { color: inherit; }
   background-image: none !important;
   box-shadow: none !important;
 }
+.workspace-shell[data-theme="blueprint"] .react-flow,
+.workspace-shell[data-theme="blueprint"] .react-flow * {
+  background-color: transparent !important;
+}
 .workspace-shell[data-theme="blueprint"] .connector-layer { background-color: transparent !important; }
 .workspace-shell[data-theme="blueprint"] .settings-backdrop { background: rgba(0,32,80,.42) !important; }
 .workspace-shell[data-theme="blueprint"] .graph-canvas {
@@ -547,7 +551,7 @@ button { color: inherit; }
   background-size: 26px 26px !important;
 }
 .workspace-shell[data-theme="blueprint"] .graph-canvas::after { background: radial-gradient(ellipse at 50% 40%, transparent 20%, rgba(0,33,88,.12) 100%) !important; }
-.workspace-shell[data-theme="blueprint"] .block-node { border: 1.5px solid #fff !important; border-radius: 2px; }
+.workspace-shell[data-theme="blueprint"] .block-node { border: 1.5px solid #fff !important; border-radius: 2px; background-color: #1868D0 !important; }
 .workspace-shell[data-theme="blueprint"] .block-node:hover,
 .workspace-shell[data-theme="blueprint"] .block-node.selected { outline: 2px solid rgba(255,255,255,.6); outline-offset: 3px; }
 .workspace-shell[data-theme="blueprint"] .react-flow__edge-path { stroke: #fff !important; }

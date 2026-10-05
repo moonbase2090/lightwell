@@ -126,6 +126,13 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
         printf "The %s screenshot is missing its visible map block (%s colors in the block area).\n" "$image" "$visible_map_colors" >&2
         exit 1
       fi
+      if [[ "$image" == "blueprint" ]]; then
+        blueprint_node_pixels="$(convert "$artifact_dir/theme-blueprint.png" -crop 300x120+320+270 -colorspace gray -threshold 90% -format "%[fx:mean*w*h]" info:)"
+        if ! awk -v pixels="$blueprint_node_pixels" "BEGIN { exit !(pixels >= 250) }"; then
+          printf "The Blueprint screenshot is missing its white block outline (%s bright pixels in the block area).\n" "$blueprint_node_pixels" >&2
+          exit 1
+        fi
+      fi
       changed_pixels="$(pixel_diff_count "$artifact_dir/theme-settings-$image.png" "$artifact_dir/theme-$image.png")"
       if (( changed_pixels < 20000 )); then
         printf "The %s Settings panel did not close before its theme screenshot.\n" "$image" >&2
