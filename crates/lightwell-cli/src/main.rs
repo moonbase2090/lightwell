@@ -1,6 +1,6 @@
 use lightwell_core::{
-    extract_cargo_map, list_project_notes, remove_project_note, set_project_note, MapWatchError,
-    MapWatcher,
+    extract_cargo_map, list_project_notes, open_block, remove_project_note, set_project_note,
+    EditorSettings, MapWatchError, MapWatcher,
 };
 use std::env;
 use std::error::Error;
@@ -10,13 +10,13 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str =
-    "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell notes list\n  lightwell notes set <block-id> <text...>\n  lightwell notes rm <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell help";
+const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell notes list\n  lightwell notes set <block-id> <text...>\n  lightwell notes rm <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell help";
 
 enum Invocation {
     Help,
     Extract(ExtractOptions),
     Notes(NotesCommand),
+    Open(OpenOptions),
     Watch(WatchOptions),
 }
 
@@ -30,6 +30,10 @@ struct ExtractOptions {
     repository_path: PathBuf,
     output_path: PathBuf,
     project_name: Option<String>,
+}
+
+struct OpenOptions {
+    block_id: String,
 }
 
 struct WatchOptions {
@@ -51,6 +55,13 @@ fn main() -> ExitCode {
             }
         },
         Ok(Invocation::Notes(command)) => match run_notes_command(command) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("lightwell: {error}");
+                ExitCode::FAILURE
+            }
+        },
+        Ok(Invocation::Open(options)) => match open_block_in_editor(options) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("lightwell: {error}");
@@ -80,6 +91,9 @@ fn parse_invocation(mut arguments: impl Iterator<Item = OsString>) -> Result<Inv
     }
     if command == OsStr::new("notes") {
         return parse_notes_command(arguments);
+    }
+    if command == OsStr::new("open") {
+        return parse_open(arguments);
     }
     if command == OsStr::new("watch") {
         return parse_watch(arguments);
@@ -220,6 +234,25 @@ fn run_notes_command(command: NotesCommand) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn parse_open(mut arguments: impl Iterator<Item = OsString>) -> Result<Invocation, String> {
+    let Some(block_id) = arguments.next() else {
+        return Err("the block ID is required".to_owned());
+    };
+    if is_help(&block_id) {
+        return Ok(Invocation::Help);
+    }
+    let block_id = block_id
+        .into_string()
+        .map_err(|_| "the block ID must use UTF-8".to_owned())?;
+    if let Some(argument) = arguments.next() {
+        return Err(format!(
+            "unexpected argument `{}`",
+            argument.to_string_lossy()
+        ));
+    }
+    Ok(Invocation::Open(OpenOptions { block_id }))
+}
+
 fn parse_watch(mut arguments: impl Iterator<Item = OsString>) -> Result<Invocation, String> {
     let mut repository_path = None;
     let mut project_name = None;
@@ -290,6 +323,20 @@ fn extract_to_file(options: ExtractOptions) -> Result<(), Box<dyn Error>> {
         map.stats.connections,
         options.output_path.display()
     );
+    Ok(())
+}
+
+fn open_block_in_editor(options: OpenOptions) -> Result<(), Box<dyn Error>> {
+    let repository_path = env::current_dir()?;
+    let command_template = env::var("LIGHTWELL_EDITOR_TEMPLATE")
+        .ok()
+        .filter(|template| !template.trim().is_empty());
+    open_block(
+        repository_path,
+        &options.block_id,
+        &EditorSettings { command_template },
+    )?;
+    println!("Opened source for block {}.", options.block_id);
     Ok(())
 }
 

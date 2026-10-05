@@ -45,7 +45,32 @@ lightwell watch ../Prismattyc --name Prismattyc
 
 `lightwell watch` writes each complete map to stdout as JSON Lines. Press Ctrl-C to stop it.
 
+CI builds and runs the Rust CLI on macOS with a macOS 11.0 deployment target. Linux CI builds x86_64 and ARM64 binaries with a glibc 2.28 symbol floor and runs each binary on Amazon Linux 2023.
+
 The `npm run lightwell -- ...` command remains available for the TypeScript preview workflow while the app migrates to the shared Rust extractor.
+
+## Open a block in an editor
+
+Run `lightwell open <block-id>` from the workspace root. The command extracts the current map, finds the block source, and opens that file at the start. Schema v1 does not record source spans, so the CLI uses line 1 and column 1.
+
+By default, Lightwell uses `open` on macOS or `xdg-open` on Linux. Set `LIGHTWELL_EDITOR_TEMPLATE` to override the OS handler. Templates accept `{file}`, `{line}`, and `{column}`. Lightwell parses the template into a program and arguments without evaluating it in a shell. If the configured command or OS handler fails, Lightwell tries `VISUAL`, then `EDITOR`.
+
+```sh
+LIGHTWELL_EDITOR_TEMPLATE='code --goto {file}:{line}:{column}' lightwell open crate:lightwell-core
+```
+
+These templates are examples, not a supported-editor list. Use any command available on your system.
+
+| Editor | Template |
+| --- | --- |
+| JetBrains IDE | `idea --line {line} --column {column} {file}` |
+| Kiro | `kiro {file}` |
+| Zed | `zed {file}:{line}:{column}` |
+| Visual Studio Code | `code --goto {file}:{line}:{column}` |
+| Cursor | `cursor {file}` |
+| Vim in a Linux terminal | `x-terminal-emulator -e vim "+call cursor({line},{column})" {file}` |
+
+See the [JetBrains command-line reference](https://www.jetbrains.com/help/idea/opening-files-from-command-line.html), [Zed CLI reference](https://zed.dev/docs/reference/cli), and [Visual Studio Code CLI reference](https://code.visualstudio.com/docs/configure/command-line) for their documented file and location arguments.
 
 ## Preview notes
 
@@ -90,6 +115,8 @@ lightwell extract ──► maps/<project>.facts.json
 ```
 
 `src/extract/` owns extraction. `src/schema.ts` validates facts and note overlays, merges them, and marks stale fingerprints. `src/viewer/layout.ts` sends the visible hierarchy to ELK for layered coordinates. React Flow draws the graph and handles zoom and pan.
+
+`App` receives maps through the asynchronous `MapSource` interface. The browser entry injects `fixtureMapSource`, which loads the checked-in Prismattyc and Scorecard facts and annotation files. The app validates each loaded document against the schema before resolving and laying out the map.
 
 The viewer starts at the Cargo workspace. Click a block with children to open it; the breadcrumb returns to parent levels. Hover a node to trace its connections. Search opens the matching block's parent scope. Hover a feature card to highlight its source blocks and draw connector lines from the card to visible nodes.
 

@@ -21,6 +21,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - name: Load browser fixtures through the map-source adapter
+        run: node_modules/.bin/tsx scripts/check-map-source.ts
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           components: rustfmt
@@ -34,6 +36,7 @@ jobs:
       - name: Extract a schema-v1 map with the Rust CLI
         run: |
           cargo run --quiet --locked -p lightwell-cli -- --help
+          cargo run --quiet --locked -p lightwell-cli -- open --help
           cargo run --quiet --locked -p lightwell-cli -- extract . -o "$RUNNER_TEMP/lightwell-cli-map.json" --name Lightwell
           node_modules/.bin/tsx scripts/check-map.ts "$RUNNER_TEMP/lightwell-cli-map.json"
       - name: Watch a Rust source change with the Rust CLI
@@ -58,3 +61,53 @@ jobs:
         with:
           fail-on: types,tests,crap,secrets,lint
           diff: origin/${{ github.base_ref }}
+
+  macos-cli:
+    name: macOS CLI (minimum 11.0)
+    runs-on: macos-26
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - name: Build the CLI
+        run: cargo build --release --locked -p lightwell-cli
+      - name: Smoke the CLI
+        run: scripts/ci/smoke-cli.sh target/release/lightwell "$GITHUB_WORKSPACE" "$RUNNER_TEMP/lightwell-map.json"
+      - name: Check the minimum macOS version
+        run: |
+          minimum="$(otool -l target/release/lightwell | awk '$1 == "minos" { print $2; exit }')"
+          printf 'lightwell minimum macOS version: %s\n' "$minimum"
+          if [[ "$minimum" != '11.0' ]]; then
+            printf 'expected a macOS 11.0 minimum, found %s\n' "$minimum" >&2
+            exit 1
+          fi
+
+  linux-cli-al2023:
+    name: Linux CLI glibc 2.28 + AL2023 (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - arch: aarch64
+            runner: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install cargo-zigbuild and Zig
+        run: scripts/ci/setup-zigbuild.sh
+      - name: Build the CLI with a glibc 2.28 floor
+        env:
+          TARGET: ${{ matrix.target }}
+        run: scripts/ci/build-linux-cli.sh "$TARGET"
+      - name: Check the glibc floor and smoke on Amazon Linux 2023
+        env:
+          TARGET: ${{ matrix.target }}
+        run: scripts/ci/smoke-linux-al2023.sh "target/$TARGET/release" "$GITHUB_WORKSPACE"
