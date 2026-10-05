@@ -101,7 +101,12 @@ XDG_CONFIG_HOME="$config_home" EDITOR_LOG_PATH="$editor_log" xvfb-run -a --serve
     sleep 2
     import -window "$window_id" "$artifact_dir/editor-settings.png"
     settings_changed_pixels="$(compare -metric AE "$artifact_dir/source-inspector.png" "$artifact_dir/editor-settings.png" null: 2>&1 || true)"
-    if ! [[ "$settings_changed_pixels" =~ ^[0-9]+$ ]] || (( settings_changed_pixels < 10000 )); then
+    if [[ "$settings_changed_pixels" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
+      printf -v settings_changed_pixel_count "%.0f" "$settings_changed_pixels"
+    else
+      settings_changed_pixel_count=0
+    fi
+    if (( settings_changed_pixel_count < 10000 )); then
       printf "The editor settings panel did not visibly open (%s changed pixels).\n" "$settings_changed_pixels" >&2
       exit 1
     fi
