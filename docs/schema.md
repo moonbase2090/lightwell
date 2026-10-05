@@ -1,6 +1,6 @@
 # Map schema
 
-Facts and note overlays use schema version `1`. The extractor writes only a facts file. A note overlay adds descriptions and hand-picked feature groups without changing extractor output.
+Facts files, preview annotation overlays, and project notes use schema version `1`. The extractor writes only a facts file. A preview annotation overlay adds descriptions and hand-picked feature groups without changing extractor output.
 
 ## Facts file
 
@@ -25,7 +25,7 @@ Each block has a stable `id`, a label, a discriminant `type`, a `parentId`, `chi
 
 The extractor adds a `contains` connection from each parent to each child. It adds a `depends_on` connection for each internal normal or build path dependency. It omits development dependencies because they describe test/build tooling rather than the shipped workspace graph. `groups` and `stats` are derived from these facts.
 
-## Note overlay
+## Preview annotation overlay
 
 ```json
 {
@@ -44,10 +44,28 @@ The extractor adds a `contains` connection from each parent to each child. It ad
 }
 ```
 
-Each fact block gets a 1–3 sentence description, a visual kind (`APP`, `CRATE`, `MODULE`, or `FEATURE`), and a status (`ready`, `wip`, or `deprecated`). `sourceFingerprint` records which source version the description covers. The project note file location and first-write behavior remain open; see [the app plan](plan/app-plan.md).
+Each fact block gets a 1–3 sentence description, a visual kind (`APP`, `CRATE`, `MODULE`, or `FEATURE`), and a status (`ready`, `wip`, or `deprecated`). `sourceFingerprint` records which source version the description covers.
 
 Overlay `features` are virtual feature boxes. Each one has a description, status, a list of fact block IDs, and a fingerprint for each member. These boxes power the feature strip at the bottom of the viewer. Overlay `groups` arrange feature IDs into selectable strips.
 
+## Project notes
+
+The CLI stores project notes in `.lightwell/notes.json`, creating the directory and file on the first saved note:
+
+```json
+{
+  "schemaVersion": 1,
+  "notes": {
+    "crate:lightwell-core": {
+      "text": "Review output serialization.",
+      "sourceFingerprint": "<sha256 from the matching facts block>"
+    }
+  }
+}
+```
+
+The `notes` object is keyed by stable fact block IDs. `lightwell notes list` compares each saved fingerprint with the current extracted map and marks missing or changed blocks stale. It does not delete stale notes. `lightwell notes set <block-id> <text...>` records the current fingerprint, and `lightwell notes rm <block-id>` removes only that note.
+
 ## Changed notes
 
-The viewer marks a fact block changed when `blocks[id].sourceFingerprint` differs from its current fact fingerprint. A feature is changed when a member disappeared or any saved member fingerprint differs from the current map. The facts and overlay stay separate, so extraction does not remove notes when source modules change.
+The viewer marks a fact block changed when `blocks[id].sourceFingerprint` differs from its current fact fingerprint. A feature is changed when a member disappeared or any saved member fingerprint differs from the current map. Facts, preview annotations, and project notes stay separate, so extraction does not remove notes when source modules change.
