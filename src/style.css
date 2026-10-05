@@ -539,6 +539,7 @@ button { color: inherit; }
   background-image: none !important;
   box-shadow: none !important;
 }
+.workspace-shell[data-theme="blueprint"] .connector-layer { background-color: transparent !important; }
 .workspace-shell[data-theme="blueprint"] .settings-backdrop { background: rgba(0,32,80,.42) !important; }
 .workspace-shell[data-theme="blueprint"] .graph-canvas {
   background-color: #1868D0 !important;
