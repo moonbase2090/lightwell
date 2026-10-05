@@ -105,7 +105,12 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     for pair in "dark light" "light blueprint"; do
       read -r left right <<<"$pair"
       changed_pixels="$(compare -metric AE "$artifact_dir/theme-$left.png" "$artifact_dir/theme-$right.png" null: 2>&1 || true)"
-      if [[ ! "$changed_pixels" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]] || (( ${changed_pixels%%.*} < 20000 )); then
+      if [[ "$changed_pixels" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
+        printf -v changed_pixel_count "%.0f" "$changed_pixels"
+      else
+        changed_pixel_count=0
+      fi
+      if (( changed_pixel_count < 20000 )); then
         printf "Themes %s and %s were not visibly different (%s changed pixels).\n" "$left" "$right" "$changed_pixels" >&2
         exit 1
       fi
