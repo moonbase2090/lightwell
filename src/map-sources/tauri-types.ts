@@ -37,3 +37,24 @@ export function parseMapSourceDocument(value: unknown): MapSourceDocument {
 
   return { facts: value.facts, annotations: value.annotations };
 }
+
+export function parseWorkspaceMapUpdate(value: unknown): {
+  readonly workspaceId: string;
+  readonly document: MapSourceDocument;
+} {
+  if (
+    typeof value !== "object"
+    || value === null
+    || Array.isArray(value)
+    || !("workspaceId" in value)
+    || typeof value.workspaceId !== "string"
+    || !("document" in value)
+  ) {
+    throw new Error("The desktop app returned an invalid workspace map update.");
+  }
+
+  return {
+    workspaceId: value.workspaceId,
+    document: parseMapSourceDocument(value.document),
+  };
+}
