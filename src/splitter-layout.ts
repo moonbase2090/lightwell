@@ -7,6 +7,12 @@ export function paneSizeStorageKey(projectId: string, splitterId: string): strin
   return `lightwell.split.v1:${encodeURIComponent(projectId)}:${encodeURIComponent(splitterId)}`;
 }
 
+export function defaultPaneSize(availableSize: number, trailingSize: number): number {
+  const available = Number.isFinite(availableSize) ? Math.max(0, availableSize) : 0;
+  const trailing = Number.isFinite(trailingSize) ? Math.max(0, trailingSize) : 0;
+  return Math.max(0, available - trailing);
+}
+
 export function clampPaneSize(
   requestedSize: number,
   availableSize: number,

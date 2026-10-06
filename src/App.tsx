@@ -913,7 +913,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       splitterId="map-features"
       label="Resize map and feature groups"
       axis="y"
-      defaultRatio={0.7}
+      defaultTrailingSize={197}
       minimumFirst={240}
       minimumSecond={140}
       className="map-content-splitter"
@@ -1047,7 +1047,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         splitterId="map-source"
         label="Resize map and source panel"
         axis="x"
-        defaultRatio={0.78}
+        defaultTrailingSize={318}
         minimumFirst={520}
         minimumSecond={240}
         className="main-layout"

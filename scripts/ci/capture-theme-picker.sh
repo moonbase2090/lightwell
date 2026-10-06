@@ -87,10 +87,10 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     if [[ "$capture_splitters" == "true" ]]; then
       main_top=178
       main_height=$((window_height - main_top - 28))
-      splitter_x=$(((window_width - 8) * 78 / 100 + 4))
+      splitter_x=$((window_width - 318 - 4))
       splitter_outer_y=$((main_top + main_height / 2))
       splitter_inner_x=$((splitter_x / 2))
-      splitter_inner_y=$((main_top + 47 + (main_height - 47 - 8) * 70 / 100 + 4))
+      splitter_inner_y=$((main_top + 47 + main_height - 47 - 8 - 197 + 4))
     fi
 
     capture_theme() {

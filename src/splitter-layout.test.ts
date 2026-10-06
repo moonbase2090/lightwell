@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clampPaneSize, paneSizeStorageKey, readPaneSize, writePaneSize } from "./splitter-layout.js";
+import { clampPaneSize, defaultPaneSize, paneSizeStorageKey, readPaneSize, writePaneSize } from "./splitter-layout.js";
 
 class MemoryStorage {
   readonly values = new Map<string, string>();
@@ -13,6 +13,12 @@ class MemoryStorage {
     this.values.set(key, value);
   }
 }
+
+test("keeps the default trailing panel size constant as the window changes", () => {
+  assert.equal(defaultPaneSize(1272, 318), 954);
+  assert.equal(defaultPaneSize(1432, 318), 1114);
+  assert.equal(defaultPaneSize(639, 197), 442);
+});
 
 test("clamps a pane between both pane minimums", () => {
   assert.equal(clampPaneSize(12, 700, 240, 220), 240);

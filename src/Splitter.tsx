@@ -7,7 +7,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { clampPaneSize, readPaneSize, writePaneSize, type PaneSizeStorage } from "./splitter-layout.js";
+import { clampPaneSize, defaultPaneSize, readPaneSize, writePaneSize, type PaneSizeStorage } from "./splitter-layout.js";
 
 const handleSize = 8;
 const keyboardStep = 24;
@@ -25,7 +25,7 @@ export default function Splitter({
   splitterId,
   label,
   axis,
-  defaultRatio,
+  defaultTrailingSize,
   minimumFirst,
   minimumSecond,
   first,
@@ -36,7 +36,7 @@ export default function Splitter({
   readonly splitterId: string;
   readonly label: string;
   readonly axis: SplitAxis;
-  readonly defaultRatio: number;
+  readonly defaultTrailingSize: number;
   readonly minimumFirst: number;
   readonly minimumSecond: number;
   readonly first: ReactNode;
@@ -49,8 +49,12 @@ export default function Splitter({
   const [availableSize, setAvailableSize] = useState(0);
   const [requestedSize, setRequestedSize] = useState<number | null>(() => readCurrentSize(projectId, splitterId));
   const [dragging, setDragging] = useState(false);
-  const ratio = Number.isFinite(defaultRatio) ? Math.min(0.95, Math.max(0.05, defaultRatio)) : 0.5;
-  const defaultSize = availableSize * ratio;
+  const defaultSize = clampPaneSize(
+    defaultPaneSize(availableSize, defaultTrailingSize),
+    availableSize,
+    minimumFirst,
+    minimumSecond,
+  );
   const displayedSize = clampPaneSize(requestedSize ?? defaultSize, availableSize, minimumFirst, minimumSecond);
   const minimumSize = clampPaneSize(0, availableSize, minimumFirst, minimumSecond);
   const maximumSize = clampPaneSize(availableSize, availableSize, minimumFirst, minimumSecond);
