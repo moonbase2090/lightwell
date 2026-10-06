@@ -229,8 +229,7 @@ jobs:
           ln -s "$GITHUB_WORKSPACE/node_modules" "$previous_source/node_modules"
           (
             cd "$previous_source"
-            npm run build
-            cargo build --release --locked --target x86_64-unknown-linux-gnu -p lightwell-app --bin lightwell
+            npm run tauri:build -- --target x86_64-unknown-linux-gnu --no-bundle -- --locked
           )
           cp "$previous_source/target/x86_64-unknown-linux-gnu/release/lightwell" "$previous_app"
           scripts/ci/capture-compact-header.sh \

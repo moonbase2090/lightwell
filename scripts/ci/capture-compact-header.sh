@@ -84,6 +84,11 @@ NODE
         printf "Expected a 1440x900 app screenshot, found %s (%s).\n" "$dimensions" "$screenshot_path" >&2
         exit 1
       fi
+      colors="$(identify -format "%k" "$screenshot_path")"
+      if [[ ! "$colors" =~ ^[0-9]+$ ]] || (( colors < 500 )); then
+        printf "The app screenshot appears blank or failed to render (%s unique colors, %s).\n" "$colors" "$screenshot_path" >&2
+        exit 1
+      fi
     ' lightwell-compact-header "$app_path" "$artifact_dir/$name.png" "$app_log"
 
   rm -rf "$config_home" "$data_home"
