@@ -184,3 +184,127 @@ fn same_fingerprints(previous: &FactMap, next: &FactMap) -> bool {
             (&base.id, &base.fingerprint)
         }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::extract::extract_cargo_map;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct Fixture {
+        root: PathBuf,
+    }
+
+    impl Fixture {
+        fn new(label: &str) -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after the Unix epoch")
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!(
+                "lightwell-watch-{label}-{}-{unique}",
+                std::process::id()
+            ));
+            fs::create_dir_all(root.join("src")).expect("fixture source folder should be created");
+            fs::write(
+                root.join("Cargo.toml"),
+                "[package]\nname = \"watch-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            )
+            .expect("fixture manifest should be written");
+            fs::write(root.join("src/lib.rs"), "pub mod before;\n")
+                .expect("fixture library should be written");
+            fs::write(root.join("src/before.rs"), "pub fn value() -> u8 { 1 }\n")
+                .expect("fixture module should be written");
+            // Event paths are canonical, so the fixture root must be too.
+            let root = root.canonicalize().expect("fixture root should resolve");
+            Self { root }
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    fn manifests_and_mapped_sources_are_relevant() {
+        let fixture = Fixture::new("relevant");
+        let map = extract_cargo_map(&fixture.root, None).expect("fixture map should extract");
+        let relevant =
+            |relative: &str| event_is_relevant(&fixture.root, &map, &fixture.root.join(relative));
+
+        assert!(relevant("Cargo.toml"));
+        assert!(relevant("src/before.rs"));
+        assert!(
+            relevant("src/added.rs"),
+            "a new file beside a mapped module can change the map"
+        );
+        assert!(!relevant("README.md"));
+    }
+
+    #[test]
+    fn generated_and_outside_paths_are_not_relevant() {
+        let fixture = Fixture::new("ignored");
+        let map = extract_cargo_map(&fixture.root, None).expect("fixture map should extract");
+
+        for ignored in [
+            ".git/Cargo.toml",
+            "target/debug/Cargo.toml",
+            "node_modules/pkg/Cargo.toml",
+        ] {
+            assert!(
+                !event_is_relevant(&fixture.root, &map, &fixture.root.join(ignored)),
+                "{ignored} should be ignored"
+            );
+        }
+        assert!(!event_is_relevant(
+            &fixture.root,
+            &map,
+            &fixture.root.with_extension("sibling").join("Cargo.toml"),
+        ));
+    }
+
+    #[test]
+    fn fingerprint_comparison_notices_source_edits() {
+        let fixture = Fixture::new("fingerprints");
+        let before = extract_cargo_map(&fixture.root, None).expect("fixture map should extract");
+        assert!(same_fingerprints(&before, &before.clone()));
+
+        fs::write(
+            fixture.root.join("src/before.rs"),
+            "pub fn value() -> u8 { 2 }\n",
+        )
+        .expect("fixture module should be edited");
+        let after = extract_cargo_map(&fixture.root, None).expect("edited map should extract");
+        assert!(!same_fingerprints(&before, &after));
+    }
+
+    #[test]
+    fn watcher_returns_edited_maps_and_recovers_from_extraction_errors() {
+        let fixture = Fixture::new("watcher");
+        let mut watcher = MapWatcher::new(&fixture.root, None).expect("watcher should start");
+        let initial = watcher.current_map().clone();
+
+        let manifest = fixture.root.join("Cargo.toml");
+        let valid_manifest = fs::read_to_string(&manifest).expect("manifest should be readable");
+        fs::write(&manifest, "[package\n").expect("broken manifest should be written");
+        assert!(matches!(
+            watcher.next_changed_map(),
+            Err(MapWatchError::Extraction(_))
+        ));
+
+        fs::write(&manifest, valid_manifest).expect("manifest should be restored");
+        fs::write(
+            fixture.root.join("src/before.rs"),
+            "pub fn value() -> u8 { 2 }\n",
+        )
+        .expect("fixture module should be edited");
+        let changed = watcher
+            .next_changed_map()
+            .expect("watcher should recover and report the edit");
+        assert!(!same_fingerprints(&initial, &changed));
+        assert!(same_fingerprints(watcher.current_map(), &changed));
+    }
+}
