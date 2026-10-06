@@ -94,8 +94,13 @@ capture "$before_app" before
 capture "$after_app" after
 
 changed_pixels="$(compare -metric AE "$artifact_dir/before.png" "$artifact_dir/after.png" null: 2>&1 || true)"
-changed_pixels="${changed_pixels%% *}"
-if [[ ! "$changed_pixels" =~ ^[0-9]+$ ]] || (( changed_pixels < 50000 )); then
+changed_pixels="${changed_pixels%%$'\n'*}"
+if [[ "$changed_pixels" =~ ^([0-9]+([.][0-9]+)?)([eE][+-]?[0-9]+)?$ ]]; then
+  printf -v changed_pixels '%.0f' "$changed_pixels"
+else
+  changed_pixels=0
+fi
+if (( changed_pixels < 50000 )); then
   printf 'The compact-header screenshots differ by too few pixels (%s).\n' "$changed_pixels" >&2
   exit 1
 fi
