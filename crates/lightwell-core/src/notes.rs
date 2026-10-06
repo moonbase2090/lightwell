@@ -98,6 +98,24 @@ impl ProjectNotesStore {
         .map(|_| ())
     }
 
+    fn update_text(&self, block_id: &str, text: &str) -> Result<(), NotesError> {
+        if text.trim().is_empty() {
+            return Err(NotesError::EmptyText);
+        }
+        let updated = self.update(false, |document| {
+            let note = document
+                .notes
+                .get_mut(block_id)
+                .ok_or_else(|| NotesError::NoteNotFound(block_id.to_owned()))?;
+            note.text = text.to_owned();
+            Ok(true)
+        })?;
+        if !updated {
+            return Err(NotesError::NoteNotFound(block_id.to_owned()));
+        }
+        Ok(())
+    }
+
     fn remove(&self, block_id: &str) -> Result<bool, NotesError> {
         if !self.path.is_file() {
             return Ok(false);
@@ -250,13 +268,35 @@ pub fn set_project_note(
     text: &str,
 ) -> Result<(), NotesError> {
     let (root, map) = workspace_map(repository_path)?;
+    set_project_note_for_map(&root, &map, block_id, text).map(|_| ())
+}
+
+pub fn set_project_note_for_map(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+    block_id: &str,
+    text: &str,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
     let block = map
         .blocks
         .iter()
         .find(|block| block_base(block).id == block_id)
         .ok_or_else(|| NotesError::BlockNotFound(block_id.to_owned()))?;
     let fingerprint = &block_base(block).fingerprint;
-    ProjectNotesStore::new(&root).set(block_id, text, fingerprint)
+    let store = ProjectNotesStore::new(project_root.as_ref());
+    store.set(block_id, text, fingerprint)?;
+    store.list_for_map(map)
+}
+
+pub fn update_project_note_text(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+    block_id: &str,
+    text: &str,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
+    let store = ProjectNotesStore::new(project_root.as_ref());
+    store.update_text(block_id, text)?;
+    store.list_for_map(map)
 }
 
 pub fn remove_project_note(
@@ -278,6 +318,7 @@ fn workspace_map(repository_path: impl AsRef<Path>) -> Result<(PathBuf, FactMap)
 pub enum NotesError {
     Extraction(MapExtractionError),
     BlockNotFound(String),
+    NoteNotFound(String),
     EmptyText,
     Io {
         path: PathBuf,
@@ -302,6 +343,7 @@ impl Display for NotesError {
                 formatter,
                 "No block with ID `{id}` exists in this workspace. Run `lightwell extract . -o /tmp/lightwell-map.json` here and choose a `blocks[].id` value."
             ),
+            Self::NoteNotFound(id) => write!(formatter, "No saved note exists for block `{id}`."),
             Self::EmptyText => write!(
                 formatter,
                 "Note text cannot be empty. Use `lightwell notes set <block-id> <text...>`."
@@ -332,7 +374,10 @@ impl Error for NotesError {
             Self::Extraction(source) => Some(source),
             Self::Io { source, .. } => Some(source),
             Self::InvalidJson { source, .. } | Self::Serialize(source) => Some(source),
-            Self::BlockNotFound(_) | Self::EmptyText | Self::UnsupportedSchema { .. } => None,
+            Self::BlockNotFound(_)
+            | Self::NoteNotFound(_)
+            | Self::EmptyText
+            | Self::UnsupportedSchema { .. } => None,
         }
     }
 }
@@ -345,7 +390,7 @@ impl From<MapExtractionError> for NotesError {
 
 #[cfg(test)]
 mod tests {
-    use super::{NotesError, ProjectNotesStore};
+    use super::{update_project_note_text, NotesError, ProjectNotesStore};
     use crate::facts::{BlockBase, CrateBlock, FactBlock, FactGroup, FactMap, MapStats, Project};
     use std::fs;
     use std::path::PathBuf;
@@ -487,5 +532,38 @@ mod tests {
             Err(NotesError::EmptyText)
         ));
         assert!(!project.0.join(".lightwell").exists());
+    }
+
+    #[test]
+    fn orphaned_note_text_can_be_edited_without_clearing_its_stale_fingerprint() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        let current_map = FactMap::schema_v1(
+            Project {
+                id: "workspace:test".to_owned(),
+                name: "test".to_owned(),
+                root_path: ".".to_owned(),
+            },
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            MapStats::default(),
+        );
+        store
+            .set("crate:core", "Original note", "old-fingerprint")
+            .unwrap();
+
+        let updated = update_project_note_text(
+            &project.0,
+            &current_map,
+            "crate:core",
+            "Edited after the crate was removed",
+        )
+        .unwrap();
+
+        assert_eq!(updated.len(), 1);
+        assert!(updated[0].stale);
+        assert_eq!(updated[0].text, "Edited after the crate was removed");
+        assert_eq!(updated[0].source_fingerprint, "old-fingerprint");
     }
 }

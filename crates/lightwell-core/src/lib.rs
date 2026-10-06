@@ -21,8 +21,8 @@ pub use metadata::{
     CargoPackage, CargoTarget, CargoWorkspace, RustModule,
 };
 pub use notes::{
-    list_project_notes, project_notes_for_map, remove_project_note, set_project_note, NotesError,
-    ProjectNoteView,
+    list_project_notes, project_notes_for_map, remove_project_note, set_project_note,
+    set_project_note_for_map, update_project_note_text, NotesError, ProjectNoteView,
 };
 
 pub use watch::{MapWatchError, MapWatcher};
