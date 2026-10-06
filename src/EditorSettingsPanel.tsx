@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, Settings2, X } from "lucide-react";
 import type { MapEditorSource } from "./map-source.js";
+import { isThemePreference, type ResolvedTheme, type ThemePreference } from "./theme.js";
 
 type PanelState =
   | { readonly kind: "loading" }
@@ -15,9 +16,15 @@ function errorMessage(error: unknown): string {
 
 export default function EditorSettingsPanel({
   editor,
+  themePreference,
+  theme,
+  onThemeChange,
   onClose,
 }: {
   readonly editor: MapEditorSource;
+  readonly themePreference: ThemePreference;
+  readonly theme: ResolvedTheme;
+  readonly onThemeChange: (preference: ThemePreference) => void;
   readonly onClose: () => void;
 }) {
   const [panelState, setPanelState] = useState<PanelState>({ kind: "loading" });
@@ -78,20 +85,44 @@ export default function EditorSettingsPanel({
           <div className="settings-panel-title">
             <span className="settings-panel-icon"><Settings2 size={16} /></span>
             <div>
-              <h2 id="editor-settings-title">Editor settings</h2>
-              <p>Choose how Lightwell opens source files</p>
+              <h2 id="editor-settings-title">Settings</h2>
+              <p>Choose how Lightwell looks and opens source files</p>
             </div>
           </div>
           <button
             className="icon-button"
             ref={closeButtonRef}
             type="button"
-            aria-label="Close editor settings"
+            aria-label="Close settings"
             onClick={onClose}
           ><X size={16} /></button>
         </header>
 
         <div className="settings-panel-body">
+          <h3 className="settings-section-title">Appearance</h3>
+          <label className="settings-field-label" htmlFor="lightwell-theme">THEME</label>
+          <select
+            id="lightwell-theme"
+            className="settings-select"
+            value={themePreference}
+            onChange={(event) => {
+              const preference = event.currentTarget.value;
+              if (isThemePreference(preference)) onThemeChange(preference);
+            }}
+          >
+            <option value="system">Follow system</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="blueprint">Blueprint</option>
+          </select>
+          <p className="settings-help">Theme changes apply immediately and stay saved on this device.</p>
+          {theme === "blueprint" && (
+            <p className="settings-blueprint-note" role="note">
+              Stylized drafting look; some secondary text is below WCAG AA contrast. Use Dark or Light for full accessibility.
+            </p>
+          )}
+
+          <h3 className="settings-section-title settings-editor-section">Editor</h3>
           <p className="settings-explainer">
             The inspector is read-only. Use <strong>Open in editor</strong> to make changes in your editor.
           </p>
@@ -151,7 +182,7 @@ export default function EditorSettingsPanel({
             onClick={() => { void save(); }}
             disabled={panelState.kind !== "ready" || saving}
           >
-            <Check size={14} />{saving ? "Saving…" : "Save preference"}
+            <Check size={14} />{saving ? "Saving…" : "Save editor preference"}
           </button>
         </footer>
       </section>

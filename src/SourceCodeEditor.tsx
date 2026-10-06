@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as monaco from "monaco-editor-core";
 import EditorWorker from "./editor.worker.js?worker";
+import type { ResolvedTheme } from "./theme.js";
 
 interface MonacoWorkerWindow extends Window {
   MonacoEnvironment?: {
@@ -101,6 +102,51 @@ function configureMonaco() {
         "editorGutter.background": "#101820",
       },
     });
+    monaco.editor.defineTheme("lightwell-light", {
+      base: "vs",
+      inherit: true,
+      rules: [
+        { token: "keyword", foreground: "2A5A8A" },
+        { token: "type", foreground: "3A6A4A" },
+        { token: "type.identifier", foreground: "2A5A8A" },
+        { token: "annotation", foreground: "6A6A2A" },
+        { token: "string", foreground: "3A6A4A" },
+        { token: "comment", foreground: "8B8278", fontStyle: "italic" },
+      ],
+      colors: {
+        "editor.background": "#f5f3f0",
+        "editor.foreground": "#3A3530",
+        "editorLineNumber.foreground": "#AAA399",
+        "editorLineNumber.activeForeground": "#6B6560",
+        "editor.lineHighlightBackground": "#ebe7e2",
+        "editor.selectionBackground": "#6b85a844",
+        "editorCursor.foreground": "#526a89",
+        "editorGutter.background": "#f5f3f0",
+      },
+    });
+    monaco.editor.defineTheme("lightwell-blueprint", {
+      base: "vs-dark",
+      inherit: true,
+      rules: [
+        { token: "", foreground: "FFFFFF" },
+        { token: "keyword", foreground: "FFFFFF" },
+        { token: "type", foreground: "FFFFFF" },
+        { token: "type.identifier", foreground: "FFFFFF" },
+        { token: "annotation", foreground: "FFFFFF" },
+        { token: "string", foreground: "FFFFFF" },
+        { token: "comment", foreground: "FFFFFF", fontStyle: "italic" },
+      ],
+      colors: {
+        "editor.background": "#1868D0",
+        "editor.foreground": "#FFFFFF",
+        "editorLineNumber.foreground": "#FFFFFFB3",
+        "editorLineNumber.activeForeground": "#FFFFFF",
+        "editor.lineHighlightBackground": "#FFFFFF22",
+        "editor.selectionBackground": "#FFFFFF44",
+        "editorCursor.foreground": "#FFFFFF",
+        "editorGutter.background": "#1868D0",
+      },
+    });
     themeConfigured = true;
   }
 }
@@ -110,10 +156,19 @@ export interface SourceCodeEditorProps {
   readonly line: number;
   readonly column: number;
   readonly path: string;
+  readonly theme: ResolvedTheme;
 }
 
-export default function SourceCodeEditor({ content, line, column, path }: SourceCodeEditorProps) {
+const monacoThemes = {
+  dark: "lightwell-dark",
+  light: "lightwell-light",
+  blueprint: "lightwell-blueprint",
+} satisfies Record<ResolvedTheme, string>;
+
+export default function SourceCodeEditor({ content, line, column, path, theme }: SourceCodeEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -123,7 +178,7 @@ export default function SourceCodeEditor({ content, line, column, path }: Source
     const editor = monaco.editor.create(container, {
       value: content,
       language,
-      theme: "lightwell-dark",
+      theme: monacoThemes[themeRef.current],
       readOnly: true,
       domReadOnly: true,
       ariaLabel: `Read-only source: ${path}`,
@@ -148,6 +203,11 @@ export default function SourceCodeEditor({ content, line, column, path }: Source
     editor.revealPositionInCenter({ lineNumber: targetLine, column: targetColumn });
     return () => editor.dispose();
   }, [column, content, line, path]);
+
+  useEffect(() => {
+    configureMonaco();
+    monaco.editor.setTheme(monacoThemes[theme]);
+  }, [theme]);
 
   return <div className="source-code-editor" ref={containerRef} />;
 }

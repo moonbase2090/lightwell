@@ -74,6 +74,12 @@ XDG_CONFIG_HOME="$config_home" EDITOR_LOG_PATH="$editor_log" xvfb-run -a --serve
     fi
 
     sleep 8
+    window_width="$(xdotool getwindowgeometry "$window_id" | sed -n "s/.*Geometry: \\([0-9][0-9]*\\)x.*/\\1/p")"
+    if [[ ! "$window_width" =~ ^[0-9]+$ ]]; then
+      printf "Could not read the Lightwell window width.\n" >&2
+      exit 1
+    fi
+    settings_x=$((window_width - 164))
     xdotool key ctrl+k
     xdotool type --clearmodifiers --delay 45 inspector_target
     sleep 2
@@ -97,7 +103,7 @@ XDG_CONFIG_HOME="$config_home" EDITOR_LOG_PATH="$editor_log" xvfb-run -a --serve
       exit 1
     fi
 
-    xdotool mousemove --window "$window_id" 1080 32 click 1
+    xdotool mousemove --window "$window_id" "$settings_x" 32 click 1
     sleep 2
     import -window "$window_id" "$artifact_dir/editor-settings.png"
     settings_changed_pixels="$(compare -metric AE "$artifact_dir/source-inspector.png" "$artifact_dir/editor-settings.png" null: 2>&1 || true)"

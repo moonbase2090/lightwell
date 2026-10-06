@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "m2/**"]
 
 permissions:
   contents: read
@@ -201,6 +201,13 @@ jobs:
         with:
           name: lightwell-source-inspector-linux-screenshots
           path: ${{ runner.temp }}/lightwell-source-inspector/*.png
+          if-no-files-found: error
+      - name: Exercise the theme picker in the built app
+        run: scripts/ci/capture-theme-picker.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-theme-picker"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lightwell-theme-picker-linux-screenshots
+          path: ${{ runner.temp }}/lightwell-theme-picker/*.png
           if-no-files-found: error
       - name: Check the package binary's GLIBC requirement
         run: |

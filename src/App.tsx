@@ -39,6 +39,7 @@ import EditorSettingsPanel from "./EditorSettingsPanel.js";
 import SourceInspectorPanel, { type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
+import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
@@ -421,6 +422,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [openingEditor, setOpeningEditor] = useState(false);
   const [editorActionError, setEditorActionError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
+  const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() => (
+    window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
+  ));
   const [baseGraph, setBaseGraph] = useState<{ readonly nodes: MapNode[]; readonly edges: ReturnType<typeof emphasizeGraph>["edges"] }>({ nodes: [], edges: [] });
   const [layoutRevision, setLayoutRevision] = useState(0);
   const [graphError, setGraphError] = useState("");
@@ -430,6 +435,24 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const initializedMapKeyRef = useRef<string | null>(null);
   const [connectorPaths, setConnectorPaths] = useState<readonly ConnectorPath[]>([]);
   const getSavedViewport = useCallback(() => savedViewportRef.current, []);
+  const theme = resolveTheme(themePreference, systemTheme);
+
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-color-scheme: light)");
+    const updateSystemTheme = () => setSystemTheme(preference.matches ? "light" : "dark");
+    updateSystemTheme();
+    if (typeof preference.addEventListener === "function") {
+      preference.addEventListener("change", updateSystemTheme);
+      return () => preference.removeEventListener("change", updateSystemTheme);
+    }
+    preference.addListener(updateSystemTheme);
+    return () => preference.removeListener(updateSystemTheme);
+  }, []);
+
+  const changeTheme = useCallback((preference: ThemePreference) => {
+    setThemePreference(preference);
+    saveThemePreference(preference);
+  }, []);
 
   const handleOpenWorkspace = useCallback(async () => {
     if (mapSource.openWorkspace === undefined) return;
@@ -836,7 +859,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   };
 
   return (
-    <div className="workspace-shell" ref={shellRef}>
+    <div className="workspace-shell" data-theme={theme} ref={shellRef}>
       <header className={`topbar${openWorkspaceAction === undefined ? "" : " desktop-topbar"}`}>
         <div className="brand-block">
           <div className="brand-mark"><Waypoints size={17} strokeWidth={1.8} /></div>
@@ -881,7 +904,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         <div className="top-status">
           {mapSource.editor !== undefined && (
             <button className="editor-settings-button" type="button" onClick={() => setSettingsOpen(true)}>
-              <Settings2 size={13} />Editor settings
+              <Settings2 size={13} />Settings
             </button>
           )}
           <span className="local-map-indicator"><span className="live-dot" />LOCAL MAP</span>
@@ -962,7 +985,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                   layoutRevision={layoutRevision}
                   getSavedViewport={getSavedViewport}
                 />
-                <Background color="#1b2733" gap={26} size={1} />
+                <Background color={theme === "blueprint" ? "rgba(255,255,255,.08)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
                 <Controls showInteractive={false} position="bottom-left" />
               </ReactFlow>
             )}
@@ -983,6 +1006,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <SourceInspectorPanel
             title={map.blockById.get(inspectedBlockId)?.label ?? "Source file"}
             inspection={inspection}
+            theme={theme}
             openingEditor={openingEditor}
             editorError={editorActionError}
             onOpenInEditor={() => { void handleOpenInEditor(); }}
@@ -1019,7 +1043,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         />
       )}
       {settingsOpen && mapSource.editor !== undefined && (
-        <EditorSettingsPanel editor={mapSource.editor} onClose={closeSettingsPanel} />
+        <EditorSettingsPanel
+          editor={mapSource.editor}
+          themePreference={themePreference}
+          theme={theme}
+          onThemeChange={changeTheme}
+          onClose={closeSettingsPanel}
+        />
       )}
     </div>
   );
