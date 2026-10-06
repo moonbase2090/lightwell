@@ -110,6 +110,25 @@ pixel_diff_count() {
   fi
 }
 
+crop_diff_count() {
+  local first="$1"
+  local second="$2"
+  local geometry="$3"
+  local name="$4"
+  convert "$first" -crop "$geometry" +repage "$workspace/$name-first.png"
+  convert "$second" -crop "$geometry" +repage "$workspace/$name-second.png"
+  pixel_diff_count "$workspace/$name-first.png" "$workspace/$name-second.png"
+}
+
+capture_hover() {
+  local name="$1"
+  local x="$2"
+  local y="$3"
+  xdotool mousemove --window "$window_id" "$x" "$y"
+  sleep 0.35
+  capture "$name"
+}
+
 start_app
 # Default split positions for the fixed 1440x900 CI window.
 outer_x=1117
@@ -117,6 +136,8 @@ outer_y=525
 inner_x=550
 inner_y=672
 capture before
+capture_hover before-map-source-hover "$outer_x" "$outer_y"
+capture_hover before-feature-groups-hover "$inner_x" "$inner_y"
 
 xdotool mousemove --window "$window_id" "$outer_x" "$outer_y" mousedown 1
 xdotool mousemove --sync --window "$window_id" 995 "$outer_y"
@@ -130,6 +151,8 @@ xdotool mouseup 1
 xdotool mousemove --window "$window_id" 2 2
 sleep 1
 capture after
+capture_hover after-map-source-hover 995 "$outer_y"
+capture_hover after-feature-groups-hover "$inner_x" 580
 
 cp "$app_log" "$artifact_dir/app-initial.log"
 stop_app
@@ -137,6 +160,8 @@ start_app
 xdotool mousemove --window "$window_id" 2 2
 sleep 2
 capture restored
+capture_hover restored-map-source-hover 995 "$outer_y"
+capture_hover restored-feature-groups-hover "$inner_x" 580
 stop_app
 
 drag_pixels="$(pixel_diff_count "$artifact_dir/before.png" "$artifact_dir/after.png")"
@@ -146,9 +171,22 @@ if (( drag_pixels < 50000 )); then
   exit 1
 fi
 restore_pixels="$(pixel_diff_count "$artifact_dir/after.png" "$artifact_dir/restored.png")"
-if (( restore_pixels > 50000 )); then
-  printf 'The saved splitter layout changed after relaunch (%s pixels differ).\n' "$restore_pixels" >&2
+source_hover_pixels="$(crop_diff_count "$artifact_dir/after.png" "$artifact_dir/after-map-source-hover.png" '30x550+980+230' after-source-hover)"
+feature_hover_pixels="$(crop_diff_count "$artifact_dir/after.png" "$artifact_dir/after-feature-groups-hover.png" '280x1+20+580' after-features-hover)"
+restored_source_hover_pixels="$(crop_diff_count "$artifact_dir/restored.png" "$artifact_dir/restored-map-source-hover.png" '30x550+980+230' restored-source-hover)"
+restored_feature_hover_pixels="$(crop_diff_count "$artifact_dir/restored.png" "$artifact_dir/restored-feature-groups-hover.png" '280x1+20+580' restored-features-hover)"
+source_restore_pixels="$(crop_diff_count "$artifact_dir/after-map-source-hover.png" "$artifact_dir/restored-map-source-hover.png" '30x550+980+230' source-restore)"
+feature_restore_pixels="$(crop_diff_count "$artifact_dir/after-feature-groups-hover.png" "$artifact_dir/restored-feature-groups-hover.png" '280x1+20+580' feature-restore)"
+if (( source_hover_pixels < 100 || feature_hover_pixels < 100 || restored_source_hover_pixels < 100 || restored_feature_hover_pixels < 100 )); then
+  printf 'A splitter rail did not respond at its saved position: after hover map/source=%s, feature groups=%s; restored hover map/source=%s, feature groups=%s.\n' \
+    "$source_hover_pixels" "$feature_hover_pixels" "$restored_source_hover_pixels" "$restored_feature_hover_pixels" >&2
   exit 1
 fi
-printf 'Both rails dragged visibly (%s pixels changed) and the per-project layout restored after relaunch (%s pixels differed).\n' "$drag_pixels" "$restore_pixels"
+if (( source_restore_pixels > 500 || feature_restore_pixels > 140 )); then
+  printf 'A saved splitter rail moved after relaunch: source crop differs by %s pixels; feature-group crop differs by %s pixels (full-window difference %s).\n' \
+    "$source_restore_pixels" "$feature_restore_pixels" "$restore_pixels" >&2
+  exit 1
+fi
+printf 'Both rails dragged visibly (%s pixels changed); hovered rails were present before and after relaunch, with %s source-panel and %s feature-group pixels changed in their restore crops (full-window difference %s).\n' \
+  "$drag_pixels" "$source_restore_pixels" "$feature_restore_pixels" "$restore_pixels"
 BASH
