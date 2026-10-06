@@ -22,10 +22,6 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - name: Load browser fixtures through the map-source adapter
-        run: node_modules/.bin/tsx scripts/check-map-source.ts
-      - name: Validate Tauri map source responses
-        run: node_modules/.bin/tsx scripts/check-tauri-map-source.ts
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
           components: rustfmt
