@@ -37,10 +37,11 @@ fs.writeFileSync(recentPath, JSON.stringify([{ id: workspace, label: "Splitter p
 NODE
 
 XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-args='-screen 0 1600x1000x24' \
-  bash -e -u -o pipefail -s -- "$app_path" "$artifact_dir" "$app_log" <<'BASH'
+  bash -e -u -o pipefail -s -- "$app_path" "$artifact_dir" "$app_log" "$workspace" <<'BASH'
 app_path="$1"
 artifact_dir="$2"
 app_log="$3"
+workspace="$4"
 app_pid=""
 window_id=""
 
