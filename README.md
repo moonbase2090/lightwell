@@ -34,6 +34,14 @@ Build a local desktop bundle with `npm run tauri:build`. Pull request CI uploads
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 
+The desktop Project notes dialog is off in default builds. Enable it when developing the app with:
+
+```sh
+VITE_ENABLE_PROJECT_NOTES=true npm run tauri:dev
+```
+
+Click **Notes** to add, edit, or remove notes for map blocks. The dialog reads and writes the opened project's `.lightwell/notes.json` file. It marks stale notes and keeps them until you remove them.
+
 ## Rust CLI
 
 Install the Rust CLI from the repository root:

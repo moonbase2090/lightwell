@@ -25,6 +25,8 @@ Add each language as a parser behind the shared map model. Do not imply cross-la
 
 Store project notes in `.lightwell/notes.json`, creating the directory and file on the first saved note. Key notes by stable block IDs and record the source fingerprint they describe, so refresh can mark stale notes without replacing them. Keep personal settings such as the selected editor in the app's user configuration, outside the repository.
 
+The desktop notes dialog stays off in default builds. Set `VITE_ENABLE_PROJECT_NOTES=true` when building the app to enable it.
+
 ## Editor action
 
 Clicking a block opens its source in a read-only Monaco inspector, scrolled to that block. Use **Open in editor** to edit the file in another application. By default, launch the operating system's default app for that file type with `open` on macOS or `xdg-open` on Linux. Set an optional command template in the Editor settings panel; Lightwell stores it in the app's user configuration, outside the repository. The template may include file, line, and column placeholders. Ship a few ready-made templates for common launch forms, including JetBrains IDEs, Kiro, Zed, VS Code, Cursor, and vim in a terminal. These presets are examples, not an allowlist; accept arbitrary templates. If the OS handler or configured template cannot launch, or no handler is available, fall back to `VISUAL`, then `EDITOR`.
@@ -46,8 +48,8 @@ Sizes are relative engineering estimates, not calendar commitments.
 | Milestone | Scope | Size |
 | --- | --- | --- |
 | M1 — Shared Rust core and CLI | Port Rust extraction; retain schema v1; compare output with both current maps; expose extraction through `lightwell`. | L |
-| M2 — Desktop workflow | Add Tauri shell, folder selection, map-source adapter, existing viewer, editor configuration/open action, and live file refresh. | L |
-| M3 — v0.1 release | Add project note IO and stale-note handling; finish portable release checks, macOS signing/notarization, and Linux glibc/AL2023 validation. | L |
+| M2 — Desktop workflow | Add the Tauri shell, workspace picker, map-source adapter, source inspector, editor action, live refresh, and project notes dialog over the existing `lightwell-core` notes IO. | L |
+| M3 — v0.1 release | Finish portable release checks, sign and notarize the macOS app, and verify the Linux glibc 2.28 package on Amazon Linux 2023. | L |
 | M4 — Language expansion | Add TypeScript/JavaScript, then Python, then Go parsers; add Windows packaging after the initial release. | XL |
 
 ## Decisions
