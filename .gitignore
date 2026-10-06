@@ -3,3 +3,4 @@ dist/
 target/
 .sc/
 .DS_Store
+crates/lightwell-app/gen/
