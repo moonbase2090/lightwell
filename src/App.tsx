@@ -41,6 +41,7 @@ import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, Fact
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
+import Splitter from "./Splitter.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
 
@@ -858,6 +859,113 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
   };
 
+  const graphCanvas = (
+    <div className="graph-canvas" aria-label={`${map.facts.project.name} architecture map`}>
+      <div className="canvas-watermark">
+        <span>{scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
+        <span>{scopeChildren.length} direct children</span>
+      </div>
+      {graphError.length > 0 ? (
+        <div className="graph-message"><CircleAlert size={18} />Could not lay out this map: {graphError}</div>
+      ) : graph.nodes.length === 0 ? (
+        <div className="graph-message"><Activity size={18} />Preparing graph layout…</div>
+      ) : (
+        <ReactFlow
+          nodes={graph.nodes}
+          edges={graph.edges}
+          nodeTypes={nodeTypes}
+          onNodeClick={onNodeClick}
+          onMove={(_event, viewport) => { savedViewportRef.current = viewport; }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          fitView
+          fitViewOptions={{ padding: 0.2, minZoom: 0.18, maxZoom: 1.2 }}
+          minZoom={0.12}
+          maxZoom={1.7}
+          defaultEdgeOptions={{ type: "smoothstep" }}
+        >
+          <RestoreViewport
+            refreshVersion={mapRefreshVersion}
+            layoutRevision={layoutRevision}
+            getSavedViewport={getSavedViewport}
+          />
+          <Background color={theme === "blueprint" ? "rgba(255,255,255,.08)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
+          <Controls showInteractive={false} position="bottom-left" />
+        </ReactFlow>
+      )}
+    </div>
+  );
+  const featureGroups = (
+    <FeatureFooter
+      map={map}
+      group={chosenGroup}
+      activeFeatureId={activeFeatureId}
+      selectedId={selectedId}
+      onGroupChange={(id) => { setActiveGroupId(id); setActiveFeatureId(null); }}
+      onFeatureSelect={(feature) => { setSelectedId(feature.id); setActiveFeatureId(null); setActiveNodeId(null); setInspectedBlockId(null); }}
+      onFeatureHover={(id) => { setActiveFeatureId(id); if (id !== null) setActiveNodeId(null); }}
+    />
+  );
+  const mapContent = (
+    <Splitter
+      projectId={mapKey}
+      splitterId="map-features"
+      label="Resize map and feature groups"
+      axis="y"
+      defaultRatio={0.7}
+      minimumFirst={240}
+      minimumSecond={140}
+      className="map-content-splitter"
+      first={graphCanvas}
+      second={featureGroups}
+    />
+  );
+  const mapColumn = (
+    <main className="map-column">
+      <div className="map-toolbar">
+        <nav className="breadcrumbs" aria-label="Map breadcrumbs">
+          {currentCrumbNames.map((crumb, index) => (
+            <span className="breadcrumb-segment" key={crumb.id}>
+              {index > 0 && <ChevronRight size={13} />}
+              <button className={index === currentCrumbNames.length - 1 ? "current" : ""} type="button" onClick={() => chooseBreadcrumb(index)}>{crumb.label}</button>
+            </span>
+          ))}
+        </nav>
+        <div className="connection-legend">
+          <span className="legend-item"><i className="legend-line contains-line" />contains <b>{directConnectionSummary.contains}</b></span>
+          <span className="legend-item"><i className="legend-line dependency-line" />depends on <b>{directConnectionSummary.depends}</b></span>
+          {staleCount > 0 && <span className="stale-count"><CircleAlert size={12} />{staleCount} changed</span>}
+        </div>
+        {projectNotesSource !== undefined && (
+          <button className="project-notes-open-button" type="button" onClick={() => setProjectNotesOpen(true)}>
+            <FileText size={13} /> Notes
+            {projectNotes.kind === "ready" && projectNotes.notes.length > 0 && <span>{projectNotes.notes.length}</span>}
+          </button>
+        )}
+      </div>
+      {mapContent}
+    </main>
+  );
+  const sidePanel = inspectedBlockId !== null && mapSource.editor !== undefined ? (
+    <SourceInspectorPanel
+      title={map.blockById.get(inspectedBlockId)?.label ?? "Source file"}
+      inspection={inspection}
+      theme={theme}
+      openingEditor={openingEditor}
+      editorError={editorActionError}
+      onOpenInEditor={() => { void handleOpenInEditor(); }}
+      onClose={() => setInspectedBlockId(null)}
+    />
+  ) : (
+    <DetailsPanel
+      node={selected}
+      map={map}
+      onOpen={(node) => { if (!node.virtual) openBlockInspector(node); }}
+      onSelectBlock={setSelectedId}
+    />
+  );
+
   return (
     <div className="workspace-shell" data-theme={theme} ref={shellRef}>
       <header className={`topbar${openWorkspaceAction === undefined ? "" : " desktop-topbar"}`}>
@@ -934,93 +1042,18 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         </div>
       </div>
 
-      <div className="main-layout">
-        <main className="map-column">
-          <div className="map-toolbar">
-            <nav className="breadcrumbs" aria-label="Map breadcrumbs">
-              {currentCrumbNames.map((crumb, index) => (
-                <span className="breadcrumb-segment" key={crumb.id}>
-                  {index > 0 && <ChevronRight size={13} />}
-                  <button className={index === currentCrumbNames.length - 1 ? "current" : ""} type="button" onClick={() => chooseBreadcrumb(index)}>{crumb.label}</button>
-                </span>
-              ))}
-            </nav>
-            <div className="connection-legend">
-              <span className="legend-item"><i className="legend-line contains-line" />contains <b>{directConnectionSummary.contains}</b></span>
-              <span className="legend-item"><i className="legend-line dependency-line" />depends on <b>{directConnectionSummary.depends}</b></span>
-              {staleCount > 0 && <span className="stale-count"><CircleAlert size={12} />{staleCount} changed</span>}
-            </div>
-            {projectNotesSource !== undefined && (
-              <button className="project-notes-open-button" type="button" onClick={() => setProjectNotesOpen(true)}>
-                <FileText size={13} /> Notes
-                {projectNotes.kind === "ready" && projectNotes.notes.length > 0 && <span>{projectNotes.notes.length}</span>}
-              </button>
-            )}
-          </div>
-
-          <div className="graph-canvas" aria-label={`${map.facts.project.name} architecture map`}>
-            <div className="canvas-watermark"><span>{scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span><span>{scopeChildren.length} direct children</span></div>
-            {graphError.length > 0 ? (
-              <div className="graph-message"><CircleAlert size={18} />Could not lay out this map: {graphError}</div>
-            ) : graph.nodes.length === 0 ? (
-              <div className="graph-message"><Activity size={18} />Preparing graph layout…</div>
-            ) : (
-              <ReactFlow
-                nodes={graph.nodes}
-                edges={graph.edges}
-                nodeTypes={nodeTypes}
-                onNodeClick={onNodeClick}
-                onMove={(_event, viewport) => { savedViewportRef.current = viewport; }}
-                nodesDraggable={false}
-                nodesConnectable={false}
-                elementsSelectable={false}
-                fitView
-                fitViewOptions={{ padding: 0.2, minZoom: 0.18, maxZoom: 1.2 }}
-                minZoom={0.12}
-                maxZoom={1.7}
-                defaultEdgeOptions={{ type: "smoothstep" }}
-              >
-                <RestoreViewport
-                  refreshVersion={mapRefreshVersion}
-                  layoutRevision={layoutRevision}
-                  getSavedViewport={getSavedViewport}
-                />
-                <Background color={theme === "blueprint" ? "rgba(255,255,255,.08)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
-                <Controls showInteractive={false} position="bottom-left" />
-              </ReactFlow>
-            )}
-          </div>
-
-          <FeatureFooter
-            map={map}
-            group={chosenGroup}
-            activeFeatureId={activeFeatureId}
-            selectedId={selectedId}
-            onGroupChange={(id) => { setActiveGroupId(id); setActiveFeatureId(null); }}
-            onFeatureSelect={(feature) => { setSelectedId(feature.id); setActiveFeatureId(null); setActiveNodeId(null); setInspectedBlockId(null); }}
-            onFeatureHover={(id) => { setActiveFeatureId(id); if (id !== null) setActiveNodeId(null); }}
-          />
-        </main>
-
-        {inspectedBlockId !== null && mapSource.editor !== undefined ? (
-          <SourceInspectorPanel
-            title={map.blockById.get(inspectedBlockId)?.label ?? "Source file"}
-            inspection={inspection}
-            theme={theme}
-            openingEditor={openingEditor}
-            editorError={editorActionError}
-            onOpenInEditor={() => { void handleOpenInEditor(); }}
-            onClose={() => setInspectedBlockId(null)}
-          />
-        ) : (
-          <DetailsPanel
-            node={selected}
-            map={map}
-            onOpen={(node) => { if (!node.virtual) openBlockInspector(node); }}
-            onSelectBlock={setSelectedId}
-          />
-        )}
-      </div>
+      <Splitter
+        projectId={mapKey}
+        splitterId="map-source"
+        label="Resize map and source panel"
+        axis="x"
+        defaultRatio={0.78}
+        minimumFirst={520}
+        minimumSecond={240}
+        className="main-layout"
+        first={mapColumn}
+        second={sidePanel}
+      />
 
       <svg className="connector-layer" aria-hidden="true">
         {connectorPaths.map((path, index) => <path className="feature-connector" d={path.d} stroke={path.color} key={`${path.d}-${index}`} />)}

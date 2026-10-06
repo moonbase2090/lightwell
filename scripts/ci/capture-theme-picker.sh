@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-app_path="${1:?Usage: capture-theme-picker.sh <app-binary> <artifact-directory>}"
-artifact_dir="${2:?Usage: capture-theme-picker.sh <app-binary> <artifact-directory>}"
+app_path="${1:?Usage: capture-theme-picker.sh <app-binary> <artifact-directory> [capture-splitters]}"
+artifact_dir="${2:?Usage: capture-theme-picker.sh <app-binary> <artifact-directory> [capture-splitters]}"
+capture_splitters="${3:-false}"
 
 if [[ ! -x "$app_path" ]]; then
   printf 'Lightwell app binary is missing or not executable: %s\n' "$app_path" >&2
@@ -41,6 +42,7 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     app_path="$1"
     artifact_dir="$2"
     app_log="$3"
+    capture_splitters="$4"
 
     "$app_path" >"$app_log" 2>&1 &
     app_pid=$!
@@ -82,6 +84,14 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     theme_select_y=$((window_height / 2 - 130))
     settings_close_x=$((window_width / 2 + 218))
     settings_close_y=$((window_height / 2 - 245))
+    if [[ "$capture_splitters" == "true" ]]; then
+      main_top=178
+      main_height=$((window_height - main_top - 28))
+      splitter_x=$(((window_width - 8) * 78 / 100 + 4))
+      splitter_outer_y=$((main_top + main_height / 2))
+      splitter_inner_x=$((splitter_x / 2))
+      splitter_inner_y=$((main_top + 47 + (main_height - 47 - 8) * 70 / 100 + 4))
+    fi
 
     capture_theme() {
       theme_name="$1"
@@ -96,7 +106,16 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
       import -window "$window_id" "$artifact_dir/theme-settings-$theme_name.png"
       xdotool mousemove --window "$window_id" "$settings_close_x" "$settings_close_y" click 1
       sleep 2
+      xdotool mousemove --window "$window_id" 2 2
       import -window "$window_id" "$artifact_dir/theme-$theme_name.png"
+      if [[ "$capture_splitters" == "true" ]]; then
+        xdotool mousemove --window "$window_id" "$splitter_x" "$splitter_outer_y"
+        sleep 0.3
+        import -window "$window_id" "$artifact_dir/rail-$theme_name-map-source.png"
+        xdotool mousemove --window "$window_id" "$splitter_inner_x" "$splitter_inner_y"
+        sleep 0.3
+        import -window "$window_id" "$artifact_dir/rail-$theme_name-feature-groups.png"
+      fi
     }
 
     capture_theme system 0
@@ -138,6 +157,15 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
         printf "The %s Settings panel did not close before its theme screenshot.\n" "$image" >&2
         exit 1
       fi
+      if [[ "$capture_splitters" == "true" ]]; then
+        for splitter in map-source feature-groups; do
+          changed_pixels="$(pixel_diff_count "$artifact_dir/theme-$image.png" "$artifact_dir/rail-$image-$splitter.png")"
+          if (( changed_pixels < 20 )); then
+            printf "Hovering the %s rail was not visible in the %s theme screenshot.\n" "$splitter" "$image" >&2
+            exit 1
+          fi
+        done
+      fi
     done
     for pair in "dark light" "light blueprint"; do
       read -r left right <<<"$pair"
@@ -148,4 +176,4 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
       fi
     done
     printf "The built app applied Follow system, Dark, Light, and Blueprint from Settings.\n"
-  ' lightwell-theme-picker "$app_path" "$artifact_dir" "$app_log"
+  ' lightwell-theme-picker "$app_path" "$artifact_dir" "$app_log" "$capture_splitters"

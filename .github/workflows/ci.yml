@@ -20,6 +20,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm test
       - run: npm run build
       - name: Load browser fixtures through the map-source adapter
         run: node_modules/.bin/tsx scripts/check-map-source.ts
@@ -203,11 +204,22 @@ jobs:
           path: ${{ runner.temp }}/lightwell-source-inspector/*.png
           if-no-files-found: error
       - name: Exercise the theme picker in the built app
-        run: scripts/ci/capture-theme-picker.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-theme-picker"
+        env:
+          CAPTURE_SPLITTERS: ${{ startsWith(github.head_ref, 'm2/draggable-rails') }}
+        run: scripts/ci/capture-theme-picker.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-theme-picker" "$CAPTURE_SPLITTERS"
       - uses: actions/upload-artifact@v4
         with:
           name: lightwell-theme-picker-linux-screenshots
           path: ${{ runner.temp }}/lightwell-theme-picker/*.png
+          if-no-files-found: error
+      - name: Exercise draggable rails and per-project restore
+        if: startsWith(github.head_ref, 'm2/draggable-rails')
+        run: scripts/ci/capture-splitters.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-splitters"
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.head_ref, 'm2/draggable-rails')
+        with:
+          name: lightwell-splitters-linux-screenshots
+          path: ${{ runner.temp }}/lightwell-splitters/*.png
           if-no-files-found: error
       - name: Check the package binary's GLIBC requirement
         run: |
