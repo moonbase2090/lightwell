@@ -245,33 +245,12 @@ fn start_workspace_watcher(
     let spawn_result = thread::Builder::new()
         .name("lightwell-workspace-watcher".to_owned())
         .spawn(move || {
-            loop {
-                match watcher.next_changed_map() {
-                    Ok(facts) => {
-                        match thread_current.write() {
-                            Ok(mut current) => *current = facts.clone(),
-                            Err(_) => {
-                                eprintln!("Lightwell could not update the cached workspace map.");
-                                break;
-                            }
-                        }
-                        let update = WorkspaceMapUpdate {
-                            workspace_id: thread_root.to_string_lossy().into_owned(),
-                            document: workspace_map_document(&thread_root, facts),
-                        };
-                        if let Err(error) = thread_app.emit("workspace-map-changed", update) {
-                            eprintln!("Lightwell could not send a workspace map update: {error}");
-                        }
-                    }
-                    Err(error @ MapWatchError::Extraction(_)) => {
-                        eprintln!("Lightwell could not refresh the workspace map: {error}");
-                    }
-                    Err(error) => {
-                        eprintln!("Lightwell stopped watching the workspace: {error}");
-                        break;
-                    }
+            forward_map_changes(&mut watcher, &thread_current, &thread_root, |update| {
+                if let Err(error) = thread_app.emit("workspace-map-changed", update) {
+                    eprintln!("Lightwell could not send a workspace map update: {error}");
                 }
-            }
+                true
+            });
 
             match thread_registry.0.lock() {
                 Ok(mut active) => {
@@ -298,6 +277,43 @@ fn start_workspace_watcher(
         .map_err(|_| "The workspace map cache is unavailable.".to_owned())?
         .clone();
     Ok(workspace_map_document(&root, facts))
+}
+
+/// Keeps the cached map current and hands each changed map to `emit` until the
+/// watcher stops, the cache is unusable, or `emit` returns `false`.
+fn forward_map_changes(
+    watcher: &mut MapWatcher,
+    current: &RwLock<FactMap>,
+    root: &Path,
+    mut emit: impl FnMut(WorkspaceMapUpdate) -> bool,
+) {
+    loop {
+        match watcher.next_changed_map() {
+            Ok(facts) => {
+                match current.write() {
+                    Ok(mut cached) => *cached = facts.clone(),
+                    Err(_) => {
+                        eprintln!("Lightwell could not update the cached workspace map.");
+                        break;
+                    }
+                }
+                let update = WorkspaceMapUpdate {
+                    workspace_id: root.to_string_lossy().into_owned(),
+                    document: workspace_map_document(root, facts),
+                };
+                if !emit(update) {
+                    break;
+                }
+            }
+            Err(error @ MapWatchError::Extraction(_)) => {
+                eprintln!("Lightwell could not refresh the workspace map: {error}");
+            }
+            Err(error) => {
+                eprintln!("Lightwell stopped watching the workspace: {error}");
+                break;
+            }
+        }
+    }
 }
 
 fn workspace_root(path: &str) -> Result<PathBuf, String> {
@@ -486,12 +502,14 @@ fn write_recent_workspaces(path: &Path, workspaces: &[WorkspaceEntry]) -> Result
 #[cfg(test)]
 mod tests {
     use super::{
-        normalize_editor_settings, read_editor_settings, read_recent_workspaces, workspace_root,
-        write_editor_settings, write_recent_workspaces, WorkspaceEntry,
+        forward_map_changes, normalize_editor_settings, read_editor_settings,
+        read_recent_workspaces, workspace_root, write_editor_settings, write_recent_workspaces,
+        WorkspaceEntry,
     };
-    use lightwell_core::EditorSettings;
+    use lightwell_core::{extract_cargo_map, EditorSettings, MapWatcher};
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::RwLock;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temporary_directory(label: &str) -> PathBuf {
@@ -561,5 +579,46 @@ mod tests {
             command_template: Some("editor\n{file}".to_owned()),
         })
         .is_err());
+    }
+
+    #[test]
+    fn forwarded_changes_update_the_cache_and_carry_the_workspace_id() {
+        let root = temporary_directory("forward-changes");
+        fs::create_dir_all(root.join("src")).expect("fixture source folder should be created");
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"forward-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .expect("fixture manifest should be written");
+        fs::write(root.join("src/lib.rs"), "pub fn value() -> u8 { 1 }\n")
+            .expect("fixture library should be written");
+        let root = root.canonicalize().expect("fixture root should resolve");
+
+        let mut watcher = MapWatcher::new(&root, None).expect("watcher should start");
+        let initial = extract_cargo_map(&root, None).expect("fixture map should extract");
+        let cache = RwLock::new(initial.clone());
+        fs::write(root.join("src/lib.rs"), "pub fn value() -> u8 { 2 }\n")
+            .expect("fixture library should be edited");
+
+        let mut updates = Vec::new();
+        forward_map_changes(&mut watcher, &cache, &root, |update| {
+            updates.push(update);
+            false
+        });
+
+        assert_eq!(updates.len(), 1);
+        assert_eq!(updates[0].workspace_id, root.to_string_lossy());
+        let cached = cache.read().expect("cache should be readable");
+        assert_ne!(
+            serde_json::to_value(&*cached).unwrap(),
+            serde_json::to_value(&initial).unwrap(),
+            "the cached map should reflect the edit"
+        );
+        assert_eq!(
+            serde_json::to_value(&updates[0].document.facts).unwrap(),
+            serde_json::to_value(&*cached).unwrap(),
+        );
+        drop(cached);
+        fs::remove_dir_all(root).expect("temporary folder should be removed");
     }
 }
