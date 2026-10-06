@@ -87,7 +87,7 @@ XDG_CONFIG_HOME="$config_home" EDITOR_LOG_PATH="$editor_log" xvfb-run -a --serve
     sleep 8
     import -window "$window_id" "$artifact_dir/source-inspector.png"
 
-    xdotool mousemove --window "$window_id" 1110 285 click 1
+    xdotool mousemove --window "$window_id" 1110 215 click 1
     for _ in $(seq 1 15); do
       if [[ -s "$EDITOR_LOG_PATH" ]]; then break; fi
       sleep 1

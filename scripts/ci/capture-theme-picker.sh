@@ -85,7 +85,7 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     settings_close_x=$((window_width / 2 + 218))
     settings_close_y=$((window_height / 2 - 245))
     if [[ "$capture_splitters" == "true" ]]; then
-      main_top=178
+      main_top=108
       main_height=$((window_height - main_top - 28))
       splitter_x=$((window_width - 318 - 4))
       splitter_outer_y=$((main_top + main_height / 2))
