@@ -51,7 +51,14 @@ stop_app() {
     app_pid=""
   fi
 }
-trap stop_app EXIT
+finish() {
+  local status=$?
+  trap - EXIT
+  cp "$app_log" "$artifact_dir/app-final.log" 2>/dev/null || true
+  stop_app
+  exit "$status"
+}
+trap finish EXIT
 
 start_app() {
   : >"$app_log"
@@ -124,6 +131,7 @@ xdotool mousemove --window "$window_id" 2 2
 sleep 1
 capture after
 
+cp "$app_log" "$artifact_dir/app-initial.log"
 stop_app
 start_app
 xdotool mousemove --window "$window_id" 2 2
