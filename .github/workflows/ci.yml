@@ -155,6 +155,8 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -208,6 +210,37 @@ jobs:
         with:
           name: lightwell-theme-picker-linux-screenshots
           path: ${{ runner.temp }}/lightwell-theme-picker/*.png
+          if-no-files-found: error
+      - name: Build the previous header and capture the compact layout
+        if: startsWith(github.head_ref, 'm2/compact-header')
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          VITE_ENABLE_PROJECT_NOTES: 'true'
+        run: |
+          set -euo pipefail
+          previous_header_sha="$(git log --first-parent --merges -1 --format=%H "$PR_HEAD_SHA")"
+          if [[ -z "$previous_header_sha" ]]; then
+            previous_header_sha="$(git merge-base "$PR_HEAD_SHA" "$PR_BASE_SHA")"
+          fi
+          previous_source="$RUNNER_TEMP/lightwell-before-source"
+          previous_app="$RUNNER_TEMP/lightwell-before"
+          git worktree add --detach "$previous_source" "$previous_header_sha"
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$previous_source/node_modules"
+          (
+            cd "$previous_source"
+            npm run tauri:build -- --target x86_64-unknown-linux-gnu --no-bundle -- --locked
+          )
+          cp "$previous_source/target/x86_64-unknown-linux-gnu/release/lightwell" "$previous_app"
+          scripts/ci/capture-compact-header.sh \
+            "$previous_app" \
+            "$GITHUB_WORKSPACE/target/x86_64-unknown-linux-gnu/release/lightwell" \
+            "$RUNNER_TEMP/lightwell-compact-header"
+      - uses: actions/upload-artifact@v4
+        if: startsWith(github.head_ref, 'm2/compact-header')
+        with:
+          name: lightwell-compact-header-linux-screenshots
+          path: ${{ runner.temp }}/lightwell-compact-header/*.png
           if-no-files-found: error
       - name: Check the package binary's GLIBC requirement
         run: |

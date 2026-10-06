@@ -135,15 +135,6 @@ function displayConnections(scopeId: string, blocks: readonly DisplayBlock[], co
   };
 }
 
-function Metric({ label, value, tone }: { readonly label: string; readonly value: number; readonly tone?: string }) {
-  return (
-    <div className={`metric ${tone ?? ""}`}>
-      <span className="metric-value">{value.toLocaleString()}</span>
-      <span className="metric-label">{label}</span>
-    </div>
-  );
-}
-
 function MapSourceState({
   message,
   title,
@@ -624,7 +615,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const chosenGroup = map?.annotations.groups.find((group) => group.id === activeGroupId) ?? map?.annotations.groups[0];
   const staleCount = map?.nodes.filter((node) => node.annotationState !== "current").length ?? 0;
   const directConnectionSummary = connectionsInScope;
-  const projectDescription = map?.blockById.get(rootId)?.description ?? "Source-backed workspace map.";
+  const projectDescription = map?.annotations.blocks[rootId]?.description.trim() ?? "";
 
   const setHoverNode = useCallback((id: string | null) => {
     setActiveNodeId(id);
@@ -863,7 +854,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       <header className={`topbar${openWorkspaceAction === undefined ? "" : " desktop-topbar"}`}>
         <div className="brand-block">
           <div className="brand-mark"><Waypoints size={17} strokeWidth={1.8} /></div>
-          <div><div className="brand-name">Lightwell<span className="brand-version">LOCAL</span></div><div className="brand-caption">turning the lights on in the Dark Factory</div></div>
+          <div><div className="brand-name">Lightwell<span className="brand-version">LOCAL</span></div></div>
         </div>
         <div className="project-select-wrap">
           <label htmlFor="project-select">PROJECT</label>
@@ -918,21 +909,27 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         </div>
       )}
 
-      <div className="overview-row">
+      <section className="overview-row" aria-label="Project summary">
         <div className="overview-title">
-          <div className="workspace-glyph"><Box size={18} /></div>
+          <div className="workspace-glyph"><Box size={15} /></div>
           <div>
-            <div className="overview-title-line"><h1>{map.facts.project.name}</h1><span className="status-pill status-ready">ready</span></div>
-            <p>{projectDescription}</p>
+            <div className="overview-title-line">
+              <h1>{map.facts.project.name}</h1>
+              <span className="status-pill status-ready">ready</span>
+              {projectDescription.length > 0 && <span className="overview-description">{projectDescription}</span>}
+            </div>
           </div>
         </div>
-        <div className="overview-metrics">
-          <Metric label="blocks" value={map.facts.stats.blocks} />
-          <Metric label="connections" value={map.facts.stats.connections} tone="metric-blue" />
-          <Metric label="Rust modules" value={map.facts.stats.modules} tone="metric-violet" />
-          <Metric label="feature notes" value={map.annotations.features.length} tone="metric-amber" />
+        <div className="overview-metrics" role="group" aria-label="Project totals">
+          <span className="overview-stat"><strong>{map.facts.stats.blocks.toLocaleString()}</strong> blocks</span>
+          <span className="overview-separator" aria-hidden="true">·</span>
+          <span className="overview-stat"><strong>{map.facts.stats.connections.toLocaleString()}</strong> connections</span>
+          <span className="overview-separator" aria-hidden="true">·</span>
+          <span className="overview-stat"><strong>{map.facts.stats.modules.toLocaleString()}</strong> modules</span>
+          <span className="overview-separator" aria-hidden="true">·</span>
+          <span className="overview-stat"><strong>{map.annotations.features.length.toLocaleString()}</strong> notes</span>
         </div>
-      </div>
+      </section>
 
       <div className="main-layout">
         <main className="map-column">

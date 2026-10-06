@@ -69,7 +69,7 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     sleep 2
     xdotool key Return
     sleep 3
-    xdotool mousemove --window "$window_id" 900 202 click 1
+    xdotool mousemove --window "$window_id" 900 131 click 1
     sleep 2
     xdotool mousemove --window "$window_id" 760 455 click 1
     xdotool type --clearmodifiers --delay 35 "Architecture note one."
