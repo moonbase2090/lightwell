@@ -26,6 +26,8 @@ jobs:
         with:
           components: rustfmt
       - run: npm run check:licenses
+      - name: Test the Linux release checks
+        run: scripts/ci/test-release-checks.sh
       - name: Install Tauri Linux build dependencies
         run: |
           sudo apt-get update
@@ -80,13 +82,9 @@ jobs:
       - name: Smoke the CLI
         run: scripts/ci/smoke-cli.sh target/release/lightwell "$GITHUB_WORKSPACE" "$RUNNER_TEMP/lightwell-map.json"
       - name: Check the minimum macOS version
-        run: |
-          minimum="$(otool -l target/release/lightwell | awk '$1 == "minos" { print $2; exit }')"
-          printf 'lightwell minimum macOS version: %s\n' "$minimum"
-          if [[ "$minimum" != '11.0' ]]; then
-            printf 'expected a macOS 11.0 minimum, found %s\n' "$minimum" >&2
-            exit 1
-          fi
+        run: scripts/ci/check-macos-minimum.sh target/release/lightwell 11.0
+      - name: Test the macOS release checks
+        run: scripts/ci/test-release-checks.sh
 
   linux-cli-al2023:
     name: Linux CLI glibc 2.28 + AL2023 (${{ matrix.arch }})
@@ -134,13 +132,8 @@ jobs:
       - name: Check the deployment target and unsigned bundle
         run: |
           app='target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app'
-          test -d "$app"
-          minimum=$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$app/Contents/Info.plist")
-          test "$minimum" = '11.0'
-          if codesign --verify --deep --strict "$app" 2>/dev/null; then
-            echo 'Expected an unsigned macOS app, but codesign verified the bundle.' >&2
-            exit 1
-          fi
+          scripts/ci/check-macos-minimum.sh "$app" 11.0
+          scripts/ci/check-unsigned-macos-app.sh "$app"
           ditto -c -k --keepParent "$app" "$RUNNER_TEMP/Lightwell-macos-arm64.zip"
       - uses: actions/upload-artifact@v4
         with:
@@ -251,14 +244,7 @@ jobs:
           path: ${{ runner.temp }}/lightwell-compact-header/*.png
           if-no-files-found: error
       - name: Check the package binary's GLIBC requirement
-        run: |
-          package=$(find target/x86_64-unknown-linux-gnu/release/bundle/deb -maxdepth 1 -type f -name '*.deb' -print -quit)
-          test -n "$package"
-          mkdir -p "$RUNNER_TEMP/lightwell-deb"
-          dpkg-deb -x "$package" "$RUNNER_TEMP/lightwell-deb"
-          binary=$(find "$RUNNER_TEMP/lightwell-deb/usr" -type f -executable -name lightwell -print -quit)
-          test -n "$binary"
-          scripts/ci/check-glibc-floor.sh "$binary" 2.28
+        run: scripts/ci/check-deb-glibc.sh target/x86_64-unknown-linux-gnu/release/bundle/deb 2.28
       - uses: actions/upload-artifact@v4
         with:
           name: lightwell-linux-x86_64-glibc-2.28
