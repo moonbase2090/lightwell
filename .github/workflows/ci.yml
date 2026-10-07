@@ -148,6 +148,47 @@ jobs:
           path: ${{ runner.temp }}/Lightwell-macos-arm64.zip
           if-no-files-found: error
 
+  tauri-macos-signed:
+    runs-on: macos-26
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke Apple signing credentials
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+        run: scripts/ci/sign-macos-app.sh --credential-smoke
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: aarch64-apple-darwin
+      - run: npm ci
+      - name: Build the unsigned app for signing
+        run: npm run tauri:build -- --target aarch64-apple-darwin --bundles app --no-sign
+      - name: Sign and verify the Apple Silicon app
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: scripts/ci/sign-macos-app.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app
+      - name: Notarize, staple, and validate the app
+        env:
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+        run: scripts/ci/notarize-macos-app.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-arm64.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lightwell-macos-arm64-signed
+          path: ${{ runner.temp }}/Lightwell-macos-arm64.zip
+          if-no-files-found: error
+
   tauri-linux-artifact:
     runs-on: ubuntu-22.04
     steps:
