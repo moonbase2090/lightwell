@@ -30,7 +30,7 @@ npm ci
 npm run tauri:dev
 ```
 
-Build a local desktop bundle with `npm run tauri:build`. Pull request CI uploads an unsigned Apple Silicon `.app` archive and an x86_64 Linux `.deb` built for a GLIBC 2.28 executable floor.
+Build a local desktop bundle with `npm run tauri:build`. Pull request CI uploads an unsigned Apple Silicon `.app` archive and an x86_64 Linux `.deb` built for a GLIBC 2.28 executable floor. The credential-gated macOS job additionally uploads a signed, notarized, stapled Apple Silicon archive.
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 
