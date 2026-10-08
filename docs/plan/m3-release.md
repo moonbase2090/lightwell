@@ -43,12 +43,11 @@ check, and the `.deb` unpack step are inline shell in `ci.yml`.
 `docs/plan/app-plan.md` says release commands live in checked-in
 scripts that run locally and in CI.
 
-The Linux package on Amazon Linux 2023. `linux-cli-al2023` runs the
-raw CLI in `amazonlinux:2023`. `tauri-linux-artifact` checks the
-`.deb` binary's GLIBC floor on the Ubuntu runner and does not run
-that binary in Amazon Linux 2023. Amazon Linux 2023 is rpm-based, so
-the proof runs the binary unpacked from the `.deb`. It does not
-`dnf install` a Debian package.
+The Linux package smoke. `linux-cli-al2023` runs the raw CLI in
+`amazonlinux:2023`. `tauri-linux-artifact` checks the `.deb`
+binary's GLIBC floor but never runs the packaged binary. That binary
+is the Tauri desktop app, with no `--help` or `extract`, and Amazon
+Linux 2023 has no WebKitGTK 4.1 runtime, so the app cannot run there.
 
 Signed macOS distribution. `tauri-macos-artifact` is required to
 stay unsigned. Nothing in this repository notarizes
@@ -90,32 +89,33 @@ Builds on `macos-cli`, `tauri-macos-artifact`,
 `tauri-linux-artifact`, `scripts/ci/check-glibc-floor.sh`, and
 `scripts/ci/smoke-cli.sh`.
 
-### 2. Run the glibc 2.28 package on Amazon Linux 2023
+### 2. Smoke the Linux package
 
-Scope. After the `.deb` is built, unpack `lightwell` and run it
-inside `amazonlinux:2023`, using the same `--help` and `extract`
-checks as the CLI smoke. The container sees the unpacked binary,
-not a `dnf` install of the `.deb`.
+Scope. The real `lightwell` CLI is smoke-tested on
+`amazonlinux:2023` by `linux-cli-al2023`, which is what that image
+supports. The desktop app in the x86_64 `.deb` gets a GUI smoke on
+the `ubuntu-22.04` runner, where `libwebkit2gtk-4.1-dev` is
+installed: unpack the `.deb`, launch the packaged binary under Xvfb,
+and require a visible window and a screenshot of at least 800x500.
+The `.deb` is not run on Amazon Linux 2023 and is not `dnf`
+installed.
 
 Files.
 
-- `scripts/ci/smoke-deb-al2023.sh`
-- `.github/workflows/ci.yml`, job `tauri-linux-artifact`, after `scripts/ci/check-glibc-floor.sh`
+- `scripts/ci/smoke-deb-gui.sh`, wrapping `dpkg-deb -x` plus `scripts/ci/capture-open-workspace.sh`
+- `.github/workflows/ci.yml`, job `tauri-linux-artifact`, after `scripts/ci/check-deb-glibc.sh`
 
-Proof. The job log shows `amazonlinux:2023`, a schema-v1 map with
-at least one block, and the GLIBC line from
-`scripts/ci/check-glibc-floor.sh`. Replacing the unpacked binary
-with one whose GLIBC symbol is newer than 2.28 makes
-`scripts/ci/check-glibc-floor.sh` exit non-zero before the
-container run. The x86_64 `.deb` is the package this row verifies.
-The aarch64 CLI is already covered by `linux-cli-al2023`; an
-aarch64 `.deb` is not part of v0.1.
+Proof. The job log shows the packaged binary path and the
+captured window size. A package with no `lightwell` binary, or one
+that opens no window, makes the script exit non-zero. The GLIBC
+floor stays enforced by `scripts/ci/check-deb-glibc.sh`. The
+aarch64 CLI is covered by `linux-cli-al2023`; an aarch64 `.deb` is
+not part of v0.1.
 
-Builds on `tauri-linux-artifact`,
+Builds on `tauri-linux-artifact`, `linux-cli-al2023`,
 `scripts/ci/smoke-linux-al2023.sh`,
-`scripts/ci/check-glibc-floor.sh`, and Prismattyc
-`docs/release-process.md` section "Build platform packages", which
-runs its smoke script in `amazonlinux:2023` before packaging.
+`scripts/ci/capture-open-workspace.sh`, and
+`scripts/ci/check-deb-glibc.sh`.
 
 ### 3. Sign, notarize, and staple the macOS app
 
