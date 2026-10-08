@@ -34,13 +34,25 @@ test("the companion keeps macOS jobs and floating actions out", () => {
     "dtolnay/rust-toolchain",
     "actions/setup-node",
     "mlugg/setup-zig",
-    "actions/upload-artifact",
+    "actions/upload-artifact@v",
     "Scorecard/action",
     "ubuntu-22.04",
     "security-events:",
   ]) {
     assert.equal(text.includes(absent), false, absent);
   }
+  assert.match(
+    text,
+    /uses: actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7\.0\.1/,
+  );
+  assert.match(
+    text,
+    /uses: github\/codeql-action\/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4\.38\.2/,
+  );
+  assert.match(
+    text,
+    /if: always\(\) && github\.event_name == 'pull_request' && github\.event\.repository\.visibility == 'public'/,
+  );
   const uses = [...text.matchAll(/^ {2,}- uses: (.+)$/gm)].map((match) => match[1]);
   assert.deepEqual([...new Set(uses)], ["actions/checkout@v4"]);
 });
