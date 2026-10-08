@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Lightwell</title>
+  <defs>
+    <!-- macOS grid tile: 824x824 centered, r=185 -->
+    <clipPath id="tile">
+      <rect x="100" y="100" width="824" height="824" rx="185"/>
+    </clipPath>
+
+    <!-- Tile background: faint warm lift around the lamp, falling to brand bg -->
+    <radialGradient id="bg" cx="512" cy="330" r="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#151617"/>
+      <stop offset="0.45" stop-color="#0f1213"/>
+      <stop offset="1" stop-color="#0a0c0d"/>
+    </radialGradient>
+
+    <!-- Beam: cream at the slit, thinning to nothing at the floor -->
+    <linearGradient id="beam" x1="0" y1="170" x2="0" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8ebd6" stop-opacity="0.97"/>
+      <stop offset="0.35" stop-color="#f0e1c8" stop-opacity="0.8"/>
+      <stop offset="0.7" stop-color="#d8cab2" stop-opacity="0.48"/>
+      <stop offset="1" stop-color="#bfb4a0" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Slit: brightest at the centre, cooling toward the ends like the reference fixture -->
+    <linearGradient id="slit" x1="425" y1="0" x2="600" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#cfc8b8"/>
+      <stop offset="0.5" stop-color="#f6efd9"/>
+      <stop offset="1" stop-color="#cfc8b8"/>
+    </linearGradient>
+
+    <!-- Dim architectural pillars, visible only mid-height -->
+    <linearGradient id="pillar" x1="0" y1="220" x2="0" y2="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1c2224" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#1a1f21" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#1c2224" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Node fill: lit from above -->
+    <radialGradient id="node" cx="0.45" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#b2efe8"/>
+      <stop offset="0.6" stop-color="#9fe3df"/>
+      <stop offset="1" stop-color="#8cdad4"/>
+    </radialGradient>
+
+    <!-- Graph visibility: fully lit inside the beam, fading into the dark at the sides -->
+    <linearGradient id="reveal" x1="100" y1="0" x2="924" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.16" stop-color="#fff" stop-opacity="0.22"/>
+      <stop offset="0.24" stop-color="#fff" stop-opacity="0.4"/>
+      <stop offset="0.33" stop-color="#fff" stop-opacity="0.65"/>
+      <stop offset="0.39" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="0.61" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="0.67" stop-color="#fff" stop-opacity="0.65"/>
+      <stop offset="0.76" stop-color="#fff" stop-opacity="0.4"/>
+      <stop offset="0.84" stop-color="#fff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="revealMask" maskUnits="userSpaceOnUse" x="100" y="100" width="824" height="824">
+      <rect x="100" y="100" width="824" height="824" fill="url(#reveal)"/>
+    </mask>
+
+    <filter id="blurBeam" x="-60%" y="-20%" width="220%" height="140%">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+    <filter id="blurWide" x="-60%" y="-30%" width="220%" height="160%">
+      <feGaussianBlur stdDeviation="60"/>
+    </filter>
+    <filter id="blurFloor" x="-60%" y="-250%" width="220%" height="600%">
+      <feGaussianBlur stdDeviation="50"/>
+    </filter>
+    <filter id="blurSoft" filterUnits="userSpaceOnUse" x="100" y="100" width="824" height="824">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g clip-path="url(#tile)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#bg)"/>
+
+    <!-- Pillars -->
+    <g fill="url(#pillar)">
+      <rect x="148" y="220" width="40" height="600"/>
+      <rect x="222" y="260" width="18" height="520" opacity="0.6"/>
+      <rect x="784" y="260" width="18" height="520" opacity="0.6"/>
+      <rect x="836" y="220" width="40" height="600"/>
+    </g>
+
+    <!-- Fog: wide scatter around the shaft and a pool of light on the floor -->
+    <ellipse cx="512" cy="560" rx="200" ry="320" fill="#f6efd9" opacity="0.035" filter="url(#blurWide)"/>
+    <ellipse cx="500" cy="845" rx="220" ry="60" fill="#f6efd9" opacity="0.1" filter="url(#blurFloor)"/>
+
+    <!-- Light shaft: wide soft body + narrower bright core -->
+    <path d="M450 165 L574 165 L760 900 L264 900 Z" fill="url(#beam)" opacity="0.38" filter="url(#blurWide)"/>
+    <path d="M460 160 L564 160 L662 880 L362 880 Z" fill="url(#beam)" filter="url(#blurBeam)"/>
+
+    <!-- Light slit -->
+    <rect x="425" y="158" width="175" height="13" rx="6.5" fill="#f6efd9" filter="url(#blurSoft)" opacity="0.5"/>
+    <rect x="425" y="158" width="175" height="13" rx="6.5" fill="url(#slit)"/>
+
+    <!-- Code map, revealed by the beam -->
+    <g mask="url(#revealMask)">
+      <!-- edges -->
+      <g stroke="#9fe3df" stroke-width="3" stroke-linecap="round" opacity="0.75">
+        <line x1="236" y1="654" x2="346" y2="701"/>
+        <line x1="190" y1="643" x2="236" y2="654"/>
+        <line x1="227" y1="722" x2="346" y2="701"/>
+        <line x1="227" y1="722" x2="276" y2="790"/>
+        <line x1="154" y1="733" x2="227" y2="722"/>
+        <line x1="346" y1="701" x2="276" y2="790"/>
+        <line x1="346" y1="701" x2="474" y2="731"/>
+        <line x1="149" y1="795" x2="276" y2="790"/>
+        <line x1="276" y1="790" x2="400" y2="800"/>
+        <line x1="400" y1="800" x2="474" y2="731"/>
+        <line x1="474" y1="731" x2="618" y2="688"/>
+        <line x1="474" y1="731" x2="584" y2="800"/>
+        <line x1="618" y1="688" x2="584" y2="800"/>
+        <line x1="618" y1="688" x2="694" y2="693"/>
+        <line x1="618" y1="688" x2="752" y2="787"/>
+        <line x1="584" y1="800" x2="752" y2="787"/>
+        <line x1="694" y1="693" x2="814" y2="710"/>
+        <line x1="814" y1="710" x2="896" y2="698"/>
+        <line x1="752" y1="787" x2="882" y2="735"/>
+        <line x1="752" y1="787" x2="873" y2="824"/>
+      </g>
+      <!-- floor reflections under the lit nodes -->
+      <g fill="#9fe3df" opacity="0.3" filter="url(#blurSoft)">
+        <ellipse cx="400" cy="836" rx="22" ry="7"/>
+        <ellipse cx="584" cy="836" rx="22" ry="7"/>
+      </g>
+    </g>
+
+    <!-- Nodes: lit inside the beam, darker teal as they leave it -->
+    <g filter="url(#glow)">
+      <g fill="url(#node)">
+        <circle cx="474" cy="731" r="21"/>
+        <circle cx="618" cy="688" r="21"/>
+        <circle cx="400" cy="800" r="21"/>
+        <circle cx="584" cy="800" r="21"/>
+      </g>
+      <circle cx="346" cy="701" r="15" fill="#5c9f99"/>
+      <circle cx="276" cy="790" r="19" fill="#3d6f6b"/>
+      <circle cx="752" cy="787" r="20" fill="#3d6f6b"/>
+      <circle cx="227" cy="722" r="11" fill="#2b4c4a"/>
+      <circle cx="814" cy="710" r="11" fill="#2b4c4a"/>
+      <circle cx="236" cy="654" r="7" fill="#223c3b"/>
+      <circle cx="694" cy="693" r="7" fill="#2f5755"/>
+    </g>
+  </g>
+
+  <!-- hairline edge so the tile holds on dark backgrounds -->
+  <rect x="100.75" y="100.75" width="822.5" height="822.5" rx="184.25" fill="none" stroke="#ffffff" stroke-opacity="0.06" stroke-width="1.5"/>
+</svg>
