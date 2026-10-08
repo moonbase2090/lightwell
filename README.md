@@ -159,3 +159,4 @@ The map screenshots are saved separately at `~/Downloads/lightwell/`:
 - `prismattyc-detail.png`
 - `scorecard-overview.png`
 - `scorecard-detail.png`
+Contributing: see [REVIEW_POLICY.md](REVIEW_POLICY.md) for pull-request review requirements.

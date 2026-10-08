@@ -1,0 +1,247 @@
+name: Rookrunner
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Node
+        run: |
+          case "$(uname -m)" in
+            x86_64) node_arch=x64 ;;
+            aarch64|arm64) node_arch=arm64 ;;
+            *) echo "unsupported architecture" >&2; exit 2 ;;
+          esac
+          node_version=22.23.3
+          archive="node-v${node_version}-linux-${node_arch}.tar.gz"
+          curl -fsSL "https://nodejs.org/dist/v${node_version}/${archive}" -o "$RUNNER_TEMP/${archive}"
+          tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/node-v${node_version}-linux-${node_arch}/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$RUNNER_TEMP/rustup-init.sh"
+          sh "$RUNNER_TEMP/rustup-init.sh" -y --default-toolchain stable --profile minimal --component rustfmt --no-modify-path
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - run: npm run check:licenses
+      - name: Test the Linux release checks
+        run: scripts/ci/test-release-checks.sh
+      - name: Install Tauri Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+      - run: cargo fmt --all -- --check
+      - run: cargo check --workspace --locked
+      - run: cargo test -p lightwell-app --bin lightwell --locked
+      - run: cargo test -p lightwell-core --lib --locked
+      - name: Exercise project note save, stale marking, and removal
+        run: |
+          cargo build --locked -p lightwell-cli
+          scripts/smoke-project-notes.sh "$GITHUB_WORKSPACE/target/debug/lightwell"
+      - name: Extract a schema-v1 map with the Rust CLI
+        run: |
+          cargo run --quiet --locked -p lightwell-cli -- --help
+          cargo run --quiet --locked -p lightwell-cli -- open --help
+          cargo run --quiet --locked -p lightwell-cli -- extract . -o "$RUNNER_TEMP/lightwell-cli-map.json" --name Lightwell
+          node_modules/.bin/tsx scripts/check-map.ts "$RUNNER_TEMP/lightwell-cli-map.json"
+      - name: Watch a Rust source change with the Rust CLI
+        run: node scripts/check-live-refresh.mjs "$GITHUB_WORKSPACE/target/debug/lightwell"
+      - name: Serialize a Rust schema-v1 map
+        run: cargo run --quiet --locked -p lightwell-core --example schema_v1 > "$RUNNER_TEMP/lightwell-schema-v1.json"
+      - name: Validate the Rust map with the viewer schema
+        run: node_modules/.bin/tsx scripts/check-map.ts "$RUNNER_TEMP/lightwell-schema-v1.json"
+      - name: Compare Rust extraction with Prismattyc and Scorecard maps
+        run: node scripts/check-rust-map-parity.mjs
+      - name: Compare Cargo metadata with no-Cargo manifest and source discovery
+        run: |
+          mkdir -p "$RUNNER_TEMP/no-cargo"
+          for project in . crates/lightwell-core/fixtures/no-cargo-workspace; do
+            cargo run --quiet --locked -p lightwell-core --example cargo_metadata -- "$project" > "$RUNNER_TEMP/with-cargo.txt"
+            env -i PATH="$RUNNER_TEMP/no-cargo" "$GITHUB_WORKSPACE/target/debug/examples/cargo_metadata" "$project" > "$RUNNER_TEMP/without-cargo.txt"
+            diff -u "$RUNNER_TEMP/with-cargo.txt" "$RUNNER_TEMP/without-cargo.txt"
+            cat "$RUNNER_TEMP/without-cargo.txt"
+          done
+      - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
+
+  linux-cli-x86_64:
+    name: Linux CLI glibc 2.28 (x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$RUNNER_TEMP/rustup-init.sh"
+          sh "$RUNNER_TEMP/rustup-init.sh" -y --default-toolchain stable --profile minimal --no-modify-path
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Add the Rust target
+        run: rustup target add x86_64-unknown-linux-gnu
+      - name: Install cargo-zigbuild and Zig
+        run: scripts/ci/setup-zigbuild.sh
+      - name: Build the CLI with a glibc 2.28 floor
+        run: scripts/ci/build-linux-cli.sh x86_64-unknown-linux-gnu
+      - name: Check the glibc floor and smoke on Amazon Linux 2023
+        run: scripts/ci/smoke-linux-al2023.sh target/x86_64-unknown-linux-gnu/release "$GITHUB_WORKSPACE"
+
+  linux-cli-aarch64:
+    name: Linux CLI glibc 2.28 (aarch64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$RUNNER_TEMP/rustup-init.sh"
+          sh "$RUNNER_TEMP/rustup-init.sh" -y --default-toolchain stable --profile minimal --no-modify-path
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Add the Rust target
+        run: rustup target add aarch64-unknown-linux-gnu
+      - name: Install cargo-zigbuild and Zig
+        run: scripts/ci/setup-zigbuild.sh
+      - name: Build the CLI with a glibc 2.28 floor
+        run: scripts/ci/build-linux-cli.sh aarch64-unknown-linux-gnu
+      - name: Check the glibc floor and smoke on Amazon Linux 2023
+        run: scripts/ci/smoke-linux-al2023.sh target/aarch64-unknown-linux-gnu/release "$GITHUB_WORKSPACE"
+
+  tauri-linux-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Node
+        run: |
+          case "$(uname -m)" in
+            x86_64) node_arch=x64 ;;
+            aarch64|arm64) node_arch=arm64 ;;
+            *) echo "unsupported architecture" >&2; exit 2 ;;
+          esac
+          node_version=22.23.3
+          archive="node-v${node_version}-linux-${node_arch}.tar.gz"
+          curl -fsSL "https://nodejs.org/dist/v${node_version}/${archive}" -o "$RUNNER_TEMP/${archive}"
+          tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/node-v${node_version}-linux-${node_arch}/bin" >> "$GITHUB_PATH"
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$RUNNER_TEMP/rustup-init.sh"
+          sh "$RUNNER_TEMP/rustup-init.sh" -y --default-toolchain stable --profile minimal --no-modify-path
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Install cargo-zigbuild and Zig
+        run: scripts/ci/setup-zigbuild.sh
+      - name: Install Tauri Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file imagemagick libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config xvfb xdotool
+      - run: npm ci
+      - name: Build the Linux package for the GLIBC 2.28 floor
+        env:
+          VITE_ENABLE_PROJECT_NOTES: "true"
+          CARGO_ZIGBUILD_ZIG_PATH: zig
+        run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb --no-sign
+      - name: Capture the empty workspace screen from the built app
+        run: scripts/ci/capture-open-workspace.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-open-workspace.png"
+      - name: Capture the live map before and after a Rust source edit
+        run: scripts/ci/capture-live-refresh.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-live-refresh"
+      - name: Capture project note editing and stale marking from the built app
+        run: scripts/ci/capture-project-notes.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-project-notes"
+      - name: Capture the source inspector and editor settings from the built app
+        run: scripts/ci/capture-source-inspector.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-source-inspector"
+      - name: Exercise the theme picker in the built app
+        run: scripts/ci/capture-theme-picker.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-theme-picker" ""
+      - name: Check the package binary's GLIBC requirement
+        run: scripts/ci/check-deb-glibc.sh target/x86_64-unknown-linux-gnu/release/bundle/deb 2.28
+
+  scorecard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install sc
+        run: |
+          set -eu
+          cd "$RUNNER_TEMP"
+          case "$(uname -m)" in
+            x86_64) asset=sc-v0.1.6-x86_64-unknown-linux-gnu.tar.gz ;;
+            aarch64|arm64) asset=sc-v0.1.6-aarch64-unknown-linux-gnu.tar.gz ;;
+            *) echo "unsupported architecture $(uname -m)" >&2; exit 1 ;;
+          esac
+          base=https://github.com/moonbase2090/Scorecard/releases/download/v0.1.6
+          curl -fsSL -o "$asset" "$base/$asset"
+          curl -fsSL -o SHA256SUMS "$base/SHA256SUMS"
+          sha256sum -c --ignore-missing SHA256SUMS
+          tar -xzf "$asset"
+          mkdir -p "$HOME/.local/bin"
+          install -m 755 sc sc-mcp "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Install Node
+        run: |
+          set -eu
+          case "$(uname -m)" in
+            x86_64) node_arch=x64 ;;
+            aarch64|arm64) node_arch=arm64 ;;
+            *) echo "unsupported architecture" >&2; exit 2 ;;
+          esac
+          node_version=22.23.3
+          archive="node-v${node_version}-linux-${node_arch}.tar.gz"
+          curl -fsSL "https://nodejs.org/dist/v${node_version}/${archive}" -o "$RUNNER_TEMP/${archive}"
+          tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/node-v${node_version}-linux-${node_arch}/bin" >> "$GITHUB_PATH"
+      - name: Install dependencies
+        run: |
+          set -eu
+          npm ci
+          echo "$PWD/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Analyze
+        run: |
+          set -eu
+          git config --global --add safe.directory "$PWD"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            if [ -n "$base_sha" ]; then
+              git update-ref refs/remotes/origin/main "$base_sha"
+            fi
+            sc analyze . --diff origin/main --fail-on secrets,tests,lint,types \
+              --format all --out scorecard.html --budget-seconds 900
+          else
+            # sc 0.1.6 has no report-only gate name. An empty --fail-on is
+            # the silent opt-out from Scorecard #200. Keep the report, let a
+            # gate failure exit 0, and fail the job on an analyzer error.
+            set +e
+            sc analyze . --format all --out scorecard.html \
+              --budget-seconds 900
+            code=$?
+            set -e
+            if [ "$code" -ge 2 ]; then
+              exit "$code"
+            fi
+          fi
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scorecard-report
+          if-no-files-found: error
+          path: |
+            scorecard.html
+            scorecard.md
+            scorecard.json
+            scorecard.sarif
+      - name: Upload SARIF
+        # A pull_request upload is allowed with contents: read. A push upload
+        # needs the security-events write permission, which this workflow does not grant.
+        # The report artifact above still includes scorecard.sarif.
+        if: always() && github.event_name == 'pull_request' && github.event.repository.visibility == 'public'
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: scorecard.sarif

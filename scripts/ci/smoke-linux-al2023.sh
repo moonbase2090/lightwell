@@ -27,11 +27,7 @@ if [[ "$(printf '%s\n' "$max_version" 2.28 | sort -V | tail -n 1)" != 2.28 ]]; t
   exit 1
 fi
 
-docker run --rm --interactive \
-  --volume "$bin_dir:/release:ro" \
-  --volume "$project_root:/workspace:ro" \
-  amazonlinux:2023 \
-  bash -s <<'AL2023'
+smoke=$(cat <<'AL2023'
 set -euo pipefail
 dnf --assumeyes install binutils python3
 /release/lightwell --help
@@ -50,3 +46,24 @@ if not facts.get("blocks"):
 print(f"Amazon Linux 2023 smoke passed: schema v1 with {len(facts['blocks'])} blocks.")
 PY
 AL2023
+)
+
+if docker info >/dev/null 2>&1; then
+  docker run --rm --interactive \
+    --volume "$bin_dir:/release:ro" \
+    --volume "$project_root:/workspace:ro" \
+    amazonlinux:2023 \
+    bash -s <<<"$smoke"
+  exit 0
+fi
+
+root=/opt/amazonlinux-2023
+if [[ ! -x "$root/bin/bash" ]]; then
+  printf 'Amazon Linux smoke needs Docker or %s\n' "$root" >&2
+  exit 1
+fi
+sudo cp /etc/resolv.conf "$root/etc/resolv.conf"
+sudo mkdir -p "$root/release" "$root/workspace"
+sudo cp -a "$bin_dir/." "$root/release/"
+sudo cp -a "$project_root/." "$root/workspace/"
+sudo chroot "$root" /bin/bash -s <<<"$smoke"
