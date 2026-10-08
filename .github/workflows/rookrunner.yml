@@ -238,7 +238,10 @@ jobs:
             scorecard.json
             scorecard.sarif
       - name: Upload SARIF
-        if: always() && github.event.repository.visibility == 'public'
+        # A pull_request upload is allowed with contents: read. A push upload
+        # needs the security-events write permission, which this workflow does not grant.
+        # The report artifact above still includes scorecard.sarif.
+        if: always() && github.event_name == 'pull_request' && github.event.repository.visibility == 'public'
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: scorecard.sarif
