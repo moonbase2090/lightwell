@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+import { test } from "node:test";
+
+const text = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+
+function jobBlock(id: string): string {
+  const start = text.indexOf(`\n  ${id}:\n`);
+  assert.notEqual(start, -1, id);
+  const rest = text.slice(start + 1);
+  const next = rest.search(/\n  [a-z]/);
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
+test("the CLI is smoke-tested on Amazon Linux 2023", () => {
+  const block = jobBlock("linux-cli-al2023");
+  assert.match(block, /scripts\/ci\/build-linux-cli\.sh/);
+  assert.match(block, /scripts\/ci\/smoke-linux-al2023\.sh/);
+});
+
+test("the packaged desktop binary gets a GUI smoke, not an Amazon Linux run", () => {
+  const block = jobBlock("tauri-linux-artifact");
+  assert.match(block, /runs-on: ubuntu-22\.04\n/);
+  assert.match(block, /libwebkit2gtk-4\.1-dev/);
+  assert.match(block, /scripts\/ci\/check-deb-glibc\.sh/);
+  assert.match(block, /scripts\/ci\/smoke-deb-gui\.sh/);
+  assert.equal(block.includes("smoke-deb-al2023"), false);
+  assert.equal(existsSync(new URL("../scripts/ci/smoke-deb-al2023.sh", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../scripts/ci/smoke-deb-gui.sh", import.meta.url)), true);
+});
