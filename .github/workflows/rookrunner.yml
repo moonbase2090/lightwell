@@ -214,8 +214,17 @@ jobs:
             sc analyze . --diff origin/main --fail-on secrets,tests,lint,types \
               --format all --out scorecard.html --budget-seconds 900
           else
-            sc analyze . --format all --out scorecard.html --fail-on none \
+            # sc 0.1.6 has no report-only gate name. An empty --fail-on is
+            # the silent opt-out from Scorecard #200. Keep the report, let a
+            # gate failure exit 0, and fail the job on an analyzer error.
+            set +e
+            sc analyze . --format all --out scorecard.html \
               --budget-seconds 900
+            code=$?
+            set -e
+            if [ "$code" -ge 2 ]; then
+              exit "$code"
+            fi
           fi
       - name: Upload report
         if: always()
