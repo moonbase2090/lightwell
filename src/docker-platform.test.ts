@@ -59,6 +59,10 @@ test("the Amazon Linux smoke runs a foreign binary with the selected platform", 
   assert.match(smoke, /readelf -h "\$binary"/);
   assert.match(smoke, /--readelf-stdin --host "\$\(uname -m\)"/);
   assert.match(smoke, /docker_cmd\+=\(--platform "\$platform"\)/);
+  assert.match(
+    smoke,
+    /env -i PATH="\$container_path" HOME=\/tmp \/release\/lightwell extract/,
+  );
   const workflow = readFileSync(new URL("../.github/workflows/rookrunner.yml", import.meta.url), "utf8");
   const start = workflow.indexOf("\n  linux-cli-aarch64:\n");
   const rest = workflow.slice(start + 1);

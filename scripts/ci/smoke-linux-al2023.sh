@@ -38,8 +38,9 @@ fi
 smoke=$(cat <<'AL2023'
 set -euo pipefail
 dnf --assumeyes install binutils python3
-/release/lightwell --help
-/release/lightwell extract /workspace -o /tmp/lightwell-map.json --name Lightwell
+container_path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+env -i PATH="$container_path" HOME=/tmp /release/lightwell --help
+env -i PATH="$container_path" HOME=/tmp /release/lightwell extract /workspace -o /tmp/lightwell-map.json --name Lightwell
 python3 - /tmp/lightwell-map.json <<'PY'
 import json
 import sys
