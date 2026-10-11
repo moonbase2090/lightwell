@@ -77,6 +77,7 @@ test("map node shows kind, status, shortened path, child count, and a changed an
     dimmed: true,
     highlighted: false,
     onHover: () => undefined,
+    onActivate: () => undefined,
   }, true);
 
   assert.match(html, /class="block-node node-module status-wip selected dimmed annotation-changed"/);
@@ -96,6 +97,7 @@ test("map node names an unresolved source and hides child and change chrome", ()
     dimmed: false,
     highlighted: true,
     onHover: () => undefined,
+    onActivate: () => undefined,
   });
 
   assert.match(html, /class="block-node node-crate status-deprecated highlighted"/);

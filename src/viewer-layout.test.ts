@@ -58,6 +58,7 @@ function mapNode(block: DisplayBlock): MapNode {
       dimmed: false,
       highlighted: false,
       onHover: () => undefined,
+      onActivate: () => undefined,
     },
   };
 }
@@ -135,6 +136,7 @@ test("emphasis highlights a block and its direct neighbors and fades the rest", 
     activeNodeId: "crate:active",
     activeFeatureMemberIds: null,
     onHover: (id) => { hovered.push(id); },
+    onActivate: () => undefined,
   });
 
   assert.deepEqual(graph.nodes.map((node) => [node.id, node.data.highlighted, node.data.dimmed]), [
@@ -167,6 +169,7 @@ test("emphasis uses the feature membership and paints crate-to-crate edges teal"
     activeNodeId: null,
     activeFeatureMemberIds: new Set(["crate:left", "crate:right"]),
     onHover: () => undefined,
+    onActivate: () => undefined,
   });
 
   assert.deepEqual(graph.nodes.map((node) => [node.id, node.data.highlighted, node.data.dimmed]), [
@@ -191,6 +194,7 @@ test("emphasis leaves every block readable when nothing is selected", () => {
     activeNodeId: null,
     activeFeatureMemberIds: null,
     onHover: () => undefined,
+    onActivate: () => undefined,
   });
 
   assert.equal(graph.nodes[0]?.data.dimmed, false);
