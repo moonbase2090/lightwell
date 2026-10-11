@@ -1,0 +1,102 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { ProjectNotesSnapshot, ProjectNotesSource } from "./map-source.js";
+import type { ResolvedMap } from "./model.js";
+import ProjectNotesDialog from "./ProjectNotesDialog.js";
+
+const source: ProjectNotesSource = {
+  add: () => Promise.reject(new Error("unused")),
+  edit: () => Promise.reject(new Error("unused")),
+  remove: () => Promise.reject(new Error("unused")),
+};
+
+function mapWith(blocks: readonly { readonly id: string; readonly label: string }[]): ResolvedMap {
+  return {
+    blockById: new Map(blocks.map((block) => [block.id, { id: block.id, label: block.label }])),
+  } as unknown as ResolvedMap;
+}
+
+function renderNotes(snapshot: ProjectNotesSnapshot, currentBlockId: string | null, blocks: readonly { readonly id: string; readonly label: string }[] = []): string {
+  return renderToStaticMarkup(createElement(ProjectNotesDialog, {
+    workspaceId: "workspace-1",
+    source,
+    snapshot,
+    map: mapWith(blocks),
+    currentBlockId,
+    onSnapshot: () => undefined,
+    onClose: () => undefined,
+  }));
+}
+
+test("project notes lists current notes before stale ones and names their state", () => {
+  const html = renderNotes({
+    kind: "ready",
+    notes: [
+      { blockId: "crate:zeta", text: "later\nline", sourceFingerprint: "b", stale: false },
+      { blockId: "missing", text: "orphaned", sourceFingerprint: "c", stale: true },
+      { blockId: "crate:alpha", text: "first", sourceFingerprint: "a", stale: false },
+      { blockId: "crate:moved", text: "shifted", sourceFingerprint: "d", stale: true },
+    ],
+  }, "crate:alpha", [
+    { id: "crate:alpha", label: "alpha" },
+    { id: "crate:zeta", label: "zeta" },
+    { id: "crate:moved", label: "moved" },
+  ]);
+
+  const alpha = html.indexOf("alpha");
+  const zeta = html.indexOf("zeta");
+  const moved = html.indexOf("moved");
+  const missing = html.indexOf(">missing<");
+  assert.ok(alpha !== -1 && zeta !== -1 && moved !== -1 && missing !== -1);
+  assert.ok(alpha < zeta && zeta < moved && moved < missing);
+  assert.match(html, /4 saved/);
+  assert.match(html, /class="project-note-row selected"/);
+  assert.match(html, /later line/);
+  assert.match(html, /class="project-note-badge">[\s\S]*Current/);
+  assert.match(html, /class="project-note-badge stale">[\s\S]*Source changed/);
+  assert.match(html, /class="project-note-badge stale">[\s\S]*Block removed/);
+  assert.match(html, /NOTE FOR/);
+  assert.match(html, /<strong>alpha<\/strong>/);
+  assert.match(html, />Save changes</);
+  assert.match(html, /class="notes-remove-button"/);
+  assert.equal(html.includes("NEW NOTE FOR"), false);
+});
+
+test("project notes opens a blank editor for the selected block", () => {
+  const html = renderNotes({ kind: "ready", notes: [] }, "crate:core", [
+    { id: "crate:core", label: "core" },
+  ]);
+
+  assert.match(html, /0 saved/);
+  assert.match(html, /No notes yet\. Select a block and add a note\./);
+  assert.match(html, /NEW NOTE FOR/);
+  assert.match(html, /<strong>core<\/strong>/);
+  assert.match(html, /class="notes-save-button"[^>]*disabled/);
+  assert.match(html, />Save note</);
+  assert.equal(html.includes("notes-remove-button"), false);
+  assert.equal(html.includes("notes-new-button\" type=\"button\" disabled"), false);
+});
+
+test("project notes refuses a blank or whitespace-only saved note", () => {
+  const html = renderNotes({
+    kind: "ready",
+    notes: [{ blockId: "crate:core", text: "   ", sourceFingerprint: "a", stale: false }],
+  }, "crate:core", [{ id: "crate:core", label: "core" }]);
+
+  assert.match(html, /class="notes-save-button"[^>]*disabled/);
+  assert.match(html, />Save changes</);
+});
+
+test("project notes explains an unreadable workspace and disables editing", () => {
+  const html = renderNotes({ kind: "error", message: "notes file is unreadable" }, null);
+
+  assert.match(html, /Notes unavailable/);
+  assert.match(html, /Notes could not be read from this workspace\./);
+  assert.match(html, /role="alert">notes file is unreadable/);
+  assert.match(html, /Choose a block from the map/);
+  assert.match(html, /class="notes-new-button"[^>]*disabled/);
+  assert.match(html, /aria-label="Project note text"[^>]*disabled/);
+  assert.match(html, /class="notes-save-button"[^>]*disabled/);
+});
