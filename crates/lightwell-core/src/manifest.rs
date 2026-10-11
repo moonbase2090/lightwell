@@ -15,15 +15,21 @@ pub(super) fn discover_cargo_workspace(
     let opened_root = opened_root(requested_root)?;
     let requested_manifest = opened_root.join("Cargo.toml");
     let requested_document = read_manifest(&requested_manifest)?;
-    let (workspace_root, workspace_document) =
+    let (metadata_workspace_root, metadata_workspace_document) =
+        locate_workspace_metadata(&opened_root, &requested_document)?;
+    let metadata_workspace_manifest = metadata_workspace_root.join("Cargo.toml");
+    let workspace_package = table(
+        &metadata_workspace_document,
+        "workspace",
+        &metadata_workspace_manifest,
+    )?
+    .and_then(|workspace| workspace.get("package"))
+    .and_then(Value::as_table);
+    let (enumeration_root, enumeration_document) =
         find_workspace_root(&opened_root, &requested_document)?;
-    let workspace_manifest = workspace_root.join("Cargo.toml");
-    let workspace_package = table(&workspace_document, "workspace", &workspace_manifest)?
-        .and_then(|workspace| workspace.get("package"))
-        .and_then(Value::as_table);
     let (package_directories, excluded_directories) = member_directories(
-        &workspace_root,
-        &workspace_document,
+        &enumeration_root,
+        &enumeration_document,
         &opened_root,
         &requested_document,
     )?;
@@ -38,8 +44,8 @@ pub(super) fn discover_cargo_workspace(
         let manifest_path = package_directory.join("Cargo.toml");
         let document = if manifest_path == requested_manifest {
             requested_document.clone()
-        } else if manifest_path == workspace_manifest {
-            workspace_document.clone()
+        } else if manifest_path == metadata_workspace_manifest {
+            metadata_workspace_document.clone()
         } else {
             read_manifest(&manifest_path)?
         };
@@ -47,15 +53,15 @@ pub(super) fn discover_cargo_workspace(
             &manifest_path,
             &document,
             workspace_package,
-            &workspace_document,
-            &workspace_root,
+            &metadata_workspace_document,
+            &metadata_workspace_root,
         )? {
             for dependency in &package.dependencies {
                 let Some(dependency_path) = &dependency.path else {
                     continue;
                 };
                 if !dependency_path.starts_with(&opened_root)
-                    || !dependency_path.starts_with(&workspace_root)
+                    || !dependency_path.starts_with(&metadata_workspace_root)
                     || excluded_directories
                         .iter()
                         .any(|excluded| dependency_path.starts_with(excluded))
@@ -93,6 +99,37 @@ fn find_workspace_root(
 ) -> Result<(PathBuf, Value), CargoDiscoveryError> {
     if requested_document.get("workspace").is_some() {
         return Ok((opened_root.to_owned(), requested_document.clone()));
+    }
+
+    Ok((opened_root.to_owned(), requested_document.clone()))
+}
+
+fn locate_workspace_metadata(
+    opened_root: &Path,
+    requested_document: &Value,
+) -> Result<(PathBuf, Value), CargoDiscoveryError> {
+    if requested_document.get("workspace").is_some() {
+        return Ok((opened_root.to_owned(), requested_document.clone()));
+    }
+
+    let mut parent = opened_root.parent();
+    while let Some(directory) = parent {
+        let manifest_path = directory.join("Cargo.toml");
+        if manifest_path.is_file() {
+            let document = read_manifest(&manifest_path)?;
+            if document.get("workspace").is_some() {
+                let workspace_root = directory.canonicalize().map_err(|error| {
+                    CargoDiscoveryError::RepositoryPath {
+                        path: directory.to_owned(),
+                        source: error,
+                    }
+                })?;
+                if opened_root.starts_with(&workspace_root) {
+                    return Ok((workspace_root, document));
+                }
+            }
+        }
+        parent = directory.parent();
     }
 
     Ok((opened_root.to_owned(), requested_document.clone()))
