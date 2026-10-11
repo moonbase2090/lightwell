@@ -8,6 +8,7 @@ export interface BlockNodeData extends Record<string, unknown> {
   readonly dimmed: boolean;
   readonly highlighted: boolean;
   readonly onHover: (id: string | null) => void;
+  readonly onActivate: (block: DisplayBlock) => void;
 }
 
 export type MapNode = Node<BlockNodeData, "codeBlock">;
@@ -32,11 +33,21 @@ function statusLabel(status: DisplayBlock["status"]): string {
 
 function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
   const { block } = data;
+  const activate = () => data.onActivate(block);
   return (
     <div
       className={`block-node node-${block.annotationKind.toLowerCase()} status-${block.status}${selected ? " selected" : ""}${data.dimmed ? " dimmed" : ""}${data.highlighted ? " highlighted" : ""}${block.annotationState === "changed" ? " annotation-changed" : ""}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`${block.label}, ${block.annotationKind}`}
       onMouseEnter={() => data.onHover(block.id)}
       onMouseLeave={() => data.onHover(null)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activate();
+        }
+      }}
       title={block.description}
     >
       <Handle type="target" position={Position.Top} isConnectable={false} />

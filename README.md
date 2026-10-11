@@ -2,35 +2,62 @@
 
 turning the lights on in the Dark Factory
 
-Lightwell maps Rust workspaces and shows their crates, app entry points, Rust modules, Cargo features, dependency edges, and written product notes in a browser. The checked-in preview maps cover Prismattyc and Scorecard. Extracted facts and preview notes live in separate JSON files.
+Lightwell maps Rust workspaces and shows their crates, app entry points, Rust modules, Cargo features, dependency edges, and written product notes. The checked-in preview maps cover Prismattyc and Scorecard. Extracted facts and preview notes live in separate JSON files.
 
-## Run the viewer
+## Install
+
+Build Lightwell from this repository. The viewer needs Node.js 22. The command line and desktop app need a stable Rust toolchain.
+
+### Browser preview
 
 ```sh
+git clone https://github.com/moonbase2090/lightwell.git
+cd lightwell
 npm ci
 npm run dev
 ```
 
-Open the local address printed by Vite. The viewer reads its checked-in maps and makes no network requests.
+Open the local address Vite prints. The preview loads the checked-in maps and does not make network requests.
 
-Build the static site with:
+`npm run build` writes the static site to `dist/`.
+
+### Command line
+
+From the clone:
 
 ```sh
-npm run build
+cargo install --path crates/lightwell-cli
+lightwell extract . --name Lightwell -o /tmp/lightwell-map.json
 ```
 
-The output is in `dist/`.
+### Desktop app
 
-## Desktop shell
-
-Start the Tauri v2 app with the same Vite and React viewer:
+The desktop shell is a [Tauri](https://v2.tauri.app/) v2 app around the same viewer. Install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your system, then from the clone:
 
 ```sh
 npm ci
 npm run tauri:dev
 ```
 
-Build a local desktop bundle with `npm run tauri:build`. Pull request CI uploads an unsigned Apple Silicon `.app` archive and an x86_64 Linux `.deb` built for a GLIBC 2.28 executable floor. The credential-gated macOS job additionally uploads a signed, notarized, stapled Apple Silicon archive.
+`npm run tauri:build` writes a local bundle.
+
+## Screenshots
+
+Checked-in Prismattyc preview:
+
+![Lightwell showing the Prismattyc workspace map](docs/screenshots/prismattyc-workspace.png)
+
+Checked-in Scorecard preview:
+
+![Lightwell showing the Scorecard workspace map](docs/screenshots/scorecard-workspace.png)
+
+## Privacy
+
+Maps, project notes, and editor settings stay on your machine. See [PRIVACY.md](PRIVACY.md).
+
+## Desktop shell
+
+Pull request CI uploads an unsigned Apple Silicon `.app` archive and an x86_64 Linux `.deb` built for a GLIBC 2.28 executable floor. The credential-gated macOS job additionally uploads a signed, notarized, stapled Apple Silicon archive.
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 
@@ -44,13 +71,7 @@ Click **Notes** to add, edit, or remove notes for map blocks. The dialog reads a
 
 ## Rust CLI
 
-Install the Rust CLI from the repository root:
-
-```sh
-cargo install --path crates/lightwell-cli
-```
-
-Extract a map with:
+With `lightwell` installed from `crates/lightwell-cli`, you can refresh a checked-in preview from a sibling checkout. Extract a map with:
 
 ```sh
 lightwell extract ../Prismattyc --name Prismattyc -o maps/prismattyc.facts.json
@@ -149,14 +170,8 @@ Print the installed npm and Rust dependency license inventories with `npm run ch
 
 ## License
 
-Lightwell is licensed under the Mozilla Public License 2.0. The source repository remains private.
+Lightwell is licensed under the Mozilla Public License 2.0. See [LICENSE](LICENSE).
 
-## Screenshots
+## Contributing
 
-The map screenshots are saved separately at `~/Downloads/lightwell/`:
-
-- `prismattyc-overview.png`
-- `prismattyc-detail.png`
-- `scorecard-overview.png`
-- `scorecard-detail.png`
-Contributing: see [REVIEW_POLICY.md](REVIEW_POLICY.md) for pull-request review requirements.
+See [REVIEW_POLICY.md](REVIEW_POLICY.md) for pull-request review requirements. See [CHANGELOG.md](CHANGELOG.md) for release notes.
