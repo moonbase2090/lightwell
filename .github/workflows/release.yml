@@ -1,0 +1,217 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Full release tag to build, such as v0.1.0
+        required: true
+        type: string
+      dry_run:
+        description: Build, sign, and notarize without publishing
+        default: true
+        required: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tag, dispatch mode, and package versions
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          RELEASE_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          tag="${RELEASE_TAG:?}"
+          if [[ "$tag" != v* ]]; then
+            echo 'release tag must start with v' >&2
+            exit 1
+          fi
+          version="${tag#v}"
+          pkg_version="$(node -p "require('./package.json').version")"
+          tauri_version="$(node -p "require('./crates/lightwell-app/tauri.conf.json').version")"
+          if [[ "$version" != "$pkg_version" || "$version" != "$tauri_version" ]]; then
+            echo "tag $version must match package.json ($pkg_version) and tauri.conf.json ($tauri_version)" >&2
+            exit 1
+          fi
+          if [[ "${GITHUB_EVENT_NAME}" == workflow_dispatch ]]; then
+            if [[ "${RELEASE_DRY_RUN}" != true && ( "${GITHUB_REF_TYPE}" != tag || "${GITHUB_REF_NAME}" != "$tag" ) ]]; then
+              echo 'publishing requires dispatching the matching existing tag' >&2
+              exit 1
+            fi
+          fi
+          {
+            echo "tag=$tag"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+          echo "Validated $tag"
+
+  macos-signed:
+    name: Signed macOS app
+    needs: validate
+    runs-on: macos-26
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: aarch64-apple-darwin
+      - run: npm ci
+      - name: Build the unsigned app for signing
+        run: npm run tauri:build -- --target aarch64-apple-darwin --bundles app --no-sign
+      - name: Sign and verify the Apple Silicon app
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: scripts/ci/sign-macos-app.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app
+      - name: Notarize, staple, and validate the app
+        env:
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+        run: scripts/ci/notarize-macos-app.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-arm64.zip"
+      - name: Check the deployment target
+        run: scripts/ci/check-macos-minimum.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app 11.0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-arm64
+          path: ${{ runner.temp }}/Lightwell-macos-arm64.zip
+          if-no-files-found: error
+
+  linux-deb:
+    name: Linux glibc 2.28 package
+    needs: validate
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.1
+      - name: Install Tauri Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+      - run: cargo install --locked cargo-zigbuild --version 0.23.4
+      - run: npm ci
+      - name: Build the Linux package for the GLIBC 2.28 floor
+        run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb --no-sign
+      - name: Check the package binary's GLIBC requirement
+        run: scripts/ci/check-deb-glibc.sh target/x86_64-unknown-linux-gnu/release/bundle/deb 2.28
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-deb
+          path: target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+  linux-al2023-smoke:
+    name: Amazon Linux 2023 CLI smoke
+    needs: validate
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+      - name: Install cargo-zigbuild and Zig
+        run: scripts/ci/setup-zigbuild.sh
+      - name: Build the CLI with a glibc 2.28 floor
+        env:
+          TARGET: x86_64-unknown-linux-gnu
+        run: scripts/ci/build-linux-cli.sh "$TARGET"
+      - name: Check the glibc floor and smoke on Amazon Linux 2023
+        env:
+          TARGET: x86_64-unknown-linux-gnu
+        run: scripts/ci/smoke-linux-al2023.sh "target/$TARGET/release" "$GITHUB_WORKSPACE"
+
+  publish:
+    name: Publish release
+    needs: [validate, macos-signed, linux-deb, linux-al2023-smoke]
+    if: >-
+      ${{
+        !(github.event_name == 'workflow_dispatch' && inputs.dry_run) &&
+        (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag')
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - name: Create release checksums
+        run: |
+          set -euo pipefail
+          asset_count=$(find dist -maxdepth 1 -type f | wc -l)
+          if [[ "$asset_count" -eq 0 ]]; then
+            echo 'no release assets were downloaded' >&2
+            exit 1
+          fi
+          cd dist
+          sha256sum * > SHA256SUMS
+      - name: Build release notes from the tag message
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git for-each-ref "refs/tags/${RELEASE_TAG}" --format='%(contents)' > release-notes.md
+          if [[ ! -s release-notes.md ]]; then
+            printf 'Lightwell %s\n' "${RELEASE_TAG#v}" > release-notes.md
+          fi
+      - name: Check release text
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+          RELEASE_DENYLIST: ${{ secrets.RELEASE_DENYLIST }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/release-text
+          git for-each-ref "refs/tags/${RELEASE_TAG}" --format='%(contents)' > build/release-text/tag-message.txt
+          printf '%s\n' "$RELEASE_TAG" > build/release-text/title.txt
+          scripts/check-release-text.sh \
+            --root "$GITHUB_WORKSPACE" \
+            --extra release-notes.md \
+            --extra build/release-text/title.txt \
+            --extra build/release-text/tag-message.txt \
+            --artifact dist
+      - name: Publish verified tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "$RELEASE_TAG" \
+            --notes-file release-notes.md \
+            dist/*
