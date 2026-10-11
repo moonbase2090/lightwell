@@ -39,6 +39,7 @@ export async function layoutBlocks(args: {
       dimmed: false,
       highlighted: false,
       onHover: () => undefined,
+      onActivate: () => undefined,
     };
     return { id: block.id, type: "codeBlock", position, width: nodeWidth, height: nodeHeight, data };
   });
@@ -67,6 +68,7 @@ export function emphasizeGraph(args: {
   readonly activeNodeId: string | null;
   readonly activeFeatureMemberIds: ReadonlySet<string> | null;
   readonly onHover: (id: string | null) => void;
+  readonly onActivate: (block: DisplayBlock) => void;
 }): { readonly nodes: MapNode[]; readonly edges: Edge[] } {
   const directNeighbors = args.activeNodeId === null
     ? new Set<string>()
@@ -83,6 +85,7 @@ export function emphasizeGraph(args: {
       dimmed: highlightedIds !== null && !highlightedIds.has(node.id),
       highlighted: highlightedIds?.has(node.id) ?? false,
       onHover: args.onHover,
+      onActivate: args.onActivate,
     },
   }));
   const edges = args.edges.map((edge) => {

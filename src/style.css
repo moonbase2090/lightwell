@@ -295,6 +295,9 @@ button { color: inherit; }
 .settings-select:disabled, .settings-command-input:disabled { opacity: .55; }
 .settings-help { margin: 8px 0 0; color: #8f9eaf; font-size: 10px; line-height: 1.55; }
 .settings-help code { color: #bed0e5; font: 9px var(--mono); }
+.settings-legal-links { margin: 10px 0 0; font-size: 10px; line-height: 1.6; }
+.settings-legal-links a { color: #9ec5ff; text-decoration: underline; text-underline-offset: 2px; }
+.settings-legal-links a:hover { color: #cfe4ff; }
 .settings-blueprint-note { margin: 10px 0 0; padding: 9px 10px; border: 1px solid #8d754a; border-radius: 6px; color: #e7cb9a; background: #2a2418; font-size: 10px; line-height: 1.5; }
 .settings-status { margin-top: 13px; color: #94a2b2; font-size: 10px; }
 .settings-error, .settings-success { margin-top: 12px; padding: 8px 9px; display: flex; align-items: flex-start; gap: 7px; border-radius: 6px; font-size: 10px; line-height: 1.45; }
