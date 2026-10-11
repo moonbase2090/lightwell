@@ -90,6 +90,10 @@ pub enum CargoDiscoveryError {
         path: PathBuf,
         source: io::Error,
     },
+    PathOutsideOpenedFolder {
+        path: PathBuf,
+        opened_root: PathBuf,
+    },
 }
 
 impl Display for CargoDiscoveryError {
@@ -150,6 +154,12 @@ impl Display for CargoDiscoveryError {
                 "Could not parse Rust source {}: {reason}",
                 path.display()
             ),
+            Self::PathOutsideOpenedFolder { path, opened_root } => write!(
+                formatter,
+                "Path {} is outside the opened folder {}",
+                path.display(),
+                opened_root.display()
+            ),
         }
     }
 }
@@ -166,7 +176,8 @@ impl Error for CargoDiscoveryError {
             | Self::CargoFailed { .. }
             | Self::InvalidManifest { .. }
             | Self::WorkspaceMemberPattern { .. }
-            | Self::InvalidRustSource { .. } => None,
+            | Self::InvalidRustSource { .. }
+            | Self::PathOutsideOpenedFolder { .. } => None,
         }
     }
 }
@@ -237,7 +248,7 @@ pub fn discover_cargo_workspace(
         return Err(CargoDiscoveryError::ManifestMissing(manifest_path));
     }
 
-    let output = match Command::new("cargo")
+    let output = match cargo_program()
         .args([
             "metadata",
             "--no-deps",
@@ -256,6 +267,8 @@ pub fn discover_cargo_workspace(
         Err(source) => return Err(CargoDiscoveryError::CargoStart(source)),
     };
     if !output.status.success() {
+        // A missing or unusable cargo exits 126 or 127. qemu-user reports that
+        // as a process status instead of the ENOENT the native spawn returns.
         if matches!(output.status.code(), Some(126) | Some(127)) {
             return crate::manifest::discover_cargo_workspace(&root);
         }
@@ -281,15 +294,29 @@ pub fn discover_cargo_workspace(
     });
 
     let mut workspace = CargoWorkspace {
-        root: metadata.workspace_root,
+        root: root.clone(),
         packages,
     };
+    workspace
+        .packages
+        .retain(|package| package.manifest_path.starts_with(&root));
     for package in &mut workspace.packages {
+        package.targets.retain(|target| {
+            crate::path_confinement::confined_canonical(&target.source_path, &root).is_ok()
+        });
         for target in &mut package.targets {
-            crate::rust_source::populate_target_modules(target)?;
+            crate::rust_source::populate_target_modules(target, &root)?;
         }
     }
     Ok(workspace)
+}
+
+#[doc(hidden)]
+pub fn discover_cargo_workspace_manifest_only(
+    repository_path: impl AsRef<Path>,
+) -> Result<CargoWorkspace, CargoDiscoveryError> {
+    let opened_root = crate::path_confinement::opened_root(repository_path.as_ref())?;
+    crate::manifest::discover_cargo_workspace(&opened_root)
 }
 
 fn normalize_package(package: MetadataPackage) -> CargoPackage {
@@ -341,5 +368,121 @@ fn dependency_kind_order(kind: CargoDependencyKind) -> u8 {
         CargoDependencyKind::Normal => 0,
         CargoDependencyKind::Build => 1,
         CargoDependencyKind::Dev => 2,
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    static CARGO_PROGRAM: std::cell::RefCell<Option<PathBuf>> = const { std::cell::RefCell::new(None) };
+}
+
+fn cargo_program() -> Command {
+    #[cfg(test)]
+    if let Some(program) = CARGO_PROGRAM.with(|program| program.borrow().clone()) {
+        return Command::new(program);
+    }
+    Command::new("cargo")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{discover_cargo_workspace, CARGO_PROGRAM};
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct Fixture {
+        root: PathBuf,
+    }
+
+    impl Fixture {
+        fn new(label: &str) -> Self {
+            let unique = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after the Unix epoch")
+                .as_nanos();
+            let root = std::env::temp_dir().join(format!(
+                "lightwell-cargo-{label}-{}-{unique}",
+                std::process::id()
+            ));
+            fs::create_dir_all(root.join("src")).expect("fixture source folder should be created");
+            fs::write(
+                root.join("Cargo.toml"),
+                "[package]\nname = \"fallback-fixture\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+            )
+            .expect("fixture manifest should be written");
+            fs::write(root.join("src/lib.rs"), "pub fn value() -> u8 { 1 }\n")
+                .expect("fixture library should be written");
+            let root = root.canonicalize().expect("fixture root should resolve");
+            Self { root }
+        }
+
+        fn cargo_script(&self, script: &str) -> PathBuf {
+            let bin_dir = self.root.join("bin");
+            fs::create_dir_all(&bin_dir).expect("fake cargo folder should be created");
+            let program = bin_dir.join("cargo");
+            fs::write(&program, script).expect("fake cargo should be written");
+            let mut permissions = fs::metadata(&program)
+                .expect("fake cargo should have metadata")
+                .permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(&program, permissions).expect("fake cargo should be executable");
+            program
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    struct CargoOverride;
+
+    impl CargoOverride {
+        fn set(program: PathBuf) -> Self {
+            CARGO_PROGRAM.with(|slot| *slot.borrow_mut() = Some(program));
+            Self
+        }
+    }
+
+    impl Drop for CargoOverride {
+        fn drop(&mut self) {
+            CARGO_PROGRAM.with(|slot| *slot.borrow_mut() = None);
+        }
+    }
+
+    #[test]
+    fn cargo_exit_127_uses_the_manifest() {
+        let fixture = Fixture::new("missing");
+        let _override = CargoOverride::set(fixture.cargo_script("#!/bin/sh\nexit 127\n"));
+        let workspace = discover_cargo_workspace(&fixture.root)
+            .expect("a missing cargo should fall back to the manifest");
+        assert_eq!(workspace.packages.len(), 1);
+        assert_eq!(workspace.packages[0].name, "fallback-fixture");
+        assert_eq!(
+            workspace.packages[0].manifest_path,
+            fixture.root.join("Cargo.toml")
+        );
+    }
+
+    #[test]
+    fn cargo_exit_1_stays_a_discovery_failure() {
+        let fixture = Fixture::new("failed");
+        let _override = CargoOverride::set(
+            fixture.cargo_script("#!/bin/sh\necho 'metadata exploded' >&2\nexit 1\n"),
+        );
+        let message = discover_cargo_workspace(&fixture.root)
+            .expect_err("a real cargo failure should stay visible")
+            .to_string();
+        assert!(
+            message.contains("status 1"),
+            "unexpected discovery error: {message}"
+        );
+        assert!(
+            message.contains("metadata exploded"),
+            "stderr should be kept: {message}"
+        );
     }
 }

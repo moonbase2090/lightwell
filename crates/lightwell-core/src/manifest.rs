@@ -2,6 +2,7 @@ use crate::metadata::{
     CargoDependency, CargoDependencyKind, CargoDiscoveryError, CargoPackage, CargoTarget,
     CargoWorkspace,
 };
+use crate::path_confinement::{confined_canonical, opened_root};
 use glob::glob;
 use std::collections::BTreeSet;
 use std::fs;
@@ -11,18 +12,25 @@ use toml::Value;
 pub(super) fn discover_cargo_workspace(
     requested_root: &Path,
 ) -> Result<CargoWorkspace, CargoDiscoveryError> {
-    let requested_manifest = requested_root.join("Cargo.toml");
+    let opened_root = opened_root(requested_root)?;
+    let requested_manifest = opened_root.join("Cargo.toml");
     let requested_document = read_manifest(&requested_manifest)?;
-    let (workspace_root, workspace_document) =
-        find_workspace_root(requested_root, &requested_document)?;
-    let workspace_manifest = workspace_root.join("Cargo.toml");
-    let workspace_package = table(&workspace_document, "workspace", &workspace_manifest)?
-        .and_then(|workspace| workspace.get("package"))
-        .and_then(Value::as_table);
+    let (metadata_workspace_root, metadata_workspace_document) =
+        locate_workspace_metadata(&opened_root, &requested_document)?;
+    let metadata_workspace_manifest = metadata_workspace_root.join("Cargo.toml");
+    let workspace_package = table(
+        &metadata_workspace_document,
+        "workspace",
+        &metadata_workspace_manifest,
+    )?
+    .and_then(|workspace| workspace.get("package"))
+    .and_then(Value::as_table);
+    let (enumeration_root, enumeration_document) =
+        find_workspace_root(&opened_root, &requested_document)?;
     let (package_directories, excluded_directories) = member_directories(
-        &workspace_root,
-        &workspace_document,
-        requested_root,
+        &enumeration_root,
+        &enumeration_document,
+        &opened_root,
         &requested_document,
     )?;
 
@@ -36,8 +44,8 @@ pub(super) fn discover_cargo_workspace(
         let manifest_path = package_directory.join("Cargo.toml");
         let document = if manifest_path == requested_manifest {
             requested_document.clone()
-        } else if manifest_path == workspace_manifest {
-            workspace_document.clone()
+        } else if manifest_path == metadata_workspace_manifest {
+            metadata_workspace_document.clone()
         } else {
             read_manifest(&manifest_path)?
         };
@@ -45,14 +53,16 @@ pub(super) fn discover_cargo_workspace(
             &manifest_path,
             &document,
             workspace_package,
-            &workspace_document,
-            &workspace_root,
+            &metadata_workspace_document,
+            &metadata_workspace_root,
+            &opened_root,
         )? {
             for dependency in &package.dependencies {
                 let Some(dependency_path) = &dependency.path else {
                     continue;
                 };
-                if !dependency_path.starts_with(&workspace_root)
+                if !dependency_path.starts_with(&opened_root)
+                    || !dependency_path.starts_with(&metadata_workspace_root)
                     || excluded_directories
                         .iter()
                         .any(|excluded| dependency_path.starts_with(excluded))
@@ -71,77 +81,70 @@ pub(super) fn discover_cargo_workspace(
             .then_with(|| left.manifest_path.cmp(&right.manifest_path))
     });
 
+    packages.retain(|package| package.manifest_path.starts_with(&opened_root));
     let mut workspace = CargoWorkspace {
-        root: workspace_root,
+        root: opened_root.clone(),
         packages,
     };
     for package in &mut workspace.packages {
         for target in &mut package.targets {
-            crate::rust_source::populate_target_modules(target)?;
+            crate::rust_source::populate_target_modules(target, &opened_root)?;
         }
     }
     Ok(workspace)
 }
 
 fn find_workspace_root(
-    requested_root: &Path,
+    opened_root: &Path,
     requested_document: &Value,
 ) -> Result<(PathBuf, Value), CargoDiscoveryError> {
-    let requested_manifest = requested_root.join("Cargo.toml");
     if requested_document.get("workspace").is_some() {
-        return Ok((requested_root.to_owned(), requested_document.clone()));
+        return Ok((opened_root.to_owned(), requested_document.clone()));
     }
 
-    if let Some(workspace_path) = requested_document
-        .get("package")
-        .and_then(Value::as_table)
-        .and_then(|package| package.get("workspace"))
-        .and_then(Value::as_str)
-    {
-        let root = requested_root
-            .join(workspace_path)
-            .canonicalize()
-            .map_err(|error| {
-                invalid_manifest(
-                    &requested_manifest,
-                    format!("package.workspace points to an inaccessible directory: {error}"),
-                )
-            })?;
-        let manifest = root.join("Cargo.toml");
-        let document = read_manifest(&manifest)?;
-        if document.get("workspace").is_none() {
-            return Err(invalid_manifest(
-                &manifest,
-                "package.workspace does not point to a manifest with a [workspace] table",
-            ));
-        }
-        return Ok((root, document));
+    Ok((opened_root.to_owned(), requested_document.clone()))
+}
+
+fn locate_workspace_metadata(
+    opened_root: &Path,
+    requested_document: &Value,
+) -> Result<(PathBuf, Value), CargoDiscoveryError> {
+    if requested_document.get("workspace").is_some() {
+        return Ok((opened_root.to_owned(), requested_document.clone()));
     }
 
-    let mut parent = requested_root.parent();
+    let mut parent = opened_root.parent();
     while let Some(directory) = parent {
-        let manifest = directory.join("Cargo.toml");
-        if manifest.is_file() {
-            let document = read_manifest(&manifest)?;
+        let manifest_path = directory.join("Cargo.toml");
+        if manifest_path.is_file() {
+            let document = read_manifest(&manifest_path)?;
             if document.get("workspace").is_some() {
-                return Ok((directory.to_owned(), document));
+                let workspace_root = directory.canonicalize().map_err(|error| {
+                    CargoDiscoveryError::RepositoryPath {
+                        path: directory.to_owned(),
+                        source: error,
+                    }
+                })?;
+                if opened_root.starts_with(&workspace_root) {
+                    return Ok((workspace_root, document));
+                }
             }
         }
         parent = directory.parent();
     }
 
-    Ok((requested_root.to_owned(), requested_document.clone()))
+    Ok((opened_root.to_owned(), requested_document.clone()))
 }
 
 fn member_directories(
     workspace_root: &Path,
     workspace_document: &Value,
-    requested_root: &Path,
+    opened_root: &Path,
     requested_document: &Value,
 ) -> Result<(Vec<PathBuf>, BTreeSet<PathBuf>), CargoDiscoveryError> {
     let workspace_manifest = workspace_root.join("Cargo.toml");
     let Some(workspace) = table(workspace_document, "workspace", &workspace_manifest)? else {
-        return Ok((vec![requested_root.to_owned()], BTreeSet::new()));
+        return Ok((vec![opened_root.to_owned()], BTreeSet::new()));
     };
 
     let members = string_array(
@@ -156,10 +159,10 @@ fn member_directories(
     )?;
     let mut directories = BTreeSet::new();
     for pattern in members {
-        directories.extend(expand_directories(workspace_root, &pattern)?);
+        directories.extend(expand_directories(workspace_root, &pattern, opened_root)?);
     }
     if requested_document.get("package").is_some() {
-        directories.insert(requested_root.to_owned());
+        directories.insert(opened_root.to_owned());
     }
     if workspace_document.get("package").is_some() {
         directories.insert(workspace_root.to_owned());
@@ -167,7 +170,7 @@ fn member_directories(
 
     let mut excluded = BTreeSet::new();
     for pattern in excludes {
-        excluded.extend(expand_directories(workspace_root, &pattern)?);
+        excluded.extend(expand_directories(workspace_root, &pattern, opened_root)?);
     }
     directories.retain(|directory| !excluded.contains(directory));
     Ok((
@@ -179,8 +182,16 @@ fn member_directories(
     ))
 }
 
-fn expand_directories(root: &Path, pattern: &str) -> Result<Vec<PathBuf>, CargoDiscoveryError> {
-    let absolute_pattern = root.join(pattern).to_string_lossy().into_owned();
+fn expand_directories(
+    root: &Path,
+    pattern: &str,
+    opened_root: &Path,
+) -> Result<Vec<PathBuf>, CargoDiscoveryError> {
+    let absolute_pattern = if Path::new(pattern).is_absolute() {
+        pattern.to_owned()
+    } else {
+        root.join(pattern).to_string_lossy().into_owned()
+    };
     let paths =
         glob(&absolute_pattern).map_err(|error| CargoDiscoveryError::WorkspaceMemberPattern {
             pattern: pattern.to_owned(),
@@ -204,7 +215,9 @@ fn expand_directories(root: &Path, pattern: &str) -> Result<Vec<PathBuf>, CargoD
                     reason: error.to_string(),
                 }
             })?;
-            directories.insert(canonical);
+            if crate::path_confinement::is_confined_to(&canonical, opened_root) {
+                directories.insert(canonical);
+            }
         }
     }
     Ok(directories.into_iter().collect())
@@ -216,6 +229,7 @@ fn parse_package(
     workspace_package: Option<&toml::map::Map<String, Value>>,
     workspace_document: &Value,
     workspace_root: &Path,
+    opened_root: &Path,
 ) -> Result<Option<CargoPackage>, CargoDiscoveryError> {
     let Some(package) = table(document, "package", manifest_path)? else {
         return Ok(None);
@@ -242,6 +256,7 @@ fn parse_package(
         package,
         workspace_package,
         &name,
+        opened_root,
     )?;
     let features = discover_features(manifest_path, document, workspace_document, workspace_root)?;
     let dependencies = discover_dependencies(
@@ -502,6 +517,7 @@ fn discover_targets(
     package: &toml::map::Map<String, Value>,
     workspace_package: Option<&toml::map::Map<String, Value>>,
     package_name: &str,
+    opened_root: &Path,
 ) -> Result<Vec<CargoTarget>, CargoDiscoveryError> {
     let mut targets = Vec::new();
 
@@ -525,6 +541,7 @@ fn discover_targets(
             configuration,
             "lib",
             package_name,
+            opened_root,
         )?;
     } else if autolib {
         add_default_target(
@@ -533,6 +550,7 @@ fn discover_targets(
             "src/lib.rs",
             package_name.replace('-', "_"),
             "lib",
+            opened_root,
         );
     }
 
@@ -565,6 +583,7 @@ fn discover_targets(
                     configuration,
                     kind,
                     package_name,
+                    opened_root,
                 )?;
             }
         }
@@ -576,9 +595,16 @@ fn discover_targets(
                     "src/main.rs",
                     package_name.to_owned(),
                     kind,
+                    opened_root,
                 );
             }
-            add_automatic_targets(&mut targets, package_root, default_directory, kind)?;
+            add_automatic_targets(
+                &mut targets,
+                package_root,
+                default_directory,
+                kind,
+                opened_root,
+            )?;
         }
     }
 
@@ -591,6 +617,7 @@ fn discover_targets(
             "build-script-build",
             vec!["custom-build".to_owned()],
             "build script",
+            opened_root,
         )?,
         Some(Value::Boolean(true)) | None => {
             if package_root.join("build.rs").is_file() {
@@ -600,6 +627,7 @@ fn discover_targets(
                     "build.rs",
                     "build-script-build".to_owned(),
                     "custom-build",
+                    opened_root,
                 );
             }
         }
@@ -658,6 +686,7 @@ fn add_explicit_target(
     configuration: &Value,
     kind: &str,
     package_name: &str,
+    opened_root: &Path,
 ) -> Result<(), CargoDiscoveryError> {
     let configuration = configuration.as_table().ok_or_else(|| {
         invalid_manifest(manifest_path, format!("target `{kind}` must be a table"))
@@ -712,6 +741,7 @@ fn add_explicit_target(
         name,
         target_kinds,
         "declared target",
+        opened_root,
     )
 }
 
@@ -722,6 +752,7 @@ fn add_required_target(
     name: impl Into<String>,
     kind: Vec<String>,
     label: &str,
+    opened_root: &Path,
 ) -> Result<(), CargoDiscoveryError> {
     if !source_path.is_file() {
         return Err(invalid_manifest(
@@ -729,6 +760,12 @@ fn add_required_target(
             format!("{label} source {} does not exist", source_path.display()),
         ));
     }
+    let source_path = confined_canonical(&source_path, opened_root).map_err(|_| {
+        invalid_manifest(
+            manifest_path,
+            format!("{label} source resolves outside the opened folder"),
+        )
+    })?;
     add_target(targets, source_path, name.into(), kind);
     Ok(())
 }
@@ -754,10 +791,13 @@ fn add_default_target(
     relative_path: &str,
     name: String,
     kind: &str,
+    opened_root: &Path,
 ) {
     let source_path = package_root.join(relative_path);
-    if source_path.is_file() && !has_target_source(targets, &source_path) {
-        add_target(targets, source_path, name, vec![kind.to_owned()]);
+    if let Ok(source_path) = confined_canonical(&source_path, opened_root) {
+        if source_path.is_file() && !has_target_source(targets, &source_path) {
+            add_target(targets, source_path, name, vec![kind.to_owned()]);
+        }
     }
 }
 
@@ -766,6 +806,7 @@ fn add_automatic_targets(
     package_root: &Path,
     relative_directory: &str,
     kind: &str,
+    opened_root: &Path,
 ) -> Result<(), CargoDiscoveryError> {
     let directory = package_root.join(relative_directory);
     let entries = match fs::read_dir(&directory) {
@@ -794,6 +835,9 @@ fn add_automatic_targets(
             if has_target_source(targets, &entry) {
                 continue;
             }
+            let Some(entry) = confined_canonical(&entry, opened_root).ok() else {
+                continue;
+            };
             let name = entry
                 .file_stem()
                 .and_then(|stem| stem.to_str())
@@ -803,6 +847,9 @@ fn add_automatic_targets(
         } else if entry.is_dir() {
             let main = entry.join("main.rs");
             if main.is_file() && !has_target_source(targets, &main) {
+                let Some(main) = confined_canonical(&main, opened_root).ok() else {
+                    continue;
+                };
                 let name = entry
                     .file_name()
                     .and_then(|name| name.to_str())

@@ -57,7 +57,7 @@ Maps, project notes, and editor settings stay on your machine. See [PRIVACY.md](
 
 ## Desktop shell
 
-Pull request CI uploads an unsigned Apple Silicon `.app` archive and an x86_64 Linux `.deb` built for a GLIBC 2.28 executable floor. The credential-gated macOS job additionally uploads a signed, notarized, stapled Apple Silicon archive.
+Pull request CI uploads an unsigned Apple Silicon `.app` archive and an x86_64 Linux `.deb` built for a GLIBC 2.28 executable floor. macOS builds are unsigned for now. A signed, notarized macOS job is in place and runs once signing is configured; until then, open the app the first time with Control-click → Open.
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 
