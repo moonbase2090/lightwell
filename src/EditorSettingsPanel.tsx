@@ -172,6 +172,18 @@ export default function EditorSettingsPanel({
           {panelState.kind === "error" && <div className="settings-error" role="alert"><CircleAlert size={14} />{panelState.message}</div>}
           {saveError.length > 0 && <div className="settings-error" role="alert"><CircleAlert size={14} />{saveError}</div>}
           {saveMessage.length > 0 && <div className="settings-success" role="status"><Check size={14} />{saveMessage}</div>}
+
+          <h3 className="settings-section-title">About Lightwell</h3>
+          <p className="settings-help">
+            Lightwell keeps maps and notes on your machine. Read how we handle site traffic and how to report security issues:
+          </p>
+          <p className="settings-legal-links">
+            <a href="https://lightwellcli.com/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+            <span aria-hidden="true"> · </span>
+            <a href="https://lightwellcli.com/terms.html" target="_blank" rel="noopener noreferrer">Terms of use</a>
+            <span aria-hidden="true"> · </span>
+            <a href="https://github.com/moonbase2090/lightwell/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Security</a>
+          </p>
         </div>
 
         <footer className="settings-panel-footer">
