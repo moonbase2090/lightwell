@@ -34,7 +34,6 @@ export default function EditorSettingsPanel({
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const dialogRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,24 +52,7 @@ export default function EditorSettingsPanel({
   useEffect(() => {
     closeButtonRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-        "button:not(:disabled), select:not(:disabled), input:not(:disabled), textarea:not(:disabled), a[href]",
-      );
-      if (focusable === undefined || focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && (document.activeElement === first || !dialogRef.current?.contains(document.activeElement))) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current?.contains(document.activeElement))) {
-        event.preventDefault();
-        first?.focus();
-      }
+      if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -94,7 +76,6 @@ export default function EditorSettingsPanel({
   return (
     <div className="settings-backdrop">
       <section
-        ref={dialogRef}
         className="editor-settings-panel"
         role="dialog"
         aria-modal="true"
@@ -191,18 +172,6 @@ export default function EditorSettingsPanel({
           {panelState.kind === "error" && <div className="settings-error" role="alert"><CircleAlert size={14} />{panelState.message}</div>}
           {saveError.length > 0 && <div className="settings-error" role="alert"><CircleAlert size={14} />{saveError}</div>}
           {saveMessage.length > 0 && <div className="settings-success" role="status"><Check size={14} />{saveMessage}</div>}
-
-          <h3 className="settings-section-title">About Lightwell</h3>
-          <p className="settings-help">
-            Lightwell keeps maps and notes on your machine. Read how we handle site traffic and how to report security issues:
-          </p>
-          <p className="settings-legal-links">
-            <a href="https://lightwellcli.com/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a>
-            <span aria-hidden="true"> · </span>
-            <a href="https://lightwellcli.com/terms.html" target="_blank" rel="noopener noreferrer">Terms of use</a>
-            <span aria-hidden="true"> · </span>
-            <a href="https://github.com/moonbase2090/lightwell/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Security</a>
-          </p>
         </div>
 
         <footer className="settings-panel-footer">
