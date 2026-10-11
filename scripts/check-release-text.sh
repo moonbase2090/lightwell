@@ -43,8 +43,7 @@ allow_email="322824348+mb2090@users.noreply.github.com"
 # Generic patterns only. Case-insensitive except where the expression already is.
 # A home-directory marker must not treat the word Home inside prose as a path.
 generic_patterns=(
-  'DESKTOP-[A-Z0-9]+'
-  '[A-Za-z0-9-]+\.local\b'
+  '\b[A-Za-z0-9-]+\.local($|[^/A-Za-z0-9_.-])'
   '/Users/'
   '(^|[^A-Za-z0-9])/home/[a-z]'
   'C:\\Users'
@@ -62,6 +61,24 @@ fail=0
 report_line() {
   printf '%s:%s\n' "$1" "$2" >>"$hits"
   fail=1
+}
+
+# Windows default host names are upper case; a case-insensitive match would
+# flag ordinary words such as icon names ("preferences-desktop-font").
+scan_case_sensitive() {
+  local file="$1"
+  local pattern="$2"
+  local out code=0 line
+  out="$(grep -n -E -I -- "$pattern" "$file" 2>/dev/null)" || code=$?
+  if [[ "$code" -gt 1 ]]; then
+    echo "check-release-text: invalid pattern" >&2
+    fail=1
+    return 0
+  fi
+  [[ -n "$out" ]] || return 0
+  while IFS= read -r line; do
+    report_line "$file" "${line%%:*}"
+  done <<<"$out"
 }
 
 scan_pattern() {
@@ -117,6 +134,7 @@ scan_text_file() {
   for pattern in "${generic_patterns[@]}"; do
     scan_pattern "$file" "$pattern"
   done
+  scan_case_sensitive "$file" 'DESKTOP-[A-Z0-9]{4,}'
   scan_emails "$file"
   if [[ "${#denylist[@]}" -gt 0 ]]; then
     for pattern in "${denylist[@]}"; do

@@ -247,3 +247,21 @@ test("denylisted text in an archived symlink target fails the scan", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("host name patterns ignore icon names and XDG paths but catch real hosts", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lightwell-release-hosts-"));
+  const write = (name: string, text: string) => {
+    const path = join(dir, name);
+    writeFileSync(path, text);
+    return path;
+  };
+  try {
+    assert.equal(scan(write("icons.bin", "insert-link-symbolic preferences-desktop-font-symbolic\n")).status, 0);
+    assert.equal(scan(write("xdg.bin", "config.local/bin.local/share.cache\n")).status, 0);
+    assert.notEqual(scan(write("win.bin", "seen on DESKTOP-AB12CD9 today\n")).status, 0);
+    assert.notEqual(scan(write("mdns.bin", "ping studio.local now\n")).status, 0);
+    assert.notEqual(scan(write("runner.bin", "/home/runner/.cargo/registry/src/lib.rs\n")).status, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
