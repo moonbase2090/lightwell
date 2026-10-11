@@ -12,11 +12,12 @@ function jobBlock(id: string): string {
   return next === -1 ? rest : rest.slice(0, next);
 }
 
-test("linux jobs run on ubuntu-latest and call the existing scripts", () => {
+test("linux jobs run on native runners and call the existing scripts", () => {
   const jobs = ["checks", "linux-cli-x86_64", "linux-cli-aarch64", "tauri-linux-artifact"];
   for (const id of jobs) {
     const block = jobBlock(id);
-    assert.match(block, /\n    runs-on: ubuntu-latest\n/);
+    const runner = id === "linux-cli-aarch64" ? "ubuntu-24\\.04-arm" : "ubuntu-latest";
+    assert.match(block, new RegExp(`\\n    runs-on: ${runner}\\n`));
     assert.match(block, /uses: actions\/checkout@v4\n/);
   }
   assert.match(jobBlock("linux-cli-x86_64"), /x86_64-unknown-linux-gnu/);
