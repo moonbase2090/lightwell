@@ -2,8 +2,15 @@
 set -euo pipefail
 umask 077
 
-app="${1:?Usage: notarize-macos-app.sh LIGHTWELL_APP OUTPUT_ZIP}"
-output_zip="${2:?Usage: notarize-macos-app.sh LIGHTWELL_APP OUTPUT_ZIP}"
+usage='Usage: notarize-macos-app.sh LIGHTWELL_APP OUTPUT_ZIP | LIGHTWELL_DMG'
+app="${1:?$usage}"
+kind=app
+if [[ "$app" == *.dmg ]]; then
+  kind=dmg
+  output_zip=""
+else
+  output_zip="${2:?$usage}"
+fi
 
 for name in APPLE_NOTARY_ISSUER APPLE_NOTARY_KEY_ID APPLE_NOTARY_KEY; do
   if [[ -z "${!name:-}" ]]; then
@@ -11,7 +18,11 @@ for name in APPLE_NOTARY_ISSUER APPLE_NOTARY_KEY_ID APPLE_NOTARY_KEY; do
     exit 1
   fi
 done
-[[ -d "$app" ]] || { echo "Lightwell.app is missing: $app" >&2; exit 1; }
+if [[ "$kind" == dmg ]]; then
+  [[ -f "$app" ]] || { echo "Lightwell disk image is missing: $app" >&2; exit 1; }
+else
+  [[ -d "$app" ]] || { echo "Lightwell.app is missing: $app" >&2; exit 1; }
+fi
 
 work="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/lightwell-notary.XXXXXX")"
 notary_key="$work/AuthKey.p8"
@@ -46,7 +57,11 @@ if ! grep -Eq -- '-----BEGIN (EC |RSA )?PRIVATE KEY-----' "$notary_key"; then
   exit 1
 fi
 
-ditto -c -k --keepParent "$app" "$submit_zip"
+if [[ "$kind" == dmg ]]; then
+  submit_zip="$app"
+else
+  ditto -c -k --keepParent "$app" "$submit_zip"
+fi
 submission_json="$work/notary-submit.json"
 submission_error="$work/notary-submit.err"
 if ! xcrun notarytool submit "$submit_zip" --wait \
@@ -76,8 +91,12 @@ echo 'Apple notarization accepted.'
 
 xcrun stapler staple "$app"
 xcrun stapler validate "$app"
-spctl --assess --type execute --verbose=2 "$app"
-ditto -c -k --keepParent "$app" "$output_zip"
-# The final archive is created only after stapling and Gatekeeper validation.
-test -s "$output_zip"
-echo "Stapled and validated macOS artifact: $output_zip"
+if [[ "$kind" == dmg ]]; then
+  spctl --assess --type open --context context:primary-signature --verbose=2 "$app"
+else
+  spctl --assess --type execute --verbose=2 "$app"
+  ditto -c -k --keepParent "$app" "$output_zip"
+  # The final archive is created only after stapling and Gatekeeper validation.
+  test -s "$output_zip"
+fi
+echo "Stapled and validated macOS artifact: ${output_zip:-$app}"

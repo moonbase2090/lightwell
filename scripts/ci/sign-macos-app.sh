@@ -3,7 +3,7 @@ set -euo pipefail
 umask 077
 
 usage() {
-  echo "Usage: sign-macos-app.sh --credential-smoke | APP_PATH" >&2
+  echo "Usage: sign-macos-app.sh --credential-smoke | --dmg DMG_PATH | APP_PATH" >&2
   exit 2
 }
 
@@ -11,6 +11,7 @@ mode=""
 app=""
 case "${1:-}" in
   --credential-smoke) mode=credential-smoke ;;
+  --dmg) [[ $# -eq 2 ]] || usage; mode=dmg; app="$2" ;;
   "") usage ;;
   *) [[ $# -eq 1 ]] || usage; mode=sign; app="$1" ;;
 esac
@@ -36,6 +37,10 @@ if [[ "$mode" == sign && ! -d "$app" ]]; then
   echo "Lightwell.app is missing: $app" >&2
   exit 1
 fi
+if [[ "$mode" == dmg && ! -f "$app" ]]; then
+  echo "Lightwell disk image is missing: $app" >&2
+  exit 1
+fi
 
 work="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/lightwell-sign.XXXXXX")"
 keychain="$work/lightwell-signing.keychain-db"
@@ -43,9 +48,20 @@ certificate="$work/developer-id.p12"
 notary_key="$work/AuthKey.p8"
 keychain_password="$(openssl rand -hex 32)"
 
+original_keychains=()
+while IFS= read -r line; do
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line#\"}"
+  line="${line%\"}"
+  [[ -n "$line" ]] && original_keychains+=("$line")
+done < <(security list-keychains -d user)
+
 cleanup() {
   local status=$?
   trap - EXIT
+  if ((${#original_keychains[@]})); then
+    security list-keychains -d user -s "${original_keychains[@]}" >/dev/null 2>&1 || true
+  fi
   security delete-keychain "$keychain" >/dev/null 2>&1 || true
   rm -rf "$work"
   exit "$status"
@@ -76,6 +92,8 @@ if ! security import "$certificate" -f pkcs12 -k "$keychain" \
 fi
 security set-key-partition-list -S apple-tool:,apple:,codesign: \
   -s -k "$keychain_password" "$keychain" >/dev/null
+# codesign only resolves identities from keychains on the user search list.
+security list-keychains -d user -s "$keychain" "${original_keychains[@]}"
 
 identity_lines="$(security find-identity -v -p codesigning "$keychain" \
   | sed -n '/"Developer ID Application:/p')"
@@ -128,6 +146,13 @@ PY
     exit 1
   fi
   echo 'Apple credential smoke passed: certificate identity and notary history are valid.'
+  exit 0
+fi
+
+if [[ "$mode" == dmg ]]; then
+  codesign --force --timestamp --keychain "$keychain" --sign "$identity" "$app"
+  codesign --verify --strict --verbose=2 "$app"
+  echo 'Signed Lightwell disk image verification passed.'
   exit 0
 fi
 
