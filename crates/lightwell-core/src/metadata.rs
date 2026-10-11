@@ -293,8 +293,11 @@ pub fn discover_cargo_workspace(
         packages,
     };
     for package in &mut workspace.packages {
+        package.targets.retain(|target| {
+            crate::path_confinement::confined_canonical(&target.source_path, &root).is_ok()
+        });
         for target in &mut package.targets {
-            crate::rust_source::populate_target_modules(target)?;
+            crate::rust_source::populate_target_modules(target, &root)?;
         }
     }
     Ok(workspace)

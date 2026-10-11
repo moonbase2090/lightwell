@@ -1,4 +1,5 @@
 use crate::metadata::{CargoDiscoveryError, CargoTarget, RustModule};
+use crate::path_confinement::confined_canonical;
 use proc_macro2::LineColumn;
 use quote::ToTokens;
 use std::collections::HashSet;
@@ -8,10 +9,16 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{Attribute, Expr, Item, Lit, Meta, Token};
 
-pub(super) fn populate_target_modules(target: &mut CargoTarget) -> Result<(), CargoDiscoveryError> {
+pub(super) fn populate_target_modules(
+    target: &mut CargoTarget,
+    opened_root: &Path,
+) -> Result<(), CargoDiscoveryError> {
+    let source_path = confined_canonical(&target.source_path, opened_root)?;
+    target.source_path = source_path.clone();
     target.modules = modules_in_file(
-        &target.source_path,
-        &module_directory_for_source(&target.source_path),
+        &source_path,
+        &module_directory_for_source(&source_path),
+        opened_root,
         &mut HashSet::new(),
     )?;
     Ok(())
@@ -20,11 +27,10 @@ pub(super) fn populate_target_modules(target: &mut CargoTarget) -> Result<(), Ca
 fn modules_in_file(
     source_path: &Path,
     parent_directory: &Path,
+    opened_root: &Path,
     active_sources: &mut HashSet<PathBuf>,
 ) -> Result<Vec<RustModule>, CargoDiscoveryError> {
-    let source_key = source_path
-        .canonicalize()
-        .unwrap_or_else(|_| source_path.to_owned());
+    let source_key = confined_canonical(source_path, opened_root)?;
     if !active_sources.insert(source_key.clone()) {
         return Ok(Vec::new());
     }
@@ -44,6 +50,7 @@ fn modules_in_file(
             &source,
             source_path,
             parent_directory,
+            opened_root,
             active_sources,
         )?;
         if matches!(file.items.first(), Some(Item::Mod(module)) if !is_test_only(&module.attrs)) {
@@ -64,6 +71,7 @@ fn modules_from_items(
     source: &str,
     declaration_path: &Path,
     parent_directory: &Path,
+    opened_root: &Path,
     active_sources: &mut HashSet<PathBuf>,
 ) -> Result<Vec<RustModule>, CargoDiscoveryError> {
     items
@@ -89,6 +97,7 @@ fn modules_from_items(
                     path_attribute.as_deref(),
                     parent_directory,
                     declaration_path,
+                    opened_root,
                 )
             };
             let children = match (&module.content, &source_path) {
@@ -97,11 +106,13 @@ fn modules_from_items(
                     source,
                     declaration_path,
                     &parent_directory.join(&name),
+                    opened_root,
                     active_sources,
                 )?,
                 (None, Some(source_path)) => modules_in_file(
                     source_path,
                     &module_directory_for_source(source_path),
+                    opened_root,
                     active_sources,
                 )?,
                 (None, None) => Vec::new(),
@@ -127,17 +138,25 @@ fn resolve_module_source(
     path_attribute: Option<&str>,
     parent_directory: &Path,
     declaration_path: &Path,
+    opened_root: &Path,
 ) -> Option<PathBuf> {
     if let Some(path_attribute) = path_attribute {
         let path = declaration_path.parent()?.join(path_attribute);
-        return path.is_file().then_some(path);
+        return confined_existing_file(&path, opened_root);
     }
     [
         parent_directory.join(format!("{name}.rs")),
         parent_directory.join(name).join("mod.rs"),
     ]
     .into_iter()
-    .find(|candidate| candidate.is_file())
+    .find_map(|candidate| confined_existing_file(&candidate, opened_root))
+}
+
+fn confined_existing_file(path: &Path, opened_root: &Path) -> Option<PathBuf> {
+    if !path.is_file() {
+        return None;
+    }
+    confined_canonical(path, opened_root).ok()
 }
 
 fn path_attribute(attributes: &[Attribute]) -> Option<String> {

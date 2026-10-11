@@ -14,7 +14,6 @@ pub(crate) fn is_confined_to(canonical_path: &Path, opened_root: &Path) -> bool 
     canonical_path == opened_root || canonical_path.starts_with(opened_root)
 }
 
-#[allow(dead_code)]
 pub(crate) fn confined_canonical(
     path: &Path,
     opened_root: &Path,
