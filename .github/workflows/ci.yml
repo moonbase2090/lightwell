@@ -142,6 +142,8 @@ jobs:
           if-no-files-found: error
 
   tauri-macos-signed:
+    # Runs only once Apple signing is configured; until then macOS ships unsigned.
+    if: ${{ vars.LIGHTWELL_MACOS_SIGNING == 'true' }}
     runs-on: macos-26
     env:
       MACOSX_DEPLOYMENT_TARGET: '11.0'
