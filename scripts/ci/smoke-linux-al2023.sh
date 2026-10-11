@@ -27,6 +27,9 @@ if [[ "$(printf '%s\n' "$max_version" 2.28 | sort -V | tail -n 1)" != 2.28 ]]; t
   exit 1
 fi
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+platform="$(objdump -f "$binary" | "$script_dir/docker-platform.sh" --objdump-stdin --host "$(uname -m)")"
+
 smoke=$(cat <<'AL2023'
 set -euo pipefail
 dnf --assumeyes install binutils python3
@@ -49,12 +52,21 @@ AL2023
 )
 
 if docker info >/dev/null 2>&1; then
-  docker run --rm --interactive \
+  docker_cmd=(docker run --rm --interactive)
+  if [[ -n "$platform" ]]; then
+    docker_cmd+=(--platform "$platform")
+  fi
+  "${docker_cmd[@]}" \
     --volume "$bin_dir:/release:ro" \
     --volume "$project_root:/workspace:ro" \
     amazonlinux:2023 \
     bash -s <<<"$smoke"
   exit 0
+fi
+
+if [[ -n "$platform" ]]; then
+  printf 'Cross-architecture Amazon Linux smoke needs Docker to run %s\n' "$platform" >&2
+  exit 1
 fi
 
 root=/opt/amazonlinux-2023
