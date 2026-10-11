@@ -331,6 +331,39 @@ unpack_and_scan() {
       return 0
       ;;
   esac
+  # Entry names, symlink targets and ZIP comments can carry text too.
+  local meta link
+  meta="$(mktemp "$tmp/meta.XXXXXX")"
+  if [[ "$kind" == zip ]]; then
+    if ! python3 - "$file" >>"$meta" <<'PY'
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    print(archive.comment.decode("utf-8", "replace"))
+    for info in archive.infolist():
+        print(info.filename)
+        print(info.comment.decode("utf-8", "replace"))
+PY
+    then
+      echo "check-release-text: could not read zip metadata: $display" >&2
+      fail=1
+    fi
+  fi
+  while IFS= read -r inner; do
+    rel="${inner#"$dest"/}"
+    printf '%s\n' "$rel" >>"$meta"
+    if [[ -L "$inner" ]]; then
+      if ! link="$(readlink "$inner")"; then
+        echo "check-release-text: could not read symlink: $display:$rel" >&2
+        fail=1
+        continue
+      fi
+      printf '%s\n' "$link" >>"$meta"
+    fi
+  done < <(find "$dest" -mindepth 1)
+  record_text "$display (names)" "$meta"
+  rm -f "$meta"
   while IFS= read -r inner; do
     found=1
     rel="${inner#"$dest"/}"

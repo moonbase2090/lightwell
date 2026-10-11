@@ -186,3 +186,64 @@ test("a denylisted string in deb control metadata fails the scan", () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+function py(code: string[], ...args: string[]) {
+  execFileSync("python3", ["-c", code.join("\n"), ...args], { stdio: "ignore" });
+}
+
+test("denylisted text in zip entry names and comments fails the scan", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lightwell-release-zipmeta-"));
+  const make = (name: string, entry: string, archiveComment: string, entryComment: string) => {
+    const path = join(dir, name);
+    py(
+      [
+        "import sys, zipfile",
+        "path, entry, ac, ec = sys.argv[1:]",
+        "with zipfile.ZipFile(path, 'w', compression=zipfile.ZIP_DEFLATED) as z:",
+        "    info = zipfile.ZipInfo(entry)",
+        "    info.comment = ec.encode()",
+        "    z.writestr(info, 'public payload')",
+        "    z.comment = ac.encode()",
+      ],
+      path,
+      entry,
+      archiveComment,
+      entryComment,
+    );
+    return path;
+  };
+  try {
+    assert.equal(scan(make("clean.zip", "notes.txt", "public", "public")).status, 0);
+    assert.notEqual(scan(make("name.zip", `${probe}.txt`, "public", "public")).status, 0);
+    assert.notEqual(scan(make("comment.zip", "notes.txt", `note ${probe}`, "public")).status, 0);
+    assert.notEqual(scan(make("entry.zip", "notes.txt", "public", `note ${probe}`)).status, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("denylisted text in an archived symlink target fails the scan", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lightwell-release-link-"));
+  const make = (name: string, target: string) => {
+    const path = join(dir, name);
+    py(
+      [
+        "import io, sys, tarfile",
+        "path, target = sys.argv[1:]",
+        "with tarfile.open(path, 'w:gz') as t:",
+        "    data = b'public payload'",
+        "    f = tarfile.TarInfo('notes.txt'); f.size = len(data); t.addfile(f, io.BytesIO(data))",
+        "    l = tarfile.TarInfo('link'); l.type = tarfile.SYMTYPE; l.linkname = target; t.addfile(l)",
+      ],
+      path,
+      target,
+    );
+    return path;
+  };
+  try {
+    assert.equal(scan(make("clean.bin", "notes.txt")).status, 0);
+    assert.notEqual(scan(make("dirty.bin", `/opt/${probe}/notes`)).status, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
