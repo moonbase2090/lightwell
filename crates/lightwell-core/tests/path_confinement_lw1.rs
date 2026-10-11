@@ -123,3 +123,102 @@ resolver = "2"
         "victim package must not load from outside the opened folder"
     );
 }
+
+#[test]
+fn manifest_discovery_inherits_workspace_metadata_for_opened_member() {
+    let root = temporary_directory("lw1-member-inherit");
+    fs::create_dir_all(&root).expect("root");
+    let parent = root.join("parent-ws");
+    let child = parent.join("child");
+    fs::create_dir_all(child.join("src")).expect("child tree");
+    write_manifest(
+        &parent.join("Cargo.toml"),
+        r#"
+[workspace]
+members = ["child"]
+resolver = "2"
+
+[workspace.package]
+version = "2.0.0"
+edition = "2021"
+"#,
+    );
+    write_manifest(
+        &child.join("Cargo.toml"),
+        r#"
+[package]
+name = "child-pkg"
+version.workspace = true
+edition.workspace = true
+"#,
+    );
+    fs::write(child.join("src/lib.rs"), "pub fn child_only() {}\n").expect("child lib");
+
+    let workspace = discover_cargo_workspace_manifest_only(&child).expect("discover");
+    assert_eq!(workspace.root, child.canonicalize().expect("canonical"));
+    assert_eq!(workspace.packages.len(), 1);
+    assert_eq!(workspace.packages[0].name, "child-pkg");
+    assert_eq!(workspace.packages[0].version, "2.0.0");
+}
+
+#[test]
+fn manifest_discovery_inherits_workspace_dependencies_for_opened_member() {
+    let root = temporary_directory("lw1-member-ws-deps");
+    fs::create_dir_all(&root).expect("root");
+    let parent = root.join("parent-ws");
+    let child = parent.join("child");
+    let shared = parent.join("crates").join("shared");
+    fs::create_dir_all(child.join("src")).expect("child tree");
+    fs::create_dir_all(shared.join("src")).expect("shared tree");
+    write_manifest(
+        &parent.join("Cargo.toml"),
+        r#"
+[workspace]
+members = ["child", "crates/shared"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+shared = { path = "crates/shared", version = "1.0.0" }
+"#,
+    );
+    write_manifest(
+        &shared.join("Cargo.toml"),
+        r#"
+[package]
+name = "shared"
+version.workspace = true
+edition.workspace = true
+"#,
+    );
+    fs::write(shared.join("src/lib.rs"), "pub fn shared_only() {}\n").expect("shared lib");
+    write_manifest(
+        &child.join("Cargo.toml"),
+        r#"
+[package]
+name = "child-pkg"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+shared.workspace = true
+"#,
+    );
+    fs::write(child.join("src/lib.rs"), "pub fn child_only() {}\n").expect("child lib");
+
+    let workspace = discover_cargo_workspace_manifest_only(&child).expect("discover");
+    assert_eq!(workspace.packages.len(), 1);
+    assert_eq!(workspace.packages[0].name, "child-pkg");
+    let shared_dep = workspace.packages[0]
+        .dependencies
+        .iter()
+        .find(|dependency| dependency.name == "shared")
+        .expect("workspace dependency");
+    assert_eq!(
+        shared_dep.path.as_deref(),
+        Some(shared.canonicalize().expect("canonical").as_path())
+    );
+}
