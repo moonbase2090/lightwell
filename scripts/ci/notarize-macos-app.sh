@@ -96,7 +96,7 @@ if [[ "$kind" == dmg ]]; then
 else
   spctl --assess --type execute --verbose=2 "$app"
   ditto -c -k --keepParent "$app" "$output_zip"
+  # The final archive is created only after stapling and Gatekeeper validation.
+  test -s "$output_zip"
 fi
-# The final archive is created only after stapling and Gatekeeper validation.
-test -s "$output_zip"
-echo "Stapled and validated macOS artifact: $output_zip"
+echo "Stapled and validated macOS artifact: ${output_zip:-$app}"
