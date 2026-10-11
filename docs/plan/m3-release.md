@@ -1,8 +1,8 @@
 # Lightwell M3 — v0.1 release
 
-Status: proposed. This file is the plan for sign-off. No release
-code, workflow, certificate, or Apple account step lands in this
-pull request. Implementation waits until MB2090 signs off.
+Status: in progress. Pull request 4 adds `.github/workflows/release.yml`
+and `scripts/check-release-text.sh`. Publishing waits for a green
+signed dry run and owner approval of the `v0.1.0` tag.
 
 The milestone in `docs/plan/app-plan.md` is: finish portable release
 checks, sign and notarize the macOS app, and verify the Linux glibc
@@ -210,3 +210,12 @@ The workflow creates a temporary keychain, imports the
 certificate, and deletes that keychain when the job exits. The
 `.p12`, the `.p8`, and the `moonbase-notary` profile are never
 committed.
+
+## v0.1.0 ships unsigned on macOS
+
+v0.1.0 publishes the Apple Silicon app unsigned, alongside the Linux
+`.deb`. The `macos-unsigned` release job builds with `--no-sign` and
+requires `codesign --verify` to refuse the bundle, so nothing claims
+to be signed or notarized. The signed job runs instead once the Apple
+secrets import cleanly and the repository variable
+`LIGHTWELL_MACOS_SIGNING` is set to `true`.
