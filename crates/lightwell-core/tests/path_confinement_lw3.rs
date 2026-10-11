@@ -58,7 +58,10 @@ edition.workspace = true
     fs::write(child.join("src/lib.rs"), "pub fn child_only() {}\n").expect("child lib");
 
     let workspace = discover_cargo_workspace(&child).expect("discover");
-    assert_eq!(workspace.root, child.canonicalize().expect("canonical child"));
+    assert_eq!(
+        workspace.root,
+        child.canonicalize().expect("canonical child")
+    );
     assert_eq!(workspace.packages.len(), 1);
     assert_eq!(workspace.packages[0].name, "child-pkg");
 
@@ -67,5 +70,8 @@ edition.workspace = true
         FactBlock::Crate(crate_block) => crate_block.package_name == "sibling-pkg",
         _ => false,
     });
-    assert!(!sibling_leak, "sibling crates must not appear when opening a member folder");
+    assert!(
+        !sibling_leak,
+        "sibling crates must not appear when opening a member folder"
+    );
 }

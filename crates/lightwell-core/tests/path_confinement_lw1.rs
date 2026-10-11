@@ -46,11 +46,7 @@ edition.workspace = true
 description = "sibling-marker"
 "#,
     );
-    fs::write(
-        sibling.join("src/lib.rs"),
-        "pub fn sibling_only() {}\n",
-    )
-    .expect("sibling source");
+    fs::write(sibling.join("src/lib.rs"), "pub fn sibling_only() {}\n").expect("sibling source");
     write_manifest(
         &child.join("Cargo.toml"),
         r#"
@@ -77,7 +73,10 @@ workspace = "../parent-ws"
     fs::write(ws_nocargo.join("src/lib.rs"), "pub fn local_only() {}\n").expect("ws source");
 
     let workspace = discover_cargo_workspace_manifest_only(&ws_nocargo).expect("discover");
-    assert_eq!(workspace.root, ws_nocargo.canonicalize().expect("canonical"));
+    assert_eq!(
+        workspace.root,
+        ws_nocargo.canonicalize().expect("canonical")
+    );
     assert_eq!(workspace.packages.len(), 1);
     assert_eq!(workspace.packages[0].name, "ws-nocargo");
 }
