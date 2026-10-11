@@ -14,4 +14,4 @@ Lightwell does not create an account. This repository does not ship a telemetry 
 
 ## Questions
 
-Questions about these practices can be sent to [privacy@moonbase2090.com](mailto:privacy@moonbase2090.com).
+Questions about the marketing site go to the contact on its privacy page. This note covers the application only.
