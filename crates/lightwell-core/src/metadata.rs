@@ -90,6 +90,10 @@ pub enum CargoDiscoveryError {
         path: PathBuf,
         source: io::Error,
     },
+    PathOutsideOpenedFolder {
+        path: PathBuf,
+        opened_root: PathBuf,
+    },
 }
 
 impl Display for CargoDiscoveryError {
@@ -150,6 +154,12 @@ impl Display for CargoDiscoveryError {
                 "Could not parse Rust source {}: {reason}",
                 path.display()
             ),
+            Self::PathOutsideOpenedFolder { path, opened_root } => write!(
+                formatter,
+                "Path {} is outside the opened folder {}",
+                path.display(),
+                opened_root.display()
+            ),
         }
     }
 }
@@ -166,7 +176,8 @@ impl Error for CargoDiscoveryError {
             | Self::CargoFailed { .. }
             | Self::InvalidManifest { .. }
             | Self::WorkspaceMemberPattern { .. }
-            | Self::InvalidRustSource { .. } => None,
+            | Self::InvalidRustSource { .. }
+            | Self::PathOutsideOpenedFolder { .. } => None,
         }
     }
 }
@@ -290,6 +301,14 @@ pub fn discover_cargo_workspace(
         }
     }
     Ok(workspace)
+}
+
+#[doc(hidden)]
+pub fn discover_cargo_workspace_manifest_only(
+    repository_path: impl AsRef<Path>,
+) -> Result<CargoWorkspace, CargoDiscoveryError> {
+    let opened_root = crate::path_confinement::opened_root(repository_path.as_ref())?;
+    crate::manifest::discover_cargo_workspace(&opened_root)
 }
 
 fn normalize_package(package: MetadataPackage) -> CargoPackage {
