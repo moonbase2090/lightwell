@@ -289,9 +289,12 @@ pub fn discover_cargo_workspace(
     });
 
     let mut workspace = CargoWorkspace {
-        root: metadata.workspace_root,
+        root: root.clone(),
         packages,
     };
+    workspace
+        .packages
+        .retain(|package| package.manifest_path.starts_with(&root));
     for package in &mut workspace.packages {
         package.targets.retain(|target| {
             crate::path_confinement::confined_canonical(&target.source_path, &root).is_ok()
