@@ -47,5 +47,8 @@ fn extraction_does_not_read_rust_sources_outside_opened_folder() {
             _ => None,
         })
         .any(|attributes| attributes.contains("outside-marker-9f3a"));
-    assert!(!leaked, "outside source attributes must not appear in the map");
+    assert!(
+        !leaked,
+        "outside source attributes must not appear in the map"
+    );
 }
