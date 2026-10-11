@@ -4,6 +4,7 @@ mod facts;
 mod manifest;
 mod metadata;
 mod notes;
+mod path_confinement;
 mod rust_source;
 mod watch;
 
@@ -17,8 +18,9 @@ pub use facts::{
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock, MAP_SCHEMA_VERSION,
 };
 pub use metadata::{
-    discover_cargo_workspace, CargoDependency, CargoDependencyKind, CargoDiscoveryError,
-    CargoPackage, CargoTarget, CargoWorkspace, RustModule,
+    discover_cargo_workspace, discover_cargo_workspace_manifest_only, CargoDependency,
+    CargoDependencyKind, CargoDiscoveryError, CargoPackage, CargoTarget, CargoWorkspace,
+    RustModule,
 };
 pub use notes::{
     list_project_notes, project_notes_for_map, remove_project_note, set_project_note,
