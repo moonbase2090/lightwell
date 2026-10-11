@@ -28,7 +28,12 @@ if [[ "$(printf '%s\n' "$max_version" 2.28 | sort -V | tail -n 1)" != 2.28 ]]; t
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-platform="$(objdump -f "$binary" | "$script_dir/docker-platform.sh" --objdump-stdin --host "$(uname -m)")"
+readelf_header="$(readelf -h "$binary" 2>&1 || true)"
+if ! platform="$(printf '%s\n' "$readelf_header" | "$script_dir/docker-platform.sh" --readelf-stdin --host "$(uname -m)")"; then
+  printf 'could not detect the CLI architecture\n' >&2
+  printf '%s\n' "$readelf_header" >&2
+  exit 1
+fi
 
 smoke=$(cat <<'AL2023'
 set -euo pipefail
