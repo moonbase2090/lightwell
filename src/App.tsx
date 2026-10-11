@@ -672,14 +672,6 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     return () => { cancelled = true; };
   }, [map, scopeId, visibleBlocks]);
 
-  const graph = useMemo(() => emphasizeGraph({
-    nodes: baseGraph.nodes,
-    edges: baseGraph.edges,
-    activeNodeId,
-    activeFeatureMemberIds: activeFeatureMembers,
-    onHover: setHoverNode,
-  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode]);
-
   const activateBlock = useCallback((block: DisplayBlock) => {
     setSelectedId(block.id);
     setActiveFeatureId(null);
@@ -696,6 +688,15 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       setInspectedBlockId(null);
     }
   }, [activateBlock, mapSource.editor]);
+
+  const graph = useMemo(() => emphasizeGraph({
+    nodes: baseGraph.nodes,
+    edges: baseGraph.edges,
+    activeNodeId,
+    activeFeatureMemberIds: activeFeatureMembers,
+    onHover: setHoverNode,
+    onActivate: openBlockInspector,
+  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector]);
 
   const selectSearchNode = useCallback((node: DisplayNode) => {
     setSearch("");
