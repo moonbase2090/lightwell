@@ -169,10 +169,35 @@ collect_text_files() {
   done
 }
 
+sniff_format() {
+  local file="$1"
+  local head
+  head="$(od -An -tx1 -N 8 "$file" 2>/dev/null | tr -d ' \n')"
+  case "$head" in
+    504b0304* | 504b0506* | 504b0708*) printf 'zip\n'; return 0 ;;
+    213c617263683e0a*) printf 'deb\n'; return 0 ;;
+    1f8b*) printf 'gzip\n'; return 0 ;;
+    425a68*) printf 'bzip2\n'; return 0 ;;
+    fd377a585a00*) printf 'xz\n'; return 0 ;;
+    28b52ffd*) printf 'zstd\n'; return 0 ;;
+    377abcaf271c* | 52617221* | 78617221*) printf 'unsupported\n'; return 0 ;;
+  esac
+  if [[ "$(od -An -c -j 257 -N 5 "$file" 2>/dev/null | tr -d ' \n')" == "ustar" ]]; then
+    printf 'tar\n'
+    return 0
+  fi
+  return 1
+}
+
 artifact_format() {
-  local base="$1"
-  local lower
+  local file="$1"
+  local base lower sniffed
+  base="$(basename "$file")"
   lower="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
+  if sniffed="$(sniff_format "$file")"; then
+    printf '%s\n' "$sniffed"
+    return 0
+  fi
   if [[ "$base" == "SHA256SUMS" ]]; then
     printf 'text\n'
     return 0
@@ -231,28 +256,33 @@ record_strings() {
 unpack_deb() {
   local file="$1"
   local dest="$2"
-  if command -v dpkg-deb >/dev/null 2>&1; then
-    dpkg-deb -x "$file" "$dest"
-    return
-  fi
-  if ! command -v ar >/dev/null 2>&1 || ! command -v tar >/dev/null 2>&1; then
-    echo "check-release-text: dpkg-deb or ar and tar are required to unpack a deb" >&2
+  if ! command -v ar >/dev/null 2>&1; then
+    echo "check-release-text: ar is required to unpack a deb" >&2
     return 1
   fi
-  local stage data candidate
-  stage="$(mktemp -d "$tmp/ar.XXXXXX")"
-  (cd "$stage" && ar x "$file") || return 1
-  data=""
-  for candidate in "$stage"/data.tar*; do
-    [[ -f "$candidate" ]] || continue
-    data="$candidate"
-    break
-  done
-  if [[ -z "$data" ]]; then
-    echo "check-release-text: deb has no data archive" >&2
+  local abs
+  abs="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+  (cd "$dest" && ar x "$abs") || return 1
+  local has_control=0 has_data=0 candidate
+  for candidate in "$dest"/control.tar*; do [[ -f "$candidate" ]] && has_control=1; done
+  for candidate in "$dest"/data.tar*; do [[ -f "$candidate" ]] && has_data=1; done
+  if [[ "$has_control" -eq 0 || "$has_data" -eq 0 ]]; then
+    echo "check-release-text: deb is missing its control or data archive" >&2
     return 1
   fi
-  tar -xf "$data" -C "$dest"
+}
+
+decompress_one() {
+  local kind="$1"
+  local file="$2"
+  local out="$3"
+  case "$kind" in
+    gzip) command -v gzip >/dev/null 2>&1 && gzip -dc "$file" >"$out" ;;
+    bzip2) command -v bzip2 >/dev/null 2>&1 && bzip2 -dc "$file" >"$out" ;;
+    xz) command -v xz >/dev/null 2>&1 && xz -dc "$file" >"$out" ;;
+    zstd) command -v zstd >/dev/null 2>&1 && zstd -dcq "$file" >"$out" ;;
+    *) return 1 ;;
+  esac
 }
 
 unpack_and_scan() {
@@ -277,6 +307,20 @@ unpack_and_scan() {
       fi
       if ! unzip -q "$file" -d "$dest"; then
         echo "check-release-text: could not unpack zip: $display" >&2
+        fail=1
+        return 0
+      fi
+      ;;
+    tar)
+      if ! tar -xf "$file" -C "$dest"; then
+        echo "check-release-text: could not unpack tar: $display" >&2
+        fail=1
+        return 0
+      fi
+      ;;
+    gzip | bzip2 | xz | zstd)
+      if ! decompress_one "$kind" "$file" "$dest/decompressed"; then
+        echo "check-release-text: could not decompress $kind: $display" >&2
         fail=1
         return 0
       fi
@@ -307,11 +351,10 @@ scan_artifact() {
     return 0
   fi
   local format
-  format="$(artifact_format "$(basename "$file")")"
+  format="$(artifact_format "$file")"
   case "$format" in
     text) record_text "$display" "$file" ;;
-    deb) unpack_and_scan "$display" "$file" deb ;;
-    zip) unpack_and_scan "$display" "$file" zip ;;
+    deb | zip | tar | gzip | bzip2 | xz | zstd) unpack_and_scan "$display" "$file" "$format" ;;
     unsupported)
       echo "check-release-text: unsupported artifact format: $display" >&2
       fail=1

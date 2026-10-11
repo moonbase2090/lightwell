@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -100,21 +100,88 @@ test("SHA256SUMS is scanned as text", () => {
   }
 });
 
-test("an unsupported compressed artifact fails closed", () => {
+test("compressed and unsupported artifacts are unpacked or fail closed", () => {
   const dir = mkdtempSync(join(tmpdir(), "lightwell-release-gz-"));
-  const archive = join(dir, "lightwell.gz");
+  const clean = join(dir, "notes.gz");
+  const dirty = join(dir, "dirty.gz");
+  const sevenZip = join(dir, "bundle.bin");
   const broken = join(dir, "broken.zip");
   try {
-    writeFileSync(archive, gzipSync(Buffer.from("public note\n")));
+    writeFileSync(clean, gzipSync(Buffer.from("public note\n")));
+    writeFileSync(dirty, gzipSync(Buffer.from(`note ${probe}\n`)));
+    writeFileSync(sevenZip, Buffer.concat([Buffer.from([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c]), Buffer.from("payload")]));
     writeFileSync(broken, Buffer.from("not a zip"));
 
-    const compressed = scan(archive);
-    assert.notEqual(compressed.status, 0);
-    assert.match(compressed.stderr, /unsupported artifact format/);
+    assert.equal(scan(clean).status, 0);
+    assert.notEqual(scan(dirty).status, 0);
+
+    const unsupported = scan(sevenZip);
+    assert.notEqual(unsupported.status, 0);
+    assert.match(unsupported.stderr, /unsupported artifact format/);
 
     const invalid = scan(broken);
     assert.notEqual(invalid.status, 0);
     assert.match(invalid.stderr, /could not unpack zip/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a zip renamed to another extension is still unpacked and scanned", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lightwell-release-renamed-"));
+  const renamed = join(dir, "renamed.bin");
+  try {
+    writeZip(renamed, "notes.txt", `note ${probe}\n`);
+    assert.notEqual(scan(renamed).status, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function writeDeb(dir: string, name: string, controlText: string, dataText: string): string {
+  const stage = mkdtempSync(join(dir, "stage-"));
+  execFileSync(
+    "python3",
+    [
+      "-c",
+      [
+        "import io, sys, tarfile, gzip, os",
+        "stage, control_text, data_text = sys.argv[1:]",
+        "def tgz(path, member, text):",
+        "    raw = io.BytesIO()",
+        "    with tarfile.open(fileobj=raw, mode='w') as tar:",
+        "        data = text.encode()",
+        "        info = tarfile.TarInfo(member); info.size = len(data)",
+        "        tar.addfile(info, io.BytesIO(data))",
+        "    open(path, 'wb').write(gzip.compress(raw.getvalue()))",
+        "tgz(os.path.join(stage, 'control.tar.gz'), './control', control_text)",
+        "tgz(os.path.join(stage, 'data.tar.gz'), './usr/share/doc/lightwell/README', data_text)",
+        "open(os.path.join(stage, 'debian-binary'), 'w').write('2.0\\n')",
+        "out = bytearray(b'!<arch>\\n')",
+        "for member in ('debian-binary', 'control.tar.gz', 'data.tar.gz'):",
+        "    data = open(os.path.join(stage, member), 'rb').read()",
+        "    header = f'{member:<16}{0:<12}{0:<6}{0:<6}{100644:<8}{len(data):<10}`\\n'",
+        "    out += header.encode() + data + (b'\\n' if len(data) % 2 else b'')",
+        "open(os.path.join(stage, 'package.deb'), 'wb').write(bytes(out))",
+      ].join("\n"),
+      stage,
+      controlText,
+      dataText,
+    ],
+    { stdio: "ignore" },
+  );
+  const deb = join(dir, name);
+  renameSync(join(stage, "package.deb"), deb);
+  return deb;
+}
+
+test("a denylisted string in deb control metadata fails the scan", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lightwell-release-deb-"));
+  try {
+    const clean = writeDeb(dir, "clean.deb", "Package: lightwell\n", "Public readme\n");
+    const dirty = writeDeb(dir, "dirty.deb", `Package: lightwell\nMaintainer: ${probe}\n`, "Public readme\n");
+    assert.equal(scan(clean).status, 0);
+    assert.notEqual(scan(dirty).status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
