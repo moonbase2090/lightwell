@@ -29,15 +29,25 @@ if [[ "$objdump_stdin" -eq 1 ]]; then
 fi
 
 if [[ -n "$objdump_file" ]]; then
-  line="$(grep -m1 '^architecture:' "$objdump_file" || true)"
-  if [[ -z "$line" ]]; then
-    printf 'objdump output has no architecture line\n' >&2
+  format_line="$(grep -m1 'file format ' "$objdump_file" || true)"
+  case "$format_line" in
+    *elf64-littleaarch64*|*elf64-aarch64*) machine="aarch64" ;;
+    *elf64-x86-64*) machine="i386:x86-64" ;;
+  esac
+  if [[ -z "$machine" ]]; then
+    line="$(grep -m1 '^architecture:' "$objdump_file" || true)"
+    machine="${line#architecture: }"
+    machine="${machine%%,*}"
+    machine="${machine#"${machine%%[![:space:]]*}"}"
+    machine="${machine%"${machine##*[![:space:]]}"}"
+    if [[ "$machine" == "UNKNOWN!" || "$machine" == "architecture:" ]]; then
+      machine=""
+    fi
+  fi
+  if [[ -z "$machine" ]]; then
+    printf 'objdump output has no recognized architecture\n' >&2
     exit 1
   fi
-  machine="${line#architecture: }"
-  machine="${machine%%,*}"
-  machine="${machine#"${machine%%[![:space:]]*}"}"
-  machine="${machine%"${machine##*[![:space:]]}"}"
 fi
 
 if [[ -z "$machine" || -z "$host" ]]; then

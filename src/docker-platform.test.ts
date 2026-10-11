@@ -28,9 +28,12 @@ test("an x86_64 binary on an arm64 host asks Docker for linux/amd64", () => {
 test("objdump architecture lines are parsed before the platform decision", () => {
   const arm = "target/lightwell:     file format elf64-littleaarch64\narchitecture: aarch64, flags 0x00000112:\nstart address 0x0000000000020000\n";
   const intel = "target/lightwell:     file format elf64-x86-64\narchitecture: i386:x86-64, flags 0x00000150:\nstart address 0x0000000000400000\n";
+  const unknownArm = "target/lightwell:     file format elf64-littleaarch64\narchitecture: UNKNOWN!\n";
   assert.equal(platform(["--objdump-stdin", "--host", "x86_64"], arm), "linux/arm64\n");
   assert.equal(platform(["--objdump-stdin", "--host", "aarch64"], intel), "linux/amd64\n");
   assert.equal(platform(["--objdump-stdin", "--host", "x86_64"], intel), "");
+  assert.equal(platform(["--objdump-stdin", "--host", "x86_64"], unknownArm), "linux/arm64\n");
+  assert.equal(platform(["--objdump-stdin", "--host", "aarch64"], unknownArm), "");
 });
 
 test("an unknown architecture is refused", () => {
