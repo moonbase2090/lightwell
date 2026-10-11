@@ -256,6 +256,9 @@ pub fn discover_cargo_workspace(
         Err(source) => return Err(CargoDiscoveryError::CargoStart(source)),
     };
     if !output.status.success() {
+        if matches!(output.status.code(), Some(126) | Some(127)) {
+            return crate::manifest::discover_cargo_workspace(&root);
+        }
         return Err(CargoDiscoveryError::CargoFailed {
             status: output.status.code(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
