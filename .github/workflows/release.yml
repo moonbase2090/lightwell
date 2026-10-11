@@ -65,6 +65,7 @@ jobs:
   macos-signed:
     name: Signed macOS app
     needs: validate
+    if: ${{ vars.LIGHTWELL_MACOS_SIGNING == 'true' }}
     runs-on: macos-26
     env:
       MACOSX_DEPLOYMENT_TARGET: '11.0'
@@ -97,6 +98,37 @@ jobs:
         with:
           name: release-macos-arm64
           path: ${{ runner.temp }}/Lightwell-macos-arm64.zip
+          if-no-files-found: error
+
+  macos-unsigned:
+    name: Unsigned macOS app
+    needs: validate
+    if: ${{ vars.LIGHTWELL_MACOS_SIGNING != 'true' }}
+    runs-on: macos-26
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: aarch64-apple-darwin
+      - run: npm ci
+      - name: Build the unsigned Apple Silicon app
+        run: npm run tauri:build -- --target aarch64-apple-darwin --bundles app --no-sign
+      - name: Confirm the app is unsigned
+        run: scripts/ci/check-unsigned-macos-app.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app
+      - name: Check the deployment target
+        run: scripts/ci/check-macos-minimum.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app 11.0
+      - name: Zip the app
+        run: ditto -c -k --keepParent target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-arm64-unsigned.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-arm64-unsigned
+          path: ${{ runner.temp }}/Lightwell-macos-arm64-unsigned.zip
           if-no-files-found: error
 
   linux-deb:
@@ -151,9 +183,15 @@ jobs:
 
   publish:
     name: Publish release
-    needs: [validate, macos-signed, linux-deb, linux-al2023-smoke]
+    needs: [validate, macos-signed, macos-unsigned, linux-deb, linux-al2023-smoke]
     if: >-
       ${{
+        !cancelled() &&
+        needs.validate.result == 'success' &&
+        needs.linux-deb.result == 'success' &&
+        needs.linux-al2023-smoke.result == 'success' &&
+        (needs.macos-signed.result == 'success' || needs.macos-unsigned.result == 'success') &&
+        !contains(needs.*.result, 'failure') &&
         !(github.event_name == 'workflow_dispatch' && inputs.dry_run) &&
         (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag')
       }}
