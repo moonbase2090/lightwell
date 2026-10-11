@@ -96,7 +96,7 @@ jobs:
 
   linux-cli-aarch64:
     name: Linux CLI glibc 2.28 (aarch64)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04-arm
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
