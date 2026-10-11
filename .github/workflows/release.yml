@@ -96,10 +96,28 @@ jobs:
         run: scripts/ci/notarize-macos-app.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-arm64.zip"
       - name: Check the deployment target
         run: scripts/ci/check-macos-minimum.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app 11.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+      - name: Install dmgbuild
+        run: python3 -m pip install --disable-pip-version-check 'dmgbuild==1.6.7'
+      - name: Build the drag-to-Applications disk image
+        run: scripts/ci/build-macos-dmg.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-arm64.dmg"
+      - name: Sign the disk image
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: scripts/ci/sign-macos-app.sh --dmg "$RUNNER_TEMP/Lightwell-macos-arm64.dmg"
+      - name: Notarize, staple, and validate the disk image
+        env:
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+        run: scripts/ci/notarize-macos-app.sh "$RUNNER_TEMP/Lightwell-macos-arm64.dmg"
       - uses: actions/upload-artifact@v4
         with:
           name: release-macos-arm64
-          path: ${{ runner.temp }}/Lightwell-macos-arm64.zip
+          path: ${{ runner.temp }}/Lightwell-macos-arm64.dmg
           if-no-files-found: error
 
   macos-unsigned:
