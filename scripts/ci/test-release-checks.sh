@@ -140,6 +140,10 @@ test_release_notes_from_tag() {
 Lightwell 0.1.0
 
 Ship notes here.
+
+-----BEGIN SSH SIGNATURE-----
+inline signature lines must not appear in release notes
+-----END SSH SIGNATURE-----
 EOF
 )"
     "$script_dir/release-notes-from-tag.sh" v0.1.0 "$notes"
