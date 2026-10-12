@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: MIT
 """Build the drag-to-install Lightwell disk image."""
 
 from pathlib import Path
