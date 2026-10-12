@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 - 2026-10-11
+
+### Changed
+
+- macOS releases ship as a signed, notarized drag-to-Applications DMG.
+- GitHub release notes are built from the annotated tag message without OpenSSH or PGP signature blocks.
+
 ## 0.1.0 - 2026-10-11
 
 First public source release. Version 0.1.0 is the version in `Cargo.toml` and `package.json`.
