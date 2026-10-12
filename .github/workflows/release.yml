@@ -246,10 +246,7 @@ jobs:
           RELEASE_TAG: ${{ needs.validate.outputs.tag }}
         run: |
           set -euo pipefail
-          git for-each-ref "refs/tags/${RELEASE_TAG}" --format='%(contents)' > release-notes.md
-          if [[ ! -s release-notes.md ]]; then
-            printf 'Lightwell %s\n' "${RELEASE_TAG#v}" > release-notes.md
-          fi
+          scripts/ci/release-notes-from-tag.sh "$RELEASE_TAG" release-notes.md
       - name: Check release text
         env:
           RELEASE_TAG: ${{ needs.validate.outputs.tag }}
@@ -257,7 +254,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build/release-text
-          git for-each-ref "refs/tags/${RELEASE_TAG}" --format='%(contents)' > build/release-text/tag-message.txt
+          scripts/ci/release-notes-from-tag.sh "$RELEASE_TAG" build/release-text/tag-message.txt
           printf '%s\n' "$RELEASE_TAG" > build/release-text/title.txt
           scripts/check-release-text.sh \
             --root "$GITHUB_WORKSPACE" \

@@ -126,6 +126,37 @@ C
     "$script_dir/check-deb-glibc.sh" "$work/empty"
 }
 
+test_release_notes_from_tag() {
+  local repo="$work/tag-notes" notes="$work/notes.md"
+  git init -q "$repo"
+  (
+    cd "$repo"
+    git config user.email 'test@example.com'
+    git config user.name 'test'
+    printf 'fixture\n' > f
+    git add f
+    git commit -qm 'fixture'
+    git tag -a v0.1.0 -m "$(cat <<'EOF'
+Lightwell 0.1.0
+
+Ship notes here.
+EOF
+)"
+    "$script_dir/release-notes-from-tag.sh" v0.1.0 "$notes"
+  )
+  if grep -q 'BEGIN SSH SIGNATURE' "$notes"; then
+    printf 'FAIL release-notes-from-tag: SSH signature block leaked into release notes\n' >&2
+    failures=$((failures + 1))
+  elif ! grep -q 'Ship notes here.' "$notes"; then
+    printf 'FAIL release-notes-from-tag: expected tag message body in release notes\n' >&2
+    failures=$((failures + 1))
+  else
+    printf 'ok   release-notes-from-tag strips SSH signature block\n'
+  fi
+}
+
+test_release_notes_from_tag
+
 case "$(uname -s)" in
   Darwin) test_macos ;;
   Linux) test_linux ;;
