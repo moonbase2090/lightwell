@@ -1119,7 +1119,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     <div className="workspace-shell" data-theme={theme} ref={shellRef}>
       <header className={`topbar${openWorkspaceAction === undefined ? "" : " desktop-topbar"}`}>
         <div className="brand-block">
-          <div className="brand-mark"><Waypoints size={17} strokeWidth={1.8} /></div>
+          <div className="brand-mark"><img className="brand-logo" src="/lightwell-mark.svg" width={32} height={32} alt="Lightwell" draggable={false} /></div>
           <div><div className="brand-name">Lightwell<span className="brand-version">LOCAL</span></div></div>
         </div>
         <div className="project-select-wrap">

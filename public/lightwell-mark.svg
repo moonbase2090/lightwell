@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Lightwell (small)</title>
+  <!-- Simplified for 16-64px: fuller tile, crisp two-layer beam, four big nodes, no fog.
+       Key shapes sit on a 64-unit grid so they land on whole pixels at 16px and 32px. -->
+  <defs>
+    <clipPath id="tile">
+      <rect x="48" y="48" width="928" height="928" rx="208"/>
+    </clipPath>
+    <linearGradient id="bg" x1="0" y1="48" x2="0" y2="976" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#121516"/>
+      <stop offset="1" stop-color="#0a0c0d"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="256" x2="0" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6efd9" stop-opacity="0.9"/>
+      <stop offset="0.55" stop-color="#e9dcc2" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#d8cab2" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="soften" x="-20%" y="-10%" width="140%" height="120%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g clip-path="url(#tile)">
+    <rect x="48" y="48" width="928" height="928" fill="url(#bg)"/>
+
+    <!-- Light shaft: soft outer body + brighter core -->
+    <g filter="url(#soften)">
+      <path d="M392 256 L632 256 L780 900 L244 900 Z" fill="url(#beam)" opacity="0.55"/>
+      <path d="M432 256 L592 256 L680 860 L344 860 Z" fill="url(#beam)"/>
+    </g>
+
+    <!-- Light slit -->
+    <rect x="320" y="192" width="384" height="64" rx="32" fill="#f6efd9"/>
+
+    <!-- Code map -->
+    <g stroke="#9fe3df" stroke-width="32" stroke-linecap="round">
+      <line x1="192" y1="832" x2="384" y2="704" stroke-opacity="0.45"/>
+      <line x1="384" y1="704" x2="640" y2="832" stroke-opacity="0.9"/>
+      <line x1="640" y1="832" x2="832" y2="704" stroke-opacity="0.45"/>
+    </g>
+    <!-- dark keyline so lit nodes separate from the beam -->
+    <g fill="#0a0c0d" opacity="0.85">
+      <circle cx="384" cy="704" r="84"/>
+      <circle cx="640" cy="832" r="84"/>
+    </g>
+    <g filter="url(#glow)">
+      <circle cx="192" cy="832" r="60" fill="#4f8f8a"/>
+      <circle cx="832" cy="704" r="60" fill="#4f8f8a"/>
+      <circle cx="384" cy="704" r="68" fill="#9fe3df"/>
+      <circle cx="640" cy="832" r="68" fill="#9fe3df"/>
+    </g>
+  </g>
+</svg>
