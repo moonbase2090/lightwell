@@ -89,4 +89,13 @@ cargo test -p lightwell-app --bin lightwell --locked
 
 `npm test` runs the shell checks through Git Bash. Keep proof under `$env:TEMP\lightwell-verify-$RUN_ID\proof` and leave machine paths out of anything that will be published.
 
+The per-user MSI is built with WiX 5.0.2:
+
+```powershell
+python scripts/release/windows_msi_test.py
+powershell -File scripts/release/build-windows.ps1
+```
+
+`build-windows.ps1` reads the workspace version from `Cargo.toml` and does not bump it. The GUI is `Lightwell.exe`. The CLI is `bin\lightwell.exe`. `ADDTOPATH` defaults off. When any Azure Artifact Signing setting is absent, the script prints `Windows code signing skipped: Azure Artifact Signing settings are absent.` When every setting is present, the script stops before packaging.
+
 After product changes to build commands, test commands, or primary user flows, run `/maintain-verification-skill`.

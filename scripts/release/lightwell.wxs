@@ -1,0 +1,84 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <!--
+    Per-user MSI. UpgradeCode 40aaa682-0263-59c1-879b-5958c9008bb4 is permanent.
+    ProductVersion is the numeric mapping in windows_msi.py, not the semver tag.
+    Lightwell.exe is the GUI. bin\lightwell.exe is the CLI. Those names share a
+    spelling, so they stay in different directories on a case-insensitive volume.
+  -->
+  <Package
+      Name="Lightwell"
+      Manufacturer="Moonbase2090"
+      Version="$(var.ProductVersion)"
+      UpgradeCode="40aaa682-0263-59c1-879b-5958c9008bb4"
+      ProductCode="*"
+      Scope="perUser"
+      Compressed="yes"
+      InstallerVersion="500"
+      Language="1033">
+    <!-- Same ProductVersion replaces the previous build. Schedule after InstallInitialize so removal does not delete the product this install just registered. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Lightwell is already installed." Schedule="afterInstallInitialize" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
+    <Property Id="ARPPRODUCTICON" Value="LightwellIcon" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/moonbase2090/lightwell" />
+    <Property Id="ADDTOPATH" Secure="yes" Value="0" />
+
+    <Icon Id="LightwellIcon" SourceFile="$(var.Repo)\crates\lightwell-app\icons\icon.ico" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="PROGRAMSFOLDER" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="Lightwell">
+          <Directory Id="BINFOLDER" Name="bin" />
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Component Id="LightwellGui" Guid="ee6a3411-a1f0-5173-acc9-a05773a7070f" Directory="INSTALLFOLDER">
+      <File Id="LightwellGuiExe" Name="Lightwell.exe" Source="$(var.Payload)\Lightwell.exe" />
+      <RegistryValue Root="HKCU" Key="Software\Moonbase2090\Lightwell" Name="gui" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="LightwellCli" Guid="b79faeab-9227-5cf4-850b-6e7aef8fe038" Directory="BINFOLDER">
+      <File Id="LightwellCliExe" Name="lightwell.exe" Source="$(var.Payload)\bin\lightwell.exe" />
+      <RegistryValue Root="HKCU" Key="Software\Moonbase2090\Lightwell" Name="cli" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="LightwellLicense" Guid="450aee28-5b8a-566d-b76c-04fafe9817dc" Directory="INSTALLFOLDER">
+      <File Id="LightwellLicenseFile" Source="$(var.Payload)\LICENSE" />
+      <RegistryValue Root="HKCU" Key="Software\Moonbase2090\Lightwell" Name="license" Type="integer" Value="1" KeyPath="yes" />
+      <RemoveFolder Id="RemoveBin" Directory="BINFOLDER" On="uninstall" />
+      <RemoveFolder Id="RemoveInstall" Directory="INSTALLFOLDER" On="uninstall" />
+      <RemoveFolder Id="RemovePrograms" Directory="PROGRAMSFOLDER" On="uninstall" />
+    </Component>
+
+    <Component Id="LightwellVersion" Guid="e82a1b43-ca51-58ca-ac52-d3d4387086cd" Directory="INSTALLFOLDER">
+      <File Id="LightwellVersionFile" Source="$(var.Payload)\VERSION" />
+      <RegistryValue Root="HKCU" Key="Software\Moonbase2090\Lightwell" Name="FullVersion" Type="string" Value="$(var.SourceVersion)" KeyPath="yes" />
+    </Component>
+
+    <Component Id="StartMenuShortcut" Guid="81c23084-004b-5907-ac98-cee2dd7a7b1b" Directory="ProgramMenuFolder" Bitness="always64">
+      <Shortcut Id="LightwellGuiShortcut" Name="Lightwell" Target="[INSTALLFOLDER]Lightwell.exe" WorkingDirectory="INSTALLFOLDER" Icon="LightwellIcon" />
+      <RemoveFolder Id="RemoveStartMenuShortcutFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\Moonbase2090\Lightwell" Name="shortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <!-- Off unless msiexec is passed ADDTOPATH=1. Uninstall removes the entry this component added. -->
+    <Component Id="UserPath" Guid="d13e1899-b912-5219-b522-0f6e92cb1a75" Directory="BINFOLDER" Condition="ADDTOPATH = &quot;1&quot;">
+      <Environment Id="UserPathEntry" Name="PATH" Value="[BINFOLDER]" Action="set" Part="first" System="no" />
+      <RegistryValue Root="HKCU" Key="Software\Moonbase2090\Lightwell" Name="path" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="Main">
+      <ComponentRef Id="LightwellGui" />
+      <ComponentRef Id="LightwellCli" />
+      <ComponentRef Id="LightwellLicense" />
+      <ComponentRef Id="LightwellVersion" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="UserPath" />
+    </Feature>
+  </Package>
+</Wix>

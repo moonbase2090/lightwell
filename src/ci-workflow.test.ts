@@ -37,4 +37,5 @@ test("windows runs the npm suite and the cargo tests", () => {
   assert.match(block, /cargo test -p lightwell-core --lib --locked/);
   assert.match(block, /cargo test -p lightwell-cli --locked/);
   assert.match(block, /cargo test -p lightwell-app --bin lightwell --locked/);
+  assert.match(block, /python scripts\/release\/windows_msi_test.py/);
 });

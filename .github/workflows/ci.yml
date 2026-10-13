@@ -338,6 +338,7 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - run: python scripts/release/windows_msi_test.py
       - run: cargo test -p lightwell-core --lib --locked
       - run: cargo test -p lightwell-cli --locked
       - run: cargo test -p lightwell-app --bin lightwell --locked
