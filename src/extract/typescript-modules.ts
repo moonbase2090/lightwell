@@ -332,7 +332,8 @@ function opensAngle(line: string, index: number): boolean {
   if (line[index] !== "<") return false;
   if (line[index + 1] === "=") return false;
   if (line[index + 1] === "<") return false;
-  if (line[index + 1] === " ") return false;
+  if (line[index + 1] === undefined) return false;
+  if (line[index + 1] === " " || line[index + 1] === "\t") return false;
   if (line[index - 1] === "<") return false;
   const next = line[index + 1];
   const prev = line[index - 1];
@@ -381,6 +382,15 @@ function opensAngle(line: string, index: number): boolean {
   if ((prev === ")" || prev === "]") && next !== undefined && isIdentPart(next)) {
     return false;
   }
+  if (next === "_" || next === "$") {
+    let start = index;
+    while (start > 0 && isIdentPart(line[start - 1] ?? "")) start -= 1;
+    const first = line[start];
+    if (first !== undefined && start < index) {
+      const beforeValue = first >= "a" && first <= "z" || first === "_" || first === "$";
+      if (beforeValue) return false;
+    }
+  }
   if (next !== undefined && isIdentPart(next)) {
     let start = index;
     while (start > 0 && isIdentPart(line[start - 1] ?? "")) start -= 1;
@@ -391,7 +401,9 @@ function opensAngle(line: string, index: number): boolean {
         beforeValue
         && ((next >= "a" && next <= "z")
           || (next >= "0" && next <= "9")
-          || (next >= "A" && next <= "Z"))
+          || (next >= "A" && next <= "Z")
+          || next === "_"
+          || next === "$")
       ) {
         return false;
       }

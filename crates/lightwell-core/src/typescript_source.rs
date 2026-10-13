@@ -360,7 +360,10 @@ fn opens_angle(chars: &[char], index: usize) -> bool {
     if index + 1 < chars.len() && chars[index + 1] == '<' {
         return false;
     }
-    if index + 1 < chars.len() && chars[index + 1] == ' ' {
+    if index + 1 >= chars.len() {
+        return false;
+    }
+    if index + 1 < chars.len() && (chars[index + 1] == ' ' || chars[index + 1] == '\t') {
         return false;
     }
     if index > 0 && chars[index - 1] == '<' {
@@ -412,7 +415,11 @@ fn opens_angle(chars: &[char], index: usize) -> bool {
             let next = chars[index + 1];
             let before_value = first.is_ascii_lowercase() || first == '_' || first == '$';
             if before_value
-                && (next.is_ascii_lowercase() || next.is_ascii_digit() || next.is_ascii_uppercase())
+                && (next.is_ascii_lowercase()
+                    || next.is_ascii_digit()
+                    || next.is_ascii_uppercase()
+                    || next == '_'
+                    || next == '$')
             {
                 return false;
             }
@@ -740,6 +747,14 @@ export const bitor = n<|m;
 export function afterBitor() {}
 export const bitxor = n<^m;
 export function afterBitxor() {}
+export const underLimit = n<_limit;
+export function afterUnderLimit() {}
+export const dollarLimit2 = n<$limit;
+export function afterDollarLimit2() {}
+export const tabbed = n<\tlimit;
+export function afterTabbed() {}
+export const dangling = n<
+export function afterDangling() {}
 ";
         let (_imports, symbols) = parse_typescript_source(unspaced);
         assert_eq!(
@@ -809,6 +824,14 @@ export function afterBitxor() {}
                 "afterBitor",
                 "bitxor",
                 "afterBitxor",
+                "underLimit",
+                "afterUnderLimit",
+                "dollarLimit2",
+                "afterDollarLimit2",
+                "tabbed",
+                "afterTabbed",
+                "dangling",
+                "afterDangling",
             ]
         );
     }
