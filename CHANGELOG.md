@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.1.2 - 2026-10-12
+## 0.1.3 - 2026-10-12
+
+### Fixed
+
+- The release-text check no longer fails on the DMG's Applications shortcut.
+
+## 0.1.2 - 2026-10-12 (not published)
 
 ### Changed
 
