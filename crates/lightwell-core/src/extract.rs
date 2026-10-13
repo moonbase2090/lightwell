@@ -111,7 +111,7 @@ pub(crate) fn map_workspace(
     }
     for module in &typescript_modules {
         let fingerprint = fingerprints.file(&module.path)?;
-        workspace_inputs.push(format!("typescript:{}:{fingerprint}", module.name));
+        workspace_inputs.push(format!("web:{}:{fingerprint}", module.name));
     }
     workspace_inputs.sort();
     let workspace_fingerprint = hash_text(&workspace_inputs.join("\n"));
@@ -440,7 +440,7 @@ fn append_typescript_blocks(
                 .map(|import| import.statement.clone())
                 .collect(),
             unresolved: module.unreadable,
-            language: "typescript".to_owned(),
+            language: module.language.clone(),
         }));
         connections.push(contains_connection(workspace_id, &id));
         for symbol in &module.symbols {
@@ -479,13 +479,13 @@ fn append_typescript_symbol(
         declared_by_path: declared,
         cfg_attributes: vec![symbol.outline_label().to_owned()],
         unresolved: false,
-        language: "typescript".to_owned(),
+        language: module.language.clone(),
     }));
     connections.push(contains_connection(parent_id, &id));
 }
 
 fn typescript_block_id(module_path: &str, kind: Option<&str>) -> String {
-    let mut id = format!("module:typescript:{}", slug(module_path));
+    let mut id = format!("module:web:{}", slug(module_path));
     if let Some(kind) = kind {
         id.push(':');
         id.push_str(&slug(kind));

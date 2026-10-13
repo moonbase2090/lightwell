@@ -10,6 +10,7 @@ pub(crate) struct TypeScriptModule {
     pub name: String,
     pub path: PathBuf,
     pub unreadable: bool,
+    pub language: String,
     pub imports: Vec<TypeScriptImport>,
     pub symbols: Vec<TypeScriptSymbol>,
 }
@@ -51,10 +52,16 @@ impl TypeScriptSymbol {
 pub(crate) fn discover_typescript_modules(
     repository_path: &Path,
 ) -> Result<Vec<TypeScriptModule>, CargoDiscoveryError> {
+    discover_web_modules(repository_path)
+}
+
+pub(crate) fn discover_web_modules(
+    repository_path: &Path,
+) -> Result<Vec<TypeScriptModule>, CargoDiscoveryError> {
     let canonical_root = opened_root(repository_path)?;
     let mut files = Vec::new();
     let mut seen = HashSet::new();
-    walk_typescript_files(repository_path, &canonical_root, &mut seen, &mut files)?;
+    walk_web_files(repository_path, &canonical_root, &mut seen, &mut files)?;
     let mut modules = files
         .into_iter()
         .map(|path| module_from_file(repository_path, &path))
@@ -118,6 +125,7 @@ pub(crate) fn parse_typescript_source(
 }
 
 fn module_from_file(root: &Path, path: &Path) -> Result<TypeScriptModule, CargoDiscoveryError> {
+    let language = web_language_label(path).to_owned();
     let bytes = fs::read(path).map_err(|source| CargoDiscoveryError::TypeScriptSourceRead {
         path: path.to_owned(),
         source,
@@ -127,21 +135,31 @@ fn module_from_file(root: &Path, path: &Path) -> Result<TypeScriptModule, CargoD
             name: module_name(root, path),
             path: path.to_owned(),
             unreadable: true,
+            language,
             imports: Vec::new(),
             symbols: Vec::new(),
         });
     };
-    let (imports, symbols) = parse_typescript_source(&source);
+    let (imports, symbols) = if is_html_file(path) {
+        parse_html_source(&source)
+    } else if is_style_file(path) {
+        parse_style_source(&source)
+    } else if is_json_config_file(path) {
+        parse_json_config_source(path, &source)
+    } else {
+        parse_typescript_source(&source)
+    };
     Ok(TypeScriptModule {
         name: module_name(root, path),
         path: path.to_owned(),
         unreadable: false,
+        language,
         imports,
         symbols,
     })
 }
 
-fn walk_typescript_files(
+fn walk_web_files(
     directory: &Path,
     root: &Path,
     seen: &mut HashSet<PathBuf>,
@@ -178,10 +196,10 @@ fn walk_typescript_files(
                     source,
                 })?;
         if file_type.is_dir() {
-            walk_typescript_files(&path, root, seen, files)?;
+            walk_web_files(&path, root, seen, files)?;
             continue;
         }
-        if !is_typescript_file(&path) {
+        if !is_web_file(&path) {
             continue;
         }
         if confined_typescript_path(&path, root).is_none() {
@@ -206,20 +224,219 @@ fn confined_typescript_path(path: &Path, root: &Path) -> Option<PathBuf> {
 }
 
 fn skipped_directory(name: &str) -> bool {
-    matches!(name, "node_modules" | "target" | "dist")
+    matches!(name, "node_modules" | "target" | "dist" | ".next" | "out")
 }
 
-fn is_typescript_file(path: &Path) -> bool {
+fn is_web_file(path: &Path) -> bool {
+    is_web_script_file(path) || is_html_file(path) || is_style_file(path) || is_json_config_file(path)
+}
+
+fn is_web_script_file(path: &Path) -> bool {
     let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
         return false;
     };
     if file_name.ends_with(".d.ts") {
         return false;
     }
+    if file_name.starts_with("vite.config.") || file_name.starts_with("next.config.") {
+        return true;
+    }
     matches!(
         path.extension().and_then(|ext| ext.to_str()),
-        Some("ts" | "tsx" | "mts" | "cts")
+        Some("ts" | "tsx" | "mts" | "cts" | "js" | "jsx" | "mjs" | "cjs")
     )
+}
+
+fn is_html_file(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|ext| ext.to_str()),
+        Some("html" | "htm")
+    )
+}
+
+fn is_style_file(path: &Path) -> bool {
+    matches!(
+        path.extension().and_then(|ext| ext.to_str()),
+        Some("css" | "scss")
+    )
+}
+
+fn is_json_config_file(path: &Path) -> bool {
+    matches!(
+        path.file_name().and_then(|name| name.to_str()),
+        Some("package.json" | "tsconfig.json" | "jsconfig.json")
+    )
+}
+
+fn web_language_label(path: &Path) -> &'static str {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    if matches!(file_name, "package.json" | "tsconfig.json" | "jsconfig.json") {
+        return "json";
+    }
+    if file_name.starts_with("vite.config.") || file_name.starts_with("next.config.") {
+        return match path.extension().and_then(|ext| ext.to_str()) {
+            Some("ts" | "mts" | "cts") => "typescript",
+            _ => "javascript",
+        };
+    }
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some("ts" | "tsx" | "mts" | "cts") => "typescript",
+        Some("js" | "jsx" | "mjs" | "cjs") => "javascript",
+        Some("html" | "htm") => "html",
+        Some("css") => "css",
+        Some("scss") => "scss",
+        _ => "javascript",
+    }
+}
+
+fn parse_html_source(source: &str) -> (Vec<TypeScriptImport>, Vec<TypeScriptSymbol>) {
+    let mut imports = Vec::new();
+    let mut symbols = Vec::new();
+    let lower = source.to_ascii_lowercase();
+    let mut index = 0usize;
+    while let Some(start) = lower[index..].find("<script") {
+        let absolute = index + start;
+        let tag_end = lower[absolute..].find('>').map(|offset| absolute + offset);
+        let Some(tag_end) = tag_end else {
+            break;
+        };
+        let body_start = tag_end + 1;
+        let close = lower[body_start..].find("</script>").map(|offset| body_start + offset);
+        let Some(close) = close else {
+            index = body_start;
+            continue;
+        };
+        let body = source[body_start..close].trim();
+        if !body.is_empty() {
+            let (script_imports, script_symbols) = parse_typescript_source(body);
+            imports.extend(script_imports);
+            symbols.extend(script_symbols);
+        }
+        index = close + "</script>".len();
+    }
+    (imports, symbols)
+}
+
+fn parse_style_source(source: &str) -> (Vec<TypeScriptImport>, Vec<TypeScriptSymbol>) {
+    let mut imports = Vec::new();
+    let mut symbols = Vec::new();
+    for (line_no, line) in source.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("@import ") || trimmed.starts_with("@use ") {
+            imports.push(TypeScriptImport {
+                line: line_no + 1,
+                statement: trimmed.to_owned(),
+            });
+            continue;
+        }
+        if let Some(rest) = trimmed.strip_prefix("@keyframes ") {
+            let name = rest
+                .split(|character: char| character.is_whitespace() || character == '{')
+                .next()
+                .unwrap_or_default()
+                .trim();
+            if !name.is_empty() {
+                symbols.push(TypeScriptSymbol {
+                    name: name.to_owned(),
+                    kind: TypeScriptSymbolKind::Const,
+                    line: line_no + 1,
+                });
+            }
+        }
+    }
+    (imports, symbols)
+}
+
+fn parse_json_config_source(
+    path: &Path,
+    source: &str,
+) -> (Vec<TypeScriptImport>, Vec<TypeScriptSymbol>) {
+    let mut imports = Vec::new();
+    let symbols = Vec::new();
+    let value: serde_json::Value = match serde_json::from_str(source) {
+        Ok(value) => value,
+        Err(_) => return (imports, symbols),
+    };
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    if file_name == "package.json" {
+        append_package_json_hints(&value, &mut imports);
+    } else {
+        if let Some(extends) = value.get("extends").and_then(|item| item.as_str()) {
+            imports.push(TypeScriptImport {
+                line: 1,
+                statement: format!("extends \"{}\"", extends),
+            });
+        }
+    }
+    (imports, symbols)
+}
+
+fn append_package_json_hints(value: &serde_json::Value, imports: &mut Vec<TypeScriptImport>) {
+    let line = 1usize;
+    if let Some(workspaces) = value.get("workspaces") {
+        match workspaces {
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    if let Some(entry) = item.as_str() {
+                        imports.push(TypeScriptImport {
+                            line,
+                            statement: format!("workspace \"{}\"", entry),
+                        });
+                    }
+                }
+            }
+            serde_json::Value::Object(map) => {
+                if let Some(packages) = map.get("packages").and_then(|item| item.as_array()) {
+                    for item in packages {
+                        if let Some(entry) = item.as_str() {
+                            imports.push(TypeScriptImport {
+                                line,
+                                statement: format!("workspace \"{}\"", entry),
+                            });
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    for key in ["dependencies", "devDependencies", "peerDependencies"] {
+        let Some(table) = value.get(key).and_then(|item| item.as_object()) else {
+            continue;
+        };
+        if table.contains_key("react") {
+            imports.push(TypeScriptImport {
+                line,
+                statement: "framework react".to_owned(),
+            });
+        }
+        if table.contains_key("next") {
+            imports.push(TypeScriptImport {
+                line,
+                statement: "framework next".to_owned(),
+            });
+        }
+        if table.contains_key("vite") {
+            imports.push(TypeScriptImport {
+                line,
+                statement: "framework vite".to_owned(),
+            });
+        }
+    }
+}
+
+fn web_module_stem(file_name: &str) -> String {
+    Path::new(file_name)
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(str::to_owned)
+        .unwrap_or_else(|| file_name.to_owned())
 }
 
 fn module_name(root: &Path, path: &Path) -> String {
@@ -230,11 +447,8 @@ fn module_name(root: &Path, path: &Path) -> String {
         .map(str::to_owned)
         .collect::<Vec<_>>();
     if let Some(file_name) = parts.pop() {
-        let stem = Path::new(&file_name)
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or(&file_name);
-        parts.push(stem.to_owned());
+        let stem = web_module_stem(&file_name);
+        parts.push(stem);
     }
     parts.join(".")
 }
@@ -568,7 +782,10 @@ fn is_ident_start(character: char) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{discover_typescript_modules, parse_typescript_source, TypeScriptSymbolKind};
+    use super::{
+        discover_typescript_modules, discover_web_modules, parse_typescript_source,
+        TypeScriptSymbolKind,
+    };
     use crate::extract::extract_cargo_map;
     use crate::facts::FactBlock;
     use crate::metadata::CargoDiscoveryError;
@@ -579,6 +796,50 @@ mod tests {
 
     fn fixture_root() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/typescript-sample")
+    }
+
+    #[test]
+    fn web_fixture_lists_peers_framework_configs_and_routes() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/web-sample");
+        let modules = discover_web_modules(&root).expect("web fixture should parse");
+        let package = modules
+            .iter()
+            .find(|module| module.name == "package")
+            .expect("package.json module");
+        assert_eq!(package.language, "json");
+        assert!(package.imports.iter().any(|import| import.statement == "framework react"));
+        assert!(package.imports.iter().any(|import| import.statement == "framework next"));
+        assert!(package.imports.iter().any(|import| import.statement == "framework vite"));
+        assert!(package
+            .imports
+            .iter()
+            .any(|import| import.statement == "workspace \"packages/*\""));
+        let vite = modules
+            .iter()
+            .find(|module| module.name == "vite.config")
+            .expect("vite config");
+        assert_eq!(vite.language, "typescript");
+        let next = modules
+            .iter()
+            .find(|module| module.name == "next.config")
+            .expect("next config");
+        assert_eq!(next.language, "javascript");
+        let html = modules
+            .iter()
+            .find(|module| module.name == "index")
+            .expect("index.html");
+        assert_eq!(html.language, "html");
+        assert!(html.symbols.iter().any(|symbol| symbol.name == "boot"));
+        let css = modules
+            .iter()
+            .find(|module| module.name == "styles.app")
+            .expect("app.css");
+        assert_eq!(css.language, "css");
+        assert!(css.imports.iter().any(|import| import.statement.contains("@import")));
+        assert!(css.symbols.iter().any(|symbol| symbol.name == "fade-in"));
+        assert!(modules.iter().any(|module| module.name == "app.page"));
+        assert!(modules.iter().any(|module| module.name == "pages.about"));
+        assert!(modules.iter().any(|module| module.name == "src.Button" && module.language == "javascript"));
     }
 
     #[test]
