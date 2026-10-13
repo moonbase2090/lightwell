@@ -368,7 +368,8 @@ fn opens_angle(chars: &[char], index: usize) -> bool {
     }
     if index + 1 < chars.len() {
         match chars[index + 1] {
-            '+' | '(' | '.' | '!' | '/' | '\'' | '"' | '~' => return false,
+            '+' | '(' | '.' | '!' | '/' | '\'' | '"' | '~' | '`' | '{' | '?' | '%' | '&' | '|'
+            | '^' => return false,
             '[' => {
                 let mut start = index;
                 while start > 0 && is_ident_part(chars[start - 1]) {
@@ -725,6 +726,20 @@ export const tilde = n<~0;
 export function afterTilde() {}
 export const bracketed = n<[0];
 export function afterBracketed() {}
+export const braced = n<{a:1};
+export function afterBraced() {}
+export const tagged = n<`x`;
+export function afterTagged() {}
+export const optional = n<?>;
+export function afterOptional() {}
+export const modCmp = n<%m;
+export function afterModCmp() {}
+export const bitand = n<&m;
+export function afterBitand() {}
+export const bitor = n<|m;
+export function afterBitor() {}
+export const bitxor = n<^m;
+export function afterBitxor() {}
 ";
         let (_imports, symbols) = parse_typescript_source(unspaced);
         assert_eq!(
@@ -780,6 +795,20 @@ export function afterBracketed() {}
                 "afterTilde",
                 "bracketed",
                 "afterBracketed",
+                "braced",
+                "afterBraced",
+                "tagged",
+                "afterTagged",
+                "optional",
+                "afterOptional",
+                "modCmp",
+                "afterModCmp",
+                "bitand",
+                "afterBitand",
+                "bitor",
+                "afterBitor",
+                "bitxor",
+                "afterBitxor",
             ]
         );
     }
