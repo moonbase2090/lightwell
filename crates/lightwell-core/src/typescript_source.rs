@@ -150,7 +150,7 @@ fn module_from_file(root: &Path, path: &Path) -> Result<TypeScriptModule, CargoD
         parse_typescript_source(&source)
     };
     if is_web_script_file(path) {
-        append_next_route_hints(path, &mut imports);
+        append_next_route_hints(root, path, &mut imports);
     }
     Ok(TypeScriptModule {
         name: module_name(root, path),
@@ -231,7 +231,10 @@ fn skipped_directory(name: &str) -> bool {
 }
 
 fn is_web_file(path: &Path) -> bool {
-    is_web_script_file(path) || is_html_file(path) || is_style_file(path) || is_json_config_file(path)
+    is_web_script_file(path)
+        || is_html_file(path)
+        || is_style_file(path)
+        || is_json_config_file(path)
 }
 
 fn is_web_script_file(path: &Path) -> bool {
@@ -276,7 +279,10 @@ fn web_language_label(path: &Path) -> &'static str {
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
-    if matches!(file_name, "package.json" | "tsconfig.json" | "jsconfig.json") {
+    if matches!(
+        file_name,
+        "package.json" | "tsconfig.json" | "jsconfig.json"
+    ) {
         return "json";
     }
     if file_name.starts_with("vite.config.") || file_name.starts_with("next.config.") {
@@ -307,7 +313,9 @@ fn parse_html_source(source: &str) -> (Vec<TypeScriptImport>, Vec<TypeScriptSymb
             break;
         };
         let body_start = tag_end + 1;
-        let close = lower[body_start..].find("</script>").map(|offset| body_start + offset);
+        let close = lower[body_start..]
+            .find("</script>")
+            .map(|offset| body_start + offset);
         let Some(close) = close else {
             index = body_start;
             continue;
@@ -359,6 +367,7 @@ fn parse_json_config_source(
 ) -> (Vec<TypeScriptImport>, Vec<TypeScriptSymbol>) {
     let mut imports = Vec::new();
     let symbols = Vec::new();
+    let source = source.strip_prefix('\u{feff}').unwrap_or(source);
     let value: serde_json::Value = match serde_json::from_str(source) {
         Ok(value) => value,
         Err(_) => return (imports, symbols),
@@ -380,39 +389,60 @@ fn parse_json_config_source(
     (imports, symbols)
 }
 
-fn append_next_route_hints(path: &Path, imports: &mut Vec<TypeScriptImport>) {
-    if let Some(statement) = next_route_hint(path) {
-        imports.push(TypeScriptImport {
-            line: 1,
-            statement,
-        });
+fn append_next_route_hints(root: &Path, path: &Path, imports: &mut Vec<TypeScriptImport>) {
+    if let Some(statement) = next_route_hint(root, path) {
+        imports.push(TypeScriptImport { line: 1, statement });
     }
 }
 
-fn next_route_hint(path: &Path) -> Option<String> {
+fn next_route_hint(root: &Path, path: &Path) -> Option<String> {
     let file_name = path.file_name().and_then(|name| name.to_str())?;
     let stem = Path::new(file_name)
         .file_stem()
         .and_then(|stem| stem.to_str())?;
-    let parts = path
-        .components()
-        .filter_map(|component| component.as_os_str().to_str())
-        .collect::<Vec<_>>();
-    if parts.iter().any(|part| *part == "app") {
-        let kind = match stem {
-            "page" | "layout" | "route" | "loading" | "error" | "not-found" | "template"
-            | "default" => stem,
-            _ => return None,
-        };
-        return Some(format!("next app {}", kind));
+    let relative = path
+        .strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/");
+    if relative.starts_with("app/") {
+        return app_route_hint(stem);
     }
-    if parts.iter().any(|part| *part == "pages") {
-        if matches!(stem, "_app" | "_document" | "_error") {
-            return Some(format!("next pages {}", stem.trim_start_matches('_')));
-        }
-        if stem == "index" {
-            return Some("next pages index".to_owned());
-        }
+    if let Some(rest) = relative.strip_prefix("pages/") {
+        return pages_route_hint(rest, stem, false);
+    }
+    if let Some(rest) = relative.strip_prefix("src/pages/") {
+        return pages_route_hint(rest, stem, true);
+    }
+    if let Some(index) = relative.find("/pages/") {
+        let rest = &relative[index + "/pages/".len()..];
+        return pages_route_hint(rest, stem, false);
+    }
+    None
+}
+
+fn app_route_hint(stem: &str) -> Option<String> {
+    match stem {
+        "page" | "layout" | "route" | "loading" | "error" | "not-found" | "template"
+        | "default" => Some(format!("next app {}", stem)),
+        _ => None,
+    }
+}
+
+fn pages_route_hint(rest: &str, stem: &str, src_pages: bool) -> Option<String> {
+    if rest.starts_with("api/") || rest == "api" {
+        return Some("next pages api".to_owned());
+    }
+    if matches!(stem, "_app" | "_document" | "_error") {
+        return Some(format!("next pages {}", stem.trim_start_matches('_')));
+    }
+    if stem == "index" {
+        return Some("next pages index".to_owned());
+    }
+    if src_pages {
+        return None;
+    }
+    if !rest.contains('/') {
         return Some("next pages page".to_owned());
     }
     None
@@ -447,27 +477,22 @@ fn append_package_json_hints(value: &serde_json::Value, imports: &mut Vec<TypeSc
             _ => {}
         }
     }
+    let mut frameworks = HashSet::new();
     for key in ["dependencies", "devDependencies", "peerDependencies"] {
         let Some(table) = value.get(key).and_then(|item| item.as_object()) else {
             continue;
         };
-        if table.contains_key("react") {
-            imports.push(TypeScriptImport {
-                line,
-                statement: "framework react".to_owned(),
-            });
-        }
-        if table.contains_key("next") {
-            imports.push(TypeScriptImport {
-                line,
-                statement: "framework next".to_owned(),
-            });
-        }
-        if table.contains_key("vite") {
-            imports.push(TypeScriptImport {
-                line,
-                statement: "framework vite".to_owned(),
-            });
+        for (dependency, statement) in [
+            ("react", "framework react"),
+            ("next", "framework next"),
+            ("vite", "framework vite"),
+        ] {
+            if table.contains_key(dependency) && frameworks.insert(dependency) {
+                imports.push(TypeScriptImport {
+                    line,
+                    statement: statement.to_owned(),
+                });
+            }
         }
     }
 }
@@ -840,6 +865,108 @@ mod tests {
     }
 
     #[test]
+    fn next_route_hints_follow_router_roots() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("lightwell-next-routes-{unique}"));
+        fs::create_dir_all(root.join("pages/api")).expect("pages api");
+        fs::create_dir_all(root.join("src/pages")).expect("src pages");
+        fs::create_dir_all(root.join("pkg/app/pages")).expect("nested pages");
+        fs::create_dir_all(root.join("app/dashboard")).expect("app dashboard");
+        fs::create_dir_all(root.join("app/api/hello")).expect("app api");
+        fs::write(
+            root.join("pages/api/hello.ts"),
+            "export default function handler() {}",
+        )
+        .expect("api route");
+        fs::write(
+            root.join("src/pages/helpers.ts"),
+            "export function helpers() {}",
+        )
+        .expect("helpers");
+        fs::write(
+            root.join("pkg/app/pages/index.tsx"),
+            "export default function Nested() {}",
+        )
+        .expect("nested index");
+        fs::write(
+            root.join("app/dashboard/page.tsx"),
+            "export default function Page() {}",
+        )
+        .expect("app page");
+        fs::write(
+            root.join("app/api/hello/route.ts"),
+            "export function GET() {}",
+        )
+        .expect("app route");
+        fs::write(
+            root.join("pages/index.tsx"),
+            "export default function Home() {}",
+        )
+        .expect("pages index");
+        fs::write(
+            root.join("pages/_app.tsx"),
+            "export default function App() {}",
+        )
+        .expect("pages app");
+        let modules = discover_web_modules(&root).expect("discover");
+        let hint = |name: &str| {
+            modules
+                .iter()
+                .find(|module| module.name == name)
+                .map(|module| {
+                    module
+                        .imports
+                        .iter()
+                        .filter(|import| import.statement.starts_with("next "))
+                        .map(|import| import.statement.as_str())
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        };
+        assert_eq!(hint("pages.api.hello"), vec!["next pages api"]);
+        assert!(hint("src.pages.helpers").is_empty());
+        assert_eq!(hint("pkg.app.pages.index"), vec!["next pages index"]);
+        assert_eq!(hint("app.dashboard.page"), vec!["next app page"]);
+        assert_eq!(hint("app.api.hello.route"), vec!["next app route"]);
+        assert_eq!(hint("pages.index"), vec!["next pages index"]);
+        assert_eq!(hint("pages._app"), vec!["next pages app"]);
+        fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
+    fn package_json_bom_parses_framework_hints() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("lightwell-web-bom-{unique}"));
+        fs::create_dir_all(&root).expect("root");
+        fs::write(
+            root.join("package.json"),
+            "\u{feff}{\"dependencies\":{\"next\":\"1.0.0\",\"react\":\"1.0.0\"},\"devDependencies\":{\"react\":\"1.0.0\"}}",
+        )
+        .expect("bom package");
+        let modules = discover_web_modules(&root).expect("discover");
+        let package = modules
+            .iter()
+            .find(|module| module.name == "package")
+            .expect("package module");
+        assert_eq!(
+            package
+                .imports
+                .iter()
+                .filter(|import| import.statement.starts_with("framework "))
+                .map(|import| import.statement.as_str())
+                .collect::<Vec<_>>(),
+            vec!["framework react", "framework next"]
+        );
+        fs::remove_dir_all(&root).expect("cleanup");
+    }
+
+    #[test]
     fn web_fixture_lists_peers_framework_configs_and_routes() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/web-sample");
         let modules = discover_web_modules(&root).expect("web fixture should parse");
@@ -848,9 +975,18 @@ mod tests {
             .find(|module| module.name == "package")
             .expect("package.json module");
         assert_eq!(package.language, "json");
-        assert!(package.imports.iter().any(|import| import.statement == "framework react"));
-        assert!(package.imports.iter().any(|import| import.statement == "framework next"));
-        assert!(package.imports.iter().any(|import| import.statement == "framework vite"));
+        assert!(package
+            .imports
+            .iter()
+            .any(|import| import.statement == "framework react"));
+        assert!(package
+            .imports
+            .iter()
+            .any(|import| import.statement == "framework next"));
+        assert!(package
+            .imports
+            .iter()
+            .any(|import| import.statement == "framework vite"));
         assert!(package
             .imports
             .iter()
@@ -876,11 +1012,16 @@ mod tests {
             .find(|module| module.name == "styles.app")
             .expect("app.css");
         assert_eq!(css.language, "css");
-        assert!(css.imports.iter().any(|import| import.statement.contains("@import")));
+        assert!(css
+            .imports
+            .iter()
+            .any(|import| import.statement.contains("@import")));
         assert!(css.symbols.iter().any(|symbol| symbol.name == "fade-in"));
         assert!(modules.iter().any(|module| module.name == "app.page"));
         assert!(modules.iter().any(|module| module.name == "pages.about"));
-        assert!(modules.iter().any(|module| module.name == "src.Button" && module.language == "javascript"));
+        assert!(modules
+            .iter()
+            .any(|module| module.name == "src.Button" && module.language == "javascript"));
         let app_page = modules
             .iter()
             .find(|module| module.name == "app.page")

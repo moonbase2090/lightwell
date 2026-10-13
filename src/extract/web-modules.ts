@@ -181,7 +181,7 @@ function moduleFromFile(root: string, filePath: string): TypeScriptModule {
             : parseTypeScriptSource(source);
   const imports = [...parsed.imports];
   if (isWebScriptFile(filePath)) {
-    const hint = nextRouteHint(filePath);
+    const hint = nextRouteHint(root, filePath);
     if (hint !== null) imports.push({ line: 1, statement: hint });
   }
   return {
@@ -194,11 +194,11 @@ function moduleFromFile(root: string, filePath: string): TypeScriptModule {
   };
 }
 
-function nextRouteHint(filePath: string): string | null {
+function nextRouteHint(root: string, filePath: string): string | null {
   const base = path.basename(filePath);
   const stem = path.basename(base, path.extname(base));
-  const parts = filePath.split(path.sep);
-  if (parts.includes("app")) {
+  const relative = toSlash(path.relative(root, filePath));
+  if (relative.startsWith("app/")) {
     if (
       stem === "page"
       || stem === "layout"
@@ -213,13 +213,27 @@ function nextRouteHint(filePath: string): string | null {
     }
     return null;
   }
-  if (parts.includes("pages")) {
-    if (stem === "_app" || stem === "_document" || stem === "_error") {
-      return `next pages ${stem.slice(1)}`;
-    }
-    if (stem === "index") return "next pages index";
-    return "next pages page";
+  if (relative.startsWith("pages/")) {
+    return pagesRouteHint(relative.slice("pages/".length), stem, false);
   }
+  if (relative.startsWith("src/pages/")) {
+    return pagesRouteHint(relative.slice("src/pages/".length), stem, true);
+  }
+  const nestedPages = relative.indexOf("/pages/");
+  if (nestedPages !== -1) {
+    return pagesRouteHint(relative.slice(nestedPages + "/pages/".length), stem, false);
+  }
+  return null;
+}
+
+function pagesRouteHint(rest: string, stem: string, srcPages: boolean): string | null {
+  if (rest.startsWith("api/") || rest === "api") return "next pages api";
+  if (stem === "_app" || stem === "_document" || stem === "_error") {
+    return `next pages ${stem.slice(1)}`;
+  }
+  if (stem === "index") return "next pages index";
+  if (srcPages) return null;
+  if (!rest.includes("/")) return "next pages page";
   return null;
 }
 
@@ -595,9 +609,10 @@ function parseJsonConfigSource(
 ): { readonly imports: TypeScriptImport[]; readonly symbols: TypeScriptSymbol[] } {
   const imports: TypeScriptImport[] = [];
   const symbols: TypeScriptSymbol[] = [];
+  const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source;
   let value: unknown;
   try {
-    value = JSON.parse(source) as unknown;
+    value = JSON.parse(text) as unknown;
   } catch {
     return { imports, symbols };
   }
@@ -627,12 +642,20 @@ function appendPackageJsonHints(value: Record<string, unknown>, imports: TypeScr
       if (typeof entry === "string") imports.push({ line, statement: `workspace "${entry}"` });
     }
   }
+  const frameworks = new Set<string>();
   for (const key of ["dependencies", "devDependencies", "peerDependencies"]) {
     const table = value[key];
     if (!isRecord(table)) continue;
-    if ("react" in table) imports.push({ line, statement: "framework react" });
-    if ("next" in table) imports.push({ line, statement: "framework next" });
-    if ("vite" in table) imports.push({ line, statement: "framework vite" });
+    for (const [dependency, statement] of [
+      ["react", "framework react"],
+      ["next", "framework next"],
+      ["vite", "framework vite"],
+    ] as const) {
+      if (dependency in table && !frameworks.has(dependency)) {
+        frameworks.add(dependency);
+        imports.push({ line, statement });
+      }
+    }
   }
 }
 
