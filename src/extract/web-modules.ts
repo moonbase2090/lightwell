@@ -198,7 +198,7 @@ function nextRouteHint(root: string, filePath: string): string | null {
   const base = path.basename(filePath);
   const stem = path.basename(base, path.extname(base));
   const relative = toSlash(path.relative(root, filePath));
-  if (relative.startsWith("app/")) {
+  if (relative.startsWith("app/") || relative.startsWith("src/app/")) {
     if (
       stem === "page"
       || stem === "layout"
@@ -214,27 +214,25 @@ function nextRouteHint(root: string, filePath: string): string | null {
     return null;
   }
   if (relative.startsWith("pages/")) {
-    return pagesRouteHint(relative.slice("pages/".length), stem, false);
+    return pagesRouteHint(relative.slice("pages/".length), stem);
   }
   if (relative.startsWith("src/pages/")) {
-    return pagesRouteHint(relative.slice("src/pages/".length), stem, true);
+    return pagesRouteHint(relative.slice("src/pages/".length), stem);
   }
   const nestedPages = relative.indexOf("/pages/");
   if (nestedPages !== -1) {
-    return pagesRouteHint(relative.slice(nestedPages + "/pages/".length), stem, false);
+    return pagesRouteHint(relative.slice(nestedPages + "/pages/".length), stem);
   }
   return null;
 }
 
-function pagesRouteHint(rest: string, stem: string, srcPages: boolean): string | null {
+function pagesRouteHint(rest: string, stem: string): string | null {
   if (rest.startsWith("api/") || rest === "api") return "next pages api";
   if (stem === "_app" || stem === "_document" || stem === "_error") {
     return `next pages ${stem.slice(1)}`;
   }
   if (stem === "index") return "next pages index";
-  if (srcPages) return null;
-  if (!rest.includes("/")) return "next pages page";
-  return null;
+  return "next pages page";
 }
 
 function walkWebFiles(directory: string, canonicalRoot: string, seen: Set<string>, files: string[]): void {

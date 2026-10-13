@@ -405,18 +405,18 @@ fn next_route_hint(root: &Path, path: &Path) -> Option<String> {
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/");
-    if relative.starts_with("app/") {
+    if relative.starts_with("app/") || relative.starts_with("src/app/") {
         return app_route_hint(stem);
     }
     if let Some(rest) = relative.strip_prefix("pages/") {
-        return pages_route_hint(rest, stem, false);
+        return pages_route_hint(rest, stem);
     }
     if let Some(rest) = relative.strip_prefix("src/pages/") {
-        return pages_route_hint(rest, stem, true);
+        return pages_route_hint(rest, stem);
     }
     if let Some(index) = relative.find("/pages/") {
         let rest = &relative[index + "/pages/".len()..];
-        return pages_route_hint(rest, stem, false);
+        return pages_route_hint(rest, stem);
     }
     None
 }
@@ -429,7 +429,7 @@ fn app_route_hint(stem: &str) -> Option<String> {
     }
 }
 
-fn pages_route_hint(rest: &str, stem: &str, src_pages: bool) -> Option<String> {
+fn pages_route_hint(rest: &str, stem: &str) -> Option<String> {
     if rest.starts_with("api/") || rest == "api" {
         return Some("next pages api".to_owned());
     }
@@ -439,13 +439,7 @@ fn pages_route_hint(rest: &str, stem: &str, src_pages: bool) -> Option<String> {
     if stem == "index" {
         return Some("next pages index".to_owned());
     }
-    if src_pages {
-        return None;
-    }
-    if !rest.contains('/') {
-        return Some("next pages page".to_owned());
-    }
-    None
+    Some("next pages page".to_owned())
 }
 
 fn append_package_json_hints(value: &serde_json::Value, imports: &mut Vec<TypeScriptImport>) {
@@ -872,7 +866,9 @@ mod tests {
             .as_nanos();
         let root = std::env::temp_dir().join(format!("lightwell-next-routes-{unique}"));
         fs::create_dir_all(root.join("pages/api")).expect("pages api");
+        fs::create_dir_all(root.join("pages/blog")).expect("pages blog");
         fs::create_dir_all(root.join("src/pages")).expect("src pages");
+        fs::create_dir_all(root.join("src/app/dashboard")).expect("src app");
         fs::create_dir_all(root.join("pkg/app/pages")).expect("nested pages");
         fs::create_dir_all(root.join("app/dashboard")).expect("app dashboard");
         fs::create_dir_all(root.join("app/api/hello")).expect("app api");
@@ -886,6 +882,31 @@ mod tests {
             "export function helpers() {}",
         )
         .expect("helpers");
+        fs::write(
+            root.join("src/pages/about.tsx"),
+            "export default function About() {}",
+        )
+        .expect("src about");
+        fs::write(
+            root.join("pages/blog/post.tsx"),
+            "export default function Post() {}",
+        )
+        .expect("blog post");
+        fs::write(
+            root.join("pages/blog/index.tsx"),
+            "export default function Blog() {}",
+        )
+        .expect("blog index");
+        fs::write(
+            root.join("src/app/page.tsx"),
+            "export default function SrcHome() {}",
+        )
+        .expect("src app root page");
+        fs::write(
+            root.join("src/app/dashboard/page.tsx"),
+            "export default function SrcPage() {}",
+        )
+        .expect("src app page");
         fs::write(
             root.join("pkg/app/pages/index.tsx"),
             "export default function Nested() {}",
@@ -927,8 +948,13 @@ mod tests {
                 .unwrap_or_default()
         };
         assert_eq!(hint("pages.api.hello"), vec!["next pages api"]);
-        assert!(hint("src.pages.helpers").is_empty());
+        assert_eq!(hint("src.pages.helpers"), vec!["next pages page"]);
+        assert_eq!(hint("src.pages.about"), vec!["next pages page"]);
+        assert_eq!(hint("pages.blog.post"), vec!["next pages page"]);
+        assert_eq!(hint("pages.blog.index"), vec!["next pages index"]);
         assert_eq!(hint("pkg.app.pages.index"), vec!["next pages index"]);
+        assert_eq!(hint("src.app.page"), vec!["next app page"]);
+        assert_eq!(hint("src.app.dashboard.page"), vec!["next app page"]);
         assert_eq!(hint("app.dashboard.page"), vec!["next app page"]);
         assert_eq!(hint("app.api.hello.route"), vec!["next app route"]);
         assert_eq!(hint("pages.index"), vec!["next pages index"]);
