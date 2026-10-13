@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MPL-2.0
+# SPDX-License-Identifier: MIT
 """Render the 1x and 2x Finder backgrounds from the checked-in SVG source."""
 
 from pathlib import Path
