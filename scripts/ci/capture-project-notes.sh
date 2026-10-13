@@ -89,11 +89,13 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     sleep 1
     xdotool mousemove --window "$window_id" "$map_canvas_x" "$map_canvas_y" click 1
     sleep 1
+    xdotool windowfocus "$window_id" 2>/dev/null || true
     xdotool key --clearmodifiers n
-    sleep 2
-    xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click 1
-    xdotool type --clearmodifiers --delay 35 "Architecture note one."
+    sleep 3
+    xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
     sleep 1
+    xdotool type --clearmodifiers --delay 50 "Architecture note one."
+    sleep 2
     xdotool mousemove --window "$window_id" "$note_save_x" "$note_save_y" click 1
     for _ in $(seq 1 15); do
       if [[ -s "$notes_file" ]]; then break; fi
@@ -117,10 +119,11 @@ if (document.schemaVersion !== 1 || document.notes?.[blockId]?.text !== expected
 }
 NODE
 
-    xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click 1
-    xdotool key --clearmodifiers ctrl+a
-    xdotool type --clearmodifiers --delay 35 "Architecture note updated."
+    xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
     sleep 1
+    xdotool key --clearmodifiers ctrl+a
+    xdotool type --clearmodifiers --delay 50 "Architecture note updated."
+    sleep 2
     xdotool mousemove --window "$window_id" "$note_save_x" "$note_save_y" click 1
     sleep 2
     node - "$notes_file" "$block_id" "Architecture note updated." <<'NODE'
