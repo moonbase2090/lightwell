@@ -1,5 +1,6 @@
 import type * as Monaco from "monaco-editor-core";
 import { BUILTIN_LANGUAGE_PACKS } from "./builtin-packs.js";
+import path from "node:path";
 import type { LanguagePack, LanguagePackId } from "./language-pack.js";
 
 /** Active packs (built-ins today; plugin loader will append here later). */
@@ -25,11 +26,25 @@ export function languagePackById(id: LanguagePackId): LanguagePack | undefined {
   return LANGUAGE_PACKS.find((pack) => pack.id === id);
 }
 
+function packMatchesBasename(pack: LanguagePack, basename: string): boolean {
+  const lower = basename.toLowerCase();
+  if (pack.basenameFiles?.some((name) => name.toLowerCase() === lower)) {
+    return true;
+  }
+  return pack.basenamePrefixes?.some((prefix) => lower.startsWith(prefix.toLowerCase())) ?? false;
+}
+
 export function languagePackForPath(filePath: string): LanguagePack | null {
   const lower = filePath.toLowerCase();
+  const basename = path.basename(filePath);
   let match: LanguagePack | null = null;
   let matchedExtensionLength = 0;
   for (const pack of LANGUAGE_PACKS) {
+    if (packMatchesBasename(pack, basename)) {
+      match = pack;
+      matchedExtensionLength = Number.MAX_SAFE_INTEGER;
+      continue;
+    }
     for (const extension of pack.extensions) {
       if (!lower.endsWith(extension) || extension.length <= matchedExtensionLength) {
         continue;
@@ -41,6 +56,20 @@ export function languagePackForPath(filePath: string): LanguagePack | null {
   return match;
 }
 
+function extensionForMonaco(filePath: string): string {
+  const lower = filePath.toLowerCase();
+  const basename = path.basename(lower);
+  if (basename === "package.json" || basename === "tsconfig.json" || basename === "jsconfig.json") {
+    return ".json";
+  }
+  if (basename.startsWith("vite.config.") || basename.startsWith("next.config.")) {
+    const dot = basename.lastIndexOf(".");
+    return dot === -1 ? "" : basename.slice(dot);
+  }
+  const dot = lower.lastIndexOf(".");
+  return dot === -1 ? "" : lower.slice(dot);
+}
+
 export function sourceLanguageIdForPath(filePath: string): SourceLanguageId | null {
   return languagePackForPath(filePath)?.id ?? null;
 }
@@ -50,6 +79,11 @@ export function monacoLanguageIdForPath(filePath: string): string {
   const pack = languagePackForPath(filePath);
   if (!pack) {
     return "rust";
+  }
+  const extension = extensionForMonaco(filePath);
+  const mapped = pack.monacoIdByExtension?.[extension];
+  if (mapped !== undefined) {
+    return mapped;
   }
   if (pack.registerHighlighter !== null) {
     return pack.monacoLanguageId;

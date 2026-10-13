@@ -24,12 +24,15 @@ test("registry maps Python sources", () => {
   assert.equal(monacoLanguageIdForPath("pkg/mod.py"), "python");
 });
 
-test("registry maps TypeScript extensions without .ts swallowing .tsx", () => {
-  assert.equal(sourceLanguageIdForPath("src/App.tsx"), "typescript");
-  assert.equal(sourceLanguageIdForPath("src/cli.ts"), "typescript");
-  assert.equal(sourceLanguageIdForPath("tool.mts"), "typescript");
-  assert.equal(sourceLanguageIdForPath("config.cts"), "typescript");
+test("registry maps web extensions without .ts swallowing .tsx", () => {
+  assert.equal(sourceLanguageIdForPath("src/App.tsx"), "web");
+  assert.equal(sourceLanguageIdForPath("src/cli.ts"), "web");
+  assert.equal(sourceLanguageIdForPath("legacy.js"), "web");
+  assert.equal(sourceLanguageIdForPath("index.html"), "web");
+  assert.equal(sourceLanguageIdForPath("package.json"), "web");
   assert.equal(monacoLanguageIdForPath("src/App.tsx"), "typescript");
+  assert.equal(monacoLanguageIdForPath("legacy.jsx"), "javascript");
+  assert.equal(monacoLanguageIdForPath("index.html"), "html");
 });
 
 test("unknown paths keep Rust highlighting for Monaco", () => {
@@ -51,10 +54,10 @@ test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(typeof rust?.workspaceExtractor, "function");
   const toml = languagePackForPath("Cargo.toml");
   assert.equal(toml?.workspaceExtractor, null);
-  const typescript = languagePackForPath("src/App.tsx");
-  assert.equal(typescript?.extractor?.kind, "typescript-module");
-  assert.equal(typescript?.fixtures?.root, "crates/lightwell-core/fixtures/typescript-sample");
-  assert.equal(typeof typescript?.registerHighlighter, "function");
+  const web = languagePackForPath("src/App.tsx");
+  assert.equal(web?.extractor?.kind, "web-module");
+  assert.equal(web?.fixtures?.root, "crates/lightwell-core/fixtures/web-sample");
+  assert.equal(typeof web?.registerHighlighter, "function");
   const python = languagePackForPath("mod.py");
   assert.equal(python?.extractor?.kind, "python-module");
   assert.equal(python?.fixtures?.root, "crates/lightwell-core/fixtures/python-sample");
@@ -83,5 +86,5 @@ test("extractWorkspaceMap uses rust pack workspace extractor on fixture workspac
   );
   const rustPack = languagePackById("rust");
   assert.equal(typeof rustPack?.workspaceExtractor, "function");
-  assert.equal(languagePackById("typescript")?.workspaceExtractor, null);
+  assert.equal(languagePackById("web")?.workspaceExtractor, null);
 });

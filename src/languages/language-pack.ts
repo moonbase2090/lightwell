@@ -1,7 +1,7 @@
 import type * as Monaco from "monaco-editor-core";
 import type { FactMap } from "../model.js";
 
-export type LanguagePackId = "rust" | "toml" | "typescript" | "python";
+export type LanguagePackId = "rust" | "toml" | "web" | "python";
 
 export interface WorkspaceExtractArgs {
   readonly repositoryPath: string;
@@ -19,8 +19,8 @@ export type LanguagePackExtractor =
       readonly coreSourceModule: "lightwell_core::rust_source";
     }
   | {
-      readonly kind: "typescript-module";
-      readonly moduleId: "extract/typescript-modules";
+      readonly kind: "web-module";
+      readonly moduleId: "extract/web-modules";
       readonly coreSourceModule: "lightwell_core::typescript_source";
     }
   | {
@@ -43,7 +43,14 @@ export type MonacoHighlighterRegistrar = (monaco: typeof Monaco) => void;
 export interface LanguagePack {
   readonly id: LanguagePackId;
   readonly extensions: readonly string[];
+  /** Default Monaco id when `monacoIdForPath` has no extension match. */
   readonly monacoLanguageId: string;
+  /** Exact basenames (e.g. `package.json`) that belong to this pack. */
+  readonly basenameFiles?: readonly string[];
+  /** Config stems such as `vite.config.` matching `vite.config.ts`. */
+  readonly basenamePrefixes?: readonly string[];
+  /** Monaco language id per file extension (includes the leading dot). */
+  readonly monacoIdByExtension?: Readonly<Record<string, string>>;
   /** Describes source parsing modules; null until a pack extracts map facts. */
   readonly extractor: LanguagePackExtractor | null;
   /**

@@ -15,7 +15,7 @@ import type {
 } from "../model.js";
 import { discoverPythonModules, pythonFactBlocks } from "./python-modules.js";
 import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
-import { discoverTypeScriptModules, typescriptFactBlocks } from "./typescript-modules.js";
+import { discoverWebModules, webFactBlocks } from "./web-modules.js";
 
 interface CargoTarget {
   readonly name: string;
@@ -396,17 +396,17 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   const pythonFacts = pythonFactBlocks({ modules: pythonModules, rootPath, workspaceId: projectId });
   blocks.push(...pythonFacts.blocks);
   connections.push(...pythonFacts.connections);
-  const typescriptModules = discoverTypeScriptModules(rootPath);
-  const typescriptFacts = typescriptFactBlocks({ modules: typescriptModules, rootPath, workspaceId: projectId });
-  blocks.push(...typescriptFacts.blocks);
-  connections.push(...typescriptFacts.connections);
+  const webModules = discoverWebModules(rootPath);
+  const webFacts = webFactBlocks({ modules: webModules, rootPath, workspaceId: projectId });
+  blocks.push(...webFacts.blocks);
+  connections.push(...webFacts.connections);
   const finalWorkspaceFingerprint = hashText([
     ...packages.map((pkg) => {
       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
       return `${pkg.name}:${crate?.fingerprint ?? hashFile(pkg.manifestPath)}`;
     }),
     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
-    ...typescriptModules.map((module) => `typescript:${module.name}:${hashFile(module.path)}`),
+    ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
   ].sort().join("\n"));
   const workspaceIndex = blocks.findIndex((block) => block.id === projectId);
   if (workspaceIndex >= 0) blocks[workspaceIndex] = { ...workspaceBlock, fingerprint: finalWorkspaceFingerprint || workspaceFingerprint };

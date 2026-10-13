@@ -34,10 +34,26 @@
         "module:python:testdata-python-cov-partial-other",
         "module:python:testdata-python-cov-partial-test-app",
         "module:python:testdata-python-pack-app",
-        "module:python:testdata-python-pack-fail-app"
+        "module:python:testdata-python-pack-fail-app",
+        "module:web:testdata-a11y-jsx-widget",
+        "module:web:testdata-a11y-page-index",
+        "module:web:testdata-a11y-page-bad-index",
+        "module:web:testdata-cov-node-package",
+        "module:web:testdata-cov-node-src-choose",
+        "module:web:testdata-node-not-found-output-package",
+        "module:web:testdata-node-not-found-output-test",
+        "module:web:testdata-node-pack-package",
+        "module:web:testdata-node-pack-src-index",
+        "module:web:testdata-node-pack-fail-package",
+        "module:web:testdata-node-pack-fail-src-index",
+        "module:web:testdata-web-site-about",
+        "module:web:testdata-web-site-index",
+        "module:web:testdata-web-site-site",
+        "module:web:testdata-web-site-site",
+        "module:web:testdata-web-site-bad-index"
       ],
       "sourcePath": "Cargo.toml",
-      "fingerprint": "120e1752a48f38d31a142910b14c355fa69581ad471d0eb29b9c29f21327d59a",
+      "fingerprint": "aae84d41cdc0b11ffe2bac52f9a4a1f3dfbe60b535f36b3dc71bcf832ee2198b",
       "memberCount": 8
     },
     {
@@ -1544,6 +1560,321 @@
       ],
       "unresolved": false,
       "language": "python"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-a11y-jsx-widget",
+      "label": "Widget",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:web:testdata-a11y-jsx-widget-widget:function"
+      ],
+      "sourcePath": "testdata/a11y_jsx/Widget.jsx",
+      "fingerprint": "6a83477a4629125a2500e7eceb8d12cdc63926533c1094a794176f015888cd8b",
+      "packageName": "testdata.a11y_jsx.Widget",
+      "modulePath": "testdata.a11y_jsx.Widget",
+      "declaredByPath": "testdata/a11y_jsx/Widget.jsx",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-a11y-jsx-widget-widget:function",
+      "label": "Widget",
+      "parentId": "module:web:testdata-a11y-jsx-widget",
+      "children": [],
+      "sourcePath": "testdata/a11y_jsx/Widget.jsx",
+      "fingerprint": "6a83477a4629125a2500e7eceb8d12cdc63926533c1094a794176f015888cd8b",
+      "packageName": "testdata.a11y_jsx.Widget",
+      "modulePath": "testdata.a11y_jsx.Widget.Widget",
+      "declaredByPath": "testdata/a11y_jsx/Widget.jsx",
+      "cfgAttributes": [
+        "function"
+      ],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-a11y-page-index",
+      "label": "index",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/a11y_page/index.html",
+      "fingerprint": "23efa79e78f0926db94e4bed7852777074972a1f78cd902a51aac7e6fe328405",
+      "packageName": "testdata.a11y_page.index",
+      "modulePath": "testdata.a11y_page.index",
+      "declaredByPath": "testdata/a11y_page/index.html",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "html"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-a11y-page-bad-index",
+      "label": "index",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/a11y_page_bad/index.html",
+      "fingerprint": "6749d3f8539279a31dc6e4767e05cc1a6edf3b9ea0fc99ee16052b5adee04b75",
+      "packageName": "testdata.a11y_page_bad.index",
+      "modulePath": "testdata.a11y_page_bad.index",
+      "declaredByPath": "testdata/a11y_page_bad/index.html",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "html"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-cov-node-package",
+      "label": "package",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/cov_node/package.json",
+      "fingerprint": "4964a2b276a5ba781cce29f6a20321e35c29f19a0075ccecf104f48746aec9d3",
+      "packageName": "testdata.cov_node.package",
+      "modulePath": "testdata.cov_node.package",
+      "declaredByPath": "testdata/cov_node/package.json",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "json"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-cov-node-src-choose",
+      "label": "choose",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/cov_node/src/choose.js",
+      "fingerprint": "5acf25d06ebf9a47f0b489c2ab86982b3c07ccbd03f671564972bf95c3a3ff23",
+      "packageName": "testdata.cov_node.src.choose",
+      "modulePath": "testdata.cov_node.src.choose",
+      "declaredByPath": "testdata/cov_node/src/choose.js",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-node-not-found-output-package",
+      "label": "package",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/node_not_found_output/package.json",
+      "fingerprint": "45d6817c1ec45ebee9657c8b5dd962e207cd215917c9fd3c4a8bbb321dc698e3",
+      "packageName": "testdata.node_not_found_output.package",
+      "modulePath": "testdata.node_not_found_output.package",
+      "declaredByPath": "testdata/node_not_found_output/package.json",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "json"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-node-not-found-output-test",
+      "label": "test",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/node_not_found_output/test.js",
+      "fingerprint": "a101a2765a96ea6ee513462e3a07f5502dee68248219c52b852c6ed9674adbf7",
+      "packageName": "testdata.node_not_found_output.test",
+      "modulePath": "testdata.node_not_found_output.test",
+      "declaredByPath": "testdata/node_not_found_output/test.js",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-node-pack-package",
+      "label": "package",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/node_pack/package.json",
+      "fingerprint": "402186d8d5dbc5254fc1c167bb815064ea2ecd93a9865f4f16bb4a70cee0a1b1",
+      "packageName": "testdata.node_pack.package",
+      "modulePath": "testdata.node_pack.package",
+      "declaredByPath": "testdata/node_pack/package.json",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "json"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-node-pack-src-index",
+      "label": "index",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:web:testdata-node-pack-src-index-value:const"
+      ],
+      "sourcePath": "testdata/node_pack/src/index.js",
+      "fingerprint": "fce82f4c8897b6f0ab4e35910e4c833a7dbccb365e310891f2e4f2f144ef1d6e",
+      "packageName": "testdata.node_pack.src.index",
+      "modulePath": "testdata.node_pack.src.index",
+      "declaredByPath": "testdata/node_pack/src/index.js",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-node-pack-src-index-value:const",
+      "label": "value",
+      "parentId": "module:web:testdata-node-pack-src-index",
+      "children": [],
+      "sourcePath": "testdata/node_pack/src/index.js",
+      "fingerprint": "fce82f4c8897b6f0ab4e35910e4c833a7dbccb365e310891f2e4f2f144ef1d6e",
+      "packageName": "testdata.node_pack.src.index",
+      "modulePath": "testdata.node_pack.src.index.value",
+      "declaredByPath": "testdata/node_pack/src/index.js",
+      "cfgAttributes": [
+        "const"
+      ],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-node-pack-fail-package",
+      "label": "package",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/node_pack_fail/package.json",
+      "fingerprint": "fbf5f8948bc3eed3d84a204830db0cf8a676e350def045f09075a8aa1e50423b",
+      "packageName": "testdata.node_pack_fail.package",
+      "modulePath": "testdata.node_pack_fail.package",
+      "declaredByPath": "testdata/node_pack_fail/package.json",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "json"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-node-pack-fail-src-index",
+      "label": "index",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:web:testdata-node-pack-fail-src-index-token:const",
+        "module:web:testdata-node-pack-fail-src-index-choose:function"
+      ],
+      "sourcePath": "testdata/node_pack_fail/src/index.js",
+      "fingerprint": "58be79ed0ea75f0be5e05742cb0a2bc8c219d40c4f7ca3e8e62e615206ece407",
+      "packageName": "testdata.node_pack_fail.src.index",
+      "modulePath": "testdata.node_pack_fail.src.index",
+      "declaredByPath": "testdata/node_pack_fail/src/index.js",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-node-pack-fail-src-index-token:const",
+      "label": "token",
+      "parentId": "module:web:testdata-node-pack-fail-src-index",
+      "children": [],
+      "sourcePath": "testdata/node_pack_fail/src/index.js",
+      "fingerprint": "58be79ed0ea75f0be5e05742cb0a2bc8c219d40c4f7ca3e8e62e615206ece407",
+      "packageName": "testdata.node_pack_fail.src.index",
+      "modulePath": "testdata.node_pack_fail.src.index.token",
+      "declaredByPath": "testdata/node_pack_fail/src/index.js",
+      "cfgAttributes": [
+        "const"
+      ],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-node-pack-fail-src-index-choose:function",
+      "label": "choose",
+      "parentId": "module:web:testdata-node-pack-fail-src-index",
+      "children": [],
+      "sourcePath": "testdata/node_pack_fail/src/index.js",
+      "fingerprint": "58be79ed0ea75f0be5e05742cb0a2bc8c219d40c4f7ca3e8e62e615206ece407",
+      "packageName": "testdata.node_pack_fail.src.index",
+      "modulePath": "testdata.node_pack_fail.src.index.choose",
+      "declaredByPath": "testdata/node_pack_fail/src/index.js",
+      "cfgAttributes": [
+        "function"
+      ],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-web-site-about",
+      "label": "about",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/web_site/about.html",
+      "fingerprint": "02f98b271a6bc8a9c8a1557e43687f001519619d8c1deeb33e3d9bf19a7d7dd2",
+      "packageName": "testdata.web_site.about",
+      "modulePath": "testdata.web_site.about",
+      "declaredByPath": "testdata/web_site/about.html",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "html"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-web-site-index",
+      "label": "index",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/web_site/index.html",
+      "fingerprint": "6671febb5ff164f6f6a2f7d733d73f53fc29056bdc957e7e1cbc818270f8a43c",
+      "packageName": "testdata.web_site.index",
+      "modulePath": "testdata.web_site.index",
+      "declaredByPath": "testdata/web_site/index.html",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "html"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-web-site-site",
+      "label": "site",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/web_site/site.css",
+      "fingerprint": "eac0e790573fb6424e6008c9f3a1bdf262add6bb2460a001bb89549fb1ddf482",
+      "packageName": "testdata.web_site.site",
+      "modulePath": "testdata.web_site.site",
+      "declaredByPath": "testdata/web_site/site.css",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "css"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-web-site-site",
+      "label": "site",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/web_site/site.js",
+      "fingerprint": "a1eba9401aaf6c0fd278fb89e8ff228c9b82d57507db72c66e0d677f7c0bdc59",
+      "packageName": "testdata.web_site.site",
+      "modulePath": "testdata.web_site.site",
+      "declaredByPath": "testdata/web_site/site.js",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "javascript"
+    },
+    {
+      "type": "module",
+      "id": "module:web:testdata-web-site-bad-index",
+      "label": "index",
+      "parentId": "workspace:scorecard",
+      "children": [],
+      "sourcePath": "testdata/web_site_bad/index.html",
+      "fingerprint": "dbead9da940448efc894d7bfd829235b83b0b98f97ed69e19b9aa11a511c5c0d",
+      "packageName": "testdata.web_site_bad.index",
+      "modulePath": "testdata.web_site_bad.index",
+      "declaredByPath": "testdata/web_site_bad/index.html",
+      "cfgAttributes": [],
+      "unresolved": false,
+      "language": "html"
     }
   ],
   "connections": [
@@ -2112,6 +2443,126 @@
       "target": "module:python:testdata-python-pack-fail-app-choose:def"
     },
     {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-a11y-jsx-widget",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-a11y-jsx-widget"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:web:testdata-a11y-jsx-widget->module:web:testdata-a11y-jsx-widget-widget:function",
+      "source": "module:web:testdata-a11y-jsx-widget",
+      "target": "module:web:testdata-a11y-jsx-widget-widget:function"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-a11y-page-index",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-a11y-page-index"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-a11y-page-bad-index",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-a11y-page-bad-index"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-cov-node-package",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-cov-node-package"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-cov-node-src-choose",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-cov-node-src-choose"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-node-not-found-output-package",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-node-not-found-output-package"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-node-not-found-output-test",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-node-not-found-output-test"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-node-pack-package",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-node-pack-package"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-node-pack-src-index",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-node-pack-src-index"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:web:testdata-node-pack-src-index->module:web:testdata-node-pack-src-index-value:const",
+      "source": "module:web:testdata-node-pack-src-index",
+      "target": "module:web:testdata-node-pack-src-index-value:const"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-node-pack-fail-package",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-node-pack-fail-package"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-node-pack-fail-src-index",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-node-pack-fail-src-index"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:web:testdata-node-pack-fail-src-index->module:web:testdata-node-pack-fail-src-index-token:const",
+      "source": "module:web:testdata-node-pack-fail-src-index",
+      "target": "module:web:testdata-node-pack-fail-src-index-token:const"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:web:testdata-node-pack-fail-src-index->module:web:testdata-node-pack-fail-src-index-choose:function",
+      "source": "module:web:testdata-node-pack-fail-src-index",
+      "target": "module:web:testdata-node-pack-fail-src-index-choose:function"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-web-site-about",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-web-site-about"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-web-site-index",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-web-site-index"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-web-site-site",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-web-site-site"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-web-site-site",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-web-site-site"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:web:testdata-web-site-bad-index",
+      "source": "workspace:scorecard",
+      "target": "module:web:testdata-web-site-bad-index"
+    },
+    {
       "kind": "depends_on",
       "id": "depends_on:crate:sc-cli->crate:sc-core",
       "source": "crate:sc-cli",
@@ -2199,11 +2650,11 @@
     }
   ],
   "stats": {
-    "blocks": 95,
-    "connections": 104,
+    "blocks": 115,
+    "connections": 124,
     "crates": 8,
     "apps": 2,
-    "modules": 83,
+    "modules": 103,
     "cargoFeatures": 1
   }
 }
