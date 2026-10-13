@@ -58,7 +58,8 @@ function isFactBlock(value: unknown): value is FactBlock {
         && isString(value.modulePath)
         && isString(value.declaredByPath)
         && isStringArray(value.cfgAttributes)
-        && typeof value.unresolved === "boolean";
+        && typeof value.unresolved === "boolean"
+        && (value.language === undefined || isString(value.language));
     case "cargo_feature":
       return isString(value.packageName) && isString(value.featureName);
     default:

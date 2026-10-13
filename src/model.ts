@@ -42,6 +42,7 @@ export interface ModuleBlock extends FactBlockBase {
   readonly declaredByPath: string;
   readonly cfgAttributes: readonly string[];
   readonly unresolved: boolean;
+  readonly language?: string;
 }
 
 export interface CargoFeatureBlock extends FactBlockBase {
