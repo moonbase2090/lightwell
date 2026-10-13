@@ -196,7 +196,8 @@ impl Error for CargoDiscoveryError {
 
 #[derive(Deserialize)]
 struct CargoMetadata {
-    workspace_root: PathBuf,
+    #[serde(rename = "workspace_root")]
+    _workspace_root: PathBuf,
     workspace_members: Vec<String>,
     packages: Vec<MetadataPackage>,
 }
