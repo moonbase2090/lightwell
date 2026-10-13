@@ -77,8 +77,8 @@ test("cargo extraction includes typescript modules by default", () => {
     writeFileSync(path.join(root, "api.ts"), "export function load() {}\n");
     const map = extractCargoMap({ repositoryPath: root, projectName: "TS Host" });
     const typescript = map.blocks.filter((block) => block.type === "module" && block.language === "typescript");
-    assert.ok(typescript.some((block) => block.modulePath === "api"));
-    assert.ok(typescript.some((block) => block.modulePath === "api.load"));
+    assert.ok(typescript.some((block) => block.type === "module" && block.modulePath === "api"));
+    assert.ok(typescript.some((block) => block.type === "module" && block.modulePath === "api.load"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
