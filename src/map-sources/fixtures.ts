@@ -2,7 +2,7 @@ import prismattycAnnotations from "../../maps/prismattyc.annotations.json";
 import prismattycFacts from "../../maps/prismattyc.facts.json";
 import scorecardAnnotations from "../../maps/scorecard.annotations.json";
 import scorecardFacts from "../../maps/scorecard.facts.json";
-import type { MapSource, MapSourceDocument } from "../map-source.js";
+import type { MapSource, MapSourceDocument, ProjectNotesSnapshot, ProjectNotesSource } from "../map-source.js";
 
 interface FixtureMap extends MapSourceDocument {
   readonly label: string;
@@ -24,7 +24,48 @@ const fixtures = {
 const fixturesById: ReadonlyMap<string, FixtureMap> = new Map(Object.entries(fixtures));
 const entries = [...fixturesById].map(([id, fixture]) => ({ id, label: fixture.label }));
 
+/**
+ * Browser-preview notes kept in memory so the notes UI can be exercised without the desktop app.
+ * Gated by the same flag as the desktop notes dialog.
+ */
+export function createMemoryNotesSource(): ProjectNotesSource {
+  const notesByWorkspace = new Map<string, Map<string, string>>();
+  const snapshot = (workspaceId: string): ProjectNotesSnapshot => ({
+    kind: "ready",
+    notes: [...(notesByWorkspace.get(workspaceId) ?? new Map<string, string>())]
+      .map(([blockId, text]) => ({ blockId, text, sourceFingerprint: "preview", stale: false })),
+  });
+  const notesFor = (workspaceId: string) => {
+    const existing = notesByWorkspace.get(workspaceId);
+    if (existing !== undefined) return existing;
+    const created = new Map<string, string>();
+    notesByWorkspace.set(workspaceId, created);
+    return created;
+  };
+  return {
+    async add({ workspaceId, blockId, text }) {
+      const notes = notesFor(workspaceId);
+      if (notes.has(blockId)) throw new Error("This block already has a note.");
+      notes.set(blockId, text);
+      return snapshot(workspaceId);
+    },
+    async edit({ workspaceId, blockId, text }) {
+      const notes = notesFor(workspaceId);
+      if (!notes.has(blockId)) throw new Error("This block has no note to edit.");
+      notes.set(blockId, text);
+      return snapshot(workspaceId);
+    },
+    async remove({ workspaceId, blockId }) {
+      notesFor(workspaceId).delete(blockId);
+      return snapshot(workspaceId);
+    },
+  };
+}
+
+const previewNotes = import.meta.env?.VITE_ENABLE_PROJECT_NOTES === "true" ? createMemoryNotesSource() : undefined;
+
 export const fixtureMapSource: MapSource = {
+  ...(previewNotes === undefined ? {} : { projectNotes: previewNotes }),
   async listMaps() {
     return entries;
   },

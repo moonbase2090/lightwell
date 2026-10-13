@@ -108,3 +108,21 @@ test("map node names an unresolved source and hides child and change chrome", ()
   assert.equal(html.includes("node-alert"), false);
   assert.equal(html.includes(" selected"), false);
 });
+
+test("map node marks a block that has a project note and advertises its context menu", () => {
+  const block = retiredCrate();
+  const withNote = renderBlock({
+    block,
+    dimmed: false,
+    highlighted: false,
+    onHover: () => undefined,
+    onActivate: () => undefined,
+    hasNote: true,
+    onContextMenu: () => undefined,
+  });
+  assert.match(withNote, /aria-label="old-crate, CRATE, has note"/);
+  assert.match(withNote, /aria-haspopup="menu"/);
+  assert.match(withNote, /class="node-note-badge"/);
+  const without = renderBlock({ block, dimmed: false, highlighted: false, onHover: () => undefined, onActivate: () => undefined });
+  assert.doesNotMatch(without, /node-note-badge|aria-haspopup/);
+});

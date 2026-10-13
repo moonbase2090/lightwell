@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
 } from "react";
 import {
   Activity,
@@ -24,6 +25,7 @@ import {
   Layers3,
   Search,
   Settings2,
+  StickyNote,
   Waypoints,
 } from "lucide-react";
 import {
@@ -41,6 +43,14 @@ import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, Fact
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
+import NoteContextMenu, {
+  addNoteShortcut,
+  isAddNoteShortcut,
+  isContextMenuKey,
+  noteMenuItems,
+  type NoteMenuAction,
+  type NoteMenuTarget,
+} from "./NoteContextMenu.js";
 import Splitter from "./Splitter.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
@@ -198,17 +208,41 @@ function SearchResults({
   );
 }
 
+function noteButtonLabel(hasNote: boolean): "Add note" | "Edit note" {
+  return hasNote ? "Edit note" : "Add note";
+}
+
 function DetailsPanel({
   node,
   map,
   onOpen,
   onSelectBlock,
+  noteAction,
+  onAddNote,
+  onBlockContextMenu,
 }: {
   readonly node: DisplayNode;
   readonly map: ResolvedMap;
   readonly onOpen: (node: DisplayNode) => void;
   readonly onSelectBlock: (id: string) => void;
+  /** Note button label for this block, or undefined when notes are unavailable. */
+  readonly noteAction?: "Add note" | "Edit note";
+  readonly onAddNote?: () => void;
+  readonly onBlockContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
 }) {
+  const rowMenuProps = (block: DisplayBlock) => onBlockContextMenu === undefined ? {} : {
+    "aria-haspopup": "menu" as const,
+    onContextMenu: (event: ReactMouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      onBlockContextMenu(block, event.clientX, event.clientY);
+    },
+    onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => {
+      if (!isContextMenuKey(event)) return;
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      onBlockContextMenu(block, rect.left + 12, rect.bottom);
+    },
+  };
   if (node.virtual) {
     const members = node.memberIds.map((id) => map.blockById.get(id)).filter((block): block is DisplayBlock => block !== undefined);
     return (
@@ -221,7 +255,7 @@ function DetailsPanel({
         <div className="detail-section-label">CONNECTED BLOCKS <span>{members.length}</span></div>
         <div className="member-list">
           {members.map((member) => (
-            <button className="member-row" key={member.id} type="button" onClick={() => { onSelectBlock(member.id); onOpen(member); }}>
+            <button className="member-row" key={member.id} type="button" onClick={() => { onSelectBlock(member.id); onOpen(member); }} {...rowMenuProps(member)}>
               <span className={`member-type member-${member.annotationKind.toLowerCase()}`} />
               <span>{member.label}</span>
               <ChevronRight size={13} />
@@ -244,6 +278,16 @@ function DetailsPanel({
       <p className="detail-description">{node.description}</p>
       {node.annotationState === "changed" && <div className="stale-note"><CircleAlert size={14} /> Code changed since this note was written.</div>}
       {node.annotationState === "missing" && <div className="stale-note"><CircleAlert size={14} /> Add a description to the annotation overlay.</div>}
+      {noteAction !== undefined && onAddNote !== undefined && (
+        <button
+          className="details-add-note"
+          type="button"
+          onClick={onAddNote}
+          title={`${noteAction} for ${node.label} (${addNoteShortcut}). Notes are saved in .lightwell/notes.json.`}
+        >
+          <StickyNote size={14} /> {noteAction}<kbd>{addNoteShortcut}</kbd>
+        </button>
+      )}
 
       <div className="detail-divider" />
       <div className="detail-section-label">BLOCK STATS</div>
@@ -280,7 +324,7 @@ function DetailsPanel({
           <div className="detail-section-label">CHILD BLOCKS <span>{children.length}</span></div>
           <div className="member-list">
             {children.slice(0, 7).map((child) => (
-              <button className="member-row" key={child.id} type="button" onClick={() => { onSelectBlock(child.id); onOpen(child); }}>
+              <button className="member-row" key={child.id} type="button" onClick={() => { onSelectBlock(child.id); onOpen(child); }} {...rowMenuProps(child)}>
                 <span className={`member-type member-${child.annotationKind.toLowerCase()}`} />
                 <span>{child.label}</span>
                 <ChevronRight size={13} />
@@ -400,7 +444,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [loadedMap, setLoadedMap] = useState<LoadedMapState>({ kind: "loading", id: null });
   const [workspaceError, setWorkspaceError] = useState("");
   const [openingWorkspace, setOpeningWorkspace] = useState(false);
-  const [projectNotesOpen, setProjectNotesOpen] = useState(false);
+  const [notesDialog, setNotesDialog] = useState<{ readonly blockId: string | null; readonly initialText: string } | null>(null);
+  const [noteMenu, setNoteMenu] = useState<NoteMenuTarget | null>(null);
+  const [noteActionError, setNoteActionError] = useState("");
   const [mapRequestVersion, setMapRequestVersion] = useState(0);
   const [mapRefreshVersion, setMapRefreshVersion] = useState(0);
   const [scopePath, setScopePath] = useState<string[]>([]);
@@ -623,7 +669,21 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     if (id !== null) setActiveFeatureId(null);
   }, []);
 
-  const closeProjectNotes = useCallback(() => setProjectNotesOpen(false), []);
+  const closeProjectNotes = useCallback(() => setNotesDialog(null), []);
+  const closeNoteMenu = useCallback(() => setNoteMenu(null), []);
+  const notedBlockIds = useMemo(
+    () => new Set(projectNotes.kind === "ready" ? projectNotes.notes.map((note) => note.blockId) : []),
+    [projectNotes],
+  );
+  const notesAvailable = projectNotesSource !== undefined && projectNotes.kind === "ready";
+  const openNoteFor = useCallback((blockId: string | null, initialText = "") => {
+    setNoteMenu(null);
+    setNotesDialog({ blockId, initialText });
+  }, []);
+  const showBlockMenu = useCallback((block: DisplayBlock, x: number, y: number) => {
+    setNoteActionError("");
+    setNoteMenu({ blockId: block.id, x, y });
+  }, []);
   const acceptProjectNotes = useCallback((snapshot: ProjectNotesSnapshot) => {
     setLoadedMap((current) => current.kind === "ready" && current.id === mapKey
       ? { ...current, projectNotes: snapshot }
@@ -696,7 +756,29 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     activeFeatureMemberIds: activeFeatureMembers,
     onHover: setHoverNode,
     onActivate: openBlockInspector,
-  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector]);
+    notedBlockIds,
+    onContextMenu: showBlockMenu,
+  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, showBlockMenu]);
+
+  const noteTargetId = inspectedBlockId ?? (map?.blockById.has(selectedId) === true ? selectedId : null);
+  useEffect(() => {
+    if (!notesAvailable || notesDialog !== null || noteMenu !== null || noteTargetId === null) return;
+    const handleNoteShortcut = (event: globalThis.KeyboardEvent) => {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (!isAddNoteShortcut({
+        key: event.key,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        targetTag: target?.tagName ?? "",
+        targetEditable: target?.isContentEditable === true,
+      })) return;
+      event.preventDefault();
+      openNoteFor(noteTargetId);
+    };
+    window.addEventListener("keydown", handleNoteShortcut);
+    return () => window.removeEventListener("keydown", handleNoteShortcut);
+  }, [notesAvailable, notesDialog, noteMenu, noteTargetId, openNoteFor]);
 
   const selectSearchNode = useCallback((node: DisplayNode) => {
     setSearch("");
@@ -851,6 +933,63 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
   };
 
+  const deleteNote = async (blockId: string) => {
+    if (projectNotesSource === undefined || mapKey === null) return;
+    const label = map.blockById.get(blockId)?.label ?? blockId;
+    if (!window.confirm(`Delete the note on ${label}?`)) return;
+    try {
+      acceptProjectNotes(await projectNotesSource.remove({ workspaceId: mapKey, blockId }));
+    } catch (error: unknown) {
+      setNoteActionError(describeError(error, "Could not delete this note."));
+    }
+  };
+  const chooseNoteMenuAction = (target: NoteMenuTarget, action: NoteMenuAction) => {
+    const block = map.blockById.get(target.blockId);
+    if (block === undefined) return;
+    switch (action) {
+      case "add-note":
+        openNoteFor(block.id, target.line === undefined ? "" : `Line ${target.line}: `);
+        return;
+      case "edit-note":
+        openNoteFor(block.id);
+        return;
+      case "delete-note":
+        void deleteNote(block.id);
+        return;
+      case "open":
+        openBlockInspector(block);
+        return;
+      case "copy-path":
+        if (block.sourcePath !== null) {
+          const text = target.line === undefined ? block.sourcePath : `${block.sourcePath}:${target.line}`;
+          void navigator.clipboard?.writeText(text).catch(() => setNoteActionError("Could not copy the path."));
+        }
+        return;
+      default: {
+        const exhaustive: never = action;
+        return exhaustive;
+      }
+    }
+  };
+  const noteMenuBlock = noteMenu === null ? undefined : map.blockById.get(noteMenu.blockId);
+  const noteMenuView = noteMenu !== null && noteMenuBlock !== undefined ? (
+    <NoteContextMenu
+      x={noteMenu.x}
+      y={noteMenu.y}
+      title={noteMenu.line === undefined ? noteMenuBlock.label : `${noteMenuBlock.label} · line ${noteMenu.line}`}
+      items={noteMenuItems({
+        notesAvailable,
+        hasNote: notedBlockIds.has(noteMenuBlock.id),
+        canOpen: noteMenu.line === undefined && mapSource.editor !== undefined,
+        sourcePath: noteMenuBlock.sourcePath,
+      })}
+      onChoose={(action) => chooseNoteMenuAction(noteMenu, action)}
+      onClose={closeNoteMenu}
+    />
+  ) : null;
+  const selectedNoteAction = notesAvailable && !selected.virtual ? noteButtonLabel(notedBlockIds.has(selected.id)) : undefined;
+  const inspectedNoteAction = notesAvailable && inspectedBlockId !== null ? noteButtonLabel(notedBlockIds.has(inspectedBlockId)) : undefined;
+
   const graphCanvas = (
     <div className="graph-canvas" aria-label={`${map.facts.project.name} architecture map`}>
       <div className="canvas-watermark">
@@ -930,7 +1069,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           {staleCount > 0 && <span className="stale-count"><CircleAlert size={12} />{staleCount} changed</span>}
         </div>
         {projectNotesSource !== undefined && (
-          <button className="project-notes-open-button" type="button" onClick={() => setProjectNotesOpen(true)}>
+          <button
+            className="project-notes-open-button"
+            type="button"
+            onClick={() => openNoteFor(noteTargetId)}
+            title={`Project notes. Press ${addNoteShortcut} or right-click a block to add one.`}
+          >
             <FileText size={13} /> Notes
             {projectNotes.kind === "ready" && projectNotes.notes.length > 0 && <span>{projectNotes.notes.length}</span>}
           </button>
@@ -948,6 +1092,14 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       editorError={editorActionError}
       onOpenInEditor={() => { void handleOpenInEditor(); }}
       onClose={() => setInspectedBlockId(null)}
+      {...(inspectedNoteAction === undefined ? {} : {
+        noteAction: inspectedNoteAction,
+        onAddNote: () => openNoteFor(inspectedBlockId),
+        onLineContextMenu: (line: number, x: number, y: number) => {
+          setNoteActionError("");
+          setNoteMenu({ blockId: inspectedBlockId, x, y, line });
+        },
+      })}
     />
   ) : (
     <DetailsPanel
@@ -955,6 +1107,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       map={map}
       onOpen={(node) => { if (!node.virtual) openBlockInspector(node); }}
       onSelectBlock={setSelectedId}
+      onBlockContextMenu={showBlockMenu}
+      {...(selectedNoteAction === undefined ? {} : {
+        noteAction: selectedNoteAction,
+        onAddNote: () => openNoteFor(selected.id),
+      })}
     />
   );
 
@@ -1062,13 +1219,18 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         <span><FileCode2 size={12} /> annotations kept in a separate overlay</span>
         <span className="statusbar-right"><Check size={12} /> {map.facts.stats.crates} crates mapped</span>
       </div>
-      {projectNotesOpen && projectNotesSource !== undefined && (
+      {noteMenuView}
+      {noteActionError.length > 0 && (
+        <div className="note-action-error" role="alert"><CircleAlert size={14} />{noteActionError}</div>
+      )}
+      {notesDialog !== null && projectNotesSource !== undefined && (
         <ProjectNotesDialog
           workspaceId={mapKey ?? ""}
           source={projectNotesSource}
           snapshot={projectNotes}
           map={map}
-          currentBlockId={map.blockById.has(selected.id) ? selected.id : null}
+          currentBlockId={notesDialog.blockId !== null && map.blockById.has(notesDialog.blockId) ? notesDialog.blockId : null}
+          initialText={notesDialog.initialText}
           onSnapshot={acceptProjectNotes}
           onClose={closeProjectNotes}
         />

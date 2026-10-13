@@ -13,6 +13,8 @@ interface ProjectNotesDialogProps {
   readonly snapshot: ProjectNotesSnapshot;
   readonly map: ResolvedMap;
   readonly currentBlockId: string | null;
+  /** Starting text for a new note, such as a line reference from the source inspector. */
+  readonly initialText?: string;
   readonly onSnapshot: (snapshot: ProjectNotesSnapshot) => void;
   readonly onClose: () => void;
 }
@@ -47,6 +49,7 @@ export default function ProjectNotesDialog({
   snapshot,
   map,
   currentBlockId,
+  initialText = "",
   onSnapshot,
   onClose,
 }: ProjectNotesDialogProps) {
@@ -54,7 +57,10 @@ export default function ProjectNotesDialog({
     ? [...snapshot.notes].sort((left, right) => Number(left.stale) - Number(right.stale)
       || left.blockId.localeCompare(right.blockId))
     : [], [snapshot]);
-  const [editor, setEditor] = useState<NoteEditor>(() => noteEditorForBlock(currentBlockId ?? "", notes));
+  const [editor, setEditor] = useState<NoteEditor>(() => {
+    const initial = noteEditorForBlock(currentBlockId ?? "", notes);
+    return initial.kind === "new" ? { ...initial, text: initialText } : initial;
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
@@ -177,7 +183,16 @@ export default function ProjectNotesDialog({
               {snapshot.kind === "error" ? (
                 <div className="notes-list-message">Notes could not be read from this workspace.</div>
               ) : notes.length === 0 ? (
-                <div className="notes-list-message">No notes yet. Select a block and add a note.</div>
+                <div className="notes-list-message notes-empty-state">
+                  <span>No notes yet.</span>
+                  {currentBlockId === null || currentBlockId.length === 0
+                    ? <span>Select a block on the map, then choose Add note or right-click it.</span>
+                    : (
+                      <button className="notes-empty-add-button" type="button" onClick={() => textareaRef.current?.focus()}>
+                        <Plus size={13} /> Add note to {map.blockById.get(currentBlockId)?.label ?? currentBlockId}
+                      </button>
+                    )}
+                </div>
               ) : notes.map((note) => (
                 <button
                   className={`project-note-row${note.blockId === editor.blockId ? " selected" : ""}`}

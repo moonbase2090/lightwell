@@ -69,6 +69,8 @@ export function emphasizeGraph(args: {
   readonly activeFeatureMemberIds: ReadonlySet<string> | null;
   readonly onHover: (id: string | null) => void;
   readonly onActivate: (block: DisplayBlock) => void;
+  readonly notedBlockIds?: ReadonlySet<string>;
+  readonly onContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
 }): { readonly nodes: MapNode[]; readonly edges: Edge[] } {
   const directNeighbors = args.activeNodeId === null
     ? new Set<string>()
@@ -86,6 +88,8 @@ export function emphasizeGraph(args: {
       highlighted: highlightedIds?.has(node.id) ?? false,
       onHover: args.onHover,
       onActivate: args.onActivate,
+      hasNote: args.notedBlockIds?.has(node.id) ?? false,
+      ...(args.onContextMenu === undefined ? {} : { onContextMenu: args.onContextMenu }),
     },
   }));
   const edges = args.edges.map((edge) => {

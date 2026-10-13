@@ -1,5 +1,5 @@
 import { Suspense, lazy } from "react";
-import { ArrowUpRight, CircleAlert, LoaderCircle, X } from "lucide-react";
+import { ArrowUpRight, CircleAlert, LoaderCircle, StickyNote, X } from "lucide-react";
 import type { SourceFileDocument } from "./map-source.js";
 import type { ResolvedTheme } from "./theme.js";
 
@@ -18,6 +18,9 @@ export default function SourceInspectorPanel({
   editorError,
   onOpenInEditor,
   onClose,
+  noteAction,
+  onAddNote,
+  onLineContextMenu,
 }: {
   readonly title: string;
   readonly inspection: SourceInspectionState;
@@ -26,6 +29,10 @@ export default function SourceInspectorPanel({
   readonly editorError: string;
   readonly onOpenInEditor: () => void;
   readonly onClose: () => void;
+  /** Label of the note button for this block, or undefined when notes are unavailable. */
+  readonly noteAction?: "Add note" | "Edit note";
+  readonly onAddNote?: () => void;
+  readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
 }) {
   return (
     <aside className="source-inspector" aria-label={`Source inspector for ${title}`}>
@@ -48,6 +55,11 @@ export default function SourceInspectorPanel({
       >
         <ArrowUpRight size={15} />{openingEditor ? "Opening editor…" : "Open in editor"}
       </button>
+      {noteAction !== undefined && onAddNote !== undefined && (
+        <button className="inspector-add-note-button" type="button" onClick={onAddNote} title={`${noteAction} (N) · right-click a line for more`}>
+          <StickyNote size={14} />{noteAction}<kbd>N</kbd>
+        </button>
+      )}
       {editorError.length > 0 && <div className="inspector-error" role="alert"><CircleAlert size={14} />{editorError}</div>}
 
       <div className="source-inspector-content">
@@ -65,6 +77,7 @@ export default function SourceInspectorPanel({
               column={inspection.document.column}
               path={inspection.document.path}
               theme={theme}
+              {...(onLineContextMenu === undefined ? {} : { onLineContextMenu })}
             />
           </Suspense>
         )}
