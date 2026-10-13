@@ -3,6 +3,9 @@ export type ResolvedTheme = "dark" | "light" | "blueprint";
 
 const THEME_PREFERENCE_KEY = "lightwell.theme";
 
+/** Theme for new installs and unset or unreadable preferences. A saved preference always wins. */
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = "blueprint";
+
 export function isThemePreference(value: string | null): value is ThemePreference {
   switch (value) {
     case "system":
@@ -18,9 +21,9 @@ export function isThemePreference(value: string | null): value is ThemePreferenc
 export function readThemePreference(): ThemePreference {
   try {
     const value = window.localStorage.getItem(THEME_PREFERENCE_KEY);
-    return isThemePreference(value) ? value : "system";
+    return isThemePreference(value) ? value : DEFAULT_THEME_PREFERENCE;
   } catch {
-    return "system";
+    return DEFAULT_THEME_PREFERENCE;
   }
 }
 
