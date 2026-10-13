@@ -3,6 +3,7 @@ import prismattycFacts from "../../maps/prismattyc.facts.json";
 import scorecardAnnotations from "../../maps/scorecard.annotations.json";
 import scorecardFacts from "../../maps/scorecard.facts.json";
 import type { MapSource, MapSourceDocument, ProjectNotesSnapshot, ProjectNotesSource } from "../map-source.js";
+import { projectNotesEnabled } from "../feature-flags.js";
 
 interface FixtureMap extends MapSourceDocument {
   readonly label: string;
@@ -26,7 +27,7 @@ const entries = [...fixturesById].map(([id, fixture]) => ({ id, label: fixture.l
 
 /**
  * Browser-preview notes kept in memory so the notes UI can be exercised without the desktop app.
- * Gated by the same flag as the desktop notes dialog.
+ * Follows the same VITE_ENABLE_PROJECT_NOTES opt-out as the desktop app.
  */
 export function createMemoryNotesSource(): ProjectNotesSource {
   const notesByWorkspace = new Map<string, Map<string, string>>();
@@ -62,7 +63,7 @@ export function createMemoryNotesSource(): ProjectNotesSource {
   };
 }
 
-const previewNotes = import.meta.env?.VITE_ENABLE_PROJECT_NOTES === "true" ? createMemoryNotesSource() : undefined;
+const previewNotes = projectNotesEnabled(import.meta.env?.VITE_ENABLE_PROJECT_NOTES) ? createMemoryNotesSource() : undefined;
 
 export const fixtureMapSource: MapSource = {
   ...(previewNotes === undefined ? {} : { projectNotes: previewNotes }),

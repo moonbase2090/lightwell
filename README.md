@@ -77,13 +77,13 @@ Releases ship a signed and notarized Apple Silicon `.dmg` and an x86_64 Linux `.
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 
-The desktop Project notes dialog is off in default builds. Enable it when developing the app with:
+Project notes are on in default and release builds. To build without them, set:
 
 ```sh
-VITE_ENABLE_PROJECT_NOTES=true npm run tauri:dev
+VITE_ENABLE_PROJECT_NOTES=false npm run tauri:build
 ```
 
-Click **Notes** to add, edit, or remove notes for map blocks. The dialog reads and writes the opened project's `.lightwell/notes.json` file. It marks stale notes and keeps them until you remove them.
+Right-click a block (or press Shift+F10), use **Add note** in the details panel, press **N**, or click **Notes** to add, edit, or remove notes for map blocks. The dialog reads and writes the opened project's `.lightwell/notes.json` file. It marks stale notes and keeps them until you remove them.
 
 ## Rust CLI
 
