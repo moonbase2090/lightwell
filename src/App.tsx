@@ -882,7 +882,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             layoutRevision={layoutRevision}
             getSavedViewport={getSavedViewport}
           />
-          <Background color={theme === "blueprint" ? "rgba(255,255,255,.08)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
+          <Background color={theme === "blueprint" ? "rgba(227,238,255,.22)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
           <Controls showInteractive={false} position="bottom-left" />
         </ReactFlow>
       )}

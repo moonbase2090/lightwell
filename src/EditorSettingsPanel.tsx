@@ -135,11 +135,6 @@ export default function EditorSettingsPanel({
             <option value="blueprint">Blueprint</option>
           </select>
           <p className="settings-help">Theme changes apply immediately and stay saved on this device.</p>
-          {theme === "blueprint" && (
-            <p className="settings-blueprint-note" role="note">
-              Stylized drafting look; some secondary text is below WCAG AA contrast. Use Dark or Light for full accessibility.
-            </p>
-          )}
 
           <h3 className="settings-section-title settings-editor-section">Editor</h3>
           <p className="settings-explainer">

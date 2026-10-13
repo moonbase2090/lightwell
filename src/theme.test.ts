@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isThemePreference, readThemePreference, resolveTheme, saveThemePreference } from "./theme.js";
+import { DEFAULT_THEME_PREFERENCE, isThemePreference, readThemePreference, resolveTheme, saveThemePreference } from "./theme.js";
 
 function withStorage(storage: Map<string, string>, run: () => void): void {
   const target = globalThis as { window?: Window };
@@ -29,19 +29,28 @@ test("theme preference accepts only the four saved choices", () => {
   assert.equal(isThemePreference(null), false);
 });
 
-test("stored theme falls back to the system preference when the value is missing or invalid", () => {
+test("stored theme falls back to the Blueprint default when the value is missing or invalid", () => {
+  assert.equal(DEFAULT_THEME_PREFERENCE, "blueprint");
   withStorage(new Map(), () => {
-    assert.equal(readThemePreference(), "system");
+    assert.equal(readThemePreference(), "blueprint");
   });
   withStorage(new Map([["lightwell.theme", "blueprint"]]), () => {
     assert.equal(readThemePreference(), "blueprint");
   });
   withStorage(new Map([["lightwell.theme", "sepia"]]), () => {
-    assert.equal(readThemePreference(), "system");
+    assert.equal(readThemePreference(), "blueprint");
+  });
+  for (const saved of ["system", "dark", "light"]) {
+    withStorage(new Map([["lightwell.theme", saved]]), () => {
+      assert.equal(readThemePreference(), saved);
+    });
+  }
+  withStorage(new Map([["lightwell.theme", "blueprint"]]), () => {
+    assert.equal(readThemePreference(), "blueprint");
   });
 });
 
-test("theme storage failures leave the session on the system preference", () => {
+test("theme storage failures leave the session on the Blueprint default", () => {
   const target = globalThis as { window?: Window };
   const previous = target.window;
   target.window = {
@@ -51,7 +60,7 @@ test("theme storage failures leave the session on the system preference", () => 
     },
   } as unknown as Window;
   try {
-    assert.equal(readThemePreference(), "system");
+    assert.equal(readThemePreference(), "blueprint");
     assert.doesNotThrow(() => saveThemePreference("dark"));
   } finally {
     if (previous === undefined) delete target.window;

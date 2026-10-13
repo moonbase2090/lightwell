@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Blueprint is now the default theme for new installs and unset preferences. A saved theme choice (including Follow system) is kept.
+- Blueprint is redesigned: stepped navy surfaces, a two-level map grid, tinted status and kind colours, an amber focus and selection ring, and syntax colours in the source inspector. Every text role meets WCAG AA, so the Settings contrast note is gone.
+- The app window and the page background start in Blueprint navy, so launch no longer flashes the old dark background.
+
 ## 0.1.3 - 2026-10-12
 
 ### Fixed
