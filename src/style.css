@@ -311,6 +311,14 @@ button { color: inherit; }
 .settings-save-button { border: 1px solid #4c6990; color: #e2edfc; background: #263b55; }
 .settings-save-button:hover { border-color: #7897c3; background: #304a69; }
 .settings-save-button:disabled { cursor: progress; opacity: .55; }
+.settings-footer-status { min-width: 0; margin-right: auto; display: flex; align-items: center; gap: 8px; }
+.settings-save-live:empty { display: none; }
+.settings-saved { display: inline-flex; align-items: center; gap: 6px; color: #93d5b3; font-size: 10px; font-weight: 600; animation: settings-saved-in .18s ease-out; }
+.settings-saved svg { flex: none; }
+.settings-error.settings-save-error { margin-top: 0; padding: 6px 8px; align-items: center; }
+.settings-save-spinner { animation: inspector-spin 1.3s linear infinite; }
+@keyframes settings-saved-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .settings-saved, .settings-save-spinner { animation: none; } }
 .detail-kicker { display: flex; align-items: center; gap: 7px; color: #8d9bae; font: 8px var(--mono); letter-spacing: .13em; }
 .detail-kicker-muted { color: #647386; letter-spacing: .035em; }
 .kind-dot { width: 7px; height: 7px; border-radius: 2px; background: #86a8ff; }
@@ -558,6 +566,7 @@ button { color: inherit; }
 .workspace-shell[data-theme="light"] .settings-error { border-color: #c9a99c; color: #7a4235; background: #f5e9e3; }
 .workspace-shell[data-theme="light"] .settings-success { border-color: #b7c6aa; color: #48613d; background: #edf2e8; }
 .workspace-shell[data-theme="light"] .settings-status { color: #6b6560; }
+.workspace-shell[data-theme="light"] .settings-saved { color: #48613d; }
 .workspace-shell[data-theme="light"] .settings-panel-footer { border-color: #d4c9c0; background: #f1eeea; }
 .workspace-shell[data-theme="light"] .settings-cancel-button { border-color: #d4c9c0; color: #6b6560; background: #fdfbf9; }
 .workspace-shell[data-theme="light"] .settings-cancel-button:hover { border-color: #b8aea4; color: #3a3530; }
