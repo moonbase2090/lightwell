@@ -366,6 +366,12 @@ fn opens_angle(chars: &[char], index: usize) -> bool {
     if index > 0 && chars[index - 1] == '<' {
         return false;
     }
+    if index + 1 < chars.len() && chars[index + 1].is_ascii_digit() {
+        return false;
+    }
+    if index + 2 < chars.len() && chars[index + 1] == '-' && chars[index + 2].is_ascii_digit() {
+        return false;
+    }
     if index + 1 < chars.len() && is_ident_part(chars[index + 1]) {
         let mut start = index;
         while start > 0 && is_ident_part(chars[start - 1]) {
@@ -645,6 +651,18 @@ for (let i = 0; i<10; i++) {}
 export function afterLoop() {}
 export const cap = n<LIMIT;
 export function afterCap() {}
+export const negOne = n<-1 ? 0 : 1;
+export function afterNegOne() {}
+export const sized = size()<1;
+export function afterSized() {}
+export const indexed = a[i]<10;
+export function afterIndexed() {}
+export const underscored = _i<10;
+export function afterUnderscore() {}
+export const dollar = $n<1;
+export function afterDollar() {}
+export const upper = N<0;
+export function afterUpper() {}
 ";
         let (_imports, symbols) = parse_typescript_source(unspaced);
         assert_eq!(
@@ -662,6 +680,18 @@ export function afterCap() {}
                 "afterLoop",
                 "cap",
                 "afterCap",
+                "negOne",
+                "afterNegOne",
+                "sized",
+                "afterSized",
+                "indexed",
+                "afterIndexed",
+                "underscored",
+                "afterUnderscore",
+                "dollar",
+                "afterDollar",
+                "upper",
+                "afterUpper",
             ]
         );
     }

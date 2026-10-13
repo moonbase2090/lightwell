@@ -55,6 +55,13 @@ for (let i = 0; i<10; i++) {}
 export function afterLoop() {}
 export const cap = n<LIMIT;
 export function afterCap() {}
+export const negOne = n<-1 ? 0 : 1;
+export const sized = size()<1;
+export const indexed = a[i]<10;
+export const underscored = _i<10;
+export const dollar = $n<1;
+export const upper = N<0;
+export function afterAll() {}
 `);
   assert.deepEqual(unspaced.symbols.map((symbol) => symbol.name), [
     "min",
@@ -63,6 +70,13 @@ export function afterCap() {}
     "afterLoop",
     "cap",
     "afterCap",
+    "negOne",
+    "sized",
+    "indexed",
+    "underscored",
+    "dollar",
+    "upper",
+    "afterAll",
   ]);
 });
 

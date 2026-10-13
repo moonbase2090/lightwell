@@ -335,6 +335,15 @@ function opensAngle(line: string, index: number): boolean {
   if (line[index + 1] === " ") return false;
   if (line[index - 1] === "<") return false;
   const next = line[index + 1];
+  if (next !== undefined && next >= "0" && next <= "9") return false;
+  if (
+    next === "-"
+    && line[index + 2] !== undefined
+    && line[index + 2] >= "0"
+    && line[index + 2] <= "9"
+  ) {
+    return false;
+  }
   if (next !== undefined && isIdentPart(next)) {
     let start = index;
     while (start > 0 && isIdentPart(line[start - 1] ?? "")) start -= 1;
