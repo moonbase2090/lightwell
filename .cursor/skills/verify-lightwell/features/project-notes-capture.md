@@ -36,8 +36,8 @@ Expect exit `0` and stdout containing `The built app created, edited, retained a
 The script builds a temporary `notes-proof` crate (`src/sample.rs`), points recent workspaces at it, and then:
 
 1. Click the overview title (y=80) so the undecorated window has keyboard focus. Do not use `windowactivate`.
-2. Ctrl+K, type `sample`, Return, wait for the source inspector to load (~8s). The module label is `sample`.
-3. Close the source inspector (`x = window width - 40`, `y = 125`), then click **Add note** in the details panel (`x = window width - 200`, `y = 400`).
+2. Ctrl+K, type `sample`, Return, wait for the source inspector to load (~8s). Tab once so focus leaves the search field. The module label is `sample`.
+3. Click the map canvas, then **Notes** in the map toolbar (`x = map panel width - 56`, `y = 132`).
 4. Click the note textarea, type `Architecture note one.`, Ctrl+Enter to save. The file must be schema version 1 and the text for `module:notes-proof:crate root::sample` must match.
 5. Click the textarea, replace the text with `Architecture note updated.`, Ctrl+Enter to save changes.
 6. Rewrite `src/sample.rs`. The dialog crop must change by more than 100 pixels. The saved text and `sourceFingerprint` must stay the same.

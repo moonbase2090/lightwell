@@ -64,10 +64,11 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     fi
 
     eval "$(xdotool getwindowgeometry --shell "$window_id")"
-    inspector_close_x=$((WIDTH - 40))
-    inspector_close_y=125
-    details_add_note_x=$((WIDTH - 200))
-    details_add_note_y=400
+    map_panel_width=$((WIDTH - 318 - 6))
+    map_canvas_x=$((map_panel_width / 2))
+    map_canvas_y=$((108 + 200))
+    notes_button_x=$((map_panel_width - 56))
+    notes_button_y=$((54 + 54 + 24))
     dialog_left=$(( (WIDTH - 860) / 2 ))
     dialog_top=$(( (HEIGHT - 640) / 2 ))
     note_textarea_x=$((dialog_left + 612))
@@ -83,10 +84,12 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     xdotool type --clearmodifiers --delay 45 sample
     sleep 2
     xdotool key --clearmodifiers Return
-    sleep 10
-    xdotool mousemove --window "$window_id" "$inspector_close_x" "$inspector_close_y" click 1
-    sleep 2
-    xdotool mousemove --window "$window_id" "$details_add_note_x" "$details_add_note_y" click 1
+    sleep 8
+    xdotool key --clearmodifiers Tab
+    sleep 1
+    xdotool mousemove --window "$window_id" "$map_canvas_x" "$map_canvas_y" click 1
+    sleep 1
+    xdotool mousemove --window "$window_id" "$notes_button_x" "$notes_button_y" click 1
     sleep 2
     xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click 1
     xdotool type --clearmodifiers --delay 35 "Architecture note one."
