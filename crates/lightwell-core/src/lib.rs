@@ -8,6 +8,7 @@ mod notes;
 mod path_confinement;
 mod python_source;
 mod rust_source;
+mod typescript_source;
 mod watch;
 
 pub use editor::{

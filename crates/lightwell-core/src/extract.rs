@@ -7,6 +7,7 @@ use crate::metadata::{
     CargoWorkspace, RustModule,
 };
 use crate::python_source::{discover_python_modules, PythonModule, PythonSymbol};
+use crate::typescript_source::{discover_typescript_modules, TypeScriptModule, TypeScriptSymbol};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -99,6 +100,7 @@ pub(crate) fn map_workspace(
     }
 
     let python_modules = discover_python_modules(&root_path)?;
+    let typescript_modules = discover_typescript_modules(&root_path)?;
     let mut workspace_inputs: Vec<_> = crate_fingerprints
         .into_iter()
         .map(|(name, fingerprint)| format!("{name}:{fingerprint}"))
@@ -106,6 +108,10 @@ pub(crate) fn map_workspace(
     for module in &python_modules {
         let fingerprint = fingerprints.file(&module.path)?;
         workspace_inputs.push(format!("python:{}:{fingerprint}", module.name));
+    }
+    for module in &typescript_modules {
+        let fingerprint = fingerprints.file(&module.path)?;
+        workspace_inputs.push(format!("typescript:{}:{fingerprint}", module.name));
     }
     workspace_inputs.sort();
     let workspace_fingerprint = hash_text(&workspace_inputs.join("\n"));
@@ -126,6 +132,14 @@ pub(crate) fn map_workspace(
 
     append_python_blocks(
         &python_modules,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
+    append_typescript_blocks(
+        &typescript_modules,
         &root_path,
         &project_id,
         &mut fingerprints,
@@ -396,6 +410,97 @@ fn append_modules(
     Ok(())
 }
 
+fn append_typescript_blocks(
+    modules: &[TypeScriptModule],
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    for module in modules {
+        let id = typescript_block_id(&module.name, None);
+        let relative = relative_path(root_path, &module.path);
+        let fingerprint = fingerprints.file(&module.path)?;
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: id.clone(),
+                label: module_label(&module.name),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: Some(relative.clone()),
+                fingerprint: fingerprint.clone(),
+            },
+            package_name: module.name.clone(),
+            module_path: module.name.clone(),
+            declared_by_path: relative,
+            cfg_attributes: module
+                .imports
+                .iter()
+                .map(|import| import.statement.clone())
+                .collect(),
+            unresolved: module.unreadable,
+            language: "typescript".to_owned(),
+        }));
+        connections.push(contains_connection(workspace_id, &id));
+        for symbol in &module.symbols {
+            append_typescript_symbol(&id, module, symbol, &fingerprint, blocks, connections);
+        }
+    }
+    Ok(())
+}
+
+fn append_typescript_symbol(
+    parent_id: &str,
+    module: &TypeScriptModule,
+    symbol: &TypeScriptSymbol,
+    fingerprint: &str,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) {
+    let module_path = format!("{}.{}", module.name, symbol.name);
+    let id = typescript_block_id(&module_path, Some(symbol.outline_label()));
+    let relative = blocks.iter().find_map(|block| match block {
+        FactBlock::Module(parent) if parent.base.id == parent_id => parent.base.source_path.clone(),
+        _ => None,
+    });
+    let declared = relative.clone().unwrap_or_default();
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: symbol.name.clone(),
+            parent_id: Some(parent_id.to_owned()),
+            children: Vec::new(),
+            source_path: relative,
+            fingerprint: fingerprint.to_owned(),
+        },
+        package_name: module.name.clone(),
+        module_path,
+        declared_by_path: declared,
+        cfg_attributes: vec![symbol.outline_label().to_owned()],
+        unresolved: false,
+        language: "typescript".to_owned(),
+    }));
+    connections.push(contains_connection(parent_id, &id));
+}
+
+fn typescript_block_id(module_path: &str, kind: Option<&str>) -> String {
+    let mut id = format!("module:typescript:{}", slug(module_path));
+    if let Some(kind) = kind {
+        id.push(':');
+        id.push_str(&slug(kind));
+    }
+    id
+}
+
+fn module_label(module_name: &str) -> String {
+    module_name
+        .rsplit('.')
+        .next()
+        .unwrap_or(module_name)
+        .to_owned()
+}
+
 fn append_dependency_connections(
     workspace: &CargoWorkspace,
     package_id_by_manifest: &HashMap<PathBuf, String>,
@@ -523,14 +628,6 @@ fn python_block_id(module_path: &str, stub: bool, kind: Option<&str>) -> String 
         id.push_str(&slug(kind));
     }
     id
-}
-
-fn module_label(module_name: &str) -> String {
-    module_name
-        .rsplit('.')
-        .next()
-        .unwrap_or(module_name)
-        .to_owned()
 }
 
 fn contains_connection(source: &str, target: &str) -> Connection {

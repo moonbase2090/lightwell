@@ -94,6 +94,10 @@ pub enum CargoDiscoveryError {
         path: PathBuf,
         source: io::Error,
     },
+    TypeScriptSourceRead {
+        path: PathBuf,
+        source: io::Error,
+    },
     PathOutsideOpenedFolder {
         path: PathBuf,
         opened_root: PathBuf,
@@ -160,6 +164,13 @@ impl Display for CargoDiscoveryError {
                     path.display()
                 )
             }
+            Self::TypeScriptSourceRead { path, source } => {
+                write!(
+                    formatter,
+                    "Could not read TypeScript source {}: {source}",
+                    path.display()
+                )
+            }
             Self::InvalidRustSource { path, reason } => write!(
                 formatter,
                 "Could not parse Rust source {}: {reason}",
@@ -181,7 +192,8 @@ impl Error for CargoDiscoveryError {
             Self::RepositoryPath { source, .. }
             | Self::CargoStart(source)
             | Self::SourceRead { source, .. }
-            | Self::PythonSourceRead { source, .. } => Some(source),
+            | Self::PythonSourceRead { source, .. }
+            | Self::TypeScriptSourceRead { source, .. } => Some(source),
             Self::InvalidMetadata(source) => Some(source),
             Self::InvalidManifestToml { source, .. } => Some(source),
             Self::ManifestMissing(_)
