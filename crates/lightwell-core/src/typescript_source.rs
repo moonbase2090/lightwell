@@ -140,7 +140,7 @@ fn module_from_file(root: &Path, path: &Path) -> Result<TypeScriptModule, CargoD
             symbols: Vec::new(),
         });
     };
-    let (imports, symbols) = if is_html_file(path) {
+    let (mut imports, symbols) = if is_html_file(path) {
         parse_html_source(&source)
     } else if is_style_file(path) {
         parse_style_source(&source)
@@ -149,6 +149,9 @@ fn module_from_file(root: &Path, path: &Path) -> Result<TypeScriptModule, CargoD
     } else {
         parse_typescript_source(&source)
     };
+    if is_web_script_file(path) {
+        append_next_route_hints(path, &mut imports);
+    }
     Ok(TypeScriptModule {
         name: module_name(root, path),
         path: path.to_owned(),
@@ -375,6 +378,44 @@ fn parse_json_config_source(
         }
     }
     (imports, symbols)
+}
+
+fn append_next_route_hints(path: &Path, imports: &mut Vec<TypeScriptImport>) {
+    if let Some(statement) = next_route_hint(path) {
+        imports.push(TypeScriptImport {
+            line: 1,
+            statement,
+        });
+    }
+}
+
+fn next_route_hint(path: &Path) -> Option<String> {
+    let file_name = path.file_name().and_then(|name| name.to_str())?;
+    let stem = Path::new(file_name)
+        .file_stem()
+        .and_then(|stem| stem.to_str())?;
+    let parts = path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .collect::<Vec<_>>();
+    if parts.iter().any(|part| *part == "app") {
+        let kind = match stem {
+            "page" | "layout" | "route" | "loading" | "error" | "not-found" | "template"
+            | "default" => stem,
+            _ => return None,
+        };
+        return Some(format!("next app {}", kind));
+    }
+    if parts.iter().any(|part| *part == "pages") {
+        if matches!(stem, "_app" | "_document" | "_error") {
+            return Some(format!("next pages {}", stem.trim_start_matches('_')));
+        }
+        if stem == "index" {
+            return Some("next pages index".to_owned());
+        }
+        return Some("next pages page".to_owned());
+    }
+    None
 }
 
 fn append_package_json_hints(value: &serde_json::Value, imports: &mut Vec<TypeScriptImport>) {
@@ -840,6 +881,28 @@ mod tests {
         assert!(modules.iter().any(|module| module.name == "app.page"));
         assert!(modules.iter().any(|module| module.name == "pages.about"));
         assert!(modules.iter().any(|module| module.name == "src.Button" && module.language == "javascript"));
+        let app_page = modules
+            .iter()
+            .find(|module| module.name == "app.page")
+            .expect("app page route");
+        assert!(app_page
+            .imports
+            .iter()
+            .any(|import| import.statement == "next app page"));
+        let pages_about = modules
+            .iter()
+            .find(|module| module.name == "pages.about")
+            .expect("pages route");
+        assert!(pages_about
+            .imports
+            .iter()
+            .any(|import| import.statement == "next pages page"));
+        let react_tsx = modules
+            .iter()
+            .find(|module| module.name == "src.App")
+            .expect("react tsx component");
+        assert_eq!(react_tsx.language, "typescript");
+        assert!(react_tsx.symbols.iter().any(|symbol| symbol.name == "App"));
     }
 
     #[test]

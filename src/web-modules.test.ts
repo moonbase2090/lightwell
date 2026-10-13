@@ -22,6 +22,13 @@ test("web fixture lists peers, configs, and routes", () => {
   assert.ok(modules.some((module) => module.name === "styles.theme" && module.language === "scss"));
   assert.ok(modules.some((module) => module.name === "app.page"));
   assert.ok(modules.some((module) => module.name === "pages.about"));
+  const appPage = modules.find((module) => module.name === "app.page");
+  assert.ok(appPage?.imports.some((item) => item.statement === "next app page"));
+  const appLayout = modules.find((module) => module.name === "app.layout");
+  assert.ok(appLayout?.imports.some((item) => item.statement === "next app layout"));
+  const reactTsx = modules.find((module) => module.name === "src.App");
+  assert.equal(reactTsx?.language, "typescript");
+  assert.ok(reactTsx?.symbols.some((symbol) => symbol.name === "App"));
   const lib = modules.find((module) => module.name === "src.lib");
   assert.ok(lib);
   assert.deepEqual(lib.symbols.map((symbol) => symbol.name), ["loadConfig", "Widget", "Options"]);

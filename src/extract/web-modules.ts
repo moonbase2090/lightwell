@@ -179,14 +179,48 @@ function moduleFromFile(root: string, filePath: string): TypeScriptModule {
           : isJsonConfigFile(filePath)
             ? parseJsonConfigSource(filePath, source)
             : parseTypeScriptSource(source);
+  const imports = [...parsed.imports];
+  if (isWebScriptFile(filePath)) {
+    const hint = nextRouteHint(filePath);
+    if (hint !== null) imports.push({ line: 1, statement: hint });
+  }
   return {
     name: moduleName(root, filePath),
     path: filePath,
     unreadable: source === null,
     language,
-    imports: parsed.imports,
+    imports,
     symbols: parsed.symbols,
   };
+}
+
+function nextRouteHint(filePath: string): string | null {
+  const base = path.basename(filePath);
+  const stem = path.basename(base, path.extname(base));
+  const parts = filePath.split(path.sep);
+  if (parts.includes("app")) {
+    if (
+      stem === "page"
+      || stem === "layout"
+      || stem === "route"
+      || stem === "loading"
+      || stem === "error"
+      || stem === "not-found"
+      || stem === "template"
+      || stem === "default"
+    ) {
+      return `next app ${stem}`;
+    }
+    return null;
+  }
+  if (parts.includes("pages")) {
+    if (stem === "_app" || stem === "_document" || stem === "_error") {
+      return `next pages ${stem.slice(1)}`;
+    }
+    if (stem === "index") return "next pages index";
+    return "next pages page";
+  }
+  return null;
 }
 
 function walkWebFiles(directory: string, canonicalRoot: string, seen: Set<string>, files: string[]): void {

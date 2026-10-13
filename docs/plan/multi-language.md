@@ -4,7 +4,7 @@ Lightwell is adding source languages beyond Rust workspace manifests. TypeScript
 
 ## Product policy
 
-TypeScript/JavaScript/HTML/CSS (the **web** pack) and Python are **first-class built-in packs**. Extension routing lands with the language registry. Extraction, outline facts, and inspector highlighting ship **on by default** when a pack implements them. Do not gate those behaviors behind an off-by-default flag or setting.
+TypeScript/JavaScript/HTML/CSS (the **web** pack), **React** (`.jsx`/`.tsx` components), **Next.js** (`app/` and `pages/` route files, `next.config.*`), and Python are **first-class for v0.1.4**. Other meta-frameworks and bundlers are follow-up PRs after release. Extension routing lands with the language registry. Extraction, outline facts, and inspector highlighting ship **on by default** when a pack implements them. Do not gate those behaviors behind an off-by-default flag or setting.
 
 Python module extraction and its Monarch tokenizer are on. The web pack (TS/JS/JSX/TSX, HTML, CSS/SCSS, `package.json` / `tsconfig` / framework configs) extracts module facts and registers Monaco highlighting on. There is no separate enable PR and no off switch.
 
