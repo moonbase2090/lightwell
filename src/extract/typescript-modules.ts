@@ -335,7 +335,20 @@ function opensAngle(line: string, index: number): boolean {
   if (line[index + 1] === " ") return false;
   if (line[index - 1] === "<") return false;
   const next = line[index + 1];
-  if (next === "+" || next === "(" || next === "." || next === "!" || next === "/") return false;
+  const prev = line[index - 1];
+  if (next === "+" || next === "(" || next === "." || next === "!" || next === "/" || next === "'" || next === '"' || next === "~") {
+    return false;
+  }
+  if (next === "[") {
+    let start = index;
+    while (start > 0 && isIdentPart(line[start - 1] ?? "")) start -= 1;
+    const first = line[start];
+    if (first !== undefined && start < index) {
+      const beforeValue = first >= "a" && first <= "z" || first === "_" || first === "$";
+      if (beforeValue) return false;
+    }
+    if (prev === ")" || prev === "]") return false;
+  }
   if (next !== undefined && next >= "0" && next <= "9") return false;
   if (
     next === "-"
@@ -349,7 +362,6 @@ function opensAngle(line: string, index: number): boolean {
   if (next === "-" && afterMinus !== undefined && isIdentPart(afterMinus)) {
     return false;
   }
-  const prev = line[index - 1];
   if ((prev === ")" || prev === "]") && next !== undefined && isIdentPart(next)) {
     return false;
   }

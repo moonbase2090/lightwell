@@ -368,7 +368,22 @@ fn opens_angle(chars: &[char], index: usize) -> bool {
     }
     if index + 1 < chars.len() {
         match chars[index + 1] {
-            '+' | '(' | '.' | '!' | '/' => return false,
+            '+' | '(' | '.' | '!' | '/' | '\'' | '"' | '~' => return false,
+            '[' => {
+                let mut start = index;
+                while start > 0 && is_ident_part(chars[start - 1]) {
+                    start -= 1;
+                }
+                if start < index {
+                    let first = chars[start];
+                    if first.is_ascii_lowercase() || first == '_' || first == '$' {
+                        return false;
+                    }
+                }
+                if index > 0 && (chars[index - 1] == ')' || chars[index - 1] == ']') {
+                    return false;
+                }
+            }
             _ => {}
         }
     }
@@ -704,6 +719,12 @@ export const notFlag = n<!flag;
 export function afterNotFlag() {}
 export const jsx = <List<Item>ok</List>;
 export function afterJsx() {}
+export const quoted = n<'x';
+export function afterQuoted() {}
+export const tilde = n<~0;
+export function afterTilde() {}
+export const bracketed = n<[0];
+export function afterBracketed() {}
 ";
         let (_imports, symbols) = parse_typescript_source(unspaced);
         assert_eq!(
@@ -753,6 +774,12 @@ export function afterJsx() {}
                 "afterNotFlag",
                 "jsx",
                 "afterJsx",
+                "quoted",
+                "afterQuoted",
+                "tilde",
+                "afterTilde",
+                "bracketed",
+                "afterBracketed",
             ]
         );
     }
