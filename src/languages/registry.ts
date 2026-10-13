@@ -21,6 +21,10 @@ export const LANGUAGE_REGISTRY: readonly LanguageRegistration[] = LANGUAGE_PACKS
   extensions: pack.extensions,
 }));
 
+export function languagePackById(id: LanguagePackId): LanguagePack | undefined {
+  return LANGUAGE_PACKS.find((pack) => pack.id === id);
+}
+
 export function languagePackForPath(filePath: string): LanguagePack | null {
   const lower = filePath.toLowerCase();
   let match: LanguagePack | null = null;

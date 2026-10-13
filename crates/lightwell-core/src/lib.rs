@@ -1,4 +1,5 @@
 mod editor;
+pub mod language_pack;
 mod extract;
 mod facts;
 mod manifest;
@@ -13,6 +14,7 @@ pub use editor::{
     EditorTemplatePreset, SourcePosition, EDITOR_TEMPLATE_PRESETS,
 };
 pub use extract::{extract_cargo_map, MapExtractionError};
+pub use language_pack::RUST_WORKSPACE_PACK_ID;
 pub use facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock, MAP_SCHEMA_VERSION,

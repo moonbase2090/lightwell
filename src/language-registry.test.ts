@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { extractCargoMap } from "./extract/cargo.js";
 import { BUILTIN_LANGUAGE_PACKS } from "./languages/builtin-packs.js";
+import { extractWorkspaceMap } from "./languages/extract-workspace.js";
 import {
   LANGUAGE_PACKS,
   LANGUAGE_REGISTRY,
@@ -43,11 +45,24 @@ test("registry entries have unique longest extensions", () => {
 test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(LANGUAGE_PACKS.length, BUILTIN_LANGUAGE_PACKS.length);
   const rust = languagePackForPath("src/lib.rs");
-  assert.equal(rust?.extractor?.kind, "rust-core");
+  assert.equal(rust?.extractor?.kind, "rust-workspace");
+  assert.equal(rust?.extractor?.moduleTreeModule, "extract/rust-modules");
   assert.equal(rust?.fixtures?.root, "crates/lightwell-core/fixtures");
+  assert.equal(typeof rust?.workspaceExtractor, "function");
+  const toml = languagePackForPath("Cargo.toml");
+  assert.equal(toml?.workspaceExtractor, null);
   const typescript = languagePackForPath("src/App.tsx");
   assert.equal(typescript?.extractor?.kind, "typescript-module");
   const python = languagePackForPath("mod.py");
   assert.equal(python?.extractor, null);
   assert.equal(python?.registerHighlighter, null);
+});
+
+test("rust workspace pack routes extraction through the pack interface", () => {
+  const args = { repositoryPath: process.cwd(), projectName: "Lightwell" };
+  const viaPack = extractWorkspaceMap(args);
+  const direct = extractCargoMap(args);
+  assert.equal(viaPack.stats.blocks, direct.stats.blocks);
+  assert.equal(viaPack.stats.connections, direct.stats.connections);
+  assert.equal(viaPack.project.name, direct.project.name);
 });

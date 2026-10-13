@@ -1,42 +1,16 @@
 import type { LanguagePack } from "./language-pack.js";
-import { registerRustHighlighter } from "./highlighters/rust.js";
-import { registerTomlHighlighter } from "./highlighters/toml.js";
+import { PYTHON_LANGUAGE_PACK } from "./packs/python.js";
+import { RUST_LANGUAGE_PACK } from "./packs/rust.js";
+import { TOML_LANGUAGE_PACK } from "./packs/toml.js";
+import { TYPESCRIPT_LANGUAGE_PACK } from "./packs/typescript.js";
 
 /**
  * Built-in language packs shipped with Lightwell. A future plugin loader merges
  * additional packs into the active registry using the same `LanguagePack` shape.
  */
 export const BUILTIN_LANGUAGE_PACKS: readonly LanguagePack[] = [
-  {
-    id: "rust",
-    extensions: [".rs"],
-    monacoLanguageId: "rust",
-    extractor: { kind: "rust-core" },
-    registerHighlighter: registerRustHighlighter,
-    fixtures: { root: "crates/lightwell-core/fixtures" },
-  },
-  {
-    id: "toml",
-    extensions: [".toml"],
-    monacoLanguageId: "toml",
-    extractor: null,
-    registerHighlighter: registerTomlHighlighter,
-    fixtures: null,
-  },
-  {
-    id: "typescript",
-    extensions: [".ts", ".tsx", ".mts", ".cts"],
-    monacoLanguageId: "typescript",
-    extractor: { kind: "typescript-module", moduleId: "extract/typescript-modules" },
-    registerHighlighter: null,
-    fixtures: null,
-  },
-  {
-    id: "python",
-    extensions: [".py", ".pyi"],
-    monacoLanguageId: "python",
-    extractor: null,
-    registerHighlighter: null,
-    fixtures: null,
-  },
+  RUST_LANGUAGE_PACK,
+  TOML_LANGUAGE_PACK,
+  TYPESCRIPT_LANGUAGE_PACK,
+  PYTHON_LANGUAGE_PACK,
 ];
