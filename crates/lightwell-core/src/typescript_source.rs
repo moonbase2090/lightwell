@@ -371,11 +371,11 @@ fn opens_angle(chars: &[char], index: usize) -> bool {
         while start > 0 && is_ident_part(chars[start - 1]) {
             start -= 1;
         }
-        if start < index
-            && chars[start].is_ascii_lowercase()
-            && chars[index + 1].is_ascii_lowercase()
-        {
-            return false;
+        if start < index && chars[start].is_ascii_lowercase() {
+            let next = chars[index + 1];
+            if next.is_ascii_lowercase() || next.is_ascii_digit() || next.is_ascii_uppercase() {
+                return false;
+            }
         }
     }
     true
@@ -639,6 +639,12 @@ export const min = a<b ? a : b;
 export function next() {}
 export const ok = a<b && c<d;
 export function tail() {}
+export const neg = n<0 ? -1 : 1;
+export function afterNeg() {}
+for (let i = 0; i<10; i++) {}
+export function afterLoop() {}
+export const cap = n<LIMIT;
+export function afterCap() {}
 ";
         let (_imports, symbols) = parse_typescript_source(unspaced);
         assert_eq!(
@@ -646,7 +652,17 @@ export function tail() {}
                 .iter()
                 .map(|symbol| symbol.name.as_str())
                 .collect::<Vec<_>>(),
-            vec!["min", "next", "ok", "tail"]
+            vec![
+                "min",
+                "next",
+                "ok",
+                "tail",
+                "neg",
+                "afterNeg",
+                "afterLoop",
+                "cap",
+                "afterCap",
+            ]
         );
     }
 

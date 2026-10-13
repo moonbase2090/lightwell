@@ -50,8 +50,20 @@ export function after() {}
 
   const unspaced = parseTypeScriptSource(`export const min = a<b ? a : b;
 export function next() {}
+export const neg = n<0 ? -1 : 1;
+for (let i = 0; i<10; i++) {}
+export function afterLoop() {}
+export const cap = n<LIMIT;
+export function afterCap() {}
 `);
-  assert.deepEqual(unspaced.symbols.map((symbol) => symbol.name), ["min", "next"]);
+  assert.deepEqual(unspaced.symbols.map((symbol) => symbol.name), [
+    "min",
+    "next",
+    "neg",
+    "afterLoop",
+    "cap",
+    "afterCap",
+  ]);
 });
 
 test("comparison and shift operators do not block later exports", () => {
