@@ -53,12 +53,9 @@ button { color: inherit; }
 .brand-mark {
   width: 30px; height: 30px; border-radius: 8px;
   display: grid; place-items: center; color: #9cb5ff;
-  border: 1px solid #344663; background: linear-gradient(145deg, #1d2d45, #141c29);
-  box-shadow: inset 0 1px rgba(255,255,255,.05), 0 3px 13px rgba(0,0,0,.25);
+  border: 0; background: none; overflow: hidden;
+  box-shadow: 0 0 0 1px #344663, 0 3px 13px rgba(0,0,0,.25);
 }
-.brand-mark:has(.brand-logo),
-.workspace-shell[data-theme] .brand-mark:has(.brand-logo) { border: 0; background: none; box-shadow: 0 0 0 1px #344663, 0 3px 13px rgba(0,0,0,.25); overflow: hidden; }
-.workspace-shell[data-theme="light"] .brand-mark:has(.brand-logo) { box-shadow: 0 3px 10px rgba(66,53,41,.12); }
 .brand-logo { display: block; width: 32px; height: 32px; margin: -1px; max-width: none; }
 .workspace-shell[data-theme="blueprint"] .brand-logo { background-color: transparent !important; }
 .brand-name { font-size: 14px; font-weight: 700; letter-spacing: .035em; line-height: 16px; }
@@ -417,7 +414,7 @@ button { color: inherit; }
   --splitter-rail-active: #6b85a8;
 }
 .workspace-shell[data-theme="light"] .topbar { border-color: #d4c9c0; background: rgba(245, 243, 240, .97); }
-.workspace-shell[data-theme="light"] .brand-mark { color: #526a89; border-color: #c6bdb4; background: linear-gradient(145deg, #e7e1da, #f5f3f0); box-shadow: inset 0 1px rgba(255,255,255,.7), 0 3px 10px rgba(66,53,41,.08); }
+.workspace-shell[data-theme="light"] .brand-mark { color: #526a89; border: 0; background: none; box-shadow: 0 3px 10px rgba(66,53,41,.12); overflow: hidden; }
 .workspace-shell[data-theme="light"] .brand-name,
 .workspace-shell[data-theme="light"] .overview-title h1,
 .workspace-shell[data-theme="light"] .overview-stat strong,
