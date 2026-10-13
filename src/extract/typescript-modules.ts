@@ -306,11 +306,26 @@ function scanLine(line: string, state: ScanState): boolean {
     else if (line[index] === "]") state.bracket -= 1;
     else if (line[index] === "{") state.brace += 1;
     else if (line[index] === "}") state.brace -= 1;
-    else if (opensAngle(line, index)) state.angle += 1;
-    else if (closesAngle(line, index) && state.angle > 0) state.angle -= 1;
+    else if (line[index] === ">") {
+      if (
+        line[index - 1] !== "-"
+        && line[index + 1] !== "="
+        && state.angle > 0
+      ) {
+        state.angle -= 1;
+        if (state.angle > 0 && line[index + 1] === ">") {
+          state.angle -= 1;
+          index += 1;
+        }
+      }
+    } else if (opensAngle(line, index)) state.angle += 1;
     index += 1;
   }
   return false;
+}
+
+function isIdentPart(character: string): boolean {
+  return /[$0-9A-Za-z_]/u.test(character);
 }
 
 function opensAngle(line: string, index: number): boolean {
@@ -319,14 +334,15 @@ function opensAngle(line: string, index: number): boolean {
   if (line[index + 1] === "<") return false;
   if (line[index + 1] === " ") return false;
   if (line[index - 1] === "<") return false;
-  return true;
-}
-
-function closesAngle(line: string, index: number): boolean {
-  if (line[index] !== ">") return false;
-  if (line[index - 1] === "-") return false;
-  if (line[index + 1] === "=") return false;
-  if (line[index + 1] === ">") return false;
+  const next = line[index + 1];
+  if (next !== undefined && isIdentPart(next)) {
+    let start = index;
+    while (start > 0 && isIdentPart(line[start - 1] ?? "")) start -= 1;
+    const first = line[start];
+    if (first !== undefined && first >= "a" && first <= "z" && next >= "a" && next <= "z") {
+      return false;
+    }
+  }
   return true;
 }
 

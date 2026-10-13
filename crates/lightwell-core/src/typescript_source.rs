@@ -328,8 +328,15 @@ fn scan_line(line: &str, state: &mut ScanState) -> bool {
                 }
             }
             '>' => {
-                if closes_angle(&chars, index) && state.angle > 0 {
+                if !(index > 0 && chars[index - 1] == '-')
+                    && !(index + 1 < chars.len() && chars[index + 1] == '=')
+                    && state.angle > 0
+                {
                     state.angle -= 1;
+                    if state.angle > 0 && index + 1 < chars.len() && chars[index + 1] == '>' {
+                        state.angle -= 1;
+                        index += 1;
+                    }
                 }
             }
             _ => {}
@@ -337,6 +344,10 @@ fn scan_line(line: &str, state: &mut ScanState) -> bool {
         index += 1;
     }
     false
+}
+
+fn is_ident_part(character: char) -> bool {
+    character.is_ascii_alphanumeric() || character == '_' || character == '$'
 }
 
 fn opens_angle(chars: &[char], index: usize) -> bool {
@@ -355,21 +366,17 @@ fn opens_angle(chars: &[char], index: usize) -> bool {
     if index > 0 && chars[index - 1] == '<' {
         return false;
     }
-    true
-}
-
-fn closes_angle(chars: &[char], index: usize) -> bool {
-    if chars[index] != '>' {
-        return false;
-    }
-    if index > 0 && chars[index - 1] == '-' {
-        return false;
-    }
-    if index + 1 < chars.len() && chars[index + 1] == '=' {
-        return false;
-    }
-    if index + 1 < chars.len() && chars[index + 1] == '>' {
-        return false;
+    if index + 1 < chars.len() && is_ident_part(chars[index + 1]) {
+        let mut start = index;
+        while start > 0 && is_ident_part(chars[start - 1]) {
+            start -= 1;
+        }
+        if start < index
+            && chars[start].is_ascii_lowercase()
+            && chars[index + 1].is_ascii_lowercase()
+        {
+            return false;
+        }
     }
     true
 }
@@ -509,10 +516,6 @@ fn is_ident_start(character: char) -> bool {
     character.is_ascii_alphabetic() || character == '_' || character == '$'
 }
 
-fn is_ident_part(character: char) -> bool {
-    character.is_ascii_alphanumeric() || character == '_' || character == '$'
-}
-
 #[cfg(test)]
 mod tests {
     use super::{discover_typescript_modules, parse_typescript_source, TypeScriptSymbolKind};
@@ -600,6 +603,50 @@ export const View = () => <div>ok</div>
                 .map(|symbol| symbol.name.as_str())
                 .collect::<Vec<_>>(),
             vec!["List", "View"]
+        );
+    }
+
+    #[test]
+    fn nested_generics_and_unspaced_comparisons_parse() {
+        let nested = "\
+export type Box = Array<Array<string>>;
+export function after() {}
+";
+        let (_imports, symbols) = parse_typescript_source(nested);
+        assert_eq!(
+            symbols
+                .iter()
+                .map(|symbol| symbol.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Box", "after"]
+        );
+
+        let map = "\
+export function make(): Map<string, Array<number>> { return new Map(); }
+export function later() {}
+";
+        let (_imports, symbols) = parse_typescript_source(map);
+        assert_eq!(
+            symbols
+                .iter()
+                .map(|symbol| symbol.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["make", "later"]
+        );
+
+        let unspaced = "\
+export const min = a<b ? a : b;
+export function next() {}
+export const ok = a<b && c<d;
+export function tail() {}
+";
+        let (_imports, symbols) = parse_typescript_source(unspaced);
+        assert_eq!(
+            symbols
+                .iter()
+                .map(|symbol| symbol.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["min", "next", "ok", "tail"]
         );
     }
 

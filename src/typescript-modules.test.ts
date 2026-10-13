@@ -42,6 +42,18 @@ export function Fake() {}
   assert.deepEqual(parsed.symbols.map((symbol) => symbol.name), ["Page"]);
 });
 
+test("nested generics and unspaced comparisons still export symbols", () => {
+  const nested = parseTypeScriptSource(`export type Box = Array<Array<string>>;
+export function after() {}
+`);
+  assert.deepEqual(nested.symbols.map((symbol) => symbol.name), ["Box", "after"]);
+
+  const unspaced = parseTypeScriptSource(`export const min = a<b ? a : b;
+export function next() {}
+`);
+  assert.deepEqual(unspaced.symbols.map((symbol) => symbol.name), ["min", "next"]);
+});
+
 test("comparison and shift operators do not block later exports", () => {
   const parsed = parseTypeScriptSource(`export const min = a < b ? a : b;
 export function next() {}
