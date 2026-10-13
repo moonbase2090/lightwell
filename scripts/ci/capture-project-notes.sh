@@ -67,6 +67,8 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     map_panel_width=$((WIDTH - 318 - 6))
     map_canvas_x=$((map_panel_width / 2))
     map_canvas_y=$((108 + 200))
+    notes_button_x=$((map_panel_width - 56))
+    notes_button_y=$((54 + 54 + 24))
     dialog_left=$(( (WIDTH - 860) / 2 ))
     dialog_top=$(( (HEIGHT - 640) / 2 ))
     note_textarea_x=$((dialog_left + 612))
@@ -90,7 +92,7 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     xdotool mousemove --window "$window_id" "$map_canvas_x" "$map_canvas_y" click 1
     sleep 1
     xdotool windowfocus "$window_id" 2>/dev/null || true
-    xdotool key --clearmodifiers n
+    xdotool mousemove --window "$window_id" "$notes_button_x" "$notes_button_y" click 1
     sleep 3
     xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
     sleep 1
