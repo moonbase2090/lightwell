@@ -248,6 +248,27 @@ test("denylisted text in an archived symlink target fails the scan", () => {
   }
 });
 
+test("a dmg release artifact is scanned without treating the extension as unsupported", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lightwell-release-dmg-"));
+  const clean = join(dir, "Lightwell-macos-arm64.dmg");
+  const dirty = join(dir, "dirty.dmg");
+  try {
+    writeFileSync(clean, "public release payload\n");
+    writeFileSync(dirty, `note ${probe}\n`);
+
+    const passed = scan(clean);
+    assert.equal(passed.status, 0, passed.stderr);
+    assert.equal(passed.stderr.includes("unsupported artifact format"), false);
+
+    const failed = scan(dirty);
+    assert.notEqual(failed.status, 0);
+    assert.equal(failed.stderr.includes("unsupported artifact format"), false);
+    assert.equal(failed.stdout.includes(probe), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("host name patterns ignore icon names and XDG paths but catch real hosts", () => {
   const dir = mkdtempSync(join(tmpdir(), "lightwell-release-hosts-"));
   const write = (name: string, text: string) => {

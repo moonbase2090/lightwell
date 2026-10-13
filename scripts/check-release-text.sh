@@ -223,7 +223,8 @@ artifact_format() {
   case "$lower" in
     *.deb) printf 'deb\n' ;;
     *.zip) printf 'zip\n' ;;
-    *.tar.gz | *.tgz | *.tar.bz2 | *.tbz2 | *.tar.xz | *.txz | *.tar.zst | *.tar | *.gz | *.bz2 | *.xz | *.zst | *.7z | *.rar | *.dmg | *.pkg | *.iso | *.jar | *.apk | *.ipa | *.nupkg)
+    *.dmg) printf 'dmg\n' ;;
+    *.tar.gz | *.tgz | *.tar.bz2 | *.tbz2 | *.tar.xz | *.txz | *.tar.zst | *.tar | *.gz | *.bz2 | *.xz | *.zst | *.7z | *.rar | *.pkg | *.iso | *.jar | *.apk | *.ipa | *.nupkg)
       printf 'unsupported\n'
       ;;
     *) printf 'strings\n' ;;
@@ -290,6 +291,20 @@ unpack_deb() {
   fi
 }
 
+unpack_dmg() {
+  local file="$1"
+  local dest="$2"
+  if command -v 7z >/dev/null 2>&1; then
+    7z x -y "-o$dest" "$file" >/dev/null
+    return $?
+  fi
+  if command -v 7za >/dev/null 2>&1; then
+    7za x -y "-o$dest" "$file" >/dev/null
+    return $?
+  fi
+  return 1
+}
+
 decompress_one() {
   local kind="$1"
   local file="$2"
@@ -333,6 +348,12 @@ unpack_and_scan() {
       if ! tar -xf "$file" -C "$dest"; then
         echo "check-release-text: could not unpack tar: $display" >&2
         fail=1
+        return 0
+      fi
+      ;;
+    dmg)
+      if ! unpack_dmg "$file" "$dest"; then
+        record_strings "$display" "$file"
         return 0
       fi
       ;;
@@ -405,7 +426,7 @@ scan_artifact() {
   format="$(artifact_format "$file")"
   case "$format" in
     text) record_text "$display" "$file" ;;
-    deb | zip | tar | gzip | bzip2 | xz | zstd) unpack_and_scan "$display" "$file" "$format" ;;
+    deb | zip | tar | dmg | gzip | bzip2 | xz | zstd) unpack_and_scan "$display" "$file" "$format" ;;
     unsupported)
       echo "check-release-text: unsupported artifact format: $display" >&2
       fail=1
