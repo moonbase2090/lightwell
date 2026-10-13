@@ -1,13 +1,25 @@
 # Changelog
 
-## Unreleased
+## 0.1.4 - 2026-10-13
+
+### Added
+
+- TypeScript, JavaScript, HTML, and CSS support in the map and source inspector.
+- React and Next.js project detection.
+- Python support.
+- Rust ships as a built-in language pack.
+- Project notes are on by default, with right-click note menus on map blocks. `VITE_ENABLE_PROJECT_NOTES=false` omits the notes commands from the bundle.
+- Saving preferences now shows confirmation feedback.
 
 ### Changed
 
 - Blueprint is now the default theme for new installs and unset preferences. A saved theme choice (including Follow system) is kept.
-- Blueprint is redesigned: stepped navy surfaces, a two-level map grid, tinted status and kind colours, an amber focus and selection ring, and syntax colours in the source inspector. Every text role meets WCAG AA, so the Settings contrast note is gone.
-- The app window and the page background start in Blueprint navy, so launch no longer flashes the old dark background.
-- Project notes are on by default in desktop and release builds. `VITE_ENABLE_PROJECT_NOTES=false` omits the notes commands from the bundle and leaves the dialog unwired. The dialog code stays in the bundle.
+- Blueprint is redesigned: stepped navy surfaces, a two-level map grid, tinted status and kind colours, an amber focus and selection ring, and syntax colours in the source inspector. Every text role meets WCAG AA.
+- The app window starts in Blueprint navy, so launch no longer flashes the old dark background.
+
+### Fixed
+
+- The app icon now displays correctly.
 
 ## 0.1.3 - 2026-10-12
 
