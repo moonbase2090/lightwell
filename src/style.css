@@ -298,7 +298,6 @@ button { color: inherit; }
 .settings-legal-links { margin: 10px 0 0; font-size: 10px; line-height: 1.6; }
 .settings-legal-links a { color: #9ec5ff; text-decoration: underline; text-underline-offset: 2px; }
 .settings-legal-links a:hover { color: #cfe4ff; }
-.settings-blueprint-note { margin: 10px 0 0; padding: 9px 10px; border: 1px solid #8d754a; border-radius: 6px; color: #e7cb9a; background: #2a2418; font-size: 10px; line-height: 1.5; }
 .settings-status { margin-top: 13px; color: #94a2b2; font-size: 10px; }
 .settings-error, .settings-success { margin-top: 12px; padding: 8px 9px; display: flex; align-items: flex-start; gap: 7px; border-radius: 6px; font-size: 10px; line-height: 1.45; }
 .settings-error { border: 1px solid #684535; color: #efbd86; background: #251a16; }
@@ -554,7 +553,6 @@ button { color: inherit; }
 .workspace-shell[data-theme="light"] .settings-select:focus,
 .workspace-shell[data-theme="light"] .settings-command-input:focus { outline-color: #6b85a8; }
 .workspace-shell[data-theme="light"] .settings-help code { color: #526a89; }
-.workspace-shell[data-theme="light"] .settings-blueprint-note { border-color: #c1b79b; color: #6c5b37; background: #f2eddf; }
 .workspace-shell[data-theme="light"] .settings-error { border-color: #c9a99c; color: #7a4235; background: #f5e9e3; }
 .workspace-shell[data-theme="light"] .settings-success { border-color: #b7c6aa; color: #48613d; background: #edf2e8; }
 .workspace-shell[data-theme="light"] .settings-status { color: #6b6560; }
@@ -590,60 +588,152 @@ button { color: inherit; }
 .workspace-shell[data-theme="light"] .source-state-status { color: #7a4235; }
 .workspace-shell[data-theme="light"] .open-workspace-primary { color: #3a4d61; }
 
+/* Blueprint: stepped Prussian-blue surfaces, drafting-amber accent.
+   Tier 0 #0A1628 (frame) / tier 1 #0C1A30 (sub-bars, editor) / tier 2 #0E1E36 (panels) / tier 3 #13284A (raised).
+   Map field #123E73 is the lightest surface so the drawing reads as the subject.
+   Monospace is reserved for map labels and code; the UI uses the app sans. */
 .workspace-shell[data-theme="blueprint"] {
+  --bg: #0A1628;
+  --panel: #0E1E36;
+  --panel-raised: #13284A;
+  --line: #24406A;
+  --muted: #9FB6D6;
+  --faint: #7590B5;
+  --blue: #FFB547;
+  --bp-text: #EAF2FF;
+  --bp-accent: #FFB547;
+  --bp-accent-text: #FFD08A;
+  --bp-map: #123E73;
+  --bp-node: #0B2B52;
+  --bp-ink: #E3EEFF;
+  --bp-ink-muted: #B4CCEA;
+  --code-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --mono: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --splitter-rail: #24406A;
+  --splitter-rail-active: #FFB547;
   color-scheme: dark;
-  color: #fff;
-  font-family: "Courier New", var(--mono), monospace;
-  background: #1868D0;
-  --splitter-rail: rgba(255,255,255,.52);
-  --splitter-rail-active: #fff;
+  color: var(--bp-text);
+  background: #0A1628;
 }
-.workspace-shell[data-theme="blueprint"] * {
-  color: #fff !important;
-  border-color: rgba(255,255,255,.78) !important;
-  background-color: #1868D0 !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-.workspace-shell[data-theme="blueprint"] .react-flow,
-.workspace-shell[data-theme="blueprint"] .react-flow * {
-  background-color: transparent !important;
-}
-.workspace-shell[data-theme="blueprint"] .connector-layer { background-color: transparent !important; }
-.workspace-shell[data-theme="blueprint"] .settings-backdrop { background: rgba(0,32,80,.42) !important; }
-.workspace-shell[data-theme="blueprint"] .graph-canvas {
-  background-color: #1868D0 !important;
-  background-image: linear-gradient(rgba(255,255,255,.075) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.075) 1px, transparent 1px) !important;
-  background-size: 26px 26px !important;
-}
-.workspace-shell[data-theme="blueprint"] .graph-canvas::after { background: radial-gradient(ellipse at 50% 40%, transparent 20%, rgba(0,33,88,.12) 100%) !important; }
-.workspace-shell[data-theme="blueprint"] .block-node { border: 1.5px solid #fff !important; border-radius: 2px; background-color: #1868D0 !important; }
-.workspace-shell[data-theme="blueprint"] .block-node:hover,
-.workspace-shell[data-theme="blueprint"] .block-node.selected { outline: 2px solid rgba(255,255,255,.6); outline-offset: 3px; }
-.workspace-shell[data-theme="blueprint"] .react-flow__edge-path { stroke: #fff !important; }
-.workspace-shell[data-theme="blueprint"] .react-flow__edge-text { fill: #fff !important; }
-.workspace-shell[data-theme="blueprint"] .react-flow__edge-textbg { fill: #1868D0 !important; }
-.workspace-shell[data-theme="blueprint"] .feature-connector { stroke: #fff !important; }
-.workspace-shell[data-theme="blueprint"] .feature-card::before,
-.workspace-shell[data-theme="blueprint"] .status-mark,
-.workspace-shell[data-theme="blueprint"] .result-mark,
-.workspace-shell[data-theme="blueprint"] .kind-dot,
-.workspace-shell[data-theme="blueprint"] .member-type { background: #fff !important; }
-.workspace-shell[data-theme="blueprint"] .settings-panel-body,
+.workspace-shell[data-theme="blueprint"] .graph-canvas,
+.workspace-shell[data-theme="blueprint"] .settings-command-input,
+.workspace-shell[data-theme="blueprint"] .source-code-editor { --mono: var(--code-mono); }
+
+/* Tier 0: frame */
+.workspace-shell[data-theme="blueprint"] .topbar,
+.workspace-shell[data-theme="blueprint"] .statusbar { border-color: #24406A; background: #0A1628; }
+.workspace-shell[data-theme="blueprint"] .statusbar,
+.workspace-shell[data-theme="blueprint"] .statusbar svg { color: #9FB6D6; }
+/* Tier 1: sub-bars and code */
+.workspace-shell[data-theme="blueprint"] .overview-row,
+.workspace-shell[data-theme="blueprint"] .map-toolbar,
+.workspace-shell[data-theme="blueprint"] .inspector-position,
+.workspace-shell[data-theme="blueprint"] .settings-select,
+.workspace-shell[data-theme="blueprint"] .settings-command-input,
+.workspace-shell[data-theme="blueprint"] .global-search-wrap { border-color: #24406A; background: #0C1A30; }
+.workspace-shell[data-theme="blueprint"] .inspector-position { color: #9FB6D6; }
+/* Tier 2: panels */
+.workspace-shell[data-theme="blueprint"] .details-panel,
+.workspace-shell[data-theme="blueprint"] .source-inspector,
+.workspace-shell[data-theme="blueprint"] .source-inspector-header,
+.workspace-shell[data-theme="blueprint"] .feature-footer,
+.workspace-shell[data-theme="blueprint"] .editor-settings-panel,
 .workspace-shell[data-theme="blueprint"] .settings-panel-header,
 .workspace-shell[data-theme="blueprint"] .settings-panel-footer,
-.workspace-shell[data-theme="blueprint"] .editor-settings-panel,
-.workspace-shell[data-theme="blueprint"] .source-inspector,
-.workspace-shell[data-theme="blueprint"] .details-panel,
-.workspace-shell[data-theme="blueprint"] .feature-footer,
-.workspace-shell[data-theme="blueprint"] .graph-canvas { background-color: #1868D0 !important; }
-.workspace-shell[data-theme="blueprint"] .source-code-editor { filter: none; }
-.workspace-shell[data-theme="blueprint"] .react-flow__controls-button svg { fill: #fff !important; }
-.workspace-shell[data-theme="blueprint"] .status-pill { border: 1px solid rgba(255,255,255,.8) !important; }
-.workspace-shell[data-theme="blueprint"] .splitter-handle::before { background: var(--splitter-rail) !important; }
-.workspace-shell[data-theme="blueprint"] .splitter-handle:hover::before,
-.workspace-shell[data-theme="blueprint"] .splitter-handle:focus-visible::before,
-.workspace-shell[data-theme="blueprint"] .splitter.is-dragging > .splitter-handle::before { background: var(--splitter-rail-active) !important; }
+.workspace-shell[data-theme="blueprint"] .search-results,
+.workspace-shell[data-theme="blueprint"] .project-notes-dialog,
+.workspace-shell[data-theme="blueprint"] .project-notes-header,
+.workspace-shell[data-theme="blueprint"] .project-notes-list-panel { border-color: #24406A; background: #0E1E36; }
+.workspace-shell[data-theme="blueprint"] .settings-select option,
+.workspace-shell[data-theme="blueprint"] .project-select-wrap select option { background: #0E1E36; }
+/* Tier 3: raised controls and cards */
+.workspace-shell[data-theme="blueprint"] .project-select-wrap,
+.workspace-shell[data-theme="blueprint"] .open-workspace-button,
+.workspace-shell[data-theme="blueprint"] .icon-button,
+.workspace-shell[data-theme="blueprint"] .settings-cancel-button,
+.workspace-shell[data-theme="blueprint"] .group-tab.active,
+.workspace-shell[data-theme="blueprint"] .detail-stat-grid > div,
+.workspace-shell[data-theme="blueprint"] .feature-card { border-color: #2C4C7C; background: #13284A; }
+.workspace-shell[data-theme="blueprint"] .feature-card:hover,
+.workspace-shell[data-theme="blueprint"] .feature-card.tracing,
+.workspace-shell[data-theme="blueprint"] .feature-card.chosen { border-color: var(--feature-color, #FFB547); background: #183260; }
+.workspace-shell[data-theme="blueprint"] .feature-card::before { opacity: .9; }
+.workspace-shell[data-theme="blueprint"] .search-result:hover,
+.workspace-shell[data-theme="blueprint"] .search-result:focus-visible,
+.workspace-shell[data-theme="blueprint"] .member-row:hover,
+.workspace-shell[data-theme="blueprint"] .group-tab:hover,
+.workspace-shell[data-theme="blueprint"] .breadcrumb-segment button:hover { background: #183260; }
+.workspace-shell[data-theme="blueprint"] .group-tab,
+.workspace-shell[data-theme="blueprint"] .breadcrumb-segment button,
+.workspace-shell[data-theme="blueprint"] .member-row { color: #B4CCEA; }
+.workspace-shell[data-theme="blueprint"] .detail-divider { background: #24406A; }
+
+/* Amber accent: primary actions and focus, distinct from 1px navy borders */
+.workspace-shell[data-theme="blueprint"] .editor-settings-button,
+.workspace-shell[data-theme="blueprint"] .open-in-editor-button,
+.workspace-shell[data-theme="blueprint"] .open-block-button,
+.workspace-shell[data-theme="blueprint"] .settings-save-button,
+.workspace-shell[data-theme="blueprint"] .open-workspace-primary { border-color: #FFB547; color: #FFD08A; background: #13284A; }
+.workspace-shell[data-theme="blueprint"] .editor-settings-button:hover,
+.workspace-shell[data-theme="blueprint"] .open-in-editor-button:hover,
+.workspace-shell[data-theme="blueprint"] .open-block-button:hover,
+.workspace-shell[data-theme="blueprint"] .settings-save-button:hover,
+.workspace-shell[data-theme="blueprint"] .open-workspace-primary:hover { color: #0A1628; background: #FFB547; }
+.workspace-shell[data-theme="blueprint"] :focus-visible { outline: 2px solid #FFB547 !important; outline-offset: 2px; }
+.workspace-shell[data-theme="blueprint"] .settings-backdrop { background: rgba(4, 10, 20, .72); }
+
+/* Map: the only blueprint-ink surface */
+.workspace-shell[data-theme="blueprint"] .graph-canvas {
+  background-color: #123E73;
+  background-image:
+    linear-gradient(rgba(255,255,255,.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.16) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+  background-size: 130px 130px, 130px 130px, 26px 26px, 26px 26px;
+}
+.workspace-shell[data-theme="blueprint"] .graph-canvas::after { background: radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(6,20,40,.3) 100%); }
+.workspace-shell[data-theme="blueprint"] .canvas-watermark,
+.workspace-shell[data-theme="blueprint"] .canvas-watermark span:last-child { color: #B4CCEA; }
+.workspace-shell[data-theme="blueprint"] .block-node { border: 1.5px solid #E3EEFF; border-radius: 3px; background: #0B2B52; box-shadow: none; }
+.workspace-shell[data-theme="blueprint"] .block-node:hover { border-color: #FFFFFF; box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
+.workspace-shell[data-theme="blueprint"] .block-node.highlighted { border-color: #9FD0FF; }
+.workspace-shell[data-theme="blueprint"] .block-node.annotation-changed { border-color: #FFB547; }
+.workspace-shell[data-theme="blueprint"] .block-node.selected { border-color: #FFB547; box-shadow: 0 0 0 2px #0B2B52, 0 0 0 4px #FFB547; }
+.workspace-shell[data-theme="blueprint"] .node-name { color: #FFFFFF; font-family: var(--code-mono); }
+.workspace-shell[data-theme="blueprint"] .node-kind,
+.workspace-shell[data-theme="blueprint"] .node-path,
+.workspace-shell[data-theme="blueprint"] .node-children { color: #B4CCEA; }
+.workspace-shell[data-theme="blueprint"] .node-icon { color: #9FD0FF; }
+.workspace-shell[data-theme="blueprint"] .node-module .node-icon { color: #7FE3CF; }
+.workspace-shell[data-theme="blueprint"] .node-feature .node-icon { color: #E2B8FA; }
+.workspace-shell[data-theme="blueprint"] .react-flow__edge-path,
+.workspace-shell[data-theme="blueprint"] .feature-connector { stroke: #E3EEFF !important; }
+.workspace-shell[data-theme="blueprint"] .react-flow__edge-text { fill: #FFFFFF !important; }
+.workspace-shell[data-theme="blueprint"] .react-flow__edge-textbg { fill: #123E73 !important; }
+.workspace-shell[data-theme="blueprint"] .react-flow__controls { border-color: #4A6E9E; background: #0B2B52; }
+.workspace-shell[data-theme="blueprint"] .react-flow__controls-button { border-color: #4A6E9E; color: #E3EEFF; fill: #E3EEFF; }
+.workspace-shell[data-theme="blueprint"] .react-flow__controls-button:hover { background: #183260; }
+.workspace-shell[data-theme="blueprint"] .react-flow__attribution { background: rgba(11,43,82,.8) !important; color: #B4CCEA !important; }
+
+/* Semantic colour, tinted for navy (all >= 4.5:1 on #0B2B52 and #13284A) */
+.workspace-shell[data-theme="blueprint"] .status-pill { color: #8EF0C6; background: rgba(142,240,198,.12); border-color: rgba(142,240,198,.45); }
+.workspace-shell[data-theme="blueprint"] .status-pill.status-wip { color: #FFD08A; background: rgba(255,208,138,.12); border-color: rgba(255,208,138,.45); }
+.workspace-shell[data-theme="blueprint"] .status-pill.status-deprecated { color: #FFB3BE; background: rgba(255,179,190,.12); border-color: rgba(255,179,190,.45); }
+.workspace-shell[data-theme="blueprint"] .status-mark { background: #8EF0C6; }
+.workspace-shell[data-theme="blueprint"] .status-mark.status-wip { background: #FFD08A; }
+.workspace-shell[data-theme="blueprint"] .status-mark.status-deprecated { background: #FFB3BE; }
+.workspace-shell[data-theme="blueprint"] .kind-dot,
+.workspace-shell[data-theme="blueprint"] .dot-crate,
+.workspace-shell[data-theme="blueprint"] .member-crate,
+.workspace-shell[data-theme="blueprint"] .result-crate { background: #9FD0FF; }
+.workspace-shell[data-theme="blueprint"] .dot-module,
+.workspace-shell[data-theme="blueprint"] .member-module,
+.workspace-shell[data-theme="blueprint"] .result-module { background: #7FE3CF; }
+.workspace-shell[data-theme="blueprint"] .dot-feature,
+.workspace-shell[data-theme="blueprint"] .feature-dot,
+.workspace-shell[data-theme="blueprint"] .member-feature,
+.workspace-shell[data-theme="blueprint"] .result-feature { background: #E2B8FA; }
 
 @media (max-width: 1240px) {
   .topbar { grid-template-columns: 190px 174px minmax(220px, 1fr) 95px; gap: 12px; padding: 0 16px; }

@@ -24,14 +24,14 @@ function renderSettings(themePreference: ThemePreference, theme: ResolvedTheme):
   }));
 }
 
-test("settings panel warns about blueprint contrast and locks editor fields while they load", () => {
+test("settings panel shows blueprint without a contrast disclaimer and locks editor fields while they load", () => {
   const html = renderSettings("blueprint", "blueprint");
 
   assert.match(html, /role="dialog"/);
   assert.match(html, /<h2 id="editor-settings-title">Settings<\/h2>/);
   assert.match(html, /<option value="blueprint" selected="">Blueprint<\/option>/);
-  assert.match(html, /role="note"/);
-  assert.match(html, /some secondary text is below WCAG AA contrast/);
+  assert.equal(html.includes("role=\"note\""), false);
+  assert.equal(html.includes("WCAG AA"), false);
   assert.match(html, /Loading editor settings…/);
   assert.match(html, /id="editor-preset"[^>]*disabled/);
   assert.match(html, /id="editor-command"[^>]*disabled/);
