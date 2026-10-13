@@ -1,4 +1,4 @@
-export type SourceLanguageId = "rust" | "toml" | "typescript";
+export type SourceLanguageId = "rust" | "toml" | "typescript" | "python";
 
 export interface LanguageRegistration {
   readonly sourceLanguageId: SourceLanguageId;
@@ -6,7 +6,10 @@ export interface LanguageRegistration {
   readonly extensions: readonly string[];
 }
 
-/** Canonical extension → language mapping for extractors and the source inspector. */
+/**
+ * Canonical extension → language mapping for extractors and the source inspector.
+ * Registered languages are always extracted when present; no off-by-default flags.
+ */
 export const LANGUAGE_REGISTRY: readonly LanguageRegistration[] = [
   { sourceLanguageId: "rust", monacoLanguageId: "rust", extensions: [".rs"] },
   { sourceLanguageId: "toml", monacoLanguageId: "toml", extensions: [".toml"] },
@@ -15,6 +18,7 @@ export const LANGUAGE_REGISTRY: readonly LanguageRegistration[] = [
     monacoLanguageId: "typescript",
     extensions: [".ts", ".tsx", ".mts", ".cts"],
   },
+  { sourceLanguageId: "python", monacoLanguageId: "python", extensions: [".py", ".pyi"] },
 ];
 
 function registrationForPath(filePath: string): LanguageRegistration | null {

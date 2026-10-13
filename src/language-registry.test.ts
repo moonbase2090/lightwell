@@ -13,6 +13,12 @@ test("registry maps Rust and manifest paths", () => {
   assert.equal(monacoLanguageIdForPath("crates/app/Cargo.toml"), "toml");
 });
 
+test("registry maps Python sources", () => {
+  assert.equal(sourceLanguageIdForPath("pkg/mod.py"), "python");
+  assert.equal(sourceLanguageIdForPath("types.pyi"), "python");
+  assert.equal(monacoLanguageIdForPath("pkg/mod.py"), "python");
+});
+
 test("registry maps TypeScript extensions without .ts swallowing .tsx", () => {
   assert.equal(sourceLanguageIdForPath("src/App.tsx"), "typescript");
   assert.equal(sourceLanguageIdForPath("src/cli.ts"), "typescript");
