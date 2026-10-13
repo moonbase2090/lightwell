@@ -1,36 +1,36 @@
-export type SourceLanguageId = "rust" | "toml" | "typescript" | "python";
+import type * as Monaco from "monaco-editor-core";
+import { BUILTIN_LANGUAGE_PACKS } from "./builtin-packs.js";
+import type { LanguagePack, LanguagePackId } from "./language-pack.js";
 
+/** Active packs (built-ins today; plugin loader will append here later). */
+export const LANGUAGE_PACKS: readonly LanguagePack[] = BUILTIN_LANGUAGE_PACKS;
+
+export type SourceLanguageId = LanguagePackId;
+
+/** @deprecated Use `LanguagePack` via `LANGUAGE_PACKS`. */
 export interface LanguageRegistration {
   readonly sourceLanguageId: SourceLanguageId;
   readonly monacoLanguageId: string;
   readonly extensions: readonly string[];
 }
 
-/**
- * Canonical extension → language mapping for extractors and the source inspector.
- * Registered languages are always extracted when present; no off-by-default flags.
- */
-export const LANGUAGE_REGISTRY: readonly LanguageRegistration[] = [
-  { sourceLanguageId: "rust", monacoLanguageId: "rust", extensions: [".rs"] },
-  { sourceLanguageId: "toml", monacoLanguageId: "toml", extensions: [".toml"] },
-  {
-    sourceLanguageId: "typescript",
-    monacoLanguageId: "typescript",
-    extensions: [".ts", ".tsx", ".mts", ".cts"],
-  },
-  { sourceLanguageId: "python", monacoLanguageId: "python", extensions: [".py", ".pyi"] },
-];
+/** @deprecated Use `LANGUAGE_PACKS`. */
+export const LANGUAGE_REGISTRY: readonly LanguageRegistration[] = LANGUAGE_PACKS.map((pack) => ({
+  sourceLanguageId: pack.id,
+  monacoLanguageId: pack.monacoLanguageId,
+  extensions: pack.extensions,
+}));
 
-function registrationForPath(filePath: string): LanguageRegistration | null {
+export function languagePackForPath(filePath: string): LanguagePack | null {
   const lower = filePath.toLowerCase();
-  let match: LanguageRegistration | null = null;
+  let match: LanguagePack | null = null;
   let matchedExtensionLength = 0;
-  for (const entry of LANGUAGE_REGISTRY) {
-    for (const extension of entry.extensions) {
+  for (const pack of LANGUAGE_PACKS) {
+    for (const extension of pack.extensions) {
       if (!lower.endsWith(extension) || extension.length <= matchedExtensionLength) {
         continue;
       }
-      match = entry;
+      match = pack;
       matchedExtensionLength = extension.length;
     }
   }
@@ -38,10 +38,16 @@ function registrationForPath(filePath: string): LanguageRegistration | null {
 }
 
 export function sourceLanguageIdForPath(filePath: string): SourceLanguageId | null {
-  return registrationForPath(filePath)?.sourceLanguageId ?? null;
+  return languagePackForPath(filePath)?.id ?? null;
 }
 
 /** Monaco editor language id; unknown paths keep the historical default of Rust highlighting. */
 export function monacoLanguageIdForPath(filePath: string): string {
-  return registrationForPath(filePath)?.monacoLanguageId ?? "rust";
+  return languagePackForPath(filePath)?.monacoLanguageId ?? "rust";
+}
+
+export function registerLanguagePackHighlighters(monaco: typeof Monaco): void {
+  for (const pack of LANGUAGE_PACKS) {
+    pack.registerHighlighter?.(monaco);
+  }
 }

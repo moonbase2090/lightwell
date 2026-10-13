@@ -10,9 +10,10 @@ Optional dev-only toggles (for example project notes in the desktop shell) are u
 
 ## Implementation notes
 
-- Extension and Monaco language ids live in `src/languages/registry.ts` (re-exported from `src/extract/language.ts`).
+- Each language is a **`LanguagePack`** (`src/languages/language-pack.ts`): `id`, `extensions`, `extractor`, `registerHighlighter`, and `fixtures`. Built-ins live in `src/languages/builtin-packs.ts`; `LANGUAGE_PACKS` in `src/languages/registry.ts` is the active list a future plugin loader will append to (no loader yet).
+- TypeScript and Python are the next built-in packs after Rust/TOML; extraction and Monarch tokenizers land per pack without feature flags.
 - Rust parsing stays in `crates/lightwell-core`; TypeScript mirrors live under `src/extract/` with parity checks in `scripts/check-rust-map-parity.mjs` where applicable.
 - Schema and `docs/schema.md` gain per-block `language` fields as each extractor lands.
-- Highlighting uses Monaco Monarch providers in `src/SourceCodeEditor.tsx` (TSX-aware TypeScript, Python as added).
+- Inspector highlighting registers through each pack’s `registerHighlighter` (Rust/TOML Monarch today; TS/Python as packs mature).
 
 Keep pull requests small and rebased on `main`. Avoid path-handling churn that conflicts with cross-platform work; use `path_confinement` for filesystem scope.

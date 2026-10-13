@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { BUILTIN_LANGUAGE_PACKS } from "./languages/builtin-packs.js";
 import {
+  LANGUAGE_PACKS,
   LANGUAGE_REGISTRY,
+  languagePackForPath,
   monacoLanguageIdForPath,
   sourceLanguageIdForPath,
 } from "./languages/registry.js";
@@ -35,4 +38,16 @@ test("unknown paths keep Rust highlighting for Monaco", () => {
 test("registry entries have unique longest extensions", () => {
   const extensions = LANGUAGE_REGISTRY.flatMap((entry) => entry.extensions);
   assert.equal(new Set(extensions).size, extensions.length);
+});
+
+test("built-in packs expose extractor and fixture seams", () => {
+  assert.equal(LANGUAGE_PACKS.length, BUILTIN_LANGUAGE_PACKS.length);
+  const rust = languagePackForPath("src/lib.rs");
+  assert.equal(rust?.extractor?.kind, "rust-core");
+  assert.equal(rust?.fixtures?.root, "crates/lightwell-core/fixtures");
+  const typescript = languagePackForPath("src/App.tsx");
+  assert.equal(typescript?.extractor?.kind, "typescript-module");
+  const python = languagePackForPath("mod.py");
+  assert.equal(python?.extractor, null);
+  assert.equal(python?.registerHighlighter, null);
 });
