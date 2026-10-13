@@ -235,6 +235,7 @@ fn env_value(name: &str) -> Option<String> {
 enum EditorPlatform {
     MacOs,
     Linux,
+    Windows,
     Other,
 }
 
@@ -243,14 +244,26 @@ impl EditorPlatform {
         match env::consts::OS {
             "macos" => Self::MacOs,
             "linux" => Self::Linux,
+            "windows" => Self::Windows,
             _ => Self::Other,
         }
     }
 
-    fn default_handler(self) -> Option<&'static str> {
+    fn default_command(self, target: &EditorTarget) -> Option<EditorCommand> {
         match self {
-            Self::MacOs => Some("open"),
-            Self::Linux => Some("xdg-open"),
+            Self::MacOs => Some(EditorCommand::default_handler("open", target)),
+            Self::Linux => Some(EditorCommand::default_handler("xdg-open", target)),
+            // `start` is a cmd builtin. The empty argument is the window title,
+            // so a quoted path is not swallowed as that title.
+            Self::Windows => Some(EditorCommand {
+                program: "cmd".to_owned(),
+                arguments: vec![
+                    "/C".to_owned(),
+                    "start".to_owned(),
+                    String::new(),
+                    target.path.to_string_lossy().into_owned(),
+                ],
+            }),
             Self::Other => None,
         }
     }
@@ -313,8 +326,8 @@ fn editor_attempts(
     let mut attempts = Vec::new();
     if let Some(template) = command_template.filter(|template| !template.trim().is_empty()) {
         attempts.push(EditorCommand::from_template(template, target));
-    } else if let Some(program) = platform.default_handler() {
-        attempts.push(Ok(EditorCommand::default_handler(program, target)));
+    } else if let Some(command) = platform.default_command(target) {
+        attempts.push(Ok(command));
     }
 
     for template in [visual, editor]
@@ -619,6 +632,52 @@ mod tests {
             launched,
             vec![
                 "xdg-open".to_owned(),
+                "visual-editor".to_owned(),
+                "terminal-editor".to_owned(),
+            ]
+        );
+    }
+
+    #[test]
+    fn windows_opens_with_cmd_start_before_visual_and_editor() {
+        let windows_target = EditorTarget {
+            path: PathBuf::from(r"C:\project with spaces\src\lib.rs"),
+            position: SourcePosition::new(23, 7).unwrap(),
+        };
+        let attempts = editor_attempts(
+            &windows_target,
+            None,
+            Some("visual-editor"),
+            Some("terminal-editor"),
+            EditorPlatform::Windows,
+        );
+        assert_eq!(
+            attempts[0].as_ref().expect("windows handler should parse"),
+            &EditorCommand {
+                program: "cmd".to_owned(),
+                arguments: vec![
+                    "/C".to_owned(),
+                    "start".to_owned(),
+                    String::new(),
+                    r"C:\project with spaces\src\lib.rs".to_owned(),
+                ],
+            }
+        );
+
+        let mut launched = Vec::new();
+        let result = try_editor_attempts(&windows_target.path, attempts, |command| {
+            launched.push(command.program.clone());
+            if command.program == "terminal-editor" {
+                Ok(())
+            } else {
+                Err("not available".to_owned())
+            }
+        });
+        assert!(result.is_ok());
+        assert_eq!(
+            launched,
+            vec![
+                "cmd".to_owned(),
                 "visual-editor".to_owned(),
                 "terminal-editor".to_owned(),
             ]
