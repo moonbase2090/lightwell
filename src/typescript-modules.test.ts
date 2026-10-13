@@ -24,6 +24,24 @@ test("typescript fixture lists modules, imports, and top-level symbols", () => {
   assert.deepEqual(worker.symbols.map((symbol) => symbol.name), ["run"]);
 });
 
+test("multiline import is stored with the from clause", () => {
+  const parsed = parseTypeScriptSource("import {\n  readFile,\n} from \"node:fs/promises\";\n");
+  assert.equal(parsed.imports.length, 1);
+  assert.match(parsed.imports[0]?.statement ?? "", /from "node:fs\/promises"/);
+});
+
+test("export inside jsx is not a separate top-level symbol", () => {
+  const parsed = parseTypeScriptSource(`export function Page() {
+  return (
+    <div>
+export function Fake() {}
+    </div>
+  );
+}
+`);
+  assert.deepEqual(parsed.symbols.map((symbol) => symbol.name), ["Page"]);
+});
+
 test("export inside a string is not a top-level symbol", () => {
   const parsed = parseTypeScriptSource('const text = "export function fake() {}";\nexport function real() {}\n');
   assert.deepEqual(parsed.symbols.map((symbol) => symbol.name), ["real"]);

@@ -87,15 +87,11 @@ pub(crate) fn parse_typescript_source(
             scan_line(line, &mut state);
             continue;
         }
-        if state.paren > 0 || state.bracket > 0 || continued {
+        if !scan_balanced(&state) || continued {
             logical.push('\n');
             logical.push_str(line);
             continued = scan_line(line, &mut state);
-            if state.paren == 0
-                && state.bracket == 0
-                && state.quote.is_none()
-                && !state.block_comment
-                && !continued
+            if scan_balanced(&state) && state.quote.is_none() && !state.block_comment && !continued
             {
                 classify(&logical, logical_line, &mut imports, &mut symbols);
                 logical.clear();
@@ -113,12 +109,7 @@ pub(crate) fn parse_typescript_source(
         logical.push_str(line);
         logical_line = line_no;
         continued = scan_line(line, &mut state);
-        if state.paren == 0
-            && state.bracket == 0
-            && state.quote.is_none()
-            && !state.block_comment
-            && !continued
-        {
+        if scan_balanced(&state) && state.quote.is_none() && !state.block_comment && !continued {
             classify(&logical, logical_line, &mut imports, &mut symbols);
             logical.clear();
         }
@@ -261,6 +252,12 @@ struct ScanState {
     block_comment: bool,
     paren: i32,
     bracket: i32,
+    brace: i32,
+    angle: i32,
+}
+
+fn scan_balanced(state: &ScanState) -> bool {
+    state.paren == 0 && state.bracket == 0 && state.brace == 0 && state.angle == 0
 }
 
 fn scan_line(line: &str, state: &mut ScanState) -> bool {
@@ -323,6 +320,18 @@ fn scan_line(line: &str, state: &mut ScanState) -> bool {
             ')' => state.paren -= 1,
             '[' => state.bracket += 1,
             ']' => state.bracket -= 1,
+            '{' => state.brace += 1,
+            '}' => state.brace -= 1,
+            '<' => {
+                if !(index + 1 < chars.len() && chars[index + 1] == '=') {
+                    state.angle += 1;
+                }
+            }
+            '>' => {
+                if !(index > 0 && chars[index - 1] == '-') && state.angle > 0 {
+                    state.angle -= 1;
+                }
+            }
             _ => {}
         }
         index += 1;
@@ -374,13 +383,19 @@ fn classify(
         return;
     }
     if trimmed.starts_with("import ") {
+        let statement = trimmed
+            .lines()
+            .map(str::trim)
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
         imports.push(TypeScriptImport {
             line: line_no,
-            statement: trimmed.to_owned(),
+            statement,
         });
         return;
     }
-    if let Some(symbol) = parse_export_symbol(trimmed) {
+    if let Some(symbol) = parse_export_symbol(trimmed.lines().next().unwrap_or(trimmed)) {
         symbols.push(TypeScriptSymbol {
             name: symbol.0,
             kind: symbol.1,
@@ -507,6 +522,50 @@ mod tests {
         assert_eq!(worker.symbols.len(), 1);
         assert_eq!(worker.symbols[0].name, "run");
         assert_eq!(worker.symbols[0].kind, TypeScriptSymbolKind::Function);
+    }
+
+    #[test]
+    fn multiline_import_is_kept_together() {
+        let source = "import {\n  readFile,\n} from \"node:fs/promises\";\n";
+        let (imports, symbols) = parse_typescript_source(source);
+        assert_eq!(symbols.len(), 0);
+        assert_eq!(imports.len(), 1);
+        assert_eq!(
+            imports[0].statement,
+            "import { readFile, } from \"node:fs/promises\";"
+        );
+    }
+
+    #[test]
+    fn jsx_body_does_not_create_extra_top_level_exports() {
+        let source = "\
+export function Page() {
+  return (
+    <div>
+export function Fake() {}
+    </div>
+  );
+}
+";
+        let (_imports, symbols) = parse_typescript_source(source);
+        assert_eq!(symbols.len(), 1);
+        assert_eq!(symbols[0].name, "Page");
+    }
+
+    #[test]
+    fn generic_and_arrow_jsx_exports_still_parse() {
+        let source = "\
+export function List<T>() {}
+export const View = () => <div>ok</div>
+";
+        let (_imports, symbols) = parse_typescript_source(source);
+        assert_eq!(
+            symbols
+                .iter()
+                .map(|symbol| symbol.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["List", "View"]
+        );
     }
 
     #[test]

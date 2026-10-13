@@ -33,6 +33,12 @@ interface ScanState {
   blockComment: boolean;
   paren: number;
   bracket: number;
+  brace: number;
+  angle: number;
+}
+
+function scanBalanced(state: ScanState): boolean {
+  return state.paren === 0 && state.bracket === 0 && state.brace === 0 && state.angle === 0;
 }
 
 export function discoverTypeScriptModules(repositoryPath: string): TypeScriptModule[] {
@@ -58,7 +64,7 @@ export function parseTypeScriptSource(source: string): {
   const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source;
   const imports: TypeScriptImport[] = [];
   const symbols: TypeScriptSymbol[] = [];
-  const state: ScanState = { quote: null, blockComment: false, paren: 0, bracket: 0 };
+  const state: ScanState = { quote: null, blockComment: false, paren: 0, bracket: 0, brace: 0, angle: 0 };
   let logical = "";
   let logicalLine = 1;
   let continued = false;
@@ -73,10 +79,10 @@ export function parseTypeScriptSource(source: string): {
       scanLine(line, state);
       continue;
     }
-    if (state.paren > 0 || state.bracket > 0 || continued) {
+    if (!scanBalanced(state) || continued) {
       logical += `\n${line}`;
       continued = scanLine(line, state);
-      if (state.paren === 0 && state.bracket === 0 && state.quote === null && !state.blockComment && !continued) {
+      if (scanBalanced(state) && state.quote === null && !state.blockComment && !continued) {
         classify(logical, logicalLine, imports, symbols);
         logical = "";
       }
@@ -88,7 +94,7 @@ export function parseTypeScriptSource(source: string): {
     logical = line;
     logicalLine = lineNo;
     continued = scanLine(line, state);
-    if (state.paren === 0 && state.bracket === 0 && state.quote === null && !state.blockComment && !continued) {
+    if (scanBalanced(state) && state.quote === null && !state.blockComment && !continued) {
       classify(logical, logicalLine, imports, symbols);
       logical = "";
     }
@@ -198,10 +204,15 @@ function classify(line: string, lineNo: number, imports: TypeScriptImport[], sym
   const trimmed = line.trim();
   if (trimmed.length === 0) return;
   if (trimmed.startsWith("import ")) {
-    imports.push({ line: lineNo, statement: trimmed });
+    const statement = trimmed
+      .split("\n")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)
+      .join(" ");
+    imports.push({ line: lineNo, statement });
     return;
   }
-  const symbol = parseExportSymbol(trimmed);
+  const symbol = parseExportSymbol(trimmed.split("\n")[0] ?? trimmed);
   if (symbol !== null) symbols.push({ name: symbol.name, kind: symbol.kind, line: lineNo });
 }
 
@@ -293,6 +304,10 @@ function scanLine(line: string, state: ScanState): boolean {
     else if (line[index] === ")") state.paren -= 1;
     else if (line[index] === "[") state.bracket += 1;
     else if (line[index] === "]") state.bracket -= 1;
+    else if (line[index] === "{") state.brace += 1;
+    else if (line[index] === "}") state.brace -= 1;
+    else if (line[index] === "<" && line[index + 1] !== "=") state.angle += 1;
+    else if (line[index] === ">" && line[index - 1] !== "-" && state.angle > 0) state.angle -= 1;
     index += 1;
   }
   return false;
