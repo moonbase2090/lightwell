@@ -224,8 +224,6 @@ jobs:
         run: cargo install --locked cargo-zigbuild --version 0.23.4
       - run: npm ci
       - name: Build the Linux package for the GLIBC 2.28 floor
-        env:
-          VITE_ENABLE_PROJECT_NOTES: 'true'
         run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb --no-sign
       - name: Capture the empty workspace screen from the built app
         run: scripts/ci/capture-open-workspace.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-open-workspace.png"
@@ -278,7 +276,6 @@ jobs:
         env:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          VITE_ENABLE_PROJECT_NOTES: 'true'
         run: |
           set -euo pipefail
           previous_header_sha="$(git log --first-parent --merges -1 --format=%H "$PR_HEAD_SHA")"

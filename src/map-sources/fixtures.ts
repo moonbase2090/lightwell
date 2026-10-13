@@ -26,7 +26,7 @@ const entries = [...fixturesById].map(([id, fixture]) => ({ id, label: fixture.l
 
 /**
  * Browser-preview notes kept in memory so the notes UI can be exercised without the desktop app.
- * Gated by the same flag as the desktop notes dialog.
+ * Follows the same VITE_ENABLE_PROJECT_NOTES opt-out as the desktop app.
  */
 export function createMemoryNotesSource(): ProjectNotesSource {
   const notesByWorkspace = new Map<string, Map<string, string>>();
@@ -62,7 +62,9 @@ export function createMemoryNotesSource(): ProjectNotesSource {
   };
 }
 
-const previewNotes = import.meta.env?.VITE_ENABLE_PROJECT_NOTES === "true" ? createMemoryNotesSource() : undefined;
+const projectNotesBuildOff =
+  (typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_PROJECT_NOTES) === "false";
+const previewNotes = projectNotesBuildOff ? undefined : createMemoryNotesSource();
 
 export const fixtureMapSource: MapSource = {
   ...(previewNotes === undefined ? {} : { projectNotes: previewNotes }),

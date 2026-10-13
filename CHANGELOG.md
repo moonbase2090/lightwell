@@ -7,6 +7,7 @@
 - Blueprint is now the default theme for new installs and unset preferences. A saved theme choice (including Follow system) is kept.
 - Blueprint is redesigned: stepped navy surfaces, a two-level map grid, tinted status and kind colours, an amber focus and selection ring, and syntax colours in the source inspector. Every text role meets WCAG AA, so the Settings contrast note is gone.
 - The app window and the page background start in Blueprint navy, so launch no longer flashes the old dark background.
+- Project notes are on by default in desktop and release builds. `VITE_ENABLE_PROJECT_NOTES=false` omits the notes commands from the bundle and leaves the dialog unwired. The dialog code stays in the bundle.
 
 ## 0.1.3 - 2026-10-12
 

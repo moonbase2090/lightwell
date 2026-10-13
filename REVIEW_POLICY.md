@@ -50,7 +50,7 @@ The PR body has a **Proof** section with real evidence: test output, a CI run li
 
 New behavior in trunk code ships behind a flag or setting that is off by default, unless it is a pure fix. Turning a flag on by default is its own trunk PR.
 
-For example, the Project notes dialog is gated by `VITE_ENABLE_PROJECT_NOTES` and remains off in default builds.
+For example, Project notes shipped behind `VITE_ENABLE_PROJECT_NOTES` and were turned on by default in their own trunk PR. `VITE_ENABLE_PROJECT_NOTES=false` omits the notes commands from the bundle and leaves the dialog unwired.
 
 Language-pack extraction and inspector highlighting are the exception. When a pack implements them, they ship on in the pull request that adds the pack. They are not gated off by default, and they do not need a second pull request to enable them.
 

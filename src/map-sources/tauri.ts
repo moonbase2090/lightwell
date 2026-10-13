@@ -101,5 +101,7 @@ export const tauriMapSource: MapSource = {
       throw error;
     }
   },
-  ...(import.meta.env.VITE_ENABLE_PROJECT_NOTES === "true" ? { projectNotes: projectNotesApi } : {}),
+  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_PROJECT_NOTES) === "false"
+    ? {}
+    : { projectNotes: projectNotesApi }),
 };

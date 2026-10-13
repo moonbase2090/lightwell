@@ -25,7 +25,7 @@ Add each language as a parser behind the shared map model. Do not imply cross-la
 
 Store project notes in `.lightwell/notes.json`, creating the directory and file on the first saved note. Key notes by stable block IDs and record the source fingerprint they describe, so refresh can mark stale notes without replacing them. Keep personal settings such as the selected editor in the app's user configuration, outside the repository.
 
-The desktop notes dialog stays off in default builds. Set `VITE_ENABLE_PROJECT_NOTES=true` when building the app to enable it.
+Project notes are on in default builds. Set `VITE_ENABLE_PROJECT_NOTES=false` when building the app to omit the notes commands and leave the dialog unwired. The dialog code stays in the bundle.
 
 ## Editor action
 
