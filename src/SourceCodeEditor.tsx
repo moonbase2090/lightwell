@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as monaco from "monaco-editor-core";
 import EditorWorker from "./editor.worker.js?worker";
+import { monacoLanguageIdForPath } from "./languages/registry.js";
 import type { ResolvedTheme } from "./theme.js";
 
 interface MonacoWorkerWindow extends Window {
@@ -174,7 +175,7 @@ export default function SourceCodeEditor({ content, line, column, path, theme }:
     const container = containerRef.current;
     if (container === null) return;
     configureMonaco();
-    const language = path.endsWith(".toml") ? "toml" : "rust";
+    const language = monacoLanguageIdForPath(path);
     const editor = monaco.editor.create(container, {
       value: content,
       language,
