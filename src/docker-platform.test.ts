@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { execScript, readRepoText } from "./test-tools.js";
 
 const script = fileURLToPath(new URL("../scripts/ci/docker-platform.sh", import.meta.url));
 
 function platform(args: readonly string[], input?: string): string {
-  return execFileSync(script, args, { encoding: "utf8", input });
+  return execScript(script, args, { encoding: "utf8", input });
 }
 
 test("an arm64 binary on an x86_64 host asks Docker for linux/arm64", () => {
@@ -55,7 +54,7 @@ test("an unknown architecture is refused", () => {
 });
 
 test("the Amazon Linux smoke runs a foreign binary with the selected platform", () => {
-  const smoke = readFileSync(new URL("../scripts/ci/smoke-linux-al2023.sh", import.meta.url), "utf8");
+  const smoke = readRepoText(new URL("../scripts/ci/smoke-linux-al2023.sh", import.meta.url));
   assert.match(smoke, /readelf -h "\$binary"/);
   assert.match(smoke, /--readelf-stdin --host "\$\(uname -m\)"/);
   assert.match(smoke, /docker_cmd\+=\(--platform "\$platform"\)/);
@@ -63,7 +62,7 @@ test("the Amazon Linux smoke runs a foreign binary with the selected platform", 
     smoke,
     /env -i PATH="\$container_path" HOME=\/tmp \/release\/lightwell extract/,
   );
-  const workflow = readFileSync(new URL("../.github/workflows/rookrunner.yml", import.meta.url), "utf8");
+  const workflow = readRepoText(new URL("../.github/workflows/rookrunner.yml", import.meta.url));
   const start = workflow.indexOf("\n  linux-cli-aarch64:\n");
   const rest = workflow.slice(start + 1);
   const next = rest.search(/\n  [a-z]/);

@@ -3,6 +3,11 @@
 # Output is file:line only. Matched text and denylist terms are not printed.
 set -euo pipefail
 
+# Windows Python installs expose python.exe. Linux CI has python3.
+if ! command -v python3 >/dev/null 2>&1 && command -v python >/dev/null 2>&1; then
+  python3() { python "$@"; }
+fi
+
 usage() {
   echo "usage: check-release-text.sh [--root DIR] [--extra FILE] [--artifact PATH]" >&2
 }
@@ -345,7 +350,7 @@ unpack_and_scan() {
   local display="$1"
   local file="$2"
   local kind="$3"
-  local dest inner rel found=0
+  local dest inner rel found=0 tar_links=""
   dest="$(mktemp -d "$tmp/unpack.XXXXXX")"
   case "$kind" in
     deb)
@@ -368,7 +373,50 @@ unpack_and_scan() {
       fi
       ;;
     tar)
-      if ! tar -xf "$file" -C "$dest"; then
+      # Read link targets from the archive. Creating those symlinks fails on
+      # Windows when the process cannot create them, which would hide the target.
+      tar_links="$(mktemp "$tmp/tarlinks.XXXXXX")"
+      if ! python3 - "$file" "$tar_links" <<'PY'
+import sys
+import tarfile
+
+source, output = sys.argv[1:]
+with tarfile.open(source) as archive, open(output, "w", encoding="utf-8", newline="\n") as handle:
+    for member in archive:
+        if member.issym() or member.islnk():
+            handle.write(member.name + "\n")
+            handle.write((member.linkname or "") + "\n")
+PY
+      then
+        echo "check-release-text: could not read tar link targets: $display" >&2
+        fail=1
+        return 0
+      fi
+      if ! python3 - "$file" "$dest" <<'PY'
+import os
+import sys
+import tarfile
+
+source, dest = sys.argv[1:]
+root = os.path.realpath(dest)
+with tarfile.open(source) as archive:
+    for member in archive:
+        if not member.isreg():
+            continue
+        parts = member.name.split("/")
+        if member.name.startswith("/") or ".." in parts:
+            raise SystemExit("refusing tar path " + member.name)
+        target = os.path.realpath(os.path.join(root, *parts))
+        if os.path.commonpath([root, target]) != root:
+            raise SystemExit("refusing tar path " + member.name)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        extracted = archive.extractfile(member)
+        if extracted is None:
+            continue
+        with open(target, "wb") as handle:
+            handle.write(extracted.read())
+PY
+      then
         echo "check-release-text: could not unpack tar: $display" >&2
         fail=1
         return 0
@@ -396,6 +444,10 @@ unpack_and_scan() {
   # Entry names, symlink targets and ZIP comments can carry text too.
   local meta link
   meta="$(mktemp "$tmp/meta.XXXXXX")"
+  if [[ -n "$tar_links" && -f "$tar_links" ]]; then
+    cat "$tar_links" >>"$meta"
+    rm -f "$tar_links"
+  fi
   if [[ "$kind" == zip ]]; then
     if ! python3 - "$file" >>"$meta" <<'PY'
 import sys

@@ -1,18 +1,19 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
+import { execScript, pythonCommand } from "./test-tools.js";
 
 const script = fileURLToPath(new URL("../scripts/check-release-text.sh", import.meta.url));
 const probe = "RELEASETEXTPROBETOKEN";
 
 function writeZip(path: string, name: string, payload: string) {
   execFileSync(
-    "python3",
+    pythonCommand(),
     [
       "-c",
       [
@@ -33,7 +34,7 @@ function scan(artifact: string): { status: number; stdout: string; stderr: strin
   const root = mkdtempSync(join(tmpdir(), "lightwell-release-text-"));
   writeFileSync(join(root, "README.md"), "Public release notes.\n");
   try {
-    const stdout = execFileSync(script, ["--root", root, "--artifact", artifact], {
+    const stdout = execScript(script, ["--root", root, "--artifact", artifact], {
       encoding: "utf8",
       env: {
         ...process.env,
@@ -61,8 +62,12 @@ test("a denylisted string inside a compressed zip member fails the scan", () => 
   try {
     writeZip(archive, "payload.txt", `${probe}\n`);
     writeZip(clean, "payload.txt", "public note\n");
-    const hidden = execFileSync("strings", ["-a", "-n", "6", archive], { encoding: "utf8" });
-    assert.equal(hidden.includes(probe), false, "the compressed member should hide the planted text from strings");
+    const hidden = readFileSync(archive);
+    assert.equal(
+      hidden.includes(Buffer.from(probe)),
+      false,
+      "the compressed member should hide the planted text from a raw byte scan",
+    );
 
     const failed = scan(archive);
     assert.notEqual(failed.status, 0);
@@ -141,7 +146,7 @@ test("a zip renamed to another extension is still unpacked and scanned", () => {
 function writeDeb(dir: string, name: string, controlText: string, dataText: string): string {
   const stage = mkdtempSync(join(dir, "stage-"));
   execFileSync(
-    "python3",
+    pythonCommand(),
     [
       "-c",
       [
@@ -188,7 +193,7 @@ test("a denylisted string in deb control metadata fails the scan", () => {
 });
 
 function py(code: string[], ...args: string[]) {
-  execFileSync("python3", ["-c", code.join("\n"), ...args], { stdio: "ignore" });
+  execFileSync(pythonCommand(), ["-c", code.join("\n"), ...args], { stdio: "ignore" });
 }
 
 test("denylisted text in zip entry names and comments fails the scan", () => {
@@ -242,7 +247,9 @@ test("denylisted text in an archived symlink target fails the scan", () => {
   };
   try {
     assert.equal(scan(make("clean.bin", "notes.txt")).status, 0);
-    assert.notEqual(scan(make("dirty.bin", `/opt/${probe}/notes`)).status, 0);
+    const failed = scan(make("dirty.bin", `/opt/${probe}/notes`));
+    assert.notEqual(failed.status, 0);
+    assert.equal(failed.stderr.includes("could not unpack tar"), false, failed.stderr);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
