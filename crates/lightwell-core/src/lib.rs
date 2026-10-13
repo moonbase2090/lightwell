@@ -1,7 +1,7 @@
 mod editor;
-pub mod language_pack;
 mod extract;
 mod facts;
+pub mod language_pack;
 mod manifest;
 mod metadata;
 mod notes;
@@ -14,11 +14,11 @@ pub use editor::{
     EditorTemplatePreset, SourcePosition, EDITOR_TEMPLATE_PRESETS,
 };
 pub use extract::{extract_cargo_map, MapExtractionError};
-pub use language_pack::RUST_WORKSPACE_PACK_ID;
 pub use facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock, MAP_SCHEMA_VERSION,
 };
+pub use language_pack::RUST_WORKSPACE_PACK_ID;
 pub use metadata::{
     discover_cargo_workspace, discover_cargo_workspace_manifest_only, CargoDependency,
     CargoDependencyKind, CargoDiscoveryError, CargoPackage, CargoTarget, CargoWorkspace,

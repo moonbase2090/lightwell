@@ -45,9 +45,19 @@ export function sourceLanguageIdForPath(filePath: string): SourceLanguageId | nu
   return languagePackForPath(filePath)?.id ?? null;
 }
 
-/** Monaco editor language id; unknown paths keep the historical default of Rust highlighting. */
+/** Monaco editor language id; paths without a registered tokenizer fall back to Rust (TOML via the Rust pack). */
 export function monacoLanguageIdForPath(filePath: string): string {
-  return languagePackForPath(filePath)?.monacoLanguageId ?? "rust";
+  const pack = languagePackForPath(filePath);
+  if (!pack) {
+    return "rust";
+  }
+  if (pack.registerHighlighter !== null) {
+    return pack.monacoLanguageId;
+  }
+  if (pack.id === "toml") {
+    return "toml";
+  }
+  return "rust";
 }
 
 export function registerLanguagePackHighlighters(monaco: typeof Monaco): void {

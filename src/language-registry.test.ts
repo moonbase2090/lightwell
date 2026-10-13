@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import test from "node:test";
-import { extractCargoMap } from "./extract/cargo.js";
 import { BUILTIN_LANGUAGE_PACKS } from "./languages/builtin-packs.js";
 import { extractWorkspaceMap } from "./languages/extract-workspace.js";
 import {
-  LANGUAGE_PACKS,
   LANGUAGE_REGISTRY,
+  languagePackById,
   languagePackForPath,
   monacoLanguageIdForPath,
   sourceLanguageIdForPath,
@@ -21,7 +21,7 @@ test("registry maps Rust and manifest paths", () => {
 test("registry maps Python sources", () => {
   assert.equal(sourceLanguageIdForPath("pkg/mod.py"), "python");
   assert.equal(sourceLanguageIdForPath("types.pyi"), "python");
-  assert.equal(monacoLanguageIdForPath("pkg/mod.py"), "python");
+  assert.equal(monacoLanguageIdForPath("pkg/mod.py"), "rust");
 });
 
 test("registry maps TypeScript extensions without .ts swallowing .tsx", () => {
@@ -29,7 +29,7 @@ test("registry maps TypeScript extensions without .ts swallowing .tsx", () => {
   assert.equal(sourceLanguageIdForPath("src/cli.ts"), "typescript");
   assert.equal(sourceLanguageIdForPath("tool.mts"), "typescript");
   assert.equal(sourceLanguageIdForPath("config.cts"), "typescript");
-  assert.equal(monacoLanguageIdForPath("src/App.tsx"), "typescript");
+  assert.equal(monacoLanguageIdForPath("src/App.tsx"), "rust");
 });
 
 test("unknown paths keep Rust highlighting for Monaco", () => {
@@ -43,7 +43,7 @@ test("registry entries have unique longest extensions", () => {
 });
 
 test("built-in packs expose extractor and fixture seams", () => {
-  assert.equal(LANGUAGE_PACKS.length, BUILTIN_LANGUAGE_PACKS.length);
+  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 4);
   const rust = languagePackForPath("src/lib.rs");
   assert.equal(rust?.extractor?.kind, "rust-workspace");
   assert.equal(rust?.extractor?.moduleTreeModule, "extract/rust-modules");
@@ -58,11 +58,27 @@ test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(python?.registerHighlighter, null);
 });
 
-test("rust workspace pack routes extraction through the pack interface", () => {
-  const args = { repositoryPath: process.cwd(), projectName: "Lightwell" };
-  const viaPack = extractWorkspaceMap(args);
-  const direct = extractCargoMap(args);
-  assert.equal(viaPack.stats.blocks, direct.stats.blocks);
-  assert.equal(viaPack.stats.connections, direct.stats.connections);
-  assert.equal(viaPack.project.name, direct.project.name);
+test("extractWorkspaceMap uses rust pack workspace extractor on fixture workspace", () => {
+  const fixtureRoot = path.join(
+    process.cwd(),
+    "crates/lightwell-core/fixtures/no-cargo-workspace",
+  );
+  const args = { repositoryPath: fixtureRoot, projectName: "Fixture" };
+  const viaRouter = extractWorkspaceMap(args);
+  assert.deepEqual(viaRouter.stats, {
+    blocks: 18,
+    connections: 18,
+    crates: 2,
+    apps: 3,
+    modules: 9,
+    cargoFeatures: 3,
+  });
+  assert.equal(viaRouter.project.name, "Fixture");
+  assert.ok(
+    viaRouter.blocks.some((block) => block.id === "app:fixture-app:fixture-app"),
+    "expected fixture-app app block from rust workspace extraction",
+  );
+  const rustPack = languagePackById("rust");
+  assert.equal(typeof rustPack?.workspaceExtractor, "function");
+  assert.equal(languagePackById("typescript")?.workspaceExtractor, null);
 });

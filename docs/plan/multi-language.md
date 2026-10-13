@@ -4,9 +4,13 @@ Lightwell is adding source languages beyond Rust workspace manifests. TypeScript
 
 ## Product policy
 
-TypeScript and Python support **ship enabled by default**. Do not gate extraction, outline facts, or inspector highlighting behind an off-by-default feature flag or environment toggle. When a workspace contains supported sources, they are parsed and shown like Rust modules today.
+TypeScript and Python are **first-class built-in packs** (extensions and registry routing land with the language registry). They do **not** use off-by-default feature flags once extraction and highlighting ship.
 
-Optional dev-only toggles (for example project notes in the desktop shell) are unrelated; this policy applies to language extraction and map facts only.
+Until each pack registers a Monarch tokenizer and extractor, inspector Monaco ids for those paths stay on the **Rust fallback** (see `monacoLanguageIdForPath` in `src/languages/registry.ts`). That matches trunk feature gating in `REVIEW_POLICY.md` §5: new user-visible behavior stays off until the pack is complete.
+
+When TypeScript or Python extractors and highlighters land, they ship **enabled by default** (no env toggle to hide map facts or syntax coloring). Optional dev-only toggles (for example project notes in the desktop shell) are unrelated.
+
+This PR is registry + Rust workspace pack only; always-on TS/Python applies to follow-on PRs that wire extractors and `registerHighlighter`.
 
 ## Implementation notes
 
