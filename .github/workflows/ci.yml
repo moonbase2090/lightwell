@@ -241,9 +241,11 @@ jobs:
           if-no-files-found: error
       - name: Capture project note editing and stale marking from the built app
         # Temporarily non-blocking pending a capture-script fix.
+        id: notes_capture
         continue-on-error: true
         run: scripts/ci/capture-project-notes.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-project-notes"
       - uses: actions/upload-artifact@v4
+        if: steps.notes_capture.outcome == 'success'
         with:
           name: lightwell-project-notes-linux-screenshots
           path: ${{ runner.temp }}/lightwell-project-notes/*.png
