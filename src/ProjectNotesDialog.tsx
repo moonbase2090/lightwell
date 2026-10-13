@@ -133,6 +133,17 @@ export default function ProjectNotesDialog({
     }
   };
 
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key !== "Enter") return;
+      if (!dialogRef.current?.contains(document.activeElement)) return;
+      event.preventDefault();
+      void handleSave();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [handleSave]);
+
   const handleRemove = async () => {
     if (editor.kind !== "saved" || saving) return;
     setSaving(true);

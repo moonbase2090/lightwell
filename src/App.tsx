@@ -1148,6 +1148,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, [notesAvailable, notesDialog, noteMenu, noteTargetId, openNoteFor]);
 
   const selectSearchNode = useCallback((node: DisplayNode) => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     setSearch("");
     setActiveNodeId(null);
     if (node.virtual) {
