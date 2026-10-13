@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, CircleAlert, Settings2, X } from "lucide-react";
-import type { MapEditorSource } from "./map-source.js";
+import { Check, CircleAlert, LoaderCircle, Settings2, X } from "lucide-react";
+import type { EditorSettings, MapEditorSource } from "./map-source.js";
 import { isThemePreference, type ResolvedTheme, type ThemePreference } from "./theme.js";
 
 type PanelState =
@@ -8,10 +8,70 @@ type PanelState =
   | { readonly kind: "ready"; readonly presets: Awaited<ReturnType<MapEditorSource["listPresets"]>> }
   | { readonly kind: "error"; readonly message: string };
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, fallback = "Could not load editor settings."): string {
   if (error instanceof Error && error.message.length > 0) return error.message;
   if (typeof error === "string" && error.length > 0) return error;
-  return "Could not load editor settings.";
+  return fallback;
+}
+
+/** How long the "Saved" confirmation stays visible before it hides itself. */
+export const SAVED_STATUS_MS = 2000;
+
+export type SaveStatus =
+  | { readonly kind: "idle" }
+  | { readonly kind: "saving" }
+  | { readonly kind: "saved" }
+  | { readonly kind: "error"; readonly message: string };
+
+export type SaveOutcome =
+  | { readonly status: { readonly kind: "saved" }; readonly settings: EditorSettings }
+  | { readonly status: { readonly kind: "error"; readonly message: string } };
+
+/** Persists the editor preference and maps the result to a UI save status. */
+export async function saveEditorPreference(
+  editor: Pick<MapEditorSource, "saveSettings">,
+  template: string,
+): Promise<SaveOutcome> {
+  try {
+    const settings = await editor.saveSettings({ commandTemplate: template.trim() || null });
+    return { status: { kind: "saved" }, settings };
+  } catch (error: unknown) {
+    return { status: { kind: "error", message: errorMessage(error, "Could not save editor preference.") } };
+  }
+}
+
+/** Inline save feedback: a polite live region for "Saved", an alert for failures. */
+export function SaveStatusMessage({ status }: { readonly status: SaveStatus }) {
+  return (
+    <div className="settings-footer-status">
+      <div className="settings-save-live" role="status" aria-live="polite" aria-atomic="true">
+        {status.kind === "saved" && <span className="settings-saved"><Check size={14} />Saved</span>}
+      </div>
+      {status.kind === "error" && (
+        <div className="settings-error settings-save-error" role="alert"><CircleAlert size={14} />{status.message}</div>
+      )}
+    </div>
+  );
+}
+
+export function SaveEditorButton({ status, disabled, onSave }: {
+  readonly status: SaveStatus;
+  readonly disabled: boolean;
+  readonly onSave: () => void;
+}) {
+  const saving = status.kind === "saving";
+  return (
+    <button
+      className="settings-save-button"
+      type="button"
+      onClick={onSave}
+      disabled={disabled || saving}
+      aria-busy={saving}
+    >
+      {saving ? <LoaderCircle size={14} className="settings-save-spinner" aria-hidden="true" /> : <Check size={14} />}
+      {saving ? "Saving…" : "Save editor preference"}
+    </button>
+  );
 }
 
 export default function EditorSettingsPanel({
@@ -30,9 +90,7 @@ export default function EditorSettingsPanel({
   const [panelState, setPanelState] = useState<PanelState>({ kind: "loading" });
   const [template, setTemplate] = useState("");
   const [selectedPreset, setSelectedPreset] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("");
-  const [saveError, setSaveError] = useState("");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>({ kind: "idle" });
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLElement | null>(null);
 
@@ -76,19 +134,19 @@ export default function EditorSettingsPanel({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  useEffect(() => {
+    if (saveStatus.kind !== "saved") return;
+    const timer = window.setTimeout(() => setSaveStatus({ kind: "idle" }), SAVED_STATUS_MS);
+    return () => window.clearTimeout(timer);
+  }, [saveStatus]);
+
+  const clearSaveStatus = () => setSaveStatus((current) => (current.kind === "saving" ? current : { kind: "idle" }));
+
   const save = async () => {
-    setSaving(true);
-    setSaveMessage("");
-    setSaveError("");
-    try {
-      const settings = await editor.saveSettings({ commandTemplate: template.trim() || null });
-      setTemplate(settings.commandTemplate ?? "");
-      setSaveMessage("Editor preference saved.");
-    } catch (error: unknown) {
-      setSaveError(errorMessage(error));
-    } finally {
-      setSaving(false);
-    }
+    setSaveStatus({ kind: "saving" });
+    const outcome = await saveEditorPreference(editor, template);
+    if ("settings" in outcome) setTemplate(outcome.settings.commandTemplate ?? "");
+    setSaveStatus(outcome.status);
   };
 
   return (
@@ -126,7 +184,10 @@ export default function EditorSettingsPanel({
             value={themePreference}
             onChange={(event) => {
               const preference = event.currentTarget.value;
-              if (isThemePreference(preference)) onThemeChange(preference);
+              if (isThemePreference(preference)) {
+                onThemeChange(preference);
+                setSaveStatus((current) => (current.kind === "saving" ? current : { kind: "saved" }));
+              }
             }}
           >
             <option value="system">Follow system</option>
@@ -152,7 +213,7 @@ export default function EditorSettingsPanel({
                 : undefined;
               setSelectedPreset(preset?.name ?? "");
               if (preset !== undefined) setTemplate(preset.template);
-              setSaveMessage("");
+              clearSaveStatus();
             }}
           >
             <option value="">Choose an example…</option>
@@ -172,7 +233,7 @@ export default function EditorSettingsPanel({
             onChange={(event) => {
               setTemplate(event.currentTarget.value);
               setSelectedPreset("");
-              setSaveMessage("");
+              clearSaveStatus();
             }}
           />
           <p className="settings-help">
@@ -184,8 +245,6 @@ export default function EditorSettingsPanel({
 
           {panelState.kind === "loading" && <div className="settings-status">Loading editor settings…</div>}
           {panelState.kind === "error" && <div className="settings-error" role="alert"><CircleAlert size={14} />{panelState.message}</div>}
-          {saveError.length > 0 && <div className="settings-error" role="alert"><CircleAlert size={14} />{saveError}</div>}
-          {saveMessage.length > 0 && <div className="settings-success" role="status"><Check size={14} />{saveMessage}</div>}
 
           <h3 className="settings-section-title">About Lightwell</h3>
           <p className="settings-help">
@@ -201,15 +260,13 @@ export default function EditorSettingsPanel({
         </div>
 
         <footer className="settings-panel-footer">
+          <SaveStatusMessage status={saveStatus} />
           <button className="settings-cancel-button" type="button" onClick={onClose}>Close</button>
-          <button
-            className="settings-save-button"
-            type="button"
-            onClick={() => { void save(); }}
-            disabled={panelState.kind !== "ready" || saving}
-          >
-            <Check size={14} />{saving ? "Saving…" : "Save editor preference"}
-          </button>
+          <SaveEditorButton
+            status={saveStatus}
+            disabled={panelState.kind !== "ready"}
+            onSave={() => { void save(); }}
+          />
         </footer>
       </section>
     </div>
