@@ -29,7 +29,7 @@ test("registry maps TypeScript extensions without .ts swallowing .tsx", () => {
   assert.equal(sourceLanguageIdForPath("src/cli.ts"), "typescript");
   assert.equal(sourceLanguageIdForPath("tool.mts"), "typescript");
   assert.equal(sourceLanguageIdForPath("config.cts"), "typescript");
-  assert.equal(monacoLanguageIdForPath("src/App.tsx"), "rust");
+  assert.equal(monacoLanguageIdForPath("src/App.tsx"), "typescript");
 });
 
 test("unknown paths keep Rust highlighting for Monaco", () => {
@@ -53,6 +53,8 @@ test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(toml?.workspaceExtractor, null);
   const typescript = languagePackForPath("src/App.tsx");
   assert.equal(typescript?.extractor?.kind, "typescript-module");
+  assert.equal(typescript?.fixtures?.root, "crates/lightwell-core/fixtures/typescript-sample");
+  assert.equal(typeof typescript?.registerHighlighter, "function");
   const python = languagePackForPath("mod.py");
   assert.equal(python?.extractor?.kind, "python-module");
   assert.equal(python?.fixtures?.root, "crates/lightwell-core/fixtures/python-sample");
