@@ -66,6 +66,8 @@ export const indexCount = a[i]<count;
 export const negOffset = n<-offset;
 export const underCount = _i<count;
 export const dollarLimit = $n<limit;
+export const plusOne = n<+1;
+export const jsx = <List<Item>ok</List>;
 export function afterAll() {}
 `);
   assert.deepEqual(unspaced.symbols.map((symbol) => symbol.name), [
@@ -86,6 +88,8 @@ export function afterAll() {}
     "negOffset",
     "underCount",
     "dollarLimit",
+    "plusOne",
+    "jsx",
     "afterAll",
   ]);
 });

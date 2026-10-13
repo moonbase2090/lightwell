@@ -366,6 +366,12 @@ fn opens_angle(chars: &[char], index: usize) -> bool {
     if index > 0 && chars[index - 1] == '<' {
         return false;
     }
+    if index + 1 < chars.len() {
+        match chars[index + 1] {
+            '+' | '(' | '.' | '!' | '/' => return false,
+            _ => {}
+        }
+    }
     if index + 1 < chars.len() && chars[index + 1].is_ascii_digit() {
         return false;
     }
@@ -688,6 +694,16 @@ export const underCount = _i<count;
 export function afterUnderCount() {}
 export const dollarLimit = $n<limit;
 export function afterDollarLimit() {}
+export const plusOne = n<+1;
+export function afterPlusOne() {}
+export const grouped = n<(0);
+export function afterGrouped() {}
+export const fractional = n<.5;
+export function afterFractional() {}
+export const notFlag = n<!flag;
+export function afterNotFlag() {}
+export const jsx = <List<Item>ok</List>;
+export function afterJsx() {}
 ";
         let (_imports, symbols) = parse_typescript_source(unspaced);
         assert_eq!(
@@ -727,6 +743,16 @@ export function afterDollarLimit() {}
                 "afterUnderCount",
                 "dollarLimit",
                 "afterDollarLimit",
+                "plusOne",
+                "afterPlusOne",
+                "grouped",
+                "afterGrouped",
+                "fractional",
+                "afterFractional",
+                "notFlag",
+                "afterNotFlag",
+                "jsx",
+                "afterJsx",
             ]
         );
     }

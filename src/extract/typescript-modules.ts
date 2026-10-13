@@ -335,6 +335,7 @@ function opensAngle(line: string, index: number): boolean {
   if (line[index + 1] === " ") return false;
   if (line[index - 1] === "<") return false;
   const next = line[index + 1];
+  if (next === "+" || next === "(" || next === "." || next === "!" || next === "/") return false;
   if (next !== undefined && next >= "0" && next <= "9") return false;
   if (
     next === "-"
