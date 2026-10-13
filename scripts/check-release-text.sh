@@ -291,15 +291,38 @@ unpack_deb() {
   fi
 }
 
+# A drag-to-install DMG holds an absolute Applications symlink. 7-Zip skips
+# it with a "Dangerous link path was ignored" error and exits 2. That skip is
+# what we want (never follow it out of the temp dir), so only that error is
+# tolerated; any other error still fails the scan.
+run_7z_dmg() {
+  local tool="$1"
+  local file="$2"
+  local dest="$3"
+  local out rc=0
+  out="$("$tool" x -y "-o$dest" "$file" 2>&1)" || rc=$?
+  if [ "$rc" -eq 0 ]; then
+    return 0
+  fi
+  local errors
+  errors="$(printf '%s\n' "$out" | grep -E '^ERROR:' || true)"
+  if [ "$rc" -eq 2 ] && [ -n "$errors" ] &&
+    ! printf '%s\n' "$errors" | grep -qvE '^ERROR: Dangerous link path was ignored : [^:]+ : /Applications$'; then
+    return 0
+  fi
+  printf '%s\n' "$out" >&2
+  return "$rc"
+}
+
 unpack_dmg() {
   local file="$1"
   local dest="$2"
   if command -v 7z >/dev/null 2>&1; then
-    7z x -y "-o$dest" "$file" >/dev/null
+    run_7z_dmg 7z "$file" "$dest"
     return $?
   fi
   if command -v 7za >/dev/null 2>&1; then
-    7za x -y "-o$dest" "$file" >/dev/null
+    run_7z_dmg 7za "$file" "$dest"
     return $?
   fi
   return 1
