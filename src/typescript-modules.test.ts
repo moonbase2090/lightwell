@@ -61,6 +61,11 @@ export const indexed = a[i]<10;
 export const underscored = _i<10;
 export const dollar = $n<1;
 export const upper = N<0;
+export const callLimit = size()<limit;
+export const indexCount = a[i]<count;
+export const negOffset = n<-offset;
+export const underCount = _i<count;
+export const dollarLimit = $n<limit;
 export function afterAll() {}
 `);
   assert.deepEqual(unspaced.symbols.map((symbol) => symbol.name), [
@@ -76,6 +81,11 @@ export function afterAll() {}
     "underscored",
     "dollar",
     "upper",
+    "callLimit",
+    "indexCount",
+    "negOffset",
+    "underCount",
+    "dollarLimit",
     "afterAll",
   ]);
 });

@@ -372,14 +372,29 @@ fn opens_angle(chars: &[char], index: usize) -> bool {
     if index + 2 < chars.len() && chars[index + 1] == '-' && chars[index + 2].is_ascii_digit() {
         return false;
     }
+    if index + 2 < chars.len() && chars[index + 1] == '-' && is_ident_part(chars[index + 2]) {
+        return false;
+    }
+    if index > 0 && (chars[index - 1] == ')' || chars[index - 1] == ']') {
+        if index + 1 < chars.len() && is_ident_part(chars[index + 1]) {
+            return false;
+        }
+    }
     if index + 1 < chars.len() && is_ident_part(chars[index + 1]) {
         let mut start = index;
         while start > 0 && is_ident_part(chars[start - 1]) {
             start -= 1;
         }
-        if start < index && chars[start].is_ascii_lowercase() {
+        if start < index {
+            let first = chars[start];
             let next = chars[index + 1];
-            if next.is_ascii_lowercase() || next.is_ascii_digit() || next.is_ascii_uppercase() {
+            let before_value = first.is_ascii_lowercase() || first == '_' || first == '$';
+            if before_value
+                && (next.is_ascii_lowercase() || next.is_ascii_digit() || next.is_ascii_uppercase())
+            {
+                return false;
+            }
+            if first.is_ascii_uppercase() && next.is_ascii_lowercase() {
                 return false;
             }
         }
@@ -663,6 +678,16 @@ export const dollar = $n<1;
 export function afterDollar() {}
 export const upper = N<0;
 export function afterUpper() {}
+export const callLimit = size()<limit;
+export function afterCallLimit() {}
+export const indexCount = a[i]<count;
+export function afterIndexCount() {}
+export const negOffset = n<-offset;
+export function afterNegOffset() {}
+export const underCount = _i<count;
+export function afterUnderCount() {}
+export const dollarLimit = $n<limit;
+export function afterDollarLimit() {}
 ";
         let (_imports, symbols) = parse_typescript_source(unspaced);
         assert_eq!(
@@ -692,6 +717,16 @@ export function afterUpper() {}
                 "afterDollar",
                 "upper",
                 "afterUpper",
+                "callLimit",
+                "afterCallLimit",
+                "indexCount",
+                "afterIndexCount",
+                "negOffset",
+                "afterNegOffset",
+                "underCount",
+                "afterUnderCount",
+                "dollarLimit",
+                "afterDollarLimit",
             ]
         );
     }
