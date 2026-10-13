@@ -4,26 +4,21 @@ Lightwell is adding source languages beyond Rust workspace manifests. TypeScript
 
 ## Product policy
 
-TypeScript and Python are **first-class built-in packs**: extension routing and registry seams land with the language registry; behavior for each pack follows trunk **feature gating** in `REVIEW_POLICY.md` §5.
+TypeScript and Python are **first-class built-in packs**. Extension routing lands with the language registry. Extraction, outline facts, and inspector highlighting ship **on by default** when a pack implements them. Do not gate those behaviors behind an off-by-default flag or setting.
 
-### Off by default, then on in a separate trunk PR
+Python module extraction and its Monarch tokenizer are on. TypeScript is registered, and its extractor turns on in the same way when that pack lands. There is no separate enable PR and no off switch.
 
-For each new language capability (workspace extraction, module facts, Monarch tokenizer):
+Rust and Cargo-manifest TOML highlighting stay on. Paths with no registered tokenizer still use the Rust Monaco fallback (`monacoLanguageIdForPath` in `src/languages/registry.ts`).
 
-1. **Land gated off** — The trunk PR that adds the extractor or `registerHighlighter` ships with the behavior **disabled by default** (flag, setting, or equivalent off path). Until enabled, inspector paths for that pack keep the **Rust Monaco fallback** (`monacoLanguageIdForPath` in `src/languages/registry.ts`); map facts from that extractor are not produced on the default CLI/viewer path.
-2. **Enable in a follow-on trunk PR** — A later, dedicated trunk PR turns the flag or setting **on by default** (or removes the gate once policy allows). That PR is reviewed on its own; it is not bundled with the initial implementation.
-
-Rust and Cargo-manifest TOML highlighting are the current on-by-default baseline. This registry PR does not enable TypeScript or Python extraction or highlighting.
-
-Optional dev-only toggles (for example project notes in the desktop shell) are unrelated; §5 applies to language extraction and inspector highlighting.
+Optional dev-only toggles (for example project notes in the desktop shell) are unrelated.
 
 ## Implementation notes
 
 - Each language is a **`LanguagePack`** (`src/languages/language-pack.ts`): `id`, `extensions`, `extractor`, `registerHighlighter`, and `fixtures`. Built-ins live in `src/languages/builtin-packs.ts`; `LANGUAGE_PACKS` in `src/languages/registry.ts` is the active list a future plugin loader will append to (no loader yet).
-- TypeScript and Python are the next built-in packs after Rust/TOML; land extractors and Monarch tokenizers **per pack**, each behind default-off gating until the separate enable PR.
+- TypeScript and Python are the next built-in packs after Rust/TOML. Land each pack's extractor and Monarch tokenizer on by default. Python does this in `extract/python-modules` and `lightwell_core::python_source`, called from workspace extraction.
 - The built-in **Rust** pack (`src/languages/packs/rust.ts`) owns workspace extraction (`extract/cargo` + `lightwell_core::rust_source`), Rust and Cargo-manifest TOML Monarch tokenizers, and `crates/lightwell-core/fixtures`. The CLI calls `extractWorkspaceMap`, which delegates to that pack.
 - Rust parsing stays in `crates/lightwell-core`; TypeScript mirrors live under `src/extract/` with parity checks in `scripts/check-rust-map-parity.mjs` where applicable.
-- Schema and `docs/schema.md` gain per-block `language` fields as each extractor lands (with the same off-then-on rollout).
-- Inspector highlighting registers through each pack’s `registerHighlighter` (Rust/TOML Monarch today; TS/Python when gated on).
+- Schema and `docs/schema.md` gain per-block `language` fields as each extractor lands. Rust modules omit `language`.
+- Inspector highlighting registers through each pack’s `registerHighlighter` (Rust, TOML, and Python Monarch today).
 
 Keep pull requests small and rebased on `main`. Avoid path-handling churn that conflicts with cross-platform work; use `path_confinement` for filesystem scope.

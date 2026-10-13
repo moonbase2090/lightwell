@@ -6,6 +6,7 @@ use crate::metadata::{
     discover_cargo_workspace, CargoDependencyKind, CargoDiscoveryError, CargoPackage,
     CargoWorkspace, RustModule,
 };
+use crate::python_source::{discover_python_modules, PythonModule, PythonSymbol};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -97,10 +98,15 @@ pub(crate) fn map_workspace(
         )?;
     }
 
+    let python_modules = discover_python_modules(&root_path)?;
     let mut workspace_inputs: Vec<_> = crate_fingerprints
         .into_iter()
         .map(|(name, fingerprint)| format!("{name}:{fingerprint}"))
         .collect();
+    for module in &python_modules {
+        let fingerprint = fingerprints.file(&module.path)?;
+        workspace_inputs.push(format!("python:{}:{fingerprint}", module.name));
+    }
     workspace_inputs.sort();
     let workspace_fingerprint = hash_text(&workspace_inputs.join("\n"));
     blocks.insert(
@@ -118,6 +124,14 @@ pub(crate) fn map_workspace(
         }),
     );
 
+    append_python_blocks(
+        &python_modules,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
     append_dependency_connections(&workspace, &package_id_by_manifest, &mut connections);
     derive_children(&mut blocks);
 
@@ -125,7 +139,10 @@ pub(crate) fn map_workspace(
     let groups = vec![FactGroup {
         id: "group:crates".to_owned(),
         label: "Workspace crates".to_owned(),
-        member_ids: workspace_children,
+        member_ids: workspace_children
+            .into_iter()
+            .filter(|id| id.starts_with("crate:"))
+            .collect(),
     }];
     let stats = MapStats {
         blocks: blocks.len(),
@@ -253,6 +270,7 @@ fn append_package(
             declared_by_path: manifest_path.clone(),
             cfg_attributes: Vec::new(),
             unresolved: false,
+            language: "rust".to_owned(),
         }));
         connections.push(contains_connection(&crate_id, &root_module_id));
         append_modules(
@@ -359,6 +377,7 @@ fn append_modules(
             declared_by_path: relative_path(context.root_path, &module.declaration_path),
             cfg_attributes: module.attributes.clone(),
             unresolved: module.source_path.is_none(),
+            language: "rust".to_owned(),
         }));
         connections.push(contains_connection(context.parent_id, &id));
         append_modules(
@@ -412,6 +431,106 @@ fn append_dependency_connections(
             }
         }
     }
+}
+
+fn append_python_blocks(
+    modules: &[PythonModule],
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    for module in modules {
+        let id = python_block_id(&module.name, module.stub, None);
+        let relative = relative_path(root_path, &module.path);
+        let fingerprint = fingerprints.file(&module.path)?;
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: id.clone(),
+                label: module_label(&module.name),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: Some(relative.clone()),
+                fingerprint: fingerprint.clone(),
+            },
+            package_name: module
+                .package
+                .clone()
+                .unwrap_or_else(|| module.name.clone()),
+            module_path: module.name.clone(),
+            declared_by_path: relative,
+            cfg_attributes: module
+                .imports
+                .iter()
+                .map(|import| import.statement())
+                .collect(),
+            unresolved: module.unreadable,
+            language: "python".to_owned(),
+        }));
+        connections.push(contains_connection(workspace_id, &id));
+        for symbol in &module.symbols {
+            append_python_symbol(&id, module, symbol, &fingerprint, blocks, connections);
+        }
+    }
+    Ok(())
+}
+
+fn append_python_symbol(
+    parent_id: &str,
+    module: &PythonModule,
+    symbol: &PythonSymbol,
+    fingerprint: &str,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) {
+    let module_path = format!("{}.{}", module.name, symbol.name);
+    let id = python_block_id(&module_path, module.stub, Some(symbol.outline_label()));
+    let relative = blocks.iter().find_map(|block| match block {
+        FactBlock::Module(parent) if parent.base.id == parent_id => parent.base.source_path.clone(),
+        _ => None,
+    });
+    let declared = relative.clone().unwrap_or_default();
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: symbol.name.clone(),
+            parent_id: Some(parent_id.to_owned()),
+            children: Vec::new(),
+            source_path: relative,
+            fingerprint: fingerprint.to_owned(),
+        },
+        package_name: module
+            .package
+            .clone()
+            .unwrap_or_else(|| module.name.clone()),
+        module_path,
+        declared_by_path: declared,
+        cfg_attributes: vec![symbol.outline_label().to_owned()],
+        unresolved: false,
+        language: "python".to_owned(),
+    }));
+    connections.push(contains_connection(parent_id, &id));
+}
+
+fn python_block_id(module_path: &str, stub: bool, kind: Option<&str>) -> String {
+    let mut id = format!("module:python:{}", slug(module_path));
+    if stub {
+        id.push_str(":stub");
+    }
+    if let Some(kind) = kind {
+        id.push(':');
+        id.push_str(&slug(kind));
+    }
+    id
+}
+
+fn module_label(module_name: &str) -> String {
+    module_name
+        .rsplit('.')
+        .next()
+        .unwrap_or(module_name)
+        .to_owned()
 }
 
 fn contains_connection(source: &str, target: &str) -> Connection {

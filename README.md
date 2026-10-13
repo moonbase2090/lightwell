@@ -2,7 +2,7 @@
 
 turning the lights on in the Dark Factory
 
-Lightwell maps Rust workspaces and shows their crates, app entry points, Rust modules, Cargo features, dependency edges, and written product notes. The checked-in preview maps cover Prismattyc and Scorecard. Extracted facts and preview notes live in separate JSON files.
+Lightwell maps Rust workspaces and the Python modules beside them. It shows crates, app entry points, Rust modules, Python packages, imports, top-level classes and functions, Cargo features, dependency edges, and written product notes. The checked-in preview maps cover Prismattyc and Scorecard. Extracted facts and preview notes live in separate JSON files.
 
 ## Install
 
@@ -93,7 +93,7 @@ With `lightwell` installed from `crates/lightwell-cli`, you can refresh a checke
 lightwell extract ../Prismattyc --name Prismattyc -o maps/prismattyc.facts.json
 ```
 
-The Rust CLI calls `lightwell-core`. It uses `cargo metadata --no-deps` when Cargo is installed and otherwise reads the manifests and Rust sources directly. It records workspace crates, app targets, internal path dependencies, declared Cargo features, Rust modules, and source fingerprints. It omits test-only modules. Paths in each output file are relative to the source repository.
+The Rust CLI calls `lightwell-core`. It uses `cargo metadata --no-deps` when Cargo is installed and otherwise reads the manifests and Rust sources directly. It records workspace crates, app targets, internal path dependencies, declared Cargo features, Rust modules, Python modules, and source fingerprints. Python support is on by default: `.py` and `.pyi` files in the workspace become modules, with their imports and top-level classes and functions. It omits test-only Rust modules. Paths in each output file are relative to the source repository.
 
 Run `watch` to stream a map and later maps when source fingerprints change:
 

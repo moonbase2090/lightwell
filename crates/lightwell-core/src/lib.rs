@@ -6,6 +6,7 @@ mod manifest;
 mod metadata;
 mod notes;
 mod path_confinement;
+mod python_source;
 mod rust_source;
 mod watch;
 
