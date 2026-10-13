@@ -3,7 +3,6 @@ import prismattycFacts from "../../maps/prismattyc.facts.json";
 import scorecardAnnotations from "../../maps/scorecard.annotations.json";
 import scorecardFacts from "../../maps/scorecard.facts.json";
 import type { MapSource, MapSourceDocument, ProjectNotesSnapshot, ProjectNotesSource } from "../map-source.js";
-import { projectNotesEnabled } from "../feature-flags.js";
 
 interface FixtureMap extends MapSourceDocument {
   readonly label: string;
@@ -63,7 +62,9 @@ export function createMemoryNotesSource(): ProjectNotesSource {
   };
 }
 
-const previewNotes = projectNotesEnabled(import.meta.env?.VITE_ENABLE_PROJECT_NOTES) ? createMemoryNotesSource() : undefined;
+const projectNotesBuildOff =
+  (typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_PROJECT_NOTES) === "false";
+const previewNotes = projectNotesBuildOff ? undefined : createMemoryNotesSource();
 
 export const fixtureMapSource: MapSource = {
   ...(previewNotes === undefined ? {} : { projectNotes: previewNotes }),

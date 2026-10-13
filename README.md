@@ -77,7 +77,7 @@ Releases ship a signed and notarized Apple Silicon `.dmg` and an x86_64 Linux `.
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 
-Project notes are on in default and release builds. To build without them, set:
+Project notes are on in default and release builds. To omit the notes commands and leave the dialog unwired, set:
 
 ```sh
 VITE_ENABLE_PROJECT_NOTES=false npm run tauri:build

@@ -12,7 +12,6 @@ import {
   parseSourceFileDocument,
   parseWorkspaceMapUpdate,
 } from "./tauri-types.js";
-import { projectNotesEnabled } from "../feature-flags.js";
 
 const projectNotesApi: ProjectNotesSource = {
   add(input: ProjectNoteInput) {
@@ -102,5 +101,7 @@ export const tauriMapSource: MapSource = {
       throw error;
     }
   },
-  ...(projectNotesEnabled(import.meta.env.VITE_ENABLE_PROJECT_NOTES) ? { projectNotes: projectNotesApi } : {}),
+  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_PROJECT_NOTES) === "false"
+    ? {}
+    : { projectNotes: projectNotesApi }),
 };
