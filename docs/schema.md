@@ -20,7 +20,7 @@ Each block has a stable `id`, a label, a discriminant `type`, a `parentId`, `chi
 - `workspace`: Cargo workspace root.
 - `crate`: Cargo workspace member, package version, and Cargo description.
 - `app`: a Cargo binary target and its entry file.
-- `module`: a Rust module reached from a library or binary target. The block records the declaration path, compile attributes, and whether its source file could be resolved.
+- `module`: a source module. Rust modules are reached from a library or binary target and record the declaration path, compile attributes, and whether the source file could be resolved. Python modules (`.py` and `.pyi`) record `language` as `python`, import lines in `cfgAttributes`, and top-level classes and functions as child modules. Rust modules omit `language`.
 - `cargo_feature`: a feature declared by a workspace package.
 
 The extractor adds a `contains` connection from each parent to each child. It adds a `depends_on` connection for each internal normal or build path dependency. It omits development dependencies because they describe test/build tooling rather than the shipped workspace graph. `groups` and `stats` are derived from these facts.

@@ -13,6 +13,7 @@ import type {
   ModuleBlock,
   WorkspaceBlock,
 } from "../model.js";
+import { discoverPythonModules, pythonFactBlocks } from "./python-modules.js";
 import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
 
 interface CargoTarget {
@@ -390,13 +391,17 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
       .sort();
     blocks[crateIndex] = { ...crate, fingerprint: hashText([hashFile(pkg.manifestPath), ...sourceFingerprints].join("\n")) };
   }
-  const finalWorkspaceFingerprint = hashText(packages
-    .map((pkg) => {
+  const pythonModules = discoverPythonModules(rootPath);
+  const pythonFacts = pythonFactBlocks({ modules: pythonModules, rootPath, workspaceId: projectId });
+  blocks.push(...pythonFacts.blocks);
+  connections.push(...pythonFacts.connections);
+  const finalWorkspaceFingerprint = hashText([
+    ...packages.map((pkg) => {
       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
       return `${pkg.name}:${crate?.fingerprint ?? hashFile(pkg.manifestPath)}`;
-    })
-    .sort()
-    .join("\n"));
+    }),
+    ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
+  ].sort().join("\n"));
   const workspaceIndex = blocks.findIndex((block) => block.id === projectId);
   if (workspaceIndex >= 0) blocks[workspaceIndex] = { ...workspaceBlock, fingerprint: finalWorkspaceFingerprint || workspaceFingerprint };
 
@@ -416,7 +421,11 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
 
   const completedBlocks = deriveChildren(blocks);
   const workspaceChildren = completedBlocks.find((block) => block.id === projectId)?.children ?? packageBlockIds;
-  const groups: FactGroup[] = [{ id: "group:crates", label: "Workspace crates", memberIds: workspaceChildren }];
+  const groups: FactGroup[] = [{
+    id: "group:crates",
+    label: "Workspace crates",
+    memberIds: workspaceChildren.filter((id) => id.startsWith("crate:")),
+  }];
   const stats = {
     blocks: completedBlocks.length,
     connections: connections.length,

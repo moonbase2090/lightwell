@@ -60,6 +60,14 @@ pub struct ModuleBlock {
     pub declared_by_path: String,
     pub cfg_attributes: Vec<String>,
     pub unresolved: bool,
+    /// `rust` for Cargo modules. Python modules set `python`. Omitted from JSON when `rust`
+    /// so existing maps stay valid.
+    #[serde(skip_serializing_if = "is_default_module_language")]
+    pub language: String,
+}
+
+fn is_default_module_language(language: &String) -> bool {
+    language == "rust"
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

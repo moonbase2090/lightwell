@@ -1,11 +1,17 @@
 import type { LanguagePack } from "../language-pack.js";
+import { registerPythonHighlighter } from "../highlighters/python.js";
 
+/** Python facts are appended by the Rust workspace extractor (`extractCargoMap`). */
 export const PYTHON_LANGUAGE_PACK: LanguagePack = {
   id: "python",
   extensions: [".py", ".pyi"],
   monacoLanguageId: "python",
-  extractor: null,
+  extractor: {
+    kind: "python-module",
+    moduleId: "extract/python-modules",
+    coreSourceModule: "lightwell_core::python_source",
+  },
   workspaceExtractor: null,
-  registerHighlighter: null,
-  fixtures: null,
+  registerHighlighter: registerPythonHighlighter,
+  fixtures: { root: "crates/lightwell-core/fixtures/python-sample" },
 };

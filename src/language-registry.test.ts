@@ -21,7 +21,7 @@ test("registry maps Rust and manifest paths", () => {
 test("registry maps Python sources", () => {
   assert.equal(sourceLanguageIdForPath("pkg/mod.py"), "python");
   assert.equal(sourceLanguageIdForPath("types.pyi"), "python");
-  assert.equal(monacoLanguageIdForPath("pkg/mod.py"), "rust");
+  assert.equal(monacoLanguageIdForPath("pkg/mod.py"), "python");
 });
 
 test("registry maps TypeScript extensions without .ts swallowing .tsx", () => {
@@ -54,8 +54,9 @@ test("built-in packs expose extractor and fixture seams", () => {
   const typescript = languagePackForPath("src/App.tsx");
   assert.equal(typescript?.extractor?.kind, "typescript-module");
   const python = languagePackForPath("mod.py");
-  assert.equal(python?.extractor, null);
-  assert.equal(python?.registerHighlighter, null);
+  assert.equal(python?.extractor?.kind, "python-module");
+  assert.equal(python?.fixtures?.root, "crates/lightwell-core/fixtures/python-sample");
+  assert.equal(typeof python?.registerHighlighter, "function");
 });
 
 test("extractWorkspaceMap uses rust pack workspace extractor on fixture workspace", () => {

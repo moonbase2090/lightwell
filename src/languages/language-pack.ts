@@ -18,7 +18,12 @@ export type LanguagePackExtractor =
       readonly moduleTreeModule: "extract/rust-modules";
       readonly coreSourceModule: "lightwell_core::rust_source";
     }
-  | { readonly kind: "typescript-module"; readonly moduleId: string };
+  | { readonly kind: "typescript-module"; readonly moduleId: string }
+  | {
+      readonly kind: "python-module";
+      readonly moduleId: "extract/python-modules";
+      readonly coreSourceModule: "lightwell_core::python_source";
+    };
 
 export interface LanguagePackFixtures {
   /** Repository-relative directory holding golden inputs for this pack. */
