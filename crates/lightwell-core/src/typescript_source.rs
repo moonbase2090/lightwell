@@ -323,12 +323,12 @@ fn scan_line(line: &str, state: &mut ScanState) -> bool {
             '{' => state.brace += 1,
             '}' => state.brace -= 1,
             '<' => {
-                if !(index + 1 < chars.len() && chars[index + 1] == '=') {
+                if opens_angle(&chars, index) {
                     state.angle += 1;
                 }
             }
             '>' => {
-                if !(index > 0 && chars[index - 1] == '-') && state.angle > 0 {
+                if closes_angle(&chars, index) && state.angle > 0 {
                     state.angle -= 1;
                 }
             }
@@ -337,6 +337,41 @@ fn scan_line(line: &str, state: &mut ScanState) -> bool {
         index += 1;
     }
     false
+}
+
+fn opens_angle(chars: &[char], index: usize) -> bool {
+    if chars[index] != '<' {
+        return false;
+    }
+    if index + 1 < chars.len() && chars[index + 1] == '=' {
+        return false;
+    }
+    if index + 1 < chars.len() && chars[index + 1] == '<' {
+        return false;
+    }
+    if index + 1 < chars.len() && chars[index + 1] == ' ' {
+        return false;
+    }
+    if index > 0 && chars[index - 1] == '<' {
+        return false;
+    }
+    true
+}
+
+fn closes_angle(chars: &[char], index: usize) -> bool {
+    if chars[index] != '>' {
+        return false;
+    }
+    if index > 0 && chars[index - 1] == '-' {
+        return false;
+    }
+    if index + 1 < chars.len() && chars[index + 1] == '=' {
+        return false;
+    }
+    if index + 1 < chars.len() && chars[index + 1] == '>' {
+        return false;
+    }
+    true
 }
 
 fn opens_quote(chars: &[char], index: usize) -> Option<Quote> {
@@ -565,6 +600,24 @@ export const View = () => <div>ok</div>
                 .map(|symbol| symbol.name.as_str())
                 .collect::<Vec<_>>(),
             vec!["List", "View"]
+        );
+    }
+
+    #[test]
+    fn comparison_and_shift_operators_do_not_block_later_exports() {
+        let source = "\
+export const min = a < b ? a : b;
+export function next() {}
+const gap = 1 << 2;
+export class Tail {}
+";
+        let (_imports, symbols) = parse_typescript_source(source);
+        assert_eq!(
+            symbols
+                .iter()
+                .map(|symbol| symbol.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["min", "next", "Tail"]
         );
     }
 

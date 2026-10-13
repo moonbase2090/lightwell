@@ -42,6 +42,15 @@ export function Fake() {}
   assert.deepEqual(parsed.symbols.map((symbol) => symbol.name), ["Page"]);
 });
 
+test("comparison and shift operators do not block later exports", () => {
+  const parsed = parseTypeScriptSource(`export const min = a < b ? a : b;
+export function next() {}
+const gap = 1 << 2;
+export class Tail {}
+`);
+  assert.deepEqual(parsed.symbols.map((symbol) => symbol.name), ["min", "next", "Tail"]);
+});
+
 test("export inside a string is not a top-level symbol", () => {
   const parsed = parseTypeScriptSource('const text = "export function fake() {}";\nexport function real() {}\n');
   assert.deepEqual(parsed.symbols.map((symbol) => symbol.name), ["real"]);

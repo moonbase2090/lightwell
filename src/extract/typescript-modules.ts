@@ -306,11 +306,28 @@ function scanLine(line: string, state: ScanState): boolean {
     else if (line[index] === "]") state.bracket -= 1;
     else if (line[index] === "{") state.brace += 1;
     else if (line[index] === "}") state.brace -= 1;
-    else if (line[index] === "<" && line[index + 1] !== "=") state.angle += 1;
-    else if (line[index] === ">" && line[index - 1] !== "-" && state.angle > 0) state.angle -= 1;
+    else if (opensAngle(line, index)) state.angle += 1;
+    else if (closesAngle(line, index) && state.angle > 0) state.angle -= 1;
     index += 1;
   }
   return false;
+}
+
+function opensAngle(line: string, index: number): boolean {
+  if (line[index] !== "<") return false;
+  if (line[index + 1] === "=") return false;
+  if (line[index + 1] === "<") return false;
+  if (line[index + 1] === " ") return false;
+  if (line[index - 1] === "<") return false;
+  return true;
+}
+
+function closesAngle(line: string, index: number): boolean {
+  if (line[index] !== ">") return false;
+  if (line[index - 1] === "-") return false;
+  if (line[index + 1] === "=") return false;
+  if (line[index + 1] === ">") return false;
+  return true;
 }
 
 function opensQuote(line: string, index: number): { readonly quote: Quote; readonly length: number } | null {
