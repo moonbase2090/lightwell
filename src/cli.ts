@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { extractCargoMap } from "./extract/cargo.js";
+import { extractWorkspaceMap } from "./languages/extract-workspace.js";
 
 function usage(): never {
   throw new Error([
@@ -28,7 +28,7 @@ function run(args: readonly string[]): void {
   const output = optionValue(rest, "-o") ?? optionValue(rest, "--output");
   if (repositoryPath === undefined || output === undefined) usage();
   const name = optionValue(rest, "--name");
-  const map = extractCargoMap({ repositoryPath, projectName: name });
+  const map = extractWorkspaceMap({ repositoryPath, projectName: name });
   const outputPath = path.resolve(output);
   mkdirSync(path.dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, `${JSON.stringify(map, null, 2)}\n`, "utf8");

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as monaco from "monaco-editor-core";
 import EditorWorker from "./editor.worker.js?worker";
+import { monacoLanguageIdForPath, registerLanguagePackHighlighters } from "./languages/registry.js";
 import type { ResolvedTheme } from "./theme.js";
 
 interface MonacoWorkerWindow extends Window {
@@ -17,67 +18,7 @@ function configureMonaco() {
     getWorker: () => new EditorWorker(),
   };
 
-  if (!monaco.languages.getLanguages().some((language) => language.id === "rust")) {
-    monaco.languages.register({ id: "rust" });
-    monaco.languages.setMonarchTokensProvider("rust", {
-      keywords: [
-        "as", "async", "await", "break", "const", "continue", "crate", "dyn", "else", "enum",
-        "extern", "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod",
-        "move", "mut", "pub", "ref", "return", "self", "Self", "static", "struct", "super",
-        "trait", "true", "type", "unsafe", "use", "where", "while",
-      ],
-      typeKeywords: ["bool", "char", "f32", "f64", "i8", "i16", "i32", "i64", "i128", "isize", "str", "u8", "u16", "u32", "u64", "u128", "usize"],
-      tokenizer: {
-        root: [
-          [/[a-z_$][\w$]*/, { cases: { "@keywords": "keyword", "@typeKeywords": "type", "@default": "identifier" } }],
-          [/[A-Z][\w$]*/, "type.identifier"],
-          { include: "@whitespace" },
-          [/[{}()[\]]/, "@brackets"],
-          [/[<>](?!@symbols)/, "@brackets"],
-          [/@symbols/, { cases: { "@operators": "operator", "@default": "" } }],
-          [/\d[\d_]*(\.\d[\d_]*)?([eE][+-]?[\d_]+)?/, "number"],
-          [/"([^"\\]|\\.)*$/, "string.invalid"],
-          [/"/, { token: "string.quote", bracket: "@open", next: "@string" }],
-          [/'([^'\\]|\\.)'/, "string"],
-          [/#\!?\[/, "annotation"],
-        ],
-        string: [
-          [/[^\\"]+/, "string"],
-          [/\\./, "string.escape"],
-          [/"/, { token: "string.quote", bracket: "@close", next: "@pop" }],
-        ],
-        whitespace: [
-          [/\s+/, "white"],
-          [/\/\*/, "comment", "@comment"],
-          [/\/\/.*$/, "comment"],
-        ],
-        comment: [
-          [/[^/*]+/, "comment"],
-          [/\*\//, "comment", "@pop"],
-          [/[/*]/, "comment"],
-        ],
-      },
-      symbols: /[=><!~?&|+\-*\/%^]+/,
-      operators: ["=", ">", "<", "!", "~", "?", ":", "&", "|", "+", "-", "*", "/", "%", "^"],
-    });
-  }
-
-  if (!monaco.languages.getLanguages().some((language) => language.id === "toml")) {
-    monaco.languages.register({ id: "toml" });
-    monaco.languages.setMonarchTokensProvider("toml", {
-      tokenizer: {
-        root: [
-          [/^\s*\[[^\]]+\]/, "keyword"],
-          [/^\s*[A-Za-z0-9_-]+/, "variable"],
-          [/\s*=/, "operator"],
-          [/#.*$/, "comment"],
-          [/(?:"(?:[^"\\]|\\.)*"|'[^']*')/, "string"],
-          [/\b(?:true|false)\b/, "keyword"],
-          [/-?\d+(?:\.\d+)?/, "number"],
-        ],
-      },
-    });
-  }
+  registerLanguagePackHighlighters(monaco);
 
   if (!themeConfigured) {
     monaco.editor.defineTheme("lightwell-dark", {
@@ -174,7 +115,7 @@ export default function SourceCodeEditor({ content, line, column, path, theme }:
     const container = containerRef.current;
     if (container === null) return;
     configureMonaco();
-    const language = path.endsWith(".toml") ? "toml" : "rust";
+    const language = monacoLanguageIdForPath(path);
     const editor = monaco.editor.create(container, {
       value: content,
       language,
