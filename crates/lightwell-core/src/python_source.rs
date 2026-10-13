@@ -11,6 +11,7 @@ pub(crate) struct PythonModule {
     pub path: PathBuf,
     pub package: Option<String>,
     pub stub: bool,
+    pub unreadable: bool,
     pub imports: Vec<PythonImport>,
     pub symbols: Vec<PythonSymbol>,
 }
@@ -103,6 +104,7 @@ pub(crate) fn discover_python_modules(
 }
 
 pub(crate) fn parse_python_source(source: &str) -> (Vec<PythonImport>, Vec<PythonSymbol>) {
+    let source = source.strip_prefix('\u{feff}').unwrap_or(source);
     let mut imports = Vec::new();
     let mut symbols = Vec::new();
     let mut state = ScanState::default();
@@ -151,17 +153,29 @@ fn module_from_file(
     path: &Path,
     packages: &HashSet<PathBuf>,
 ) -> Result<PythonModule, CargoDiscoveryError> {
-    let source = fs::read_to_string(path).map_err(|source| CargoDiscoveryError::SourceRead {
+    let bytes = fs::read(path).map_err(|source| CargoDiscoveryError::PythonSourceRead {
         path: path.to_owned(),
         source,
     })?;
-    let (imports, symbols) = parse_python_source(&source);
     let stub = path.extension().and_then(|ext| ext.to_str()) == Some("pyi");
+    let Ok(source) = String::from_utf8(bytes) else {
+        return Ok(PythonModule {
+            name: module_name(root, path),
+            package: nearest_package(root, path, packages),
+            path: path.to_owned(),
+            stub,
+            unreadable: true,
+            imports: Vec::new(),
+            symbols: Vec::new(),
+        });
+    };
+    let (imports, symbols) = parse_python_source(&source);
     Ok(PythonModule {
         name: module_name(root, path),
         package: nearest_package(root, path, packages),
         path: path.to_owned(),
         stub,
+        unreadable: false,
         imports,
         symbols,
     })
@@ -592,8 +606,10 @@ mod tests {
     use super::{discover_python_modules, parse_python_source, PythonSymbolKind};
     use crate::extract::extract_cargo_map;
     use crate::facts::FactBlock;
+    use crate::metadata::CargoDiscoveryError;
     use std::fs;
-    use std::path::Path;
+    use std::io;
+    use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn fixture_root() -> std::path::PathBuf {
@@ -664,6 +680,61 @@ def load_widget():
         let (_imports, symbols) = parse_python_source(source);
         assert_eq!(symbols.len(), 1);
         assert_eq!(symbols[0].name, "load_widget");
+    }
+
+    #[test]
+    fn a_leading_bom_keeps_the_first_function() {
+        let source = "\u{feff}def load_widget():\n    return None\n";
+        let (_imports, symbols) = parse_python_source(source);
+        assert_eq!(symbols.len(), 1);
+        assert_eq!(symbols[0].name, "load_widget");
+        assert_eq!(symbols[0].kind, PythonSymbolKind::Function);
+    }
+
+    #[test]
+    fn invalid_utf8_is_an_unresolved_python_module_and_the_map_continues() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("lightwell-python-utf8-{unique}"));
+        fs::create_dir_all(root.join("src")).expect("src");
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"pyhost\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .expect("manifest");
+        fs::write(root.join("src/lib.rs"), "pub fn value() -> u8 { 1 }\n").expect("lib");
+        fs::write(root.join("kept.py"), "def kept():\n    return None\n").expect("kept");
+        fs::write(root.join("bad_source.py"), [0xff, 0xfe, b'd', b'e', b'f']).expect("bad");
+        let map = extract_cargo_map(&root, Some("Py Host")).expect("extract continues");
+        let python = map
+            .blocks
+            .iter()
+            .filter_map(|block| match block {
+                FactBlock::Module(module) if module.language == "python" => Some(module),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert!(python.iter().any(|module| {
+            module.module_path == "bad_source"
+                && module.unresolved
+                && module.cfg_attributes.is_empty()
+        }));
+        assert!(python
+            .iter()
+            .all(|module| !module.module_path.starts_with("bad_source.")));
+        assert!(python
+            .iter()
+            .any(|module| module.module_path == "kept.kept" && module.cfg_attributes == ["def"]));
+        let read_error = CargoDiscoveryError::PythonSourceRead {
+            path: PathBuf::from("pkg/bad_source.py"),
+            source: io::Error::new(io::ErrorKind::PermissionDenied, "denied"),
+        };
+        let message = read_error.to_string();
+        assert!(message.contains("Python source"));
+        assert!(!message.contains("Rust source"));
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

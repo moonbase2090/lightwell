@@ -465,7 +465,7 @@ fn append_python_blocks(
                 .iter()
                 .map(|import| import.statement())
                 .collect(),
-            unresolved: false,
+            unresolved: module.unreadable,
             language: "python".to_owned(),
         }));
         connections.push(contains_connection(workspace_id, &id));

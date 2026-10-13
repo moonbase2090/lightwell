@@ -28,6 +28,7 @@ export interface PythonModule {
   readonly path: string;
   readonly packageName: string | null;
   readonly stub: boolean;
+  readonly unreadable: boolean;
   readonly imports: readonly PythonImport[];
   readonly symbols: readonly PythonSymbol[];
 }
@@ -60,13 +61,14 @@ export function discoverPythonModules(repositoryPath: string): PythonModule[] {
 }
 
 export function parsePythonSource(source: string): { readonly imports: PythonImport[]; readonly symbols: PythonSymbol[] } {
+  const text = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source;
   const imports: PythonImport[] = [];
   const symbols: PythonSymbol[] = [];
   const state: ScanState = { quote: null, paren: 0 };
   let logical = "";
   let logicalLine = 1;
   let continued = false;
-  for (const [index, rawLine] of splitInclusive(source).entries()) {
+  for (const [index, rawLine] of splitInclusive(text).entries()) {
     const lineNo = index + 1;
     const line = rawLine.replace(/[\n\r]+$/, "");
     if (state.quote !== null) {
@@ -130,7 +132,7 @@ export function pythonFactBlocks(args: {
       modulePath: module.name,
       declaredByPath: relative,
       cfgAttributes: module.imports.map(pythonImportStatement),
-      unresolved: false,
+      unresolved: module.unreadable,
       language: "python",
       parentId: args.workspaceId,
       children: [],
@@ -163,13 +165,14 @@ export function pythonFactBlocks(args: {
 }
 
 function moduleFromFile(root: string, filePath: string, packages: ReadonlySet<string>): PythonModule {
-  const source = readUtf8(filePath);
-  const parsed = parsePythonSource(source);
+  const source = readPythonSource(filePath);
+  const parsed = source === null ? { imports: [], symbols: [] } : parsePythonSource(source);
   return {
     name: moduleName(root, filePath),
     path: filePath,
     packageName: nearestPackage(root, filePath, packages),
     stub: filePath.endsWith(".pyi"),
+    unreadable: source === null,
     imports: parsed.imports,
     symbols: parsed.symbols,
   };
@@ -499,7 +502,17 @@ function hashFile(filePath: string): string {
   return createHash("sha256").update(readFileSync(filePath)).digest("hex");
 }
 
-function readUtf8(filePath: string): string {
-  const bytes = readFileSync(filePath);
-  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+function readPythonSource(filePath: string): string | null {
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(filePath);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "read failed";
+    throw new Error(`Could not read Python source ${filePath}: ${message}`);
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
 }

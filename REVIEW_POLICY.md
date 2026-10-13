@@ -52,6 +52,8 @@ New behavior in trunk code ships behind a flag or setting that is off by default
 
 For example, the Project notes dialog is gated by `VITE_ENABLE_PROJECT_NOTES` and remains off in default builds.
 
+Language-pack extraction and inspector highlighting are the exception. When a pack implements them, they ship on in the pull request that adds the pack. They are not gated off by default, and they do not need a second pull request to enable them.
+
 ## 6. Tests
 
 For every test, ask: would it fail if the behavior it names broke? If not, reject it. Reject tests that:

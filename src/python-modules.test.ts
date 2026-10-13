@@ -37,6 +37,27 @@ test("python fixture lists packages, imports, and top-level symbols", () => {
   assert.equal(loose.symbols[0]?.name, "entry");
 });
 
+test("a leading BOM keeps the first function", () => {
+  const parsed = parsePythonSource("\uFEFFdef load_widget():\n    return None\n");
+  assert.deepEqual(parsed.symbols.map((symbol) => symbol.name), ["load_widget"]);
+});
+
+test("invalid UTF-8 is an unresolved Python module and discovery continues", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "lightwell-python-utf8-"));
+  try {
+    writeFileSync(path.join(root, "kept.py"), "def kept():\n    return None\n");
+    writeFileSync(path.join(root, "bad_source.py"), Buffer.from([0xff, 0xfe, 0x64, 0x65, 0x66]));
+    const modules = discoverPythonModules(root);
+    const bad = modules.find((module) => module.name === "bad_source");
+    assert.ok(bad);
+    assert.equal(bad.unreadable, true);
+    assert.deepEqual(bad.symbols, []);
+    assert.equal(modules.find((module) => module.name === "kept")?.symbols[0]?.name, "kept");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("strings, nested defs, and assignments are not top-level symbols", () => {
   const parsed = parsePythonSource(`"""def not_a_function():
     pass
