@@ -6,9 +6,25 @@ Lightwell maps Rust workspaces and shows their crates, app entry points, Rust mo
 
 ## Install
 
+Lightwell v0.1.3 is available for macOS on Apple Silicon and Linux x86_64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [lightwellcli.com](https://lightwellcli.com/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
+
+### macOS
+
+Download [`Lightwell-macos-arm64.dmg`](https://github.com/moonbase2090/lightwell/releases/latest/download/Lightwell-macos-arm64.dmg) (Apple Silicon, macOS 11.0 or later). The disk image is signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
+
+### Linux
+
+Download [`Lightwell_0.1.3_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.3/Lightwell_0.1.3_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
+
+```sh
+sudo apt install ./Lightwell_0.1.3_amd64.deb
+```
+
+### From source
+
 Build Lightwell from this repository. The viewer needs Node.js 22. The command line and desktop app need a stable Rust toolchain.
 
-### Browser preview
+#### Browser preview
 
 ```sh
 git clone https://github.com/moonbase2090/lightwell.git
@@ -21,7 +37,7 @@ Open the local address Vite prints. The preview loads the checked-in maps and do
 
 `npm run build` writes the static site to `dist/`.
 
-### Command line
+#### Command line
 
 From the clone:
 
@@ -30,7 +46,7 @@ cargo install --path crates/lightwell-cli
 lightwell extract . --name Lightwell -o /tmp/lightwell-map.json
 ```
 
-### Desktop app
+#### Desktop app
 
 The desktop shell is a [Tauri](https://v2.tauri.app/) v2 app around the same viewer. Install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your system, then from the clone:
 
@@ -57,7 +73,7 @@ Maps, project notes, and editor settings stay on your machine. See [PRIVACY.md](
 
 ## Desktop shell
 
-Pull request CI uploads an unsigned Apple Silicon `.app` archive and an x86_64 Linux `.deb` built for a GLIBC 2.28 executable floor. macOS builds are unsigned for now. A signed, notarized macOS job is in place and runs once signing is configured; until then, open the app the first time with Control-click → Open.
+Releases ship a signed and notarized Apple Silicon `.dmg` and an x86_64 Linux `.deb` built for a glibc 2.28 executable floor. See [Install](#install).
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 
@@ -170,7 +186,7 @@ Print the installed npm and Rust dependency license inventories with `npm run ch
 
 ## License
 
-Lightwell is licensed under the Mozilla Public License 2.0. See [LICENSE](LICENSE).
+Lightwell is licensed under the MIT License. Copyright (c) 2026 Moonbase 2090 LLC. See [LICENSE](LICENSE).
 
 ## Contributing
 
