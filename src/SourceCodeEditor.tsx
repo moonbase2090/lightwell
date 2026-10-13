@@ -99,6 +99,8 @@ export interface SourceCodeEditorProps {
   readonly column: number;
   readonly path: string;
   readonly theme: ResolvedTheme;
+  /** When set, replaces the browser menu with the app's menu for the clicked or focused line. */
+  readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
 }
 
 const monacoThemes = {
@@ -107,10 +109,13 @@ const monacoThemes = {
   blueprint: "lightwell-blueprint",
 } satisfies Record<ResolvedTheme, string>;
 
-export default function SourceCodeEditor({ content, line, column, path, theme }: SourceCodeEditorProps) {
+export default function SourceCodeEditor({ content, line, column, path, theme, onLineContextMenu }: SourceCodeEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const themeRef = useRef(theme);
   themeRef.current = theme;
+  const contextMenuRef = useRef(onLineContextMenu);
+  contextMenuRef.current = onLineContextMenu;
+  const hasContextMenu = onLineContextMenu !== undefined;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -138,13 +143,33 @@ export default function SourceCodeEditor({ content, line, column, path, theme }:
       tabSize: 4,
       padding: { top: 13, bottom: 14 },
       scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
+      contextmenu: !hasContextMenu,
     });
+    const suppressBrowserMenu = (event: MouseEvent) => event.preventDefault();
+    if (hasContextMenu) {
+      container.addEventListener("contextmenu", suppressBrowserMenu);
+      editor.onContextMenu((event) => {
+        const lineNumber = event.target.position?.lineNumber ?? editor.getPosition()?.lineNumber ?? 1;
+        contextMenuRef.current?.(lineNumber, event.event.posx, event.event.posy);
+      });
+      const openFromKeyboard = () => {
+        const position = editor.getPosition() ?? { lineNumber: 1, column: 1 };
+        const visible = editor.getScrolledVisiblePosition(position);
+        const rect = container.getBoundingClientRect();
+        contextMenuRef.current?.(position.lineNumber, rect.left + (visible?.left ?? 0), rect.top + (visible?.top ?? 0) + (visible?.height ?? 20));
+      };
+      editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F10, openFromKeyboard);
+      editor.addCommand(monaco.KeyCode.ContextMenu, openFromKeyboard);
+    }
     const targetLine = Math.min(Math.max(1, line), editor.getModel()?.getLineCount() ?? 1);
     const targetColumn = Math.max(1, column);
     editor.setPosition({ lineNumber: targetLine, column: targetColumn });
     editor.revealPositionInCenter({ lineNumber: targetLine, column: targetColumn });
-    return () => editor.dispose();
-  }, [column, content, line, path]);
+    return () => {
+      container.removeEventListener("contextmenu", suppressBrowserMenu);
+      editor.dispose();
+    };
+  }, [column, content, hasContextMenu, line, path]);
 
   useEffect(() => {
     configureMonaco();

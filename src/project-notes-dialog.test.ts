@@ -70,7 +70,7 @@ test("project notes opens a blank editor for the selected block", () => {
   ]);
 
   assert.match(html, /0 saved/);
-  assert.match(html, /No notes yet\. Select a block and add a note\./);
+  assert.match(html, /No notes yet\./);
   assert.match(html, /NEW NOTE FOR/);
   assert.match(html, /<strong>core<\/strong>/);
   assert.match(html, /class="notes-save-button"[^>]*disabled/);
@@ -99,4 +99,30 @@ test("project notes explains an unreadable workspace and disables editing", () =
   assert.match(html, /class="notes-new-button"[^>]*disabled/);
   assert.match(html, /aria-label="Project note text"[^>]*disabled/);
   assert.match(html, /class="notes-save-button"[^>]*disabled/);
+});
+
+test("project notes empty state offers Add note for the chosen block", () => {
+  const html = renderNotes({ kind: "ready", notes: [] }, "crate:core", [{ id: "crate:core", label: "core" }]);
+  assert.match(html, /No notes yet\./);
+  assert.match(html, /class="notes-empty-add-button"[^>]*>.*Add note to core<\/button>/);
+});
+
+test("project notes empty state without a chosen block tells the user how to add one", () => {
+  const html = renderNotes({ kind: "ready", notes: [] }, null);
+  assert.match(html, /Select a block on the map, then choose Add note or right-click it\./);
+  assert.doesNotMatch(html, /notes-empty-add-button/);
+});
+
+test("project notes starts a new note with the line reference passed from the source inspector", () => {
+  const html = renderToStaticMarkup(createElement(ProjectNotesDialog, {
+    workspaceId: "workspace-1",
+    source,
+    snapshot: { kind: "ready", notes: [] },
+    map: mapWith([{ id: "crate:core", label: "core" }]),
+    currentBlockId: "crate:core",
+    initialText: "Line 12: ",
+    onSnapshot: () => undefined,
+    onClose: () => undefined,
+  }));
+  assert.match(html, /<textarea[^>]*>Line 12: <\/textarea>/);
 });

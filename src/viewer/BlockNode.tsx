@@ -1,7 +1,8 @@
 import { memo } from "react";
-import { ChevronRight, CircleAlert, Layers3 } from "lucide-react";
+import { ChevronRight, CircleAlert, Layers3, StickyNote } from "lucide-react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import type { DisplayBlock } from "../model.js";
+import { isContextMenuKey } from "../NoteContextMenu.js";
 
 export interface BlockNodeData extends Record<string, unknown> {
   readonly block: DisplayBlock;
@@ -9,6 +10,8 @@ export interface BlockNodeData extends Record<string, unknown> {
   readonly highlighted: boolean;
   readonly onHover: (id: string | null) => void;
   readonly onActivate: (block: DisplayBlock) => void;
+  readonly hasNote?: boolean;
+  readonly onContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
 }
 
 export type MapNode = Node<BlockNodeData, "codeBlock">;
@@ -39,10 +42,22 @@ function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
       className={`block-node node-${block.annotationKind.toLowerCase()} status-${block.status}${selected ? " selected" : ""}${data.dimmed ? " dimmed" : ""}${data.highlighted ? " highlighted" : ""}${block.annotationState === "changed" ? " annotation-changed" : ""}`}
       role="button"
       tabIndex={0}
-      aria-label={`${block.label}, ${block.annotationKind}`}
+      aria-label={`${block.label}, ${block.annotationKind}${data.hasNote === true ? ", has note" : ""}`}
+      aria-haspopup={data.onContextMenu === undefined ? undefined : "menu"}
       onMouseEnter={() => data.onHover(block.id)}
       onMouseLeave={() => data.onHover(null)}
+      onContextMenu={data.onContextMenu === undefined ? undefined : (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        data.onContextMenu?.(block, event.clientX, event.clientY);
+      }}
       onKeyDown={(event) => {
+        if (data.onContextMenu !== undefined && isContextMenuKey(event)) {
+          event.preventDefault();
+          const rect = event.currentTarget.getBoundingClientRect();
+          data.onContextMenu(block, rect.left + 12, rect.bottom - 6);
+          return;
+        }
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           activate();
@@ -64,6 +79,7 @@ function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
         {block.children.length > 0 && (
           <span className="node-children"><span>{block.children.length}</span><ChevronRight size={13} /></span>
         )}
+        {data.hasNote === true && <span className="node-note-badge" title="Has a project note"><StickyNote size={12} /></span>}
         {block.annotationState === "changed" && <CircleAlert size={13} className="node-alert" />}
       </div>
       <Handle type="source" position={Position.Bottom} isConnectable={false} />
