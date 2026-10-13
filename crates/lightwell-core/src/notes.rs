@@ -473,7 +473,7 @@ mod tests {
         assert!(stale[0].stale);
         assert_eq!(stale[0].text, "Remember this crate");
         assert_eq!(stale[0].source_fingerprint, "old-fingerprint");
-        assert_eq!(store.list_for_map(&old_map).unwrap()[0].stale, false);
+        assert!(!store.list_for_map(&old_map).unwrap()[0].stale);
         assert!(notes_path.is_file());
     }
 

@@ -382,10 +382,12 @@ fn discover_dependencies(
     Ok(dependencies)
 }
 
+type DependencySection<'a> = (&'a toml::map::Map<String, Value>, CargoDependencyKind);
+
 fn dependency_sections<'a>(
     document: &'a Value,
     manifest_path: &Path,
-) -> Result<Vec<(&'a toml::map::Map<String, Value>, CargoDependencyKind)>, CargoDiscoveryError> {
+) -> Result<Vec<DependencySection<'a>>, CargoDiscoveryError> {
     let mut sections = Vec::new();
     for (key, kind) in [
         ("dependencies", CargoDependencyKind::Normal),
