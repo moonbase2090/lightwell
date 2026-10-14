@@ -32,7 +32,7 @@ test("the packaged desktop binary gets a GUI smoke, not an Amazon Linux run", ()
 
 test("windows runs the npm suite and the cargo tests", () => {
   const block = jobBlock("windows-check");
-  assert.match(block, /runs-on: windows-2022\n/);
+  assert.match(block, /runs-on: windows-latest\n/);
   assert.match(block, /npm test\n/);
   assert.match(block, /cargo test -p lightwell-core --lib --locked/);
   assert.match(block, /cargo test -p lightwell-cli --locked/);

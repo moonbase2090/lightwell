@@ -499,8 +499,23 @@ mod tests {
         let _override = CargoOverride::set(
             fixture.cargo_script("#!/bin/sh\nexit 127\n", "@echo off\r\nexit /b 127\r\n"),
         );
-        let workspace = discover_cargo_workspace(&fixture.root)
-            .expect("a missing cargo should fall back to the manifest");
+        // A freshly written script can return ETXTBSY for a moment on Linux.
+        let mut workspace = None;
+        for attempt in 0..5 {
+            match discover_cargo_workspace(&fixture.root) {
+                Ok(discovered) => {
+                    workspace = Some(discovered);
+                    break;
+                }
+                Err(super::CargoDiscoveryError::CargoStart(source))
+                    if source.kind() == std::io::ErrorKind::ExecutableFileBusy && attempt < 4 =>
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(20 * (attempt as u64 + 1)));
+                }
+                Err(error) => panic!("a missing cargo should fall back to the manifest: {error}"),
+            }
+        }
+        let workspace = workspace.expect("a missing cargo should fall back to the manifest");
         assert_eq!(workspace.packages.len(), 1);
         assert_eq!(workspace.packages[0].name, "fallback-fixture");
         assert_eq!(

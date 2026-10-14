@@ -3,9 +3,20 @@
 # Output is file:line only. Matched text and denylist terms are not printed.
 set -euo pipefail
 
-# Windows Python installs expose python.exe. Linux CI has python3.
-if ! command -v python3 >/dev/null 2>&1 && command -v python >/dev/null 2>&1; then
-  python3() { python "$@"; }
+# A Windows Store alias can be named python3 and still exit without running
+# Python. Probe the interpreter, then fall back to python or the py launcher.
+python_runs() {
+  "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[0] >= 3 else 1)' >/dev/null 2>&1
+}
+if ! python_runs python3; then
+  if python_runs python; then
+    python3() { python "$@"; }
+  elif python_runs py -3; then
+    python3() { py -3 "$@"; }
+  else
+    echo "check-release-text: Python 3 is required" >&2
+    exit 1
+  fi
 fi
 
 usage() {
@@ -257,17 +268,42 @@ record_text() {
   rm -f "$isolated"
 }
 
+# GNU strings -a -n 6: whole-file runs of at least six printable ASCII bytes.
+extract_strings() {
+  local source="$1"
+  local output="$2"
+  if command -v strings >/dev/null 2>&1; then
+    strings -a -n 6 "$source" >"$output"
+    return $?
+  fi
+  python3 - "$source" "$output" <<'PY'
+import sys
+
+source, output = sys.argv[1:]
+data = open(source, "rb").read()
+minimum = 6
+run = bytearray()
+with open(output, "wb") as handle:
+    def flush():
+        if len(run) >= minimum:
+            handle.write(run + b"\n")
+        run.clear()
+
+    for byte in data:
+        if 32 <= byte <= 126:
+            run.append(byte)
+        else:
+            flush()
+    flush()
+PY
+}
+
 record_strings() {
   local display="$1"
   local source="$2"
-  if ! command -v strings >/dev/null 2>&1; then
-    echo "check-release-text: strings is required to scan artifacts" >&2
-    fail=1
-    return 0
-  fi
   local strings_file
   strings_file="$(mktemp "$tmp/strings.XXXXXX")"
-  if ! strings -a -n 6 "$source" >"$strings_file"; then
+  if ! extract_strings "$source" "$strings_file"; then
     echo "check-release-text: strings failed for $display" >&2
     fail=1
     rm -f "$strings_file"
@@ -277,16 +313,63 @@ record_strings() {
   rm -f "$strings_file"
 }
 
+extract_ar() {
+  local archive="$1"
+  local dest="$2"
+  if command -v ar >/dev/null 2>&1; then
+    (cd "$dest" && ar x "$archive")
+    return $?
+  fi
+  python3 - "$archive" "$dest" <<'PY'
+import os
+import sys
+
+archive, dest = sys.argv[1:]
+data = open(archive, "rb").read()
+magic = b"!<arch>\n"
+if not data.startswith(magic):
+    raise SystemExit("not an ar archive")
+offset = len(magic)
+root = os.path.realpath(dest)
+while offset + 60 <= len(data):
+    header = data[offset : offset + 60]
+    if header[58:60] != b"`\n":
+        raise SystemExit("bad ar header")
+    name = header[:16].decode("ascii", "replace").strip()
+    size = int(header[48:58].decode("ascii").strip() or "0")
+    offset += 60
+    body = data[offset : offset + size]
+    offset += size + (size % 2)
+    if name in {"/", "//", "/SYM64/"} or not name:
+        continue
+    if name.startswith("#1/"):
+        name_len = int(name[3:])
+        name = body[:name_len].split(b"\x00", 1)[0].decode("utf-8", "replace")
+        body = body[name_len:]
+    name = name.rstrip("/")
+    parts = name.replace("\\", "/").split("/")
+    if name.startswith("/") or ".." in parts or parts == [""]:
+        raise SystemExit("refusing ar member " + name)
+    target = os.path.realpath(os.path.join(root, *parts))
+    if os.path.commonpath([root, target]) != root:
+        raise SystemExit("refusing ar member " + name)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    with open(target, "wb") as handle:
+        handle.write(body)
+if offset < len(data) and data[offset:].strip(b"\n"):
+    raise SystemExit("truncated ar archive")
+PY
+}
+
 unpack_deb() {
   local file="$1"
   local dest="$2"
-  if ! command -v ar >/dev/null 2>&1; then
+  local abs
+  abs="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+  if ! extract_ar "$abs" "$dest"; then
     echo "check-release-text: ar is required to unpack a deb" >&2
     return 1
   fi
-  local abs
-  abs="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
-  (cd "$dest" && ar x "$abs") || return 1
   local has_control=0 has_data=0 candidate
   for candidate in "$dest"/control.tar*; do [[ -f "$candidate" ]] && has_control=1; done
   for candidate in "$dest"/data.tar*; do [[ -f "$candidate" ]] && has_data=1; done
