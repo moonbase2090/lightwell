@@ -327,9 +327,9 @@ fn workspace_root(path: &str) -> Result<PathBuf, String> {
     if !root.is_dir() {
         return Err(format!("{} is not a workspace folder.", root.display()));
     }
-    if !root.join("Cargo.toml").is_file() {
+    if lightwell_core::project_manifest(&root).is_none() {
         return Err(format!(
-            "No Cargo.toml was found in {}. Choose a Rust workspace folder.",
+            "No Cargo.toml, package.json, tsconfig.json, or jsconfig.json was found in {}. Choose a project folder.",
             root.display()
         ));
     }
@@ -525,9 +525,27 @@ mod tests {
         let root = temporary_directory("not-rust");
         fs::create_dir_all(&root).expect("temporary folder should be created");
         let error = workspace_root(root.to_str().expect("temporary path should be UTF-8"))
-            .expect_err("folder without Cargo.toml should be rejected");
+            .expect_err("folder without a project manifest should be rejected");
         assert!(error.contains("Cargo.toml"));
-        assert!(error.contains("Rust workspace folder"));
+        assert!(error.contains("package.json"));
+        assert!(error.contains("project folder"));
+        fs::remove_dir_all(root).expect("temporary folder should be removed");
+    }
+
+    #[test]
+    fn node_project_folder_is_a_workspace_without_cargo_toml() {
+        let root = temporary_directory("node-app");
+        fs::create_dir_all(&root).expect("temporary folder should be created");
+        fs::write(root.join("package.json"), "{\n  \"name\": \"demo\"\n}\n")
+            .expect("package.json should be written");
+        fs::write(
+            root.join("tsconfig.json"),
+            "{\n  \"compilerOptions\": {}\n}\n",
+        )
+        .expect("tsconfig.json should be written");
+        let opened = workspace_root(root.to_str().expect("temporary path should be UTF-8"))
+            .expect("a Node project should open");
+        assert_eq!(opened, root.canonicalize().expect("root should resolve"));
         fs::remove_dir_all(root).expect("temporary folder should be removed");
     }
 
