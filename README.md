@@ -65,7 +65,7 @@ On Windows, with Node.js 22, a stable Rust toolchain, and WiX 5.0.2:
 powershell -File scripts/release/build-windows.ps1
 ```
 
-The script installs WiX 5.0.2 for the current user when `wix` is not already on `PATH`. It writes a per-user MSI. `Lightwell.exe` is the desktop app. `bin\lightwell.exe` is the command line tool. The install adds that `bin` directory to `PATH` only when msiexec is given `ADDTOPATH=1`. The script does not sign the MSI. When any Azure Artifact Signing setting is absent it prints `Windows code signing skipped: Azure Artifact Signing settings are absent.` When every setting is present it stops, so an unsigned package is not written in their place.
+The script installs WiX 5.0.2 for the current user when `wix` is not already on `PATH`. It writes a per-user MSI. `Lightwell.exe` is the desktop app. `bin\lightwell.exe` is the command line tool. The install adds that `bin` directory to the user `PATH`; pass `ADDTOPATH=0` to msiexec to skip it. Uninstall removes the entry. The script does not sign. Tagged releases sign `Lightwell.exe`, `bin\lightwell.exe`, and the MSI with Azure Artifact Signing in the release workflow. A local build prints `Windows code signing skipped: Azure Artifact Signing settings are absent.`
 
 ## Screenshots
 

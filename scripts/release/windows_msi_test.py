@@ -42,8 +42,8 @@ class WindowsMsiTest(unittest.TestCase):
         self.assertIn('Directory Id="BINFOLDER" Name="bin"', WXS)
         self.assertIn('Target="[INSTALLFOLDER]Lightwell.exe"', WXS)
 
-    def test_path_edit_is_off_unless_requested(self):
-        self.assertIn('Id="ADDTOPATH" Secure="yes" Value="0"', WXS)
+    def test_path_edit_is_on_unless_declined(self):
+        self.assertIn('Id="ADDTOPATH" Secure="yes" Value="1"', WXS)
         self.assertIn('Condition="ADDTOPATH = &quot;1&quot;"', WXS)
         self.assertIn('Scope="perUser"', WXS)
 
