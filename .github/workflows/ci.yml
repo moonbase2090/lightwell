@@ -332,9 +332,6 @@ jobs:
         with:
           python-version: "3.12"
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
-      - uses: egor-tensin/setup-mingw@v2
-        with:
-          platform: x64
       - run: npm ci
       - run: npm test
       - run: npm run build
