@@ -72,7 +72,21 @@ def load_widget():
   assert.deepEqual(parsed.symbols.map((symbol) => symbol.name), ["load_widget"]);
 });
 
-test("a symlink outside the opened root is not a python module", () => {
+function canCreateSymlink(): boolean {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "lightwell-symlink-probe-"));
+  try {
+    writeFileSync(path.join(dir, "target.txt"), "probe\n");
+    symlinkSync(path.join(dir, "target.txt"), path.join(dir, "link.txt"));
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EPERM") return false;
+    throw error;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test("a symlink outside the opened root is not a python module", { skip: canCreateSymlink() ? false : "symlink creation is not permitted" }, () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "lightwell-python-"));
   const outside = mkdtempSync(path.join(os.tmpdir(), "lightwell-python-outside-"));
   try {
