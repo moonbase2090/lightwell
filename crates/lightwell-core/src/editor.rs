@@ -1,5 +1,5 @@
 use crate::extract::{block_base, map_workspace};
-use crate::facts::{FactBlock, ModuleBlock};
+use crate::facts::{FactBlock, FactMap, ModuleBlock};
 use crate::metadata::{without_console_window, CargoTarget, CargoWorkspace, RustModule};
 use crate::{discover_cargo_workspace, MapExtractionError};
 use serde::{Deserialize, Serialize};
@@ -117,6 +117,18 @@ pub fn resolve_block_target(
     let workspace = discover_cargo_workspace(repository_path).map_err(MapExtractionError::from)?;
     let root = workspace.root.clone();
     let map = map_workspace(workspace.clone(), None)?;
+    resolve_block_target_in_map(&root, &map, block_id, || Ok(workspace))
+}
+
+/// Resolve a block against a map the caller already holds, such as the desktop
+/// app's watched map. `workspace` runs cargo metadata and is called only for an
+/// inline Rust module, whose position is its `mod` declaration.
+pub fn resolve_block_target_in_map(
+    root: &Path,
+    map: &FactMap,
+    block_id: &str,
+    workspace: impl FnOnce() -> Result<CargoWorkspace, EditorError>,
+) -> Result<EditorTarget, EditorError> {
     let block = map
         .blocks
         .iter()
@@ -133,7 +145,7 @@ pub fn resolve_block_target(
                 == Some(module.declared_by_path.as_str())
                 || module.base.source_path.is_none()
             {
-                module_source_position(&workspace, module)
+                module_source_position(&workspace()?, module)
                     .unwrap_or_else(SourcePosition::file_start)
             } else {
                 SourcePosition::file_start()
@@ -156,7 +168,7 @@ pub fn resolve_block_target(
             path: root.join(source_path),
             source,
         })?;
-    if !path.starts_with(&root) {
+    if !path.starts_with(root) {
         return Err(EditorError::SourceOutsideWorkspace(path));
     }
     Ok(EditorTarget { path, position })
@@ -584,9 +596,11 @@ impl From<MapExtractionError> for EditorError {
 #[cfg(test)]
 mod tests {
     use super::{
-        editor_attempts, resolve_block_target, resolve_windows_program, try_editor_attempts,
-        without_verbatim_prefix, EditorCommand, EditorPlatform, EditorTarget, SourcePosition,
+        editor_attempts, resolve_block_target, resolve_block_target_in_map,
+        resolve_windows_program, try_editor_attempts, without_verbatim_prefix, EditorCommand,
+        EditorPlatform, EditorTarget, SourcePosition,
     };
+    use crate::discover_cargo_workspace;
     use crate::extract::{block_base, extract_cargo_map};
     use crate::facts::FactBlock;
     use std::ffi::OsStr;
@@ -658,6 +672,23 @@ mod tests {
         );
         assert_eq!(external.position.line(), 1);
         assert_eq!(external.position.column(), 1);
+
+        // A held map resolves file-backed modules without running cargo metadata,
+        // and runs it once for an inline module's declaration position.
+        let canonical_root = root.canonicalize().unwrap();
+        let cached = resolve_block_target_in_map(&canonical_root, &map, &external_id, || {
+            panic!("a file-backed module must not run cargo metadata")
+        })
+        .expect("external module should resolve from the held map");
+        assert_eq!(cached, external);
+        let mut metadata_runs = 0;
+        let cached_inline = resolve_block_target_in_map(&canonical_root, &map, &inline_id, || {
+            metadata_runs += 1;
+            Ok(discover_cargo_workspace(&canonical_root).unwrap())
+        })
+        .expect("inline module should resolve from the held map");
+        assert_eq!(metadata_runs, 1);
+        assert_eq!(cached_inline, inline);
 
         fs::remove_dir_all(root).expect("fixture folder should be removed");
     }
