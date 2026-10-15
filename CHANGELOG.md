@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.5 - 2026-10-14
+
+### Fixed
+
+- A Node or TypeScript project with no Cargo.toml now opens.
+- On Windows, source files open with the system shell handler.
+
+### Changed
+
+- The test suite now runs on Windows in CI.
+
 ## 0.1.4 - 2026-10-13
 
 ### Added
