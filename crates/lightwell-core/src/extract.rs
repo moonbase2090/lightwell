@@ -11,6 +11,7 @@ use crate::typescript_source::{discover_typescript_modules, TypeScriptModule, Ty
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::fs;
 use std::io;
@@ -50,12 +51,49 @@ impl From<CargoDiscoveryError> for MapExtractionError {
     }
 }
 
+const PROJECT_MANIFESTS: &[&str] = &[
+    "Cargo.toml",
+    "package.json",
+    "tsconfig.json",
+    "jsconfig.json",
+];
+
+/// The manifest that shows `root` is a project Lightwell can open.
+/// `Cargo.toml` wins when a folder is also a Node or TypeScript project.
+pub fn project_manifest(root: &Path) -> Option<PathBuf> {
+    PROJECT_MANIFESTS.iter().find_map(|name| {
+        let path = root.join(name);
+        path.is_file().then_some(path)
+    })
+}
+
 pub fn extract_cargo_map(
     repository_path: impl AsRef<Path>,
     project_name: Option<&str>,
 ) -> Result<FactMap, MapExtractionError> {
-    let workspace = discover_cargo_workspace(repository_path)?;
-    map_workspace(workspace, project_name)
+    let requested = repository_path.as_ref();
+    match discover_cargo_workspace(requested) {
+        Ok(workspace) => map_workspace(workspace, project_name),
+        Err(CargoDiscoveryError::ManifestMissing(manifest)) => {
+            let root = manifest.parent().unwrap_or(requested);
+            let marker = project_manifest(root);
+            if marker
+                .as_ref()
+                .is_some_and(|path| path.file_name() != Some(OsStr::new("Cargo.toml")))
+            {
+                map_workspace(
+                    CargoWorkspace {
+                        root: root.to_path_buf(),
+                        packages: Vec::new(),
+                    },
+                    project_name,
+                )
+            } else {
+                Err(CargoDiscoveryError::ManifestMissing(manifest).into())
+            }
+        }
+        Err(error) => Err(error.into()),
+    }
 }
 
 pub(crate) fn map_workspace(
@@ -123,7 +161,10 @@ pub(crate) fn map_workspace(
                 label: project_label.clone(),
                 parent_id: None,
                 children: Vec::new(),
-                source_path: Some(relative_path(&root_path, &root_path.join("Cargo.toml"))),
+                source_path: Some(relative_path(
+                    &root_path,
+                    &project_manifest(&root_path).unwrap_or_else(|| root_path.join("Cargo.toml")),
+                )),
                 fingerprint: workspace_fingerprint,
             },
             member_count: workspace.packages.len(),
@@ -767,4 +808,61 @@ fn relative_path(root: &Path, path: &Path) -> String {
 
 fn path_to_slashes(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_cargo_map;
+    use crate::facts::FactBlock;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temporary_directory(label: &str) -> std::path::PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after the Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "lightwell-extract-{label}-{}-{unique}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn a_react_typescript_project_extracts_without_cargo_toml() {
+        let root = temporary_directory("react");
+        fs::create_dir_all(root.join("src")).expect("source folder should be created");
+        fs::write(root.join("package.json"), "{\n  \"name\": \"demo\"\n}\n")
+            .expect("package.json should be written");
+        fs::write(root.join("tsconfig.json"), "{}\n").expect("tsconfig.json should be written");
+        fs::write(
+            root.join("src/App.tsx"),
+            "export function App() {\n  return null;\n}\n",
+        )
+        .expect("App.tsx should be written");
+
+        let map = extract_cargo_map(&root, Some("Demo")).expect("a Node project should extract");
+        assert_eq!(map.project.name, "Demo");
+        assert_eq!(map.stats.crates, 0);
+        assert!(map.blocks.iter().any(|block| matches!(
+            block,
+            FactBlock::Workspace(workspace) if workspace.base.source_path.as_deref() == Some("package.json")
+        )));
+        assert!(map.blocks.iter().any(|block| matches!(
+            block,
+            FactBlock::Module(module) if module.module_path == "src.App" && module.language == "typescript"
+        )));
+
+        let empty = temporary_directory("empty");
+        fs::create_dir_all(&empty).expect("empty folder should be created");
+        let error = extract_cargo_map(&empty, None)
+            .expect_err("a folder with no manifest should stay an error")
+            .to_string();
+        assert!(
+            error.contains("Cargo.toml"),
+            "missing-manifest error should name Cargo.toml: {error}"
+        );
+        fs::remove_dir_all(root).expect("react fixture should be removed");
+        fs::remove_dir_all(empty).expect("empty fixture should be removed");
+    }
 }
