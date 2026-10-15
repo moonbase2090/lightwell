@@ -1,8 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import type { MapSource, ProjectNoteInput, ProjectNotesSource } from "../map-source.js";
+import type { MapHistorySource, MapSource, ProjectNoteInput, ProjectNotesSource } from "../map-source.js";
 import {
+  parseBlockDiffDocument,
+  parseCommitChanges,
+  parseCommitSummaries,
   parseEditorSettings,
   parseEditorTemplatePresets,
   parseMapSourceDocument,
@@ -33,6 +36,18 @@ const projectNotesApi: ProjectNotesSource = {
       path: input.workspaceId,
       blockId: input.blockId,
     }).then(parseProjectNotesSnapshot);
+  },
+};
+
+const historyApi: MapHistorySource = {
+  listCommits(workspaceId) {
+    return invoke<unknown>("recent_workspace_commits", { path: workspaceId }).then(parseCommitSummaries);
+  },
+  commitChanges(workspaceId, commitId) {
+    return invoke<unknown>("workspace_commit_changes", { path: workspaceId, commit: commitId }).then(parseCommitChanges);
+  },
+  blockDiff(workspaceId, commitId, blockId) {
+    return invoke<unknown>("workspace_block_diff", { path: workspaceId, commit: commitId, blockId }).then(parseBlockDiffDocument);
   },
 };
 
@@ -104,4 +119,8 @@ export const tauriMapSource: MapSource = {
   ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_PROJECT_NOTES) === "false"
     ? {}
     : { projectNotes: projectNotesApi }),
+  // Off by default (REVIEW_POLICY.md section 5). Compared inline so the bundler drops it.
+  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_COMMIT_DIFF) === "true"
+    ? { history: historyApi }
+    : {}),
 };

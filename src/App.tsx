@@ -26,6 +26,7 @@ import {
   Search,
   Settings2,
   StickyNote,
+  GitCommitHorizontal,
   Waypoints,
 } from "lucide-react";
 import {
@@ -38,9 +39,11 @@ import {
 } from "@xyflow/react";
 import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNotesSnapshot } from "./map-source.js";
 import EditorSettingsPanel from "./EditorSettingsPanel.js";
-import SourceInspectorPanel, { type SourceInspectionState } from "./SourceInspectorPanel.js";
+import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
+import { rollUpChanges, unmappedFiles, type BlockDiff } from "./commit-diff.js";
+import type { CommitChanges, CommitSummary } from "./map-source.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
 import NoteContextMenu, {
@@ -54,6 +57,16 @@ import NoteContextMenu, {
 import Splitter from "./Splitter.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
+import {
+  DEFAULT_MAP_DEPTH,
+  blocksWithinDepth,
+  depthOptions,
+  readMapDepth,
+  subtreeDepth,
+  writeMapDepth,
+  type MapDepth,
+  type MapDepthStorage,
+} from "./map-depth.js";
 
 const nodeTypes = { codeBlock: BlockNodeView };
 const featureColors = ["#88a8ff", "#5ed7c0", "#d19af5", "#efba78", "#80c7f2", "#f08db4", "#a8d989", "#e4cf73"];
@@ -132,6 +145,14 @@ function formatStatus(status: DisplayNode["status"]): string {
       const exhaustive: never = status;
       return exhaustive;
     }
+  }
+}
+
+function mapDepthStorage(): MapDepthStorage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
   }
 }
 
@@ -506,6 +527,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [mapRequestVersion, setMapRequestVersion] = useState(0);
   const [mapRefreshVersion, setMapRefreshVersion] = useState(0);
   const [scopePath, setScopePath] = useState<string[]>([]);
+  const [mapDepth, setMapDepth] = useState<MapDepth>(DEFAULT_MAP_DEPTH);
+  const [depthWorkspaceId, setDepthWorkspaceId] = useState<string | null>(null);
+  if (mapKey !== depthWorkspaceId) {
+    setDepthWorkspaceId(mapKey);
+    setMapDepth(mapKey === null ? DEFAULT_MAP_DEPTH : readMapDepth(mapDepthStorage(), mapKey));
+  }
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
   const [activeGroupId, setActiveGroupId] = useState("");
@@ -517,6 +544,15 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [editorActionError, setEditorActionError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
+  const [commits, setCommits] = useState<readonly CommitSummary[]>([]);
+  const [selectedCommit, setSelectedCommit] = useState("");
+  const [commitDiff, setCommitDiff] = useState<
+    | { readonly kind: "idle" }
+    | { readonly kind: "loading"; readonly commitId: string }
+    | { readonly kind: "ready"; readonly changes: CommitChanges; readonly byBlock: ReadonlyMap<string, BlockDiff> }
+    | { readonly kind: "error"; readonly message: string }
+  >({ kind: "idle" });
+  const [blockDiff, setBlockDiff] = useState<DiffInspectionState | null>(null);
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() => (
     window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
   ));
@@ -697,6 +733,58 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     : undefined;
   const openWorkspaceAction = mapSource.openWorkspace === undefined ? undefined : handleOpenWorkspace;
   const map = loadedMap.kind === "ready" && loadedMap.id === mapKey ? loadedMap.map : null;
+  const history = mapSource.history;
+
+  useEffect(() => {
+    setCommits([]);
+    setSelectedCommit("");
+    setCommitDiff({ kind: "idle" });
+    if (history === undefined || mapKey === null) return;
+    let cancelled = false;
+    void history.listCommits(mapKey)
+      .then((list) => { if (!cancelled) setCommits(list); })
+      .catch(() => { if (!cancelled) setCommits([]); });
+    return () => { cancelled = true; };
+  }, [history, mapKey]);
+
+  useEffect(() => {
+    if (history === undefined || mapKey === null || map === null || selectedCommit === "") {
+      setCommitDiff({ kind: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setCommitDiff({ kind: "loading", commitId: selectedCommit });
+    const currentMap = map;
+    void history.commitChanges(mapKey, selectedCommit)
+      .then((changes) => {
+        if (cancelled) return;
+        const byBlock = rollUpChanges(changes, (id) => currentMap.blockById.get(id)?.parentId);
+        setCommitDiff({ kind: "ready", changes, byBlock });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setCommitDiff({ kind: "error", message: describeError(error, "Could not read this commit.") });
+      });
+    return () => { cancelled = true; };
+  }, [history, map, mapKey, selectedCommit]);
+
+  // While a commit is shown, inspecting a block it changed opens that block's diff.
+  const diffCommitId = commitDiff.kind === "ready" ? commitDiff.changes.commit.id : null;
+  const inspectedChangedDirectly = commitDiff.kind === "ready" && inspectedBlockId !== null
+    && commitDiff.changes.blocks.some((block) => block.blockId === inspectedBlockId);
+  useEffect(() => {
+    if (history === undefined || mapKey === null || diffCommitId === null || inspectedBlockId === null || !inspectedChangedDirectly) {
+      setBlockDiff(null);
+      return;
+    }
+    let cancelled = false;
+    setBlockDiff({ kind: "loading" });
+    void history.blockDiff(mapKey, diffCommitId, inspectedBlockId)
+      .then((document) => { if (!cancelled) setBlockDiff({ kind: "ready", document }); })
+      .catch((error: unknown) => {
+        if (!cancelled) setBlockDiff({ kind: "error", message: describeError(error, "Could not load this commit diff.") });
+      });
+    return () => { cancelled = true; };
+  }, [diffCommitId, history, inspectedBlockId, inspectedChangedDirectly, mapKey]);
   const projectNotes = loadedMap.kind === "ready" && loadedMap.id === mapKey
     ? loadedMap.projectNotes
     : emptyProjectNotes;
@@ -710,7 +798,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const scopeChildren = useMemo(() => scope?.children
     .map((id) => map?.blockById.get(id))
     .filter((block): block is DisplayBlock => block !== undefined) ?? [], [map, scopeId]);
-  const visibleBlocks = useMemo(() => scope === undefined ? [] : [scope, ...scopeChildren], [scope, scopeChildren]);
+  const visibleBlocks = useMemo(() => {
+    if (scope === undefined || map === null) return [];
+    return blocksWithinDepth(scope, mapDepth, map.blockById);
+  }, [map, mapDepth, scope]);
   const connectionsInScope = displayConnections(scopeId, visibleBlocks, map?.connections ?? []);
   const selected = map?.nodeById.get(selectedId) ?? scope;
   const activeFeature = activeFeatureId === null ? undefined : map?.nodeById.get(activeFeatureId);
@@ -814,7 +905,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     onActivate: openBlockInspector,
     notedBlockIds,
     onContextMenu: showBlockMenu,
-  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, showBlockMenu]);
+    ...(commitDiff.kind === "ready" ? { changes: commitDiff.byBlock } : {}),
+  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, showBlockMenu, commitDiff]);
 
   const noteTargetId = inspectedBlockId ?? (map?.blockById.has(selectedId) === true ? selectedId : null);
   useEffect(() => {
@@ -1050,7 +1142,27 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     <div className="graph-canvas" aria-label={`${map.facts.project.name} architecture map`}>
       <div className="canvas-watermark">
         <span>{scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
-        <span>{scopeChildren.length} direct children</span>
+        <span className="map-depth-controls">
+          <label className="map-depth">
+            Depth
+            <select
+              aria-label="Map depth"
+              value={mapDepth === "all" ? "all" : String(mapDepth)}
+              onChange={(event) => {
+                const next: MapDepth = event.target.value === "all" ? "all" : Number(event.target.value);
+                setMapDepth(next);
+                if (mapKey !== null) writeMapDepth(mapDepthStorage(), mapKey, next);
+              }}
+            >
+              {(scope === undefined || map === null ? [DEFAULT_MAP_DEPTH, "all" as const] : depthOptions(subtreeDepth(scope, map.blockById), mapDepth)).map((choice) => (
+                <option key={String(choice)} value={choice === "all" ? "all" : String(choice)}>
+                  {choice === "all" ? "All" : String(choice)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="child-count">{scopeChildren.length} direct children</span>
+        </span>
       </div>
       {graphError.length > 0 ? (
         <div className="graph-message"><CircleAlert size={18} />Could not lay out this map: {graphError}</div>
@@ -1125,6 +1237,21 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <span className="legend-item"><i className="legend-line dependency-line" />depends on <b>{directConnectionSummary.depends}</b></span>
           {staleCount > 0 && <span className="stale-count"><CircleAlert size={12} />{staleCount} changed</span>}
         </div>
+        {history !== undefined && commits.length > 0 && (
+          <label className="commit-picker" title="Light up the blocks a commit changed">
+            <GitCommitHorizontal size={13} />
+            <select
+              aria-label="Show a commit's changes on the map"
+              value={selectedCommit}
+              onChange={(event) => setSelectedCommit(event.currentTarget.value)}
+            >
+              <option value="">No commit</option>
+              {commits.map((commit) => (
+                <option key={commit.id} value={commit.id}>{commit.shortId} {commit.summary}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {projectNotesSource !== undefined && (
           <button
             className="project-notes-open-button"
@@ -1137,6 +1264,25 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           </button>
         )}
       </div>
+      {commitDiff.kind !== "idle" && (
+        <div className="commit-diff-banner" role="status">
+          {commitDiff.kind === "loading" && <span>Reading commit…</span>}
+          {commitDiff.kind === "error" && <span className="commit-diff-error"><CircleAlert size={12} />{commitDiff.message}</span>}
+          {commitDiff.kind === "ready" && (() => {
+            const direct = commitDiff.changes.blocks.length;
+            const mappedPaths = new Set([...map.blockById.values()].flatMap((block) => block.sourcePath === null ? [] : [block.sourcePath.replaceAll("\\", "/")]));
+            const outside = unmappedFiles(commitDiff.changes, mappedPaths).length;
+            return (
+              <span>
+                <code>{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}
+                {" · "}{direct === 1 ? "1 block changed" : `${direct} blocks changed`}
+                {outside > 0 && ` · ${outside === 1 ? "1 file" : `${outside} files`} outside the map`}
+              </span>
+            );
+          })()}
+          <button type="button" className="commit-diff-clear" onClick={() => setSelectedCommit("")}>Clear</button>
+        </div>
+      )}
       {mapContent}
     </main>
   );
@@ -1149,6 +1295,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       editorError={editorActionError}
       onOpenInEditor={() => { void handleOpenInEditor(); }}
       onClose={() => setInspectedBlockId(null)}
+      {...(blockDiff === null ? {} : { diff: blockDiff })}
       {...(inspectedNoteAction === undefined ? {} : {
         noteAction: inspectedNoteAction,
         onAddNote: () => openNoteFor(inspectedBlockId),

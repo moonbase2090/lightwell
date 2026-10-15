@@ -46,6 +46,11 @@ jobs:
           version="${tag#v}"
           pkg_version="$(node -p "require('./package.json').version")"
           tauri_version="$(node -p "require('./crates/lightwell-app/tauri.conf.json').version")"
+          pkgbuild_version="$(sed -n 's/^pkgver=//p' packaging/arch/PKGBUILD)"
+          if [[ "$version" != "$pkgbuild_version" ]]; then
+            echo "tag $version must match packaging/arch/PKGBUILD pkgver ($pkgbuild_version)" >&2
+            exit 1
+          fi
           if [[ "$version" != "$pkg_version" || "$version" != "$tauri_version" ]]; then
             echo "tag $version must match package.json ($pkg_version) and tauri.conf.json ($tauri_version)" >&2
             exit 1
@@ -155,8 +160,105 @@ jobs:
           path: ${{ runner.temp }}/Lightwell_${{ needs.validate.outputs.version }}_aarch64-unsigned.zip
           if-no-files-found: error
 
+  macos-universal-signed:
+    name: Signed macOS universal app
+    needs: validate
+    if: ${{ vars.LIGHTWELL_MACOS_SIGNING == 'true' }}
+    runs-on: macos-26
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - run: npm ci
+      - name: Keep build machine paths out of release binaries
+        run: echo "RUSTFLAGS=--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build" >> "$GITHUB_ENV"
+      - name: Build the unsigned app for signing
+        run: npm run tauri:build -- --target universal-apple-darwin --bundles app --no-sign
+      - name: Sign and verify the universal app
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: scripts/ci/sign-macos-app.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app
+      - name: Notarize, staple, and validate the app
+        env:
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+        run: scripts/ci/notarize-macos-app.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-universal.zip"
+      - name: Check both architectures are present
+        run: lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
+      - name: Check the deployment target
+        run: scripts/ci/check-macos-minimum.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app 11.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+      - name: Install dmgbuild
+        run: python3 -m pip install --disable-pip-version-check 'dmgbuild==1.6.7'
+      - name: Build the drag-to-Applications disk image
+        run: scripts/ci/build-macos-dmg.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell_${RELEASE_VERSION}_universal.dmg"
+      - name: Sign the disk image
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: scripts/ci/sign-macos-app.sh --dmg "$RUNNER_TEMP/Lightwell_${RELEASE_VERSION}_universal.dmg"
+      - name: Notarize, staple, and validate the disk image
+        env:
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+        run: scripts/ci/notarize-macos-app.sh "$RUNNER_TEMP/Lightwell_${RELEASE_VERSION}_universal.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-universal
+          path: ${{ runner.temp }}/Lightwell_${{ needs.validate.outputs.version }}_universal.dmg
+          if-no-files-found: error
+
+  macos-universal-unsigned:
+    name: Unsigned macOS universal app
+    needs: validate
+    if: ${{ vars.LIGHTWELL_MACOS_SIGNING != 'true' }}
+    runs-on: macos-26
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '11.0'
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - run: npm ci
+      - name: Keep build machine paths out of release binaries
+        run: echo "RUSTFLAGS=--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build" >> "$GITHUB_ENV"
+      - name: Build the unsigned universal app
+        run: npm run tauri:build -- --target universal-apple-darwin --bundles app --no-sign
+      - name: Confirm the app is unsigned
+        run: scripts/ci/check-unsigned-macos-app.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app
+      - name: Check both architectures are present
+        run: lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
+      - name: Check the deployment target
+        run: scripts/ci/check-macos-minimum.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app 11.0
+      - name: Zip the app
+        run: ditto -c -k --keepParent target/universal-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell_${RELEASE_VERSION}_universal-unsigned.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-universal-unsigned
+          path: ${{ runner.temp }}/Lightwell_${{ needs.validate.outputs.version }}_universal-unsigned.zip
+          if-no-files-found: error
+
   linux-deb:
-    name: Linux glibc 2.28 package
+    name: Linux glibc 2.28 packages
     needs: validate
     runs-on: ubuntu-22.04
     steps:
@@ -172,19 +274,75 @@ jobs:
       - name: Install Tauri Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config xvfb xdotool imagemagick libarchive-tools
       - run: cargo install --locked cargo-zigbuild --version 0.23.4
       - run: npm ci
       - name: Keep build machine paths out of release binaries
         run: echo "RUSTFLAGS=--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build" >> "$GITHUB_ENV"
-      - name: Build the Linux package for the GLIBC 2.28 floor
-        run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb --no-sign
+      - name: Build the deb, AppImage, and rpm for the GLIBC 2.28 floor
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb,appimage,rpm --no-sign
       - name: Check the package binary's GLIBC requirement
         run: scripts/ci/check-deb-glibc.sh target/x86_64-unknown-linux-gnu/release/bundle/deb 2.28
+      - name: Keep the desktop app binary before the CLI build reuses its path
+        run: cp target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-app"
+      - name: Build the CLI with a glibc 2.28 floor
+        run: scripts/ci/build-linux-cli.sh x86_64-unknown-linux-gnu
+      - name: Check the CLI and desktop app GLIBC requirement
+        run: |
+          scripts/ci/check-glibc-floor.sh target/x86_64-unknown-linux-gnu/release/lightwell 2.28
+          scripts/ci/check-glibc-floor.sh "$RUNNER_TEMP/lightwell-app" 2.28
+      - name: Collect the Linux release assets
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist-linux
+          bundle=target/x86_64-unknown-linux-gnu/release/bundle
+          cp "$bundle/deb/Lightwell_${RELEASE_VERSION}_amd64.deb" dist-linux/
+          cp "$bundle/appimage/Lightwell_${RELEASE_VERSION}_amd64.AppImage" dist-linux/
+          cp "$bundle/rpm/Lightwell-${RELEASE_VERSION}-1.x86_64.rpm" "dist-linux/Lightwell_${RELEASE_VERSION}_x86_64.rpm"
+          scripts/ci/package-linux-tarball.sh "$RELEASE_VERSION" x86_64 \
+            target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-app" dist-linux
+          ls -l dist-linux
+      - name: Smoke the AppImage, rpm, deb, and tarball headless
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: scripts/ci/smoke-linux-bundles.sh "$RELEASE_VERSION" "$GITHUB_WORKSPACE/dist-linux" "$RUNNER_TEMP/linux-smoke"
       - uses: actions/upload-artifact@v4
         with:
-          name: release-linux-deb
-          path: target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+          name: release-linux-x86_64
+          path: dist-linux/*
+          if-no-files-found: error
+
+  linux-arm64-cli:
+    name: Linux aarch64 CLI tarball
+    needs: validate
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+      - name: Install cargo-zigbuild and Zig
+        run: scripts/ci/setup-zigbuild.sh
+      - name: Keep build machine paths out of release binaries
+        run: echo "RUSTFLAGS=--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build" >> "$GITHUB_ENV"
+      - name: Build the CLI with a glibc 2.28 floor
+        run: scripts/ci/build-linux-cli.sh aarch64-unknown-linux-gnu
+      - name: Check the glibc floor and architecture
+        run: |
+          scripts/ci/check-glibc-floor.sh target/aarch64-unknown-linux-gnu/release/lightwell 2.28
+          file target/aarch64-unknown-linux-gnu/release/lightwell | grep -q 'ARM aarch64'
+      - name: Package the CLI tarball
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: scripts/ci/package-linux-tarball.sh "$RELEASE_VERSION" aarch64 target/aarch64-unknown-linux-gnu/release/lightwell - dist-linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-aarch64
+          path: dist-linux/*.tar.gz
           if-no-files-found: error
 
   linux-al2023-smoke:
@@ -357,15 +515,17 @@ jobs:
 
   publish:
     name: Publish release
-    needs: [validate, macos-signed, macos-unsigned, linux-deb, linux-al2023-smoke, windows-msi]
+    needs: [validate, macos-signed, macos-unsigned, macos-universal-signed, macos-universal-unsigned, linux-deb, linux-arm64-cli, linux-al2023-smoke, windows-msi]
     if: >-
       ${{
         !cancelled() &&
         needs.validate.result == 'success' &&
         needs.linux-deb.result == 'success' &&
+        needs.linux-arm64-cli.result == 'success' &&
         needs.linux-al2023-smoke.result == 'success' &&
         needs.windows-msi.result == 'success' &&
         (needs.macos-signed.result == 'success' || needs.macos-unsigned.result == 'success') &&
+        (needs.macos-universal-signed.result == 'success' || needs.macos-universal-unsigned.result == 'success') &&
         !contains(needs.*.result, 'failure') &&
         !(github.event_name == 'workflow_dispatch' && inputs.dry_run) &&
         (github.event_name != 'workflow_dispatch' || github.ref_type == 'tag')

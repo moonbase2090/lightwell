@@ -203,3 +203,21 @@ test("emphasis leaves every block readable when nothing is selected", () => {
   assert.equal((graph.edges[0]?.style as { opacity?: number } | undefined)?.opacity, 0.86);
   assert.equal((graph.edges[0]?.style as { strokeWidth?: number } | undefined)?.strokeWidth, 1.8);
 });
+
+test("a commit's changed blocks stay lit and carry their counts while the rest dims", () => {
+  const changed = moduleBlock("module:changed", "changed");
+  const quiet = moduleBlock("module:quiet", "quiet");
+  const graph = emphasizeGraph({
+    nodes: [mapNode(changed), mapNode(quiet)],
+    edges: [],
+    activeNodeId: null,
+    activeFeatureMemberIds: null,
+    onHover: () => undefined,
+    onActivate: () => undefined,
+    changes: new Map([["module:changed", { added: 2, removed: 1, direct: true }]]),
+  });
+  assert.deepEqual(graph.nodes.map((node) => [node.id, node.data.dimmed, node.data.change]), [
+    ["module:changed", false, { added: 2, removed: 1, direct: true }],
+    ["module:quiet", true, undefined],
+  ]);
+});

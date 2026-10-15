@@ -12,7 +12,7 @@ interface MonacoWorkerWindow extends Window {
 
 let themeConfigured = false;
 
-function configureMonaco() {
+export function configureMonaco() {
   const workerWindow = window as MonacoWorkerWindow;
   workerWindow.MonacoEnvironment ??= {
     getWorker: () => new EditorWorker(),
@@ -103,7 +103,7 @@ export interface SourceCodeEditorProps {
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
 }
 
-const monacoThemes = {
+export const monacoThemes = {
   dark: "lightwell-dark",
   light: "lightwell-light",
   blueprint: "lightwell-blueprint",

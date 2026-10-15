@@ -1,4 +1,9 @@
 import type {
+  BlockDiffDocument,
+  CommitBlockChange,
+  CommitChanges,
+  CommitFileChange,
+  CommitSummary,
   EditorSettings,
   EditorTemplatePreset,
   MapSourceDocument,
@@ -171,4 +176,75 @@ export function parseEditorTemplatePresets(value: unknown): readonly EditorTempl
     }
     return { name: preset.name, template: preset.template };
   });
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function parseCommitSummary(value: unknown): CommitSummary {
+  if (
+    !isRecord(value)
+    || typeof value.id !== "string"
+    || typeof value.shortId !== "string"
+    || typeof value.summary !== "string"
+    || typeof value.timestamp !== "number"
+  ) {
+    throw new Error("The desktop app returned an invalid commit.");
+  }
+  return { id: value.id, shortId: value.shortId, summary: value.summary, timestamp: value.timestamp };
+}
+
+export function parseCommitSummaries(value: unknown): readonly CommitSummary[] {
+  if (!Array.isArray(value)) throw new Error("The desktop app returned an invalid commit list.");
+  return value.map(parseCommitSummary);
+}
+
+export function parseCommitChanges(value: unknown): CommitChanges {
+  if (!isRecord(value) || !Array.isArray(value.files) || !Array.isArray(value.blocks)) {
+    throw new Error("The desktop app returned invalid commit changes.");
+  }
+  const files = value.files.map((file: unknown): CommitFileChange => {
+    if (
+      !isRecord(file)
+      || typeof file.path !== "string"
+      || !(file.oldPath === null || file.oldPath === undefined || typeof file.oldPath === "string")
+      || !isCount(file.added)
+      || !isCount(file.removed)
+      || typeof file.binary !== "boolean"
+    ) {
+      throw new Error("The desktop app returned an invalid changed file.");
+    }
+    return { path: file.path, oldPath: typeof file.oldPath === "string" ? file.oldPath : null, added: file.added, removed: file.removed, binary: file.binary };
+  });
+  const blocks = value.blocks.map((block: unknown): CommitBlockChange => {
+    if (!isRecord(block) || typeof block.blockId !== "string" || !isCount(block.added) || !isCount(block.removed)) {
+      throw new Error("The desktop app returned an invalid changed block.");
+    }
+    return { blockId: block.blockId, added: block.added, removed: block.removed };
+  });
+  return { commit: parseCommitSummary(value.commit), files, blocks };
+}
+
+export function parseBlockDiffDocument(value: unknown): BlockDiffDocument {
+  if (
+    !isRecord(value)
+    || typeof value.path !== "string"
+    || !(value.originalPath === null || value.originalPath === undefined || typeof value.originalPath === "string")
+    || typeof value.original !== "string"
+    || typeof value.modified !== "string"
+    || typeof value.line !== "number"
+    || !Number.isInteger(value.line)
+    || value.line < 1
+  ) {
+    throw new Error("The desktop app returned an invalid commit diff.");
+  }
+  return {
+    commit: parseCommitSummary(value.commit),
+    path: value.path,
+    originalPath: typeof value.originalPath === "string" ? value.originalPath : null,
+    original: value.original,
+    modified: value.modified,
+    line: value.line,
+  };
 }
