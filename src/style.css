@@ -791,3 +791,20 @@ button { color: inherit; }
 .workspace-shell[data-theme="light"] .note-context-menu-item:hover,
 .workspace-shell[data-theme="light"] .note-context-menu-item:focus { background: #ebe7e2; }
 .workspace-shell[data-theme="light"] .node-note-badge { color: #b07a2c; }
+
+/* Project note shown with its block in the details panel and source inspector. */
+.block-note-card { margin: 12px 0 4px; padding: 10px 12px; border: 1px solid rgba(222,169,94,.35); border-radius: 8px; background: rgba(160,112,48,.10); }
+.block-note-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 10px; letter-spacing: .08em; color: #e4b679; }
+.block-note-header > span { display: inline-flex; align-items: center; gap: 6px; }
+.block-note-edit { border: 1px solid rgba(222,169,94,.35); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 11px; letter-spacing: 0; padding: 2px 8px; cursor: pointer; }
+.block-note-edit:hover { background: rgba(222,169,94,.16); }
+.block-note-text { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.45; max-height: 12em; overflow-y: auto; }
+.block-note-stale { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 11px; color: #e4b679; }
+.inspector-note { margin: 8px 12px 4px; }
+button.node-note-badge { border: 0; background: transparent; color: inherit; padding: 2px; border-radius: 4px; cursor: pointer; display: inline-flex; }
+button.node-note-badge:hover, button.node-note-badge:focus-visible { background: rgba(222,169,94,.22); }
+.project-note-show-on-map { margin-left: 10px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid rgba(140,170,220,.35); border-radius: 6px; background: transparent; color: inherit; font-size: 11px; padding: 2px 8px; cursor: pointer; }
+.project-note-show-on-map:hover { background: rgba(140,170,220,.16); }
+.project-note-path { display: block; margin-top: 4px; font-size: 11px; opacity: .7; }
+.workspace-shell[data-theme="light"] .block-note-card { border-color: #d3c39f; background: #f7f2e6; }
+.workspace-shell[data-theme="light"] .block-note-header, .workspace-shell[data-theme="light"] .block-note-stale { color: #765b27; }

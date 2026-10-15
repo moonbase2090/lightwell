@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CircleAlert, FileText, Plus, Save, Trash2, X } from "lucide-react";
+import { CircleAlert, FileText, MapPin, Plus, Save, Trash2, X } from "lucide-react";
 import type { ResolvedMap } from "./model.js";
 import type { ProjectNoteView, ProjectNotesSnapshot, ProjectNotesSource } from "./map-source.js";
 
@@ -17,6 +17,8 @@ interface ProjectNotesDialogProps {
   readonly initialText?: string;
   readonly onSnapshot: (snapshot: ProjectNotesSnapshot) => void;
   readonly onClose: () => void;
+  /** Close the dialog and reveal the note's block on the map. */
+  readonly onShowOnMap?: (blockId: string) => void;
 }
 
 function noteEditorForBlock(blockId: string, notes: readonly ProjectNoteView[]): NoteEditor {
@@ -52,6 +54,7 @@ export default function ProjectNotesDialog({
   initialText = "",
   onSnapshot,
   onClose,
+  onShowOnMap,
 }: ProjectNotesDialogProps) {
   const notes = useMemo(() => snapshot.kind === "ready"
     ? [...snapshot.notes].sort((left, right) => Number(left.stale) - Number(right.stale)
@@ -215,6 +218,12 @@ export default function ProjectNotesDialog({
             <div className="project-note-target">
               <span>{editor.kind === "new" ? "NEW NOTE FOR" : "NOTE FOR"}</span>
               <strong>{editorBlock?.label ?? (editor.blockId.length > 0 ? editor.blockId : "Choose a block from the map")}</strong>
+              {onShowOnMap !== undefined && editorBlock !== undefined && (
+                <button className="project-note-show-on-map" type="button" onClick={() => onShowOnMap(editor.blockId)}>
+                  <MapPin size={12} /> Show on map
+                </button>
+              )}
+              {editorBlock?.sourcePath !== undefined && editorBlock.sourcePath !== null && <code className="project-note-path">{editorBlock.sourcePath}</code>}
               {selectedNote?.stale === true && (
                 <span className="project-note-stale-detail">
                   <CircleAlert size={12} /> {noteStatus(selectedNote, map)}. This note is kept until you remove it.

@@ -203,3 +203,28 @@ test("emphasis leaves every block readable when nothing is selected", () => {
   assert.equal((graph.edges[0]?.style as { opacity?: number } | undefined)?.opacity, 0.86);
   assert.equal((graph.edges[0]?.style as { strokeWidth?: number } | undefined)?.strokeWidth, 1.8);
 });
+
+test("noted cards carry their note text and open callback; other cards do not", () => {
+  const noted = moduleBlock("module:noted", "noted");
+  const plain = moduleBlock("module:plain", "plain");
+  const opened: string[] = [];
+  const graph = emphasizeGraph({
+    nodes: [mapNode(noted), mapNode(plain)],
+    edges: [],
+    activeNodeId: null,
+    activeFeatureMemberIds: null,
+    onHover: () => undefined,
+    onActivate: () => undefined,
+    notedBlockIds: new Set(["module:noted"]),
+    noteTextById: new Map([["module:noted", "Big Boss Module"]]),
+    onOpenNote: (blockId) => { opened.push(blockId); },
+  });
+
+  const [notedNode, plainNode] = graph.nodes;
+  assert.equal(notedNode?.data.hasNote, true);
+  assert.equal(notedNode?.data.noteText, "Big Boss Module");
+  assert.equal(plainNode?.data.hasNote, false);
+  assert.equal(plainNode?.data.noteText, undefined);
+  notedNode?.data.onOpenNote?.("module:noted");
+  assert.deepEqual(opened, ["module:noted"]);
+});

@@ -20,6 +20,9 @@ export default function SourceInspectorPanel({
   onClose,
   noteAction,
   onAddNote,
+  noteText,
+  wordWrap,
+  onToggleWordWrap,
   onLineContextMenu,
 }: {
   readonly title: string;
@@ -32,6 +35,10 @@ export default function SourceInspectorPanel({
   /** Label of the note button for this block, or undefined when notes are unavailable. */
   readonly noteAction?: "Add note" | "Edit note";
   readonly onAddNote?: () => void;
+  /** The block's saved project note, shown above the source. */
+  readonly noteText?: string;
+  readonly wordWrap: boolean;
+  readonly onToggleWordWrap: () => void;
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
 }) {
   return (
@@ -61,6 +68,15 @@ export default function SourceInspectorPanel({
         </button>
       )}
       {editorError.length > 0 && <div className="inspector-error" role="alert"><CircleAlert size={14} />{editorError}</div>}
+      {noteText !== undefined && (
+        <section className="block-note-card inspector-note" aria-label="Project note">
+          <div className="block-note-header">
+            <span><StickyNote size={12} /> PROJECT NOTE</span>
+            {onAddNote !== undefined && <button type="button" className="block-note-edit" onClick={onAddNote}>Edit</button>}
+          </div>
+          <p className="block-note-text">{noteText}</p>
+        </section>
+      )}
 
       <div className="source-inspector-content">
         {inspection.kind === "loading" && (
@@ -77,6 +93,8 @@ export default function SourceInspectorPanel({
               column={inspection.document.column}
               path={inspection.document.path}
               theme={theme}
+              wordWrap={wordWrap}
+              onToggleWordWrap={onToggleWordWrap}
               {...(onLineContextMenu === undefined ? {} : { onLineContextMenu })}
             />
           </Suspense>

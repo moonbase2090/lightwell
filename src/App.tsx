@@ -36,12 +36,13 @@ import {
   type Viewport,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNotesSnapshot } from "./map-source.js";
+import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNoteView, ProjectNotesSnapshot } from "./map-source.js";
 import EditorSettingsPanel from "./EditorSettingsPanel.js";
 import SourceInspectorPanel, { type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
+import { readWordWrapPreference, saveWordWrapPreference } from "./source-view-preferences.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
 import NoteContextMenu, {
   addNoteShortcut,
@@ -212,6 +213,20 @@ function noteButtonLabel(hasNote: boolean): "Add note" | "Edit note" {
   return hasNote ? "Edit note" : "Add note";
 }
 
+/** A block's saved project note, shown with the block it belongs to. */
+function BlockNoteCard({ note, onEdit }: { readonly note: ProjectNoteView; readonly onEdit?: () => void }) {
+  return (
+    <section className="block-note-card" aria-label="Project note">
+      <div className="block-note-header">
+        <span><StickyNote size={12} /> PROJECT NOTE</span>
+        {onEdit !== undefined && <button type="button" className="block-note-edit" onClick={onEdit}>Edit</button>}
+      </div>
+      <p className="block-note-text">{note.text}</p>
+      {note.stale && <div className="block-note-stale"><CircleAlert size={12} /> Code changed since this note was written.</div>}
+    </section>
+  );
+}
+
 function DetailsPanel({
   node,
   map,
@@ -219,6 +234,7 @@ function DetailsPanel({
   onSelectBlock,
   noteAction,
   onAddNote,
+  note,
   onBlockContextMenu,
 }: {
   readonly node: DisplayNode;
@@ -228,6 +244,8 @@ function DetailsPanel({
   /** Note button label for this block, or undefined when notes are unavailable. */
   readonly noteAction?: "Add note" | "Edit note";
   readonly onAddNote?: () => void;
+  /** The saved project note for this block, shown above the stats. */
+  readonly note?: ProjectNoteView;
   readonly onBlockContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
 }) {
   const rowMenuProps = (block: DisplayBlock) => onBlockContextMenu === undefined ? {} : {
@@ -288,6 +306,7 @@ function DetailsPanel({
           <StickyNote size={14} /> {noteAction}<kbd>{addNoteShortcut}</kbd>
         </button>
       )}
+      {note !== undefined && <BlockNoteCard note={note} {...(onAddNote === undefined ? {} : { onEdit: onAddNote })} />}
 
       <div className="detail-divider" />
       <div className="detail-section-label">BLOCK STATS</div>
@@ -517,6 +536,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [editorActionError, setEditorActionError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
+  const [wordWrap, setWordWrap] = useState(readWordWrapPreference);
+  const toggleWordWrap = useCallback(() => {
+    setWordWrap((current) => {
+      saveWordWrapPreference(!current);
+      return !current;
+    });
+  }, []);
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() => (
     window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
   ));
@@ -727,6 +753,14 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
   const closeProjectNotes = useCallback(() => setNotesDialog(null), []);
   const closeNoteMenu = useCallback(() => setNoteMenu(null), []);
+  const noteByBlockId = useMemo(
+    () => new Map(projectNotes.kind === "ready" ? projectNotes.notes.map((note) => [note.blockId, note] as const) : []),
+    [projectNotes],
+  );
+  const noteTextById = useMemo(
+    () => new Map([...noteByBlockId].map(([blockId, note]) => [blockId, note.text] as const)),
+    [noteByBlockId],
+  );
   const notedBlockIds = useMemo(
     () => new Set(projectNotes.kind === "ready" ? projectNotes.notes.map((note) => note.blockId) : []),
     [projectNotes],
@@ -813,8 +847,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     onHover: setHoverNode,
     onActivate: openBlockInspector,
     notedBlockIds,
+    noteTextById,
+    onOpenNote: openNoteFor,
     onContextMenu: showBlockMenu,
-  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, showBlockMenu]);
+  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, noteTextById, openNoteFor, showBlockMenu]);
 
   const noteTargetId = inspectedBlockId ?? (map?.blockById.has(selectedId) === true ? selectedId : null);
   useEffect(() => {
@@ -1021,6 +1057,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           void navigator.clipboard?.writeText(text).catch(() => setNoteActionError("Could not copy the path."));
         }
         return;
+      case "toggle-word-wrap":
+        toggleWordWrap();
+        return;
       default: {
         const exhaustive: never = action;
         return exhaustive;
@@ -1038,6 +1077,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         hasNote: notedBlockIds.has(noteMenuBlock.id),
         canOpen: noteMenu.line === undefined && mapSource.editor !== undefined,
         sourcePath: noteMenuBlock.sourcePath,
+        ...(noteMenu.line === undefined ? {} : { wordWrap }),
       })}
       onChoose={(action) => chooseNoteMenuAction(noteMenu, action)}
       onClose={closeNoteMenu}
@@ -1149,6 +1189,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       editorError={editorActionError}
       onOpenInEditor={() => { void handleOpenInEditor(); }}
       onClose={() => setInspectedBlockId(null)}
+      wordWrap={wordWrap}
+      onToggleWordWrap={toggleWordWrap}
+      {...(noteByBlockId.has(inspectedBlockId) ? { noteText: noteByBlockId.get(inspectedBlockId)!.text } : {})}
       {...(inspectedNoteAction === undefined ? {} : {
         noteAction: inspectedNoteAction,
         onAddNote: () => openNoteFor(inspectedBlockId),
@@ -1165,6 +1208,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       onOpen={(node) => { if (!node.virtual) openBlockInspector(node); }}
       onSelectBlock={setSelectedId}
       onBlockContextMenu={showBlockMenu}
+      {...(noteByBlockId.has(selected.id) ? { note: noteByBlockId.get(selected.id)! } : {})}
       {...(selectedNoteAction === undefined ? {} : {
         noteAction: selectedNoteAction,
         onAddNote: () => openNoteFor(selected.id),
@@ -1290,6 +1334,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           initialText={notesDialog.initialText}
           onSnapshot={acceptProjectNotes}
           onClose={closeProjectNotes}
+          onShowOnMap={(blockId) => {
+            const block = map.blockById.get(blockId);
+            if (block === undefined) return;
+            closeProjectNotes();
+            selectSearchNode(block);
+          }}
         />
       )}
       {settingsOpen && mapSource.editor !== undefined && (
