@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.8 - 2026-10-15
+
+### Fixed
+
+- Clicking a module on macOS no longer turns the window blank. The source inspector no longer loads a Node built-in in the viewer.
+- Live refresh works for projects without a root `Cargo.toml`, such as TypeScript, JavaScript and Python projects. It no longer reports `No Cargo.toml found`.
+- The Windows desktop viewer no longer crashes, source files open in the configured editor, and console windows no longer flash or freeze the app.
+- The first map is fitted after its layout finishes, so it is in view when a project opens.
+
 ## 0.1.7 - 2026-10-15
 
 ### Fixed

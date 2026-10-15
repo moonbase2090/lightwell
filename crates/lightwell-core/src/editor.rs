@@ -1,11 +1,12 @@
 use crate::extract::{block_base, map_workspace};
 use crate::facts::{FactBlock, ModuleBlock};
-use crate::metadata::{CargoTarget, CargoWorkspace, RustModule};
+use crate::metadata::{without_console_window, CargoTarget, CargoWorkspace, RustModule};
 use crate::{discover_cargo_workspace, MapExtractionError};
 use serde::{Deserialize, Serialize};
 use shell_words::split;
 use std::env;
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
@@ -161,6 +162,22 @@ pub fn resolve_block_target(
     Ok(EditorTarget { path, position })
 }
 
+/// Windows `canonicalize` returns `\\?\C:\...` paths, which many editors reject.
+/// Drive and UNC paths drop the prefix; any other path is returned unchanged.
+fn without_verbatim_prefix(path: PathBuf) -> PathBuf {
+    let text = path.to_string_lossy();
+    if let Some(unc) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{unc}"));
+    }
+    if let Some(rest) = text.strip_prefix(r"\\?\") {
+        let bytes = rest.as_bytes();
+        if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+            return PathBuf::from(rest);
+        }
+    }
+    path
+}
+
 fn module_source_position(
     workspace: &CargoWorkspace,
     block: &ModuleBlock,
@@ -217,6 +234,10 @@ fn find_rust_module<'a>(
 }
 
 pub fn open_target(target: &EditorTarget, settings: &EditorSettings) -> Result<(), EditorError> {
+    let target = &EditorTarget {
+        path: without_verbatim_prefix(target.path.clone()),
+        position: target.position,
+    };
     let attempts = editor_attempts(
         target,
         settings.command_template.as_deref(),
@@ -351,7 +372,8 @@ fn editor_attempts(
     platform: EditorPlatform,
 ) -> Vec<Result<EditorCommand, String>> {
     let mut attempts = Vec::new();
-    if let Some(template) = command_template.filter(|template| !template.trim().is_empty()) {
+    let custom = command_template.filter(|template| !template.trim().is_empty());
+    if let Some(template) = custom {
         attempts.push(EditorCommand::from_template(template, target));
     } else if let Some(command) = platform.default_command(target) {
         attempts.push(Ok(command));
@@ -363,6 +385,13 @@ fn editor_attempts(
         .filter(|template| !template.trim().is_empty())
     {
         attempts.push(EditorCommand::from_template(template, target));
+    }
+    // A configured editor that is missing from PATH still opens the file with
+    // the system handler.
+    if custom.is_some() {
+        if let Some(command) = platform.default_command(target) {
+            attempts.push(Ok(command));
+        }
     }
     attempts
 }
@@ -398,7 +427,17 @@ fn try_editor_attempts(
 }
 
 fn run_editor_command(command: &EditorCommand) -> Result<(), String> {
-    let mut builder = Command::new(&command.program);
+    let program = if cfg!(windows) {
+        resolve_windows_program(
+            &command.program,
+            env::var_os("PATH").as_deref(),
+            env::var_os("PATHEXT").as_deref(),
+        )
+        .unwrap_or_else(|| PathBuf::from(&command.program))
+    } else {
+        PathBuf::from(&command.program)
+    };
+    let mut builder = without_console_window(Command::new(program));
     #[cfg(windows)]
     if let Some(raw_argument) = &command.raw_argument {
         use std::os::windows::process::CommandExt;
@@ -420,6 +459,38 @@ fn run_editor_command(command: &EditorCommand) -> Result<(), String> {
         reap_editor_child(child);
     }
     Ok(())
+}
+
+/// `Command` searches PATH for `.exe` only. Editors such as VS Code install
+/// `code.cmd`, so bare names are resolved through PATH and PATHEXT here.
+fn resolve_windows_program(
+    program: &str,
+    path: Option<&OsStr>,
+    pathext: Option<&OsStr>,
+) -> Option<PathBuf> {
+    if program.contains(['/', '\\', ':']) {
+        return None;
+    }
+    let pathext = pathext
+        .and_then(OsStr::to_str)
+        .unwrap_or(".COM;.EXE;.BAT;.CMD");
+    let has_extension = Path::new(program).extension().is_some();
+    for directory in env::split_paths(path?) {
+        if has_extension {
+            let candidate = directory.join(program);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            continue;
+        }
+        for extension in pathext.split(';').filter(|extension| !extension.is_empty()) {
+            let candidate = directory.join(format!("{program}{}", extension.to_ascii_lowercase()));
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
 }
 
 fn reap_editor_child(child: Child) {
@@ -513,11 +584,12 @@ impl From<MapExtractionError> for EditorError {
 #[cfg(test)]
 mod tests {
     use super::{
-        editor_attempts, resolve_block_target, try_editor_attempts, EditorCommand, EditorPlatform,
-        EditorTarget, SourcePosition,
+        editor_attempts, resolve_block_target, resolve_windows_program, try_editor_attempts,
+        without_verbatim_prefix, EditorCommand, EditorPlatform, EditorTarget, SourcePosition,
     };
     use crate::extract::{block_base, extract_cargo_map};
     use crate::facts::FactBlock;
+    use std::ffi::OsStr;
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -601,14 +673,21 @@ mod tests {
         );
         assert_eq!(
             attempts,
-            vec![Ok(EditorCommand {
-                program: "code".to_owned(),
-                arguments: vec![
-                    "--goto".to_owned(),
-                    "/project with spaces/src/lib.rs:23:7".to_owned(),
-                ],
-                raw_argument: None,
-            })]
+            vec![
+                Ok(EditorCommand {
+                    program: "code".to_owned(),
+                    arguments: vec![
+                        "--goto".to_owned(),
+                        "/project with spaces/src/lib.rs:23:7".to_owned(),
+                    ],
+                    raw_argument: None,
+                }),
+                Ok(EditorCommand {
+                    program: "xdg-open".to_owned(),
+                    arguments: vec!["/project with spaces/src/lib.rs".to_owned()],
+                    raw_argument: None,
+                }),
+            ]
         );
     }
 
@@ -643,6 +722,79 @@ mod tests {
 
         let macos_attempts = editor_attempts(&target(), None, None, None, EditorPlatform::MacOs);
         assert_eq!(macos_attempts[0].as_ref().unwrap().program, "open");
+    }
+
+    #[test]
+    fn missing_custom_editor_falls_back_to_the_system_handler() {
+        let attempts = editor_attempts(
+            &target(),
+            Some("code --goto {file}:{line}"),
+            None,
+            None,
+            EditorPlatform::Windows,
+        );
+        let mut launched = Vec::new();
+        let result = try_editor_attempts(&target().path, attempts, |command| {
+            launched.push(command.program.clone());
+            if command.program == "cmd" {
+                Ok(())
+            } else {
+                Err("program not found".to_owned())
+            }
+        });
+
+        assert!(result.is_ok());
+        assert_eq!(launched, vec!["code".to_owned(), "cmd".to_owned()]);
+    }
+
+    #[test]
+    fn verbatim_windows_prefixes_are_removed_for_editors() {
+        assert_eq!(
+            without_verbatim_prefix(PathBuf::from(r"\\?\C:\work\demo\pane.py")),
+            PathBuf::from(r"C:\work\demo\pane.py")
+        );
+        assert_eq!(
+            without_verbatim_prefix(PathBuf::from(r"\\?\UNC\server\share\lib.rs")),
+            PathBuf::from(r"\\server\share\lib.rs")
+        );
+        assert_eq!(
+            without_verbatim_prefix(PathBuf::from(r"\\?\Volume{1234}\lib.rs")),
+            PathBuf::from(r"\\?\Volume{1234}\lib.rs")
+        );
+        assert_eq!(
+            without_verbatim_prefix(PathBuf::from("/project/src/lib.rs")),
+            PathBuf::from("/project/src/lib.rs")
+        );
+    }
+
+    #[test]
+    fn windows_program_lookup_finds_cmd_shims_through_pathext() {
+        let empty = temporary_directory("pathext-empty");
+        let bin = temporary_directory("pathext-bin");
+        fs::create_dir_all(&empty).unwrap();
+        fs::create_dir_all(&bin).unwrap();
+        fs::write(bin.join("code.cmd"), "@echo off\n").unwrap();
+        let path = std::env::join_paths([&empty, &bin]).unwrap();
+
+        assert_eq!(
+            resolve_windows_program("code", Some(&path), Some(OsStr::new(".EXE;.CMD"))),
+            Some(bin.join("code.cmd"))
+        );
+        assert_eq!(
+            resolve_windows_program("code.cmd", Some(&path), None),
+            Some(bin.join("code.cmd"))
+        );
+        assert_eq!(
+            resolve_windows_program("missing", Some(&path), Some(OsStr::new(".CMD"))),
+            None
+        );
+        assert_eq!(
+            resolve_windows_program(r"C:\tools\code", Some(&path), None),
+            None
+        );
+
+        fs::remove_dir_all(&empty).unwrap();
+        fs::remove_dir_all(&bin).unwrap();
     }
 
     #[test]
