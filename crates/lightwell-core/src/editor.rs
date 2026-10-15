@@ -253,16 +253,13 @@ impl EditorPlatform {
         match self {
             Self::MacOs => Some(EditorCommand::default_handler("open", target)),
             Self::Linux => Some(EditorCommand::default_handler("xdg-open", target)),
-            // `start` is a cmd builtin. The empty argument is the window title,
-            // so a quoted path is not swallowed as that title.
+            // `start` is a cmd builtin, so the whole line is built as one raw
+            // argument: cmd re-parses its arguments, and only an explicitly
+            // quoted path survives metacharacters such as `&` or `%`.
             Self::Windows => Some(EditorCommand {
                 program: "cmd".to_owned(),
-                arguments: vec![
-                    "/C".to_owned(),
-                    "start".to_owned(),
-                    String::new(),
-                    target.path.to_string_lossy().into_owned(),
-                ],
+                arguments: Vec::new(),
+                raw_argument: Some(windows_start_argument(&target.path)),
             }),
             Self::Other => None,
         }
@@ -273,6 +270,20 @@ impl EditorPlatform {
 struct EditorCommand {
     program: String,
     arguments: Vec<String>,
+    // Complete argument string passed verbatim on Windows (`raw_arg`), for
+    // commands such as cmd that re-parse their arguments. `None` elsewhere.
+    raw_argument: Option<String>,
+}
+
+// The empty second argument is the window title, so the quoted path is not
+// swallowed as that title. `%` is doubled so cmd does not expand it, and a
+// quote is doubled, which is how cmd escapes one inside a quoted string.
+fn windows_start_argument(path: &Path) -> String {
+    let escaped = path
+        .to_string_lossy()
+        .replace('%', "%%")
+        .replace('"', "\"\"");
+    format!("/C start \"\" \"{escaped}\"")
 }
 
 impl EditorCommand {
@@ -305,6 +316,7 @@ impl EditorCommand {
         Ok(Self {
             program,
             arguments: words,
+            raw_argument: None,
         })
     }
 
@@ -312,6 +324,7 @@ impl EditorCommand {
         Self {
             program: program.to_owned(),
             arguments: vec![target.path.to_string_lossy().into_owned()],
+            raw_argument: None,
         }
     }
 }
@@ -371,8 +384,17 @@ fn try_editor_attempts(
 }
 
 fn run_editor_command(command: &EditorCommand) -> Result<(), String> {
-    let mut child = Command::new(&command.program)
-        .args(&command.arguments)
+    let mut builder = Command::new(&command.program);
+    #[cfg(windows)]
+    if let Some(raw_argument) = &command.raw_argument {
+        use std::os::windows::process::CommandExt;
+        builder.raw_arg(raw_argument);
+    } else {
+        builder.args(&command.arguments);
+    }
+    #[cfg(not(windows))]
+    builder.args(&command.arguments);
+    let mut child = builder
         .spawn()
         .map_err(|source| format!("could not start `{}`: {source}", command.program))?;
     // Return for long-running terminal editors, but retain fallback behavior for immediate failures.
@@ -571,6 +593,7 @@ mod tests {
                     "--goto".to_owned(),
                     "/project with spaces/src/lib.rs:23:7".to_owned(),
                 ],
+                raw_argument: None,
             })]
         );
     }
@@ -655,12 +678,10 @@ mod tests {
             attempts[0].as_ref().expect("windows handler should parse"),
             &EditorCommand {
                 program: "cmd".to_owned(),
-                arguments: vec![
-                    "/C".to_owned(),
-                    "start".to_owned(),
-                    String::new(),
-                    r"C:\project with spaces\src\lib.rs".to_owned(),
-                ],
+                arguments: Vec::new(),
+                raw_argument: Some(
+                    "/C start \"\" \"C:\\project with spaces\\src\\lib.rs\"".to_owned(),
+                ),
             }
         );
 
@@ -681,6 +702,23 @@ mod tests {
                 "visual-editor".to_owned(),
                 "terminal-editor".to_owned(),
             ]
+        );
+    }
+
+    #[test]
+    fn windows_start_quotes_a_metacharacter_path_without_spaces() {
+        let windows_target = EditorTarget {
+            path: PathBuf::from(r"C:\a&calc&%OS%\lib.rs"),
+            position: SourcePosition::new(1, 1).unwrap(),
+        };
+        let attempts = editor_attempts(&windows_target, None, None, None, EditorPlatform::Windows);
+        assert_eq!(
+            attempts[0].as_ref().expect("windows handler should parse"),
+            &EditorCommand {
+                program: "cmd".to_owned(),
+                arguments: Vec::new(),
+                raw_argument: Some("/C start \"\" \"C:\\a&calc&%%OS%%\\lib.rs\"".to_owned()),
+            }
         );
     }
 
