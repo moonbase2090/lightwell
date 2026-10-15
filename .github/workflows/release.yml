@@ -194,7 +194,7 @@ jobs:
           APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
         run: scripts/ci/notarize-macos-app.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-universal.zip"
       - name: Check both architectures are present
-        run: lipo -verify_arch arm64 x86_64 target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell
+        run: lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
       - name: Check the deployment target
         run: scripts/ci/check-macos-minimum.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app 11.0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
@@ -246,7 +246,7 @@ jobs:
       - name: Confirm the app is unsigned
         run: scripts/ci/check-unsigned-macos-app.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app
       - name: Check both architectures are present
-        run: lipo -verify_arch arm64 x86_64 target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell
+        run: lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
       - name: Check the deployment target
         run: scripts/ci/check-macos-minimum.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app 11.0
       - name: Zip the app

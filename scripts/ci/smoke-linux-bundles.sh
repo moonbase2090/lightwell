@@ -3,14 +3,16 @@
 #   - the AppImage extracts and its desktop app opens a window under Xvfb
 #   - the rpm carries the desktop app
 #   - the tarball installs, and its CLI reports the release version
-#   - no bundled binary points at the dev server (issue #99)
+#   - every bundled desktop binary embeds the viewer instead of loading the
+#     dev server (issue #99)
 set -euo pipefail
 
-usage='Usage: smoke-linux-bundles.sh VERSION BUNDLE_DIR SCREENSHOT_DIR'
+usage='Usage: smoke-linux-bundles.sh VERSION BUNDLE_DIR SCREENSHOT_DIR [DIST_DIR]'
 version="${1:?$usage}"
 bundle_dir="${2:?$usage}"
 screenshot_dir="${3:?$usage}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+dist_dir="${4:-$script_dir/../../dist}"
 
 appimage="$bundle_dir/Lightwell_${version}_amd64.AppImage"
 rpm="$bundle_dir/Lightwell-${version}-1.x86_64.rpm"
@@ -59,5 +61,5 @@ printf 'tarball CLI: %s\n' "$reported"
 [[ -x "$work/prefix/bin/lightwell-app" ]] || { echo 'tarball has no desktop app' >&2; exit 1; }
 binaries+=("$work/prefix/bin/lightwell-app")
 
-"$script_dir/check-no-localhost.sh" "${binaries[@]}"
+"$script_dir/check-embedded-viewer.sh" "$dist_dir" "${binaries[@]}"
 echo 'Linux bundle smoke passed.'
