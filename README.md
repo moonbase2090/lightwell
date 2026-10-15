@@ -6,37 +6,23 @@ Lightwell maps Rust workspaces, TypeScript, JavaScript, HTML and CSS projects (i
 
 ## Install
 
-Lightwell is available for macOS (Universal and Apple Silicon), Linux x86_64 and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [lightwellcli.com](https://lightwellcli.com/). Every asset name carries the version. Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
+Lightwell v0.1.7 is available for macOS on Apple Silicon, Linux x86_64 and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [lightwellcli.com](https://lightwellcli.com/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
 
 ### macOS
 
-Download `Lightwell_<version>_universal.dmg` from the [latest release](https://github.com/moonbase2090/lightwell/releases/latest) (Intel and Apple Silicon, macOS 11.0 or later). `Lightwell_<version>_aarch64.dmg` is a smaller Apple Silicon only build. Both disk images are signed with an Apple Developer ID and notarized by Apple. Open one and drag Lightwell to Applications.
+Download `Lightwell_<version>_aarch64.dmg` from the [latest release](https://github.com/moonbase2090/lightwell/releases/latest) (Apple Silicon, macOS 11.0 or later). The disk image is signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
 
 ### Linux
 
-Linux builds target x86_64 with glibc 2.28 or later. The desktop app needs WebKitGTK 4.1. Pick the package that suits your distribution from the [latest release](https://github.com/moonbase2090/lightwell/releases/latest):
-
-| Distribution | Asset | Install |
-| --- | --- | --- |
-| Debian, Ubuntu | `Lightwell_<version>_amd64.deb` | `sudo apt install ./Lightwell_<version>_amd64.deb` |
-| Fedora, RHEL, openSUSE | `Lightwell-<version>-1.x86_64.rpm` | `sudo dnf install ./Lightwell-<version>-1.x86_64.rpm` (or `sudo zypper install`) |
-| Any distribution | `Lightwell_<version>_amd64.AppImage` | `chmod +x Lightwell_<version>_amd64.AppImage && ./Lightwell_<version>_amd64.AppImage` |
-| Arch and others | `lightwell-<version>-linux-x86_64.tar.gz` | see below |
-
-The deb, rpm and AppImage install the desktop app as `lightwell`. The portable tarball holds the command line tool (`bin/lightwell`), the desktop app (`bin/lightwell-app`) and an `install.sh`:
+Download [`Lightwell_0.1.7_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.7/Lightwell_0.1.7_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
 
 ```sh
-tar -xzf lightwell-<version>-linux-x86_64.tar.gz
-cd lightwell-<version>-linux-x86_64
-sudo ./install.sh                     # installs under /usr/local
-PREFIX="$HOME/.local" ./install.sh    # or for the current user only
+sudo apt install ./Lightwell_0.1.7_amd64.deb
 ```
-
-`./install.sh --uninstall` removes it again. On Arch, [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD) builds a package from the tarball with `makepkg -si`; it checks the tarball against the release `SHA256SUMS`. For Linux on ARM, `lightwell-<version>-linux-aarch64.tar.gz` carries the command line tool only.
 
 ### Windows
 
-Download `Lightwell_<version>_x64.msi` from the [latest release](https://github.com/moonbase2090/lightwell/releases/latest) (x64) and run it to install Lightwell.
+Download [`Lightwell_0.1.7_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.7/Lightwell_0.1.7_x64.msi) (x64) and run it to install Lightwell.
 
 ### From source
 
@@ -101,7 +87,7 @@ Maps, project notes, and editor settings stay on your machine. See [PRIVACY.md](
 
 ## Desktop shell
 
-Releases ship signed and notarized Universal and Apple Silicon `.dmg` files, and x86_64 Linux `.deb`, `.rpm`, AppImage and portable `.tar.gz` builds for a glibc 2.28 executable floor, plus an aarch64 Linux CLI tarball. See [Install](#install). The Windows package script builds a per-user MSI from source. Published Windows signing is separate.
+Releases ship a signed and notarized Apple Silicon `.dmg` and an x86_64 Linux `.deb` built for a glibc 2.28 executable floor. See [Install](#install). The Windows package script builds a per-user MSI from source. Published Windows signing is separate.
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 

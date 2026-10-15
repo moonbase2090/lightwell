@@ -21,7 +21,20 @@ sha256sums=('SKIP'
             'SKIP')
 
 prepare() {
-  grep -E "  ${_tarball}\$" "lightwell-${pkgver}-SHA256SUMS" | sha256sum -c -
+  # Fail closed: the release SHA256SUMS must list this tarball with a
+  # well-formed digest, and the digest must match.
+  local expected actual
+  expected="$(awk -v name="${_tarball}" '$2 == name && $1 ~ /^[0-9a-f]{64}$/ { print $1 }' \
+    "lightwell-${pkgver}-SHA256SUMS")"
+  if [[ -z "$expected" ]]; then
+    echo "SHA256SUMS has no checksum for ${_tarball}" >&2
+    return 1
+  fi
+  actual="$(sha256sum "${_tarball}" | awk '{ print $1 }')"
+  if [[ "$actual" != "$expected" ]]; then
+    echo "${_tarball} checksum ${actual} does not match SHA256SUMS ${expected}" >&2
+    return 1
+  fi
 }
 
 package() {
