@@ -72,3 +72,12 @@ test("preview notes source adds, edits, and removes notes per workspace", async 
   const removed = await notes.remove({ workspaceId: "a", blockId: "crate:core" });
   assert.deepEqual(removed.kind === "ready" ? removed.notes : null, []);
 });
+
+test("the word wrap toggle appears only for source lines and names the next state", () => {
+  const base = { notesAvailable: true, hasNote: false, canOpen: false, sourcePath: "src/lib.rs" } as const;
+  assert.equal(labels(noteMenuItems(base)).includes("Turn word wrap on"), false);
+  assert.equal(labels(noteMenuItems(base)).includes("Turn word wrap off"), false);
+  assert.equal(labels(noteMenuItems({ ...base, wordWrap: false })).at(-1), "Turn word wrap on");
+  assert.equal(labels(noteMenuItems({ ...base, wordWrap: true })).at(-1), "Turn word wrap off");
+  assert.equal(noteMenuItems({ ...base, wordWrap: true }).at(-1)?.action, "toggle-word-wrap");
+});

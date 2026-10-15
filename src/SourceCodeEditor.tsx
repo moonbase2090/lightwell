@@ -99,6 +99,9 @@ export interface SourceCodeEditorProps {
   readonly column: number;
   readonly path: string;
   readonly theme: ResolvedTheme;
+  readonly wordWrap: boolean;
+  /** Alt+Z in the editor, as in VS Code. */
+  readonly onToggleWordWrap: () => void;
   /** When set, replaces the browser menu with the app's menu for the clicked or focused line. */
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
 }
@@ -109,13 +112,18 @@ const monacoThemes = {
   blueprint: "lightwell-blueprint",
 } satisfies Record<ResolvedTheme, string>;
 
-export default function SourceCodeEditor({ content, line, column, path, theme, onLineContextMenu }: SourceCodeEditorProps) {
+export default function SourceCodeEditor({ content, line, column, path, theme, wordWrap, onToggleWordWrap, onLineContextMenu }: SourceCodeEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const themeRef = useRef(theme);
   themeRef.current = theme;
   const contextMenuRef = useRef(onLineContextMenu);
   contextMenuRef.current = onLineContextMenu;
   const hasContextMenu = onLineContextMenu !== undefined;
+  const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const wordWrapRef = useRef(wordWrap);
+  wordWrapRef.current = wordWrap;
+  const toggleWrapRef = useRef(onToggleWordWrap);
+  toggleWrapRef.current = onToggleWordWrap;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -144,6 +152,16 @@ export default function SourceCodeEditor({ content, line, column, path, theme, o
       padding: { top: 13, bottom: 14 },
       scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
       contextmenu: !hasContextMenu,
+      wordWrap: wordWrapRef.current ? "on" : "off",
+    });
+    editorRef.current = editor;
+    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, () => toggleWrapRef.current());
+    // Monaco measures glyph widths at creation. If the monospace font loads
+    // later, text is drawn under the line-number gutter and the first
+    // characters of each line are hidden until the widths are measured again.
+    let disposed = false;
+    void document.fonts?.ready.then(() => {
+      if (!disposed) monaco.editor.remeasureFonts();
     });
     const suppressBrowserMenu = (event: MouseEvent) => event.preventDefault();
     if (hasContextMenu) {
@@ -166,6 +184,8 @@ export default function SourceCodeEditor({ content, line, column, path, theme, o
     editor.setPosition({ lineNumber: targetLine, column: targetColumn });
     editor.revealPositionInCenter({ lineNumber: targetLine, column: targetColumn });
     return () => {
+      disposed = true;
+      editorRef.current = null;
       container.removeEventListener("contextmenu", suppressBrowserMenu);
       editor.dispose();
     };
@@ -175,6 +195,10 @@ export default function SourceCodeEditor({ content, line, column, path, theme, o
     configureMonaco();
     monaco.editor.setTheme(monacoThemes[theme]);
   }, [theme]);
+
+  useEffect(() => {
+    editorRef.current?.updateOptions({ wordWrap: wordWrap ? "on" : "off" });
+  }, [wordWrap]);
 
   return <div className="source-code-editor" ref={containerRef} />;
 }

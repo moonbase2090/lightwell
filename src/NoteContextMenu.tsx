@@ -1,7 +1,7 @@
 import { useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import { ArrowUpRight, Copy, FilePen, FilePlus2, Trash2 } from "lucide-react";
+import { ArrowUpRight, Copy, FilePen, FilePlus2, Trash2, WrapText } from "lucide-react";
 
-export type NoteMenuAction = "add-note" | "edit-note" | "delete-note" | "open" | "copy-path";
+export type NoteMenuAction = "add-note" | "edit-note" | "delete-note" | "open" | "copy-path" | "toggle-word-wrap";
 
 export interface NoteMenuItem {
   readonly action: NoteMenuAction;
@@ -25,6 +25,8 @@ export function noteMenuItems(options: {
   readonly hasNote: boolean;
   readonly canOpen: boolean;
   readonly sourcePath: string | null;
+  /** Current word wrap in the source view; the toggle is offered only there. */
+  readonly wordWrap?: boolean;
 }): NoteMenuItem[] {
   const items: NoteMenuItem[] = [];
   if (options.notesAvailable) {
@@ -37,6 +39,9 @@ export function noteMenuItems(options: {
   }
   if (options.canOpen) items.push({ action: "open", label: "Open source" });
   if (options.sourcePath !== null) items.push({ action: "copy-path", label: "Copy path" });
+  if (options.wordWrap !== undefined) {
+    items.push({ action: "toggle-word-wrap", label: options.wordWrap ? "Turn word wrap off" : "Turn word wrap on", shortcut: "Alt+Z" });
+  }
   return items;
 }
 
@@ -65,6 +70,7 @@ const icons = {
   "delete-note": Trash2,
   open: ArrowUpRight,
   "copy-path": Copy,
+  "toggle-word-wrap": WrapText,
 } satisfies Record<NoteMenuAction, unknown>;
 
 export default function NoteContextMenu({

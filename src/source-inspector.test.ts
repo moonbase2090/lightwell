@@ -14,6 +14,8 @@ function renderInspector(inspection: SourceInspectionState, options: {
     title: "parser",
     inspection,
     theme: options.theme ?? "dark",
+    wordWrap: false,
+    onToggleWordWrap: () => undefined,
     openingEditor: options.openingEditor ?? false,
     editorError: options.editorError ?? "",
     onOpenInEditor: () => undefined,
