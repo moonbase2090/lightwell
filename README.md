@@ -6,23 +6,25 @@ Lightwell maps Rust workspaces, TypeScript, JavaScript, HTML and CSS projects (i
 
 ## Install
 
-Lightwell v0.1.7 is available for macOS on Apple Silicon, Linux x86_64 and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [lightwellcli.com](https://lightwellcli.com/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
+Lightwell v0.1.12 is available for macOS (Apple Silicon and Intel), Linux x86_64 and ARM64, and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [lightwellcli.com](https://lightwellcli.com/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
 
 ### macOS
 
-Download `Lightwell_<version>_aarch64.dmg` from the [latest release](https://github.com/moonbase2090/lightwell/releases/latest) (Apple Silicon, macOS 11.0 or later). The disk image is signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
+Download [`Lightwell_0.1.12_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.12_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
 
 ### Linux
 
-Download [`Lightwell_0.1.7_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.7/Lightwell_0.1.7_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
+Download [`Lightwell_0.1.12_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
 
 ```sh
-sudo apt install ./Lightwell_0.1.7_amd64.deb
+sudo apt install ./Lightwell_0.1.12_amd64.deb
 ```
+
+Other x86_64 distributions can use [`Lightwell_0.1.12_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_amd64.AppImage), [`Lightwell_0.1.12_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.12_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.12_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_linux_aarch64.tar.gz) carries the command line tool.
 
 ### Windows
 
-Download [`Lightwell_0.1.7_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.7/Lightwell_0.1.7_x64.msi) (x64) and run it to install Lightwell.
+Download [`Lightwell_0.1.12_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_x64.msi) (x64) and run it to install Lightwell.
 
 ### From source
 
@@ -87,9 +89,11 @@ Maps, project notes, and editor settings stay on your machine. See [PRIVACY.md](
 
 ## Desktop shell
 
-Releases ship a signed and notarized Apple Silicon `.dmg` and an x86_64 Linux `.deb` built for a glibc 2.28 executable floor. See [Install](#install). The Windows package script builds a per-user MSI from source. Published Windows signing is separate.
+Releases ship signed and notarized Apple Silicon and universal `.dmg` images, an x86_64 Linux `.deb` built for a glibc 2.28 executable floor, an AppImage, an rpm, Linux tarballs for x86_64 and ARM64, and a Windows MSI. See [Install](#install).
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
+
+The workspace map has a **Modules** / **Files** toggle. Modules shows the module map. Files groups the same blocks into a file tree of repository folders. A **Depth** control sets how many levels the map draws, from 1 to the full tree. Lightwell saves both choices per workspace. In the source view, right-click a line or press **Alt+Z** to turn word wrap on or off.
 
 Project notes are on in default and release builds. To omit the notes commands and leave the dialog unwired, set:
 

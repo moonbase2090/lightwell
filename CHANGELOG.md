@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.12 - 2026-10-15
+
+### Added
+
+- A Modules / Files toggle on the workspace map. Files groups the mapped blocks into repository folders as a file tree. The choice is saved per workspace and defaults to Modules (#125).
+- A Depth control on the workspace map, from 1 to the depth of the current tree, or All. The default stays 2, and the choice is saved per workspace (#120).
+- Project notes show with their block: a project note card in the details panel and source inspector, a note preview on the map card badge, and **Show on map** in the notes dialog.
+- A word wrap toggle in the source view, from the source line context menu or **Alt+Z**. The choice is kept and defaults to off.
+
+### Changed
+
+- Opening a block's source resolves it against the map the workspace watcher keeps, instead of extracting the whole workspace again on every click.
+- Blocks with no annotation show no status chip.
+- Search and **Show on map** center and zoom on the block.
+- The source view remeasures fonts once they load, so text is no longer drawn under the line-number gutter.
+
 ## 0.1.11 - 2026-10-15
 
 The 0.1.9 and 0.1.10 tags were not published. 0.1.11 carries their changes.
