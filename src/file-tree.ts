@@ -1,6 +1,7 @@
-import type { DisplayBlock, FactConnection } from "./model.js";
+import type { DisplayBlock, FactBlockType, FactConnection } from "./model.js";
 
 export type MapView = "modules" | "files";
+export type TreeOrientation = "vertical" | "horizontal";
 
 export interface MapViewStorage {
   getItem(key: string): string | null;
@@ -46,6 +47,184 @@ export function mapViewStorageKey(workspaceId: string): string {
 
 export function parseMapView(value: string | null): MapView {
   return value === "files" ? "files" : "modules";
+}
+
+export function treeOrientationStorageKey(workspaceId: string): string {
+  return `lightwell.map-orientation.v1:${encodeURIComponent(workspaceId)}`;
+}
+
+/** Vertical is the readable default. Only an explicit horizontal choice is restored. */
+export function parseTreeOrientation(value: string | null): TreeOrientation {
+  return value === "horizontal" ? "horizontal" : "vertical";
+}
+
+export function readTreeOrientation(storage: MapViewStorage | null, workspaceId: string): TreeOrientation {
+  if (storage === null) return "vertical";
+  try {
+    return parseTreeOrientation(storage.getItem(treeOrientationStorageKey(workspaceId)));
+  } catch {
+    return "vertical";
+  }
+}
+
+export function writeTreeOrientation(storage: MapViewStorage | null, workspaceId: string, orientation: TreeOrientation): void {
+  if (storage === null) return;
+  try {
+    storage.setItem(treeOrientationStorageKey(workspaceId), orientation);
+  } catch {
+    // The map still uses the chosen orientation for this session.
+  }
+}
+
+export interface ExplorerRow {
+  readonly id: string;
+  readonly level: number;
+}
+
+/** Folders above this depth start open. Depth 2 shows the root's children and leaves those folders closed. */
+export function defaultExpandedIds(
+  root: FileTreeNode,
+  nodeById: ReadonlyMap<string, FileTreeNode>,
+  depth: number | "all",
+): ReadonlySet<string> {
+  const limit = depth === "all" ? Number.POSITIVE_INFINITY : depth;
+  const expanded = new Set<string>();
+  const seen = new Set<string>();
+  const pending: { node: FileTreeNode; level: number }[] = [{ node: root, level: 1 }];
+  while (pending.length > 0) {
+    const current = pending.shift();
+    if (current === undefined || seen.has(current.node.id)) continue;
+    seen.add(current.node.id);
+    if (current.node.children.length === 0 || current.level >= limit) continue;
+    expanded.add(current.node.id);
+    for (const childId of current.node.children) {
+      const child = nodeById.get(childId);
+      if (child !== undefined) pending.push({ node: child, level: current.level + 1 });
+    }
+  }
+  return expanded;
+}
+
+export function explorerRows(
+  root: FileTreeNode,
+  nodeById: ReadonlyMap<string, FileTreeNode>,
+  expanded: ReadonlySet<string>,
+): ExplorerRow[] {
+  const rows: ExplorerRow[] = [];
+  const visit = (node: FileTreeNode, level: number, seen: Set<string>) => {
+    if (seen.has(node.id)) return;
+    seen.add(node.id);
+    rows.push({ id: node.id, level });
+    if (!expanded.has(node.id)) return;
+    for (const childId of node.children) {
+      const child = nodeById.get(childId);
+      if (child !== undefined) visit(child, level + 1, seen);
+    }
+  };
+  visit(root, 1, new Set());
+  return rows;
+}
+
+export type ExplorerBadge = "FILE" | "MOD" | "FN" | "TYPE" | "CONST" | "APP" | "FEAT";
+
+/** Short kind badge for an explorer row. Symbol kinds come from Python and web outline blocks. */
+export function explorerBadge(source: {
+  readonly folder: boolean;
+  readonly blockType?: FactBlockType;
+  readonly language?: string;
+  readonly symbolKind?: string | null;
+}): ExplorerBadge {
+  if (source.folder || source.blockType === undefined || source.blockType === "workspace" || source.blockType === "crate") {
+    return "FILE";
+  }
+  if (source.blockType === "app") return "APP";
+  if (source.blockType === "cargo_feature") return "FEAT";
+  const kind = source.symbolKind ?? "";
+  if (source.language === "python" || source.language === "typescript" || source.language === "javascript") {
+    if (kind === "def" || kind === "async def" || kind === "function") return "FN";
+    if (kind === "class" || kind === "interface" || kind === "type") return "TYPE";
+    if (kind === "const") return "CONST";
+  }
+  return "MOD";
+}
+
+/** Rows that match the query, with every ancestor kept so the match stays in context. */
+export function filterExplorerRows(
+  root: FileTreeNode,
+  nodeById: ReadonlyMap<string, FileTreeNode>,
+  expanded: ReadonlySet<string>,
+  query: string,
+): ExplorerRow[] {
+  const term = query.trim().toLocaleLowerCase();
+  if (term === "") return explorerRows(root, nodeById, expanded);
+  const matches = (node: FileTreeNode) => node.label.toLocaleLowerCase().includes(term)
+    || (node.sourcePath ?? "").toLocaleLowerCase().includes(term);
+  const visible = new Set<string>();
+  const mark = (node: FileTreeNode, seen: Set<string>): boolean => {
+    if (seen.has(node.id)) return visible.has(node.id);
+    seen.add(node.id);
+    let childHit = false;
+    for (const childId of node.children) {
+      const child = nodeById.get(childId);
+      if (child !== undefined && mark(child, seen)) childHit = true;
+    }
+    if (childHit || matches(node)) {
+      visible.add(node.id);
+      return true;
+    }
+    return false;
+  };
+  mark(root, new Set());
+  const rows: ExplorerRow[] = [];
+  const visit = (node: FileTreeNode, level: number, seen: Set<string>) => {
+    if (!visible.has(node.id) || seen.has(node.id)) return;
+    seen.add(node.id);
+    rows.push({ id: node.id, level });
+    for (const childId of node.children) {
+      const child = nodeById.get(childId);
+      if (child !== undefined) visit(child, level + 1, seen);
+    }
+  };
+  visit(root, 1, new Set());
+  return rows;
+}
+
+/** Steps from the root. The root is depth 0. */
+export function treeDepth(nodeById: ReadonlyMap<string, FileTreeNode>, id: string): number {
+  return Math.max(0, treeBreadcrumb(nodeById, id).length - 1);
+}
+
+/** Root-to-node path, including both ends. */
+export function treeBreadcrumb(
+  nodeById: ReadonlyMap<string, FileTreeNode>,
+  id: string,
+): FileTreeNode[] {
+  const nodes: FileTreeNode[] = [];
+  let current = nodeById.get(id) ?? null;
+  const seen = new Set<string>();
+  while (current !== null && !seen.has(current.id)) {
+    seen.add(current.id);
+    nodes.unshift(current);
+    current = current.parentId === null ? null : nodeById.get(current.parentId) ?? null;
+  }
+  return nodes;
+}
+
+/** Open every folder between the root and this row so a selection stays on screen. */
+export function revealExpanded(
+  expanded: ReadonlySet<string>,
+  nodeById: ReadonlyMap<string, FileTreeNode>,
+  id: string,
+): ReadonlySet<string> {
+  const next = new Set(expanded);
+  let parent = nodeById.get(id)?.parentId ?? null;
+  const seen = new Set<string>();
+  while (parent !== null && !seen.has(parent)) {
+    seen.add(parent);
+    next.add(parent);
+    parent = nodeById.get(parent)?.parentId ?? null;
+  }
+  return next;
 }
 
 export function readMapView(storage: MapViewStorage | null, workspaceId: string): MapView {

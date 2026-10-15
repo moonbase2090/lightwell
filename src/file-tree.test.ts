@@ -10,12 +10,22 @@ import {
   fileScopeCrumbs,
   fileScopeForBlock,
   isIgnoredRepoPath,
+  defaultExpandedIds,
+  explorerBadge,
+  explorerRows,
+  filterExplorerRows,
+  treeBreadcrumb,
+  treeDepth,
   parseGitignore,
   parseMapView,
+  parseTreeOrientation,
   readMapView,
+  readTreeOrientation,
+  revealExpanded,
   rollupAlongParents,
   scopeDirectory,
   writeMapView,
+  writeTreeOrientation,
   type DirEntry,
   type FileTreeSource,
   type MapViewStorage,
@@ -33,6 +43,99 @@ test("the map view defaults to modules and is stored per workspace", () => {
   assert.equal(readMapView(storage, "/work/beta"), "modules");
   assert.equal(readMapView(storage, "/work/gamma"), "modules");
   assert.equal(readMapView(null, "/work/alpha"), "modules");
+});
+
+test("tree orientation defaults to vertical and is stored per workspace", () => {
+  assert.equal(parseTreeOrientation(null), "vertical");
+  assert.equal(parseTreeOrientation(""), "vertical");
+  assert.equal(parseTreeOrientation("vertical"), "vertical");
+  assert.equal(parseTreeOrientation("sideways"), "vertical");
+  assert.equal(parseTreeOrientation("horizontal"), "horizontal");
+  const storage = new MemoryStorage();
+  writeTreeOrientation(storage, "/work/alpha", "horizontal");
+  writeTreeOrientation(storage, "/work/beta", "vertical");
+  assert.equal(readTreeOrientation(storage, "/work/alpha"), "horizontal");
+  assert.equal(readTreeOrientation(storage, "/work/beta"), "vertical");
+  assert.equal(readTreeOrientation(storage, "/work/gamma"), "vertical");
+  assert.equal(readTreeOrientation(null, "/work/alpha"), "vertical");
+  const throwing: MapViewStorage = {
+    getItem() {
+      throw new Error("storage blocked");
+    },
+    setItem() {
+      throw new Error("storage blocked");
+    },
+  };
+  assert.equal(readTreeOrientation(throwing, "/work/alpha"), "vertical");
+  writeTreeOrientation(throwing, "/work/alpha", "horizontal");
+});
+
+test("a vertical file tree starts collapsed past the chosen depth", () => {
+  const tree = buildFileTree(workspace, blocks, ["*.log"]);
+  const root = tree.nodeById.get("workspace:demo");
+  if (root === undefined) throw new Error("missing workspace");
+  const depthOne = explorerRows(root, tree.nodeById, defaultExpandedIds(root, tree.nodeById, 1));
+  assert.deepEqual(depthOne.map((row) => row.id), ["workspace:demo"]);
+
+  const depthTwo = explorerRows(root, tree.nodeById, defaultExpandedIds(root, tree.nodeById, 2));
+  assert.deepEqual(depthTwo.map((row) => row.id), [
+    "workspace:demo",
+    "dir:crates",
+    "dir:pkg",
+    "dir:web",
+    "module:escape",
+  ]);
+  assert.equal(depthTwo.some((row) => row.id === "module:demo"), false);
+
+  const opened = new Set(defaultExpandedIds(root, tree.nodeById, 2));
+  opened.add("dir:crates");
+  const afterCrates = explorerRows(root, tree.nodeById, opened);
+  assert.equal(afterCrates.some((row) => row.id === "dir:crates%2Fdemo"), true);
+  assert.equal(afterCrates.some((row) => row.id === "module:demo"), false);
+  opened.add("dir:crates%2Fdemo");
+  const afterDemo = explorerRows(root, tree.nodeById, opened);
+  assert.equal(afterDemo.some((row) => row.id === "dir:crates%2Fdemo%2Fsrc"), true);
+  assert.equal(afterDemo.some((row) => row.id === "module:demo"), false);
+
+  const revealed = revealExpanded(new Set(), tree.nodeById, "module:demo");
+  assert.equal(revealed.has("dir:crates"), true);
+  assert.equal(revealed.has("dir:crates%2Fdemo"), true);
+  assert.equal(revealed.has("dir:crates%2Fdemo%2Fsrc"), true);
+  assert.equal(revealed.has("dir:pkg"), false);
+  const revealedRows = explorerRows(root, tree.nodeById, revealed);
+  assert.equal(revealedRows.some((row) => row.id === "module:demo"), true);
+  assert.equal(revealedRows.some((row) => row.id === "module:py"), false);
+
+  const allRows = explorerRows(root, tree.nodeById, defaultExpandedIds(root, tree.nodeById, "all"));
+  assert.equal(allRows.some((row) => row.id === "module:demo"), true);
+  assert.equal(allRows.some((row) => row.id === "module:web"), true);
+
+  const filtered = filterExplorerRows(root, tree.nodeById, new Set(), "lib");
+  assert.equal(filtered.some((row) => row.id === "module:demo"), true);
+  assert.equal(filtered.some((row) => row.id === "dir:crates"), true);
+  assert.equal(filtered.some((row) => row.id === "module:py"), false);
+  assert.equal(filtered[0]?.id, "workspace:demo");
+  assert.deepEqual(
+    filterExplorerRows(root, tree.nodeById, new Set(), "   ").map((row) => row.id),
+    ["workspace:demo"],
+  );
+  assert.equal(treeDepth(tree.nodeById, "module:demo") > 1, true);
+  assert.equal(treeBreadcrumb(tree.nodeById, "module:demo")[0]?.id, "workspace:demo");
+  assert.equal(treeBreadcrumb(tree.nodeById, "module:demo").at(-1)?.id, "module:demo");
+});
+
+test("explorer badges use the outline kind when a symbol has one", () => {
+  assert.equal(explorerBadge({ folder: true }), "FILE");
+  assert.equal(explorerBadge({ folder: false, blockType: "crate" }), "FILE");
+  assert.equal(explorerBadge({ folder: false, blockType: "workspace" }), "FILE");
+  assert.equal(explorerBadge({ folder: false, blockType: "module" }), "MOD");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "rust", symbolKind: "const" }), "MOD");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "python", symbolKind: "def" }), "FN");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "python", symbolKind: "class" }), "TYPE");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "typescript", symbolKind: "const" }), "CONST");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "typescript", symbolKind: "function" }), "FN");
+  assert.equal(explorerBadge({ folder: false, blockType: "app" }), "APP");
+  assert.equal(explorerBadge({ folder: false, blockType: "cargo_feature" }), "FEAT");
 });
 
 test("a storage failure keeps the module view", () => {
