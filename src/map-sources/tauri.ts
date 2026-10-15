@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { MapHistorySource, MapSource, ProjectNoteInput, ProjectNotesSource } from "../map-source.js";
 import {
+  parseBlockDiffDocument,
   parseCommitChanges,
   parseCommitSummaries,
   parseEditorSettings,
@@ -44,6 +45,9 @@ const historyApi: MapHistorySource = {
   },
   commitChanges(workspaceId, commitId) {
     return invoke<unknown>("workspace_commit_changes", { path: workspaceId, commit: commitId }).then(parseCommitChanges);
+  },
+  blockDiff(workspaceId, commitId, blockId) {
+    return invoke<unknown>("workspace_block_diff", { path: workspaceId, commit: commitId, blockId }).then(parseBlockDiffDocument);
   },
 };
 

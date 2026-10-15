@@ -1,4 +1,5 @@
 import type {
+  BlockDiffDocument,
   CommitBlockChange,
   CommitChanges,
   CommitFileChange,
@@ -223,4 +224,27 @@ export function parseCommitChanges(value: unknown): CommitChanges {
     return { blockId: block.blockId, added: block.added, removed: block.removed };
   });
   return { commit: parseCommitSummary(value.commit), files, blocks };
+}
+
+export function parseBlockDiffDocument(value: unknown): BlockDiffDocument {
+  if (
+    !isRecord(value)
+    || typeof value.path !== "string"
+    || !(value.originalPath === null || value.originalPath === undefined || typeof value.originalPath === "string")
+    || typeof value.original !== "string"
+    || typeof value.modified !== "string"
+    || typeof value.line !== "number"
+    || !Number.isInteger(value.line)
+    || value.line < 1
+  ) {
+    throw new Error("The desktop app returned an invalid commit diff.");
+  }
+  return {
+    commit: parseCommitSummary(value.commit),
+    path: value.path,
+    originalPath: typeof value.originalPath === "string" ? value.originalPath : null,
+    original: value.original,
+    modified: value.modified,
+    line: value.line,
+  };
 }

@@ -59,7 +59,14 @@ pub struct CommitChanges {
 #[derive(Debug)]
 pub enum DiffError {
     InvalidCommit(String),
-    Git { command: String, message: String },
+    BlockNotFound(String),
+    BlockHasNoSource(String),
+    /// The commit did not touch the block's file.
+    FileUnchanged(String),
+    Git {
+        command: String,
+        message: String,
+    },
 }
 
 impl Display for DiffError {
@@ -68,6 +75,11 @@ impl Display for DiffError {
             Self::InvalidCommit(commit) => {
                 write!(formatter, "`{commit}` is not a commit in this repository.")
             }
+            Self::BlockNotFound(id) => write!(formatter, "Block {id} is not in the workspace map."),
+            Self::BlockHasNoSource(id) => {
+                write!(formatter, "Block {id} has no source file to compare.")
+            }
+            Self::FileUnchanged(path) => write!(formatter, "This commit did not change {path}."),
             Self::Git { command, message } => write!(formatter, "git {command} failed: {message}"),
         }
     }
@@ -129,6 +141,124 @@ pub fn commit_changes(
         commit: summary,
         files,
         blocks,
+    })
+}
+
+/// One block's file before and after a commit, for a side-by-side diff.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockDiffDocument {
+    pub commit: CommitSummary,
+    /// Path after the commit, relative to the workspace root.
+    pub path: String,
+    /// Path before the commit when the file was renamed.
+    pub original_path: Option<String>,
+    /// The file at the commit's first parent; empty when the commit added it.
+    pub original: String,
+    /// The file at the commit; empty when the commit deleted it.
+    pub modified: String,
+    /// Line in `modified` to reveal: the block's first changed line, else its start.
+    pub line: usize,
+}
+
+/// The before and after text of `block_id`'s file in `commit`.
+pub fn block_diff(
+    root: &Path,
+    map: &FactMap,
+    commit: &str,
+    block_id: &str,
+) -> Result<BlockDiffDocument, DiffError> {
+    let summary = resolve_commit(root, commit)?;
+    let block = map
+        .blocks
+        .iter()
+        .find(|block| block_base(block).id == block_id)
+        .ok_or_else(|| DiffError::BlockNotFound(block_id.to_owned()))?;
+    let path = block_base(block)
+        .source_path
+        .as_deref()
+        .map(normalized)
+        .ok_or_else(|| DiffError::BlockHasNoSource(block_id.to_owned()))?;
+    let range = [
+        "diff-tree",
+        "-r",
+        "--root",
+        "-M",
+        "--no-commit-id",
+        "--relative",
+    ];
+    let numstat = git(
+        root,
+        &[&range[..], &["--numstat", "-z", &summary.id]].concat(),
+    )?;
+    let file = parse_numstat(&numstat)
+        .into_iter()
+        .find(|file| file.path == path)
+        .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
+    let patch = git(
+        root,
+        &[
+            &range[..],
+            &[
+                "-p",
+                "-U0",
+                "--no-color",
+                "--no-ext-diff",
+                &summary.id,
+                "--",
+                &path,
+            ],
+        ]
+        .concat(),
+    )?;
+    let hunks = parse_hunks(&patch).remove(&path).unwrap_or_default();
+
+    let modified = git(root, &["show", &format!("{}:./{path}", summary.id)]).unwrap_or_default();
+    let original_path = file.old_path.clone().unwrap_or_else(|| path.clone());
+    // A root commit has no parent, and an added file has no earlier version.
+    let original = git(
+        root,
+        &["show", &format!("{}^:./{original_path}", summary.id)],
+    )
+    .unwrap_or_default();
+
+    let first_change = hunks.iter().map(|hunk| hunk.new_start.max(1)).min();
+    let parent_shares_file = block_base(block)
+        .parent_id
+        .as_deref()
+        .and_then(|parent| {
+            map.blocks
+                .iter()
+                .find(|candidate| block_base(candidate).id == parent)
+        })
+        .is_some_and(|parent| {
+            block_base(parent)
+                .source_path
+                .as_deref()
+                .map(normalized)
+                .as_deref()
+                == Some(path.as_str())
+        });
+    let line = if parent_shares_file {
+        match symbol_spans(&path, &modified).get(block_base(block).label.as_str()) {
+            Some(&(start, end)) => hunks
+                .iter()
+                .map(|hunk| hunk.new_start.max(1))
+                .find(|line| (start..=end).contains(line))
+                .unwrap_or(start),
+            None => first_change.unwrap_or(1),
+        }
+    } else {
+        first_change.unwrap_or(1)
+    };
+
+    Ok(BlockDiffDocument {
+        commit: summary,
+        path,
+        original_path: file.old_path,
+        original,
+        modified,
+        line,
     })
 }
 
@@ -392,7 +522,8 @@ fn symbol_spans(path: &str, source: &str) -> HashMap<String, (usize, usize)> {
 #[cfg(test)]
 mod tests {
     use super::{
-        commit_changes, parse_hunk_header, parse_numstat, recent_commits, symbol_spans, Hunk,
+        block_diff, commit_changes, parse_hunk_header, parse_numstat, recent_commits, symbol_spans,
+        Hunk,
     };
     use crate::extract::{block_base, extract_cargo_map};
     use crate::facts::FactBlock;
@@ -556,6 +687,23 @@ mod tests {
             changed.iter().all(|(id, _, _)| *id != id_of("untouched")),
             "untouched.rs was not edited: {changed:?}"
         );
+
+        let merge_diff = block_diff(&root, &map, &commits[0].id, &id_of("merge")).unwrap();
+        assert_eq!(merge_diff.path, "scripts/job.py");
+        assert!(merge_diff.original.contains("    return 2\n"));
+        assert!(merge_diff.modified.contains("    total = 2\n"));
+        assert_eq!(merge_diff.line, 8, "merge's first changed line");
+        let plan_diff = block_diff(&root, &map, &commits[0].id, &id_of("plan")).unwrap();
+        assert_eq!(
+            plan_diff.line, 3,
+            "plan is unchanged, so its start is revealed"
+        );
+        let first = block_diff(&root, &map, &commits[1].id, &id_of("merge")).unwrap();
+        assert_eq!(first.original, "", "the root commit added the file");
+        assert!(matches!(
+            block_diff(&root, &map, &commits[0].id, &id_of("untouched")),
+            Err(super::DiffError::FileUnchanged(_))
+        ));
 
         assert!(commit_changes(&root, &map, "--help").is_err());
         assert!(commit_changes(&root, &map, "not-a-commit").is_err());

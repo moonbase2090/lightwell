@@ -804,3 +804,4 @@ button { color: inherit; }
 .node-diff .diff-added { color: #6fdc9f; }
 .node-diff .diff-removed { color: #f08f8f; }
 .node-diff-inside { opacity: .75; }
+.source-diff-editor { height: 100%; }
