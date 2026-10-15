@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.1.9 - 2026-10-15
+## 0.1.10 - 2026-10-15
+
+The 0.1.9 tag was not published: its Linux bundle smoke could not find the
+AppImage. 0.1.10 carries the 0.1.9 changes below.
+
+### Fixed
+
+- The release workflow passes the Linux bundle smoke an absolute path.
+
+## 0.1.9 - 2026-10-15 (not published)
 
 ### Added
 
