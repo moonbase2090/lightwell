@@ -57,6 +57,16 @@ import NoteContextMenu, {
 import Splitter from "./Splitter.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
+import {
+  DEFAULT_MAP_DEPTH,
+  blocksWithinDepth,
+  depthOptions,
+  readMapDepth,
+  subtreeDepth,
+  writeMapDepth,
+  type MapDepth,
+  type MapDepthStorage,
+} from "./map-depth.js";
 
 const nodeTypes = { codeBlock: BlockNodeView };
 const featureColors = ["#88a8ff", "#5ed7c0", "#d19af5", "#efba78", "#80c7f2", "#f08db4", "#a8d989", "#e4cf73"];
@@ -135,6 +145,14 @@ function formatStatus(status: DisplayNode["status"]): string {
       const exhaustive: never = status;
       return exhaustive;
     }
+  }
+}
+
+function mapDepthStorage(): MapDepthStorage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
   }
 }
 
@@ -509,6 +527,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [mapRequestVersion, setMapRequestVersion] = useState(0);
   const [mapRefreshVersion, setMapRefreshVersion] = useState(0);
   const [scopePath, setScopePath] = useState<string[]>([]);
+  const [mapDepth, setMapDepth] = useState<MapDepth>(DEFAULT_MAP_DEPTH);
+  const [depthWorkspaceId, setDepthWorkspaceId] = useState<string | null>(null);
+  if (mapKey !== depthWorkspaceId) {
+    setDepthWorkspaceId(mapKey);
+    setMapDepth(mapKey === null ? DEFAULT_MAP_DEPTH : readMapDepth(mapDepthStorage(), mapKey));
+  }
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
   const [activeGroupId, setActiveGroupId] = useState("");
@@ -774,7 +798,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const scopeChildren = useMemo(() => scope?.children
     .map((id) => map?.blockById.get(id))
     .filter((block): block is DisplayBlock => block !== undefined) ?? [], [map, scopeId]);
-  const visibleBlocks = useMemo(() => scope === undefined ? [] : [scope, ...scopeChildren], [scope, scopeChildren]);
+  const visibleBlocks = useMemo(() => {
+    if (scope === undefined || map === null) return [];
+    return blocksWithinDepth(scope, mapDepth, map.blockById);
+  }, [map, mapDepth, scope]);
   const connectionsInScope = displayConnections(scopeId, visibleBlocks, map?.connections ?? []);
   const selected = map?.nodeById.get(selectedId) ?? scope;
   const activeFeature = activeFeatureId === null ? undefined : map?.nodeById.get(activeFeatureId);
@@ -1115,7 +1142,27 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     <div className="graph-canvas" aria-label={`${map.facts.project.name} architecture map`}>
       <div className="canvas-watermark">
         <span>{scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
-        <span>{scopeChildren.length} direct children</span>
+        <span className="map-depth-controls">
+          <label className="map-depth">
+            Depth
+            <select
+              aria-label="Map depth"
+              value={mapDepth === "all" ? "all" : String(mapDepth)}
+              onChange={(event) => {
+                const next: MapDepth = event.target.value === "all" ? "all" : Number(event.target.value);
+                setMapDepth(next);
+                if (mapKey !== null) writeMapDepth(mapDepthStorage(), mapKey, next);
+              }}
+            >
+              {(scope === undefined || map === null ? [DEFAULT_MAP_DEPTH, "all" as const] : depthOptions(subtreeDepth(scope, map.blockById), mapDepth)).map((choice) => (
+                <option key={String(choice)} value={choice === "all" ? "all" : String(choice)}>
+                  {choice === "all" ? "All" : String(choice)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="child-count">{scopeChildren.length} direct children</span>
+        </span>
       </div>
       {graphError.length > 0 ? (
         <div className="graph-message"><CircleAlert size={18} />Could not lay out this map: {graphError}</div>
