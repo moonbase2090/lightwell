@@ -6,7 +6,7 @@ Lightwell maps Rust workspaces, TypeScript, JavaScript, HTML and CSS projects (i
 
 ## Install
 
-Lightwell v0.1.6 is available for macOS on Apple Silicon, Linux x86_64 and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [lightwellcli.com](https://lightwellcli.com/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
+Lightwell v0.1.7 is available for macOS on Apple Silicon, Linux x86_64 and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [lightwellcli.com](https://lightwellcli.com/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
 
 ### macOS
 
@@ -14,15 +14,15 @@ Download `Lightwell_<version>_aarch64.dmg` from the [latest release](https://git
 
 ### Linux
 
-Download [`Lightwell_0.1.6_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.6/Lightwell_0.1.6_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
+Download [`Lightwell_0.1.7_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.7/Lightwell_0.1.7_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
 
 ```sh
-sudo apt install ./Lightwell_0.1.6_amd64.deb
+sudo apt install ./Lightwell_0.1.7_amd64.deb
 ```
 
 ### Windows
 
-Download [`Lightwell_0.1.6_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.6/Lightwell_0.1.6_x64.msi) (x64) and run it to install Lightwell.
+Download [`Lightwell_0.1.7_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.7/Lightwell_0.1.7_x64.msi) (x64) and run it to install Lightwell.
 
 ### From source
 
