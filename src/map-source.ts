@@ -56,6 +56,40 @@ export interface MapEditorSource {
   listPresets(): Promise<readonly EditorTemplatePreset[]>;
 }
 
+export interface CommitSummary {
+  readonly id: string;
+  readonly shortId: string;
+  readonly summary: string;
+  /** Committer time, Unix seconds. */
+  readonly timestamp: number;
+}
+
+export interface CommitFileChange {
+  readonly path: string;
+  readonly oldPath: string | null;
+  readonly added: number;
+  readonly removed: number;
+  readonly binary: boolean;
+}
+
+export interface CommitBlockChange {
+  readonly blockId: string;
+  readonly added: number;
+  readonly removed: number;
+}
+
+export interface CommitChanges {
+  readonly commit: CommitSummary;
+  readonly files: readonly CommitFileChange[];
+  readonly blocks: readonly CommitBlockChange[];
+}
+
+/** Git history for the commit diff view. */
+export interface MapHistorySource {
+  listCommits(workspaceId: string): Promise<readonly CommitSummary[]>;
+  commitChanges(workspaceId: string, commitId: string): Promise<CommitChanges>;
+}
+
 export interface MapSource {
   listMaps(): Promise<readonly MapSourceEntry[]>;
   loadMap(id: string): Promise<MapSourceDocument>;
@@ -67,4 +101,6 @@ export interface MapSource {
   ): Promise<() => void>;
   readonly projectNotes?: ProjectNotesSource;
   readonly editor?: MapEditorSource;
+  /** Present only when the commit diff view is enabled. */
+  readonly history?: MapHistorySource;
 }
