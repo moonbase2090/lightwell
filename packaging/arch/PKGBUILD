@@ -38,7 +38,7 @@ prepare() {
 }
 
 package() {
-  cd "lightwell-${pkgver}-linux-x86_64"
+  cd lightwell
   DESTDIR="$pkgdir" PREFIX=/usr ./install.sh
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

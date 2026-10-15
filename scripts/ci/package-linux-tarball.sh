@@ -19,7 +19,8 @@ esac
 name="lightwell-$version-linux-$arch"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-stage="$work/$name"
+# The archive unpacks to lightwell/; the asset name carries the version.
+stage="$work/lightwell"
 install -d "$stage/bin"
 install -m 0755 "$cli" "$stage/bin/lightwell"
 if [[ "$app" != - ]]; then
@@ -32,5 +33,5 @@ install -m 0755 "$repo_root/packaging/linux/install.sh" "$stage/install.sh"
 install -m 0644 "$repo_root/LICENSE" "$repo_root/README.md" "$stage/"
 
 mkdir -p "$output_dir"
-tar -C "$work" --owner=0 --group=0 --numeric-owner -czf "$output_dir/$name.tar.gz" "$name"
+tar -C "$work" --owner=0 --group=0 --numeric-owner -czf "$output_dir/$name.tar.gz" lightwell
 printf '%s\n' "$output_dir/$name.tar.gz"

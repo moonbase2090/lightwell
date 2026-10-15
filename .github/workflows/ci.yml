@@ -335,6 +335,16 @@ jobs:
           ls -l "$RUNNER_TEMP/dist-linux"
       - name: Smoke the AppImage, rpm, deb, and tarball headless
         run: scripts/ci/smoke-linux-bundles.sh "$LIGHTWELL_VERSION" "$RUNNER_TEMP/dist-linux" "$RUNNER_TEMP/linux-smoke"
+      - name: Check the Linux bundles pass the release text check
+        env:
+          RELEASE_DENYLIST: ${{ secrets.RELEASE_DENYLIST }}
+        run: |
+          set -euo pipefail
+          # Same scan the publish job runs, including the checksum list.
+          mkdir -p "$RUNNER_TEMP/text-check"
+          cp "$RUNNER_TEMP"/dist-linux/* "$RUNNER_TEMP/text-check/"
+          (cd "$RUNNER_TEMP/text-check" && sha256sum * > SHA256SUMS)
+          scripts/check-release-text.sh --root "$GITHUB_WORKSPACE" --artifact "$RUNNER_TEMP/text-check"
       - uses: actions/upload-artifact@v4
         with:
           name: lightwell-linux-x86_64-glibc-2.28
