@@ -427,7 +427,9 @@ function FitOnScopeChange({
 }) {
   const { fitView, getNodes } = useReactFlow();
   const previousScopeId = useRef(scopeId);
-  const nextLayoutRevision = useRef(layoutRevision);
+  // The first fit waits for the first finished layout (#104). Revision 0 means
+  // layoutBlocks has not placed any node yet.
+  const nextLayoutRevision = useRef(Math.max(layoutRevision, 1));
   const waitingForLayout = useRef(true);
 
   useEffect(() => {
@@ -1064,6 +1066,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
+          fitView
+          fitViewOptions={{ padding: 0.2, minZoom: 0.18, maxZoom: 1.2 }}
           minZoom={0.12}
           maxZoom={1.7}
           defaultEdgeOptions={{ type: "smoothstep" }}
