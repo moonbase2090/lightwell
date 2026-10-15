@@ -5,7 +5,9 @@ param(
     [string]$Output = 'build/windows-release',
     [string]$Payload = '',
     [switch]$SkipBuild,
-    [switch]$SkipPackage
+    [switch]$SkipPackage,
+    # The release workflow signs the staged payload, then packages with -SkipBuild -Signed.
+    [switch]$Signed
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -13,23 +15,6 @@ Push-Location $repoRoot
 try {
     if (-not $IsWindows -and $env:OS -ne 'Windows_NT') { throw 'Run this script on native Windows.' }
     if ($SkipBuild -and $SkipPackage) { throw 'Choose a build, a package, or both.' }
-    $signingNames = @(
-        'AZURE_TENANT_ID',
-        'AZURE_CLIENT_ID',
-        'AZURE_SUBSCRIPTION_ID',
-        'AZURE_ARTIFACT_SIGNING_ENDPOINT',
-        'AZURE_ARTIFACT_SIGNING_ACCOUNT',
-        'AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE'
-    )
-    $signingReady = $true
-    foreach ($name in $signingNames) {
-        if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
-            $signingReady = $false
-        }
-    }
-    if ($signingReady) {
-        throw 'Azure Artifact Signing settings are present, and this script does not sign yet.'
-    }
     if ($SkipBuild -and [string]::IsNullOrWhiteSpace($Payload)) {
         throw '-SkipBuild requires -Payload with Lightwell.exe and bin\lightwell.exe already staged.'
     }
@@ -92,7 +77,9 @@ try {
     python (Join-Path $repoRoot 'scripts\release\windows_msi.py') --payload $payloadPath --version $Version --out $msi
     if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed.' }
 
-    Write-Host 'Windows code signing skipped: Azure Artifact Signing settings are absent.'
+    if (-not $Signed) {
+        Write-Host 'Windows code signing skipped: Azure Artifact Signing settings are absent.'
+    }
     Write-Host "Windows package: $msi"
 } finally {
     Pop-Location
