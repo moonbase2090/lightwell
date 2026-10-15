@@ -109,6 +109,22 @@ test("map node names an unresolved source and hides child and change chrome", ()
   assert.equal(html.includes(" selected"), false);
 });
 
+test("a file-tree folder names itself as a folder", () => {
+  const block = retiredCrate();
+  const html = renderBlock({
+    block: { ...block, id: "dir:crates%2Fdemo", label: "demo", type: "workspace", children: ["module:demo"], sourcePath: "crates/demo", memberCount: 1, annotationKind: "APP", annotationState: "missing" },
+    dimmed: false,
+    highlighted: false,
+    onHover: () => undefined,
+    onActivate: () => undefined,
+  });
+  assert.match(html, /class="block-node node-folder /);
+  assert.match(html, /<span class="node-kind">FOLDER<\/span>/);
+  assert.match(html, /<span class="node-name">demo<\/span>/);
+  assert.equal(html.includes("status-pill"), false);
+  assert.equal(html.includes(">APP<"), false);
+});
+
 test("map node marks a block that has a project note and advertises its context menu", () => {
   const block = retiredCrate();
   const withNote = renderBlock({

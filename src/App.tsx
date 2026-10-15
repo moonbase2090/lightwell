@@ -68,6 +68,20 @@ import {
   type MapDepth,
   type MapDepthStorage,
 } from "./map-depth.js";
+import {
+  buildFileTree,
+  fileScopeCrumbs,
+  fileScopeForBlock,
+  fileTreeContainsEdges,
+  fileTreeDisplayBlock,
+  folderNodeId,
+  folderPathFromId,
+  readMapView,
+  rollupAlongParents,
+  scopeDirectory,
+  writeMapView,
+  type MapView,
+} from "./file-tree.js";
 
 const nodeTypes = { codeBlock: BlockNodeView };
 const featureColors = ["#88a8ff", "#5ed7c0", "#d19af5", "#efba78", "#80c7f2", "#f08db4", "#a8d989", "#e4cf73"];
@@ -466,26 +480,29 @@ export interface FocusRequest {
 
 function FitOnScopeChange({
   scopeId,
+  viewKey,
   layoutRevision,
   focus,
   onFocusHandled,
 }: {
   readonly scopeId: string;
+  readonly viewKey: string;
   readonly layoutRevision: number;
   /** Cleared by the parent through onFocusHandled, so a remount does not repeat it. */
   readonly focus: FocusRequest | null;
   readonly onFocusHandled: () => void;
 }) {
   const { fitView, getNodes } = useReactFlow();
-  const previousScopeId = useRef(scopeId);
+  const previousScopeId = useRef(`${scopeId}\0${viewKey}`);
   // The first fit waits for the first finished layout (#104). Revision 0 means
   // layoutBlocks has not placed any node yet.
   const nextLayoutRevision = useRef(Math.max(layoutRevision, 1));
   const waitingForLayout = useRef(true);
 
   useEffect(() => {
-    if (previousScopeId.current !== scopeId) {
-      previousScopeId.current = scopeId;
+    const fitKey = `${scopeId}\0${viewKey}`;
+    if (previousScopeId.current !== fitKey) {
+      previousScopeId.current = fitKey;
       nextLayoutRevision.current = layoutRevision + 1;
       waitingForLayout.current = true;
     }
@@ -523,7 +540,7 @@ function FitOnScopeChange({
       return () => cancelAnimationFrame(frame);
     }
     return undefined;
-  }, [fitView, focus, getNodes, layoutRevision, onFocusHandled, scopeId]);
+  }, [fitView, focus, getNodes, layoutRevision, onFocusHandled, scopeId, viewKey]);
 
   return null;
 }
@@ -576,6 +593,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setDepthWorkspaceId(mapKey);
     setMapDepth(mapKey === null ? DEFAULT_MAP_DEPTH : readMapDepth(mapDepthStorage(), mapKey));
   }
+  const [mapView, setMapView] = useState<MapView>("modules");
+  const [viewWorkspaceId, setViewWorkspaceId] = useState<string | null>(null);
+  if (mapKey !== viewWorkspaceId) {
+    setViewWorkspaceId(mapKey);
+    setMapView(mapKey === null ? "modules" : readMapView(mapDepthStorage(), mapKey));
+  }
+  const [fileScope, setFileScope] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
   const [activeGroupId, setActiveGroupId] = useState("");
@@ -852,14 +876,43 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     : rootId.length > 0 ? [rootId] : [];
   const scopeId = validPath.at(-1) ?? rootId;
   const scope = map?.blockById.get(scopeId) ?? (map === null ? undefined : map.blockById.get(rootId));
+  const fileScopeResetKey = `${mapKey ?? ""}:${scopeId}`;
+  const fileScopeResetKeyRef = useRef(fileScopeResetKey);
+  useEffect(() => {
+    if (fileScopeResetKeyRef.current === fileScopeResetKey) return;
+    fileScopeResetKeyRef.current = fileScopeResetKey;
+    setFileScope("");
+  }, [fileScopeResetKey]);
   const scopeChildren = useMemo(() => scope?.children
     .map((id) => map?.blockById.get(id))
     .filter((block): block is DisplayBlock => block !== undefined) ?? [], [map, scopeId]);
+  const fileTree = useMemo(() => {
+    if (map === null || scope === undefined || mapView !== "files") return null;
+    return buildFileTree(scope, map.blockById);
+  }, [map, mapView, scope]);
+  const fileRoot = useMemo(() => {
+    if (fileTree === null || scope === undefined) return undefined;
+    if (fileScope === "") return fileTree.nodeById.get(scope.id);
+    return fileTree.nodeById.get(folderNodeId(fileScope)) ?? fileTree.nodeById.get(scope.id);
+  }, [fileScope, fileTree, scope]);
   const visibleBlocks = useMemo(() => {
     if (scope === undefined || map === null) return [];
-    return blocksWithinDepth(scope, mapDepth, map.blockById);
-  }, [map, mapDepth, scope]);
-  const connectionsInScope = displayConnections(scopeId, visibleBlocks, map?.connections ?? []);
+    if (mapView === "modules" || fileTree === null || fileRoot === undefined) {
+      return blocksWithinDepth(scope, mapDepth, map.blockById);
+    }
+    return blocksWithinDepth(fileRoot, mapDepth, fileTree.nodeById)
+      .map((node) => fileTreeDisplayBlock(node, map.blockById))
+      .filter((block): block is DisplayBlock => block !== null);
+  }, [fileRoot, fileTree, map, mapDepth, mapView, scope]);
+  const graphConnections = useMemo(() => {
+    if (map === null) return [];
+    if (mapView !== "files" || fileTree === null) return map.connections;
+    return [
+      ...fileTreeContainsEdges(fileTree),
+      ...map.connections.filter((connection) => connection.kind === "depends_on"),
+    ];
+  }, [fileTree, map, mapView]);
+  const connectionsInScope = displayConnections(scopeId, visibleBlocks, graphConnections);
   const selected = map?.nodeById.get(selectedId) ?? scope;
   const activeFeature = activeFeatureId === null ? undefined : map?.nodeById.get(activeFeatureId);
   const activeFeatureMembers = useMemo(() => activeFeature?.virtual === true ? new Set(activeFeature.memberIds) : null, [activeFeature]);
@@ -931,7 +984,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       return;
     }
     setGraphError("");
-    layoutBlocks({ blocks: visibleBlocks, connections: map.connections })
+    layoutBlocks({ blocks: visibleBlocks, connections: graphConnections })
       .then((graph) => {
         if (!cancelled) {
           setBaseGraph(graph);
@@ -942,17 +995,26 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
       });
     return () => { cancelled = true; };
-  }, [map, scopeId, visibleBlocks]);
+  }, [graphConnections, map, scopeId, visibleBlocks]);
 
   const activateBlock = useCallback((block: DisplayBlock) => {
+    const folderPath = folderPathFromId(block.id);
+    if (folderPath !== null) {
+      setFileScope(folderPath);
+      setActiveFeatureId(null);
+      setActiveNodeId(null);
+      return;
+    }
     setSelectedId(block.id);
     setActiveFeatureId(null);
     setActiveNodeId(null);
+    if (mapView === "files") return;
     if (block.children.length > 0) setScopePath((current) => current.at(-1) === block.id ? current : [...current, block.id]);
-  }, []);
+  }, [mapView]);
 
   const openBlockInspector = useCallback((block: DisplayBlock) => {
     activateBlock(block);
+    if (folderPathFromId(block.id) !== null) return;
     if (mapSource.editor !== undefined) {
       setInspectedBlockId(block.id);
       setEditorActionError("");
@@ -961,6 +1023,15 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
   }, [activateBlock, mapSource.editor]);
 
+  const graphChanges = useMemo(() => {
+    if (commitDiff.kind !== "ready") return undefined;
+    if (mapView !== "files" || fileTree === null) return commitDiff.byBlock;
+    const direct = new Map<string, { added: number; removed: number }>();
+    for (const [id, change] of commitDiff.byBlock) {
+      if (change.direct) direct.set(id, { added: change.added, removed: change.removed });
+    }
+    return rollupAlongParents(direct, fileTree.parentOf);
+  }, [commitDiff, fileTree, mapView]);
   const graph = useMemo(() => emphasizeGraph({
     nodes: baseGraph.nodes,
     edges: baseGraph.edges,
@@ -972,8 +1043,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     noteTextById,
     onOpenNote: openNoteFor,
     onContextMenu: showBlockMenu,
-    ...(commitDiff.kind === "ready" ? { changes: commitDiff.byBlock } : {}),
-  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, noteTextById, openNoteFor, showBlockMenu, commitDiff]);
+    ...(graphChanges === undefined ? {} : { changes: graphChanges }),
+  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, noteTextById, openNoteFor, showBlockMenu, graphChanges]);
 
   const noteTargetId = inspectedBlockId ?? (map?.blockById.has(selectedId) === true ? selectedId : null);
   useEffect(() => {
@@ -1019,9 +1090,20 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, [map, mapSource.editor]);
 
   const onNodeClick: NodeMouseHandler<MapNode> = useCallback((_event, node) => {
-    const block = map?.blockById.get(node.id);
-    if (block !== undefined) openBlockInspector(block);
-  }, [map, openBlockInspector]);
+    openBlockInspector(node.data.block);
+  }, [openBlockInspector]);
+  const chooseMapView = useCallback((next: MapView) => {
+    setMapView(next);
+    if (mapKey !== null) writeMapView(mapDepthStorage(), mapKey, next);
+    if (map === null || scope === undefined) return;
+    const block = map.blockById.get(selectedId);
+    if (next === "files") {
+      setFileScope(block === undefined ? "" : fileScopeForBlock(block.sourcePath, scopeDirectory(scope.sourcePath)));
+    }
+    if (block !== undefined) {
+      setFocusRequest((current) => ({ blockId: block.id, sequence: (current?.sequence ?? 0) + 1 }));
+    }
+  }, [map, mapKey, scope, selectedId]);
 
   useEffect(() => {
     const editor = mapSource.editor;
@@ -1095,6 +1177,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const chooseBreadcrumb = (index: number) => {
     const path = validPath.slice(0, index + 1);
     setScopePath(path);
+    setFileScope("");
     setSelectedId(path.at(-1) ?? rootId);
     setActiveFeatureId(null);
     setActiveNodeId(null);
@@ -1139,6 +1222,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }
 
   const currentCrumbNames = validPath.map((id) => map.blockById.get(id)).filter((item): item is DisplayBlock => item !== undefined);
+  const fileCrumbs = mapView !== "files" || scope === undefined ? [] : fileScopeCrumbs(fileScope, scopeDirectory(scope.sourcePath));
   const nodeSearch = map.nodes;
   const handleSearchKey = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Escape") setSearch("");
@@ -1213,8 +1297,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const graphCanvas = (
     <div className="graph-canvas" aria-label={`${map.facts.project.name} architecture map`}>
       <div className="canvas-watermark">
-        <span>{scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
+        <span>{mapView === "files" ? "FILE TREE" : scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
         <span className="map-depth-controls">
+          <div className="map-view" role="group" aria-label="Map view">
+            <button type="button" aria-pressed={mapView === "modules"} onClick={() => chooseMapView("modules")}>Modules</button>
+            <button type="button" aria-pressed={mapView === "files"} onClick={() => chooseMapView("files")}>Files</button>
+          </div>
           <label className="map-depth">
             Depth
             <select
@@ -1226,14 +1314,19 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                 if (mapKey !== null) writeMapDepth(mapDepthStorage(), mapKey, next);
               }}
             >
-              {(scope === undefined || map === null ? [DEFAULT_MAP_DEPTH, "all" as const] : depthOptions(subtreeDepth(scope, map.blockById), mapDepth)).map((choice) => (
+              {(scope === undefined || map === null ? [DEFAULT_MAP_DEPTH, "all" as const] : depthOptions(
+                mapView === "files" && fileRoot !== undefined && fileTree !== null
+                  ? subtreeDepth(fileRoot, fileTree.nodeById)
+                  : subtreeDepth(scope, map.blockById),
+                mapDepth,
+              )).map((choice) => (
                 <option key={String(choice)} value={choice === "all" ? "all" : String(choice)}>
                   {choice === "all" ? "All" : String(choice)}
                 </option>
               ))}
             </select>
           </label>
-          <span className="child-count">{scopeChildren.length} direct children</span>
+          <span className="child-count">{mapView === "files" && fileRoot !== undefined ? fileRoot.children.length : scopeChildren.length} direct children</span>
         </span>
       </div>
       {graphError.length > 0 ? (
@@ -1261,7 +1354,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             layoutRevision={layoutRevision}
             getSavedViewport={getSavedViewport}
           />
-          <FitOnScopeChange scopeId={scopeId} layoutRevision={layoutRevision} focus={focusRequest} onFocusHandled={clearFocusRequest} />
+          <FitOnScopeChange
+            scopeId={mapView === "files" && fileRoot !== undefined ? fileRoot.id : scopeId}
+            viewKey={mapView === "files" ? `files:${fileScope}` : "modules"}
+            layoutRevision={layoutRevision}
+            focus={focusRequest}
+            onFocusHandled={clearFocusRequest}
+          />
           <Background color={theme === "blueprint" ? "rgba(227,238,255,.22)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
           <Controls showInteractive={false} position="bottom-left" />
         </ReactFlow>
@@ -1300,7 +1399,24 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           {currentCrumbNames.map((crumb, index) => (
             <span className="breadcrumb-segment" key={crumb.id}>
               {index > 0 && <ChevronRight size={13} />}
-              <button className={index === currentCrumbNames.length - 1 ? "current" : ""} type="button" onClick={() => chooseBreadcrumb(index)}>{crumb.label}</button>
+              <button className={index === currentCrumbNames.length - 1 && fileCrumbs.length === 0 ? "current" : ""} type="button" onClick={() => chooseBreadcrumb(index)}>{crumb.label}</button>
+            </span>
+          ))}
+          {fileCrumbs.map((crumb, index) => (
+            <span className="breadcrumb-segment" key={`${crumb}:${index}`}>
+              <ChevronRight size={13} />
+              <button
+                className={index === fileCrumbs.length - 1 ? "current" : ""}
+                type="button"
+                onClick={() => {
+                  if (scope === undefined) return;
+                  const scopeDir = scopeDirectory(scope.sourcePath);
+                  const relative = fileCrumbs.slice(0, index + 1).join("/");
+                  setFileScope(scopeDir === "" ? relative : `${scopeDir}/${relative}`);
+                  setActiveFeatureId(null);
+                  setActiveNodeId(null);
+                }}
+              >{crumb}</button>
             </span>
           ))}
         </nav>
