@@ -253,9 +253,8 @@ impl EditorPlatform {
         match self {
             Self::MacOs => Some(EditorCommand::default_handler("open", target)),
             Self::Linux => Some(EditorCommand::default_handler("xdg-open", target)),
-            // `start` is a cmd builtin, so the whole line is built as one raw
-            // argument: cmd re-parses its arguments, and only an explicitly
-            // quoted path survives metacharacters such as `&` or `%`.
+            // `start` is a cmd builtin, so the line is one raw argument.
+            // cmd re-parses it, and a quoted path is still subject to `%` expansion.
             Self::Windows => Some(EditorCommand {
                 program: "cmd".to_owned(),
                 arguments: Vec::new(),
@@ -275,15 +274,30 @@ struct EditorCommand {
     raw_argument: Option<String>,
 }
 
-// The empty second argument is the window title, so the quoted path is not
-// swallowed as that title. `%` is doubled so cmd does not expand it, and a
-// quote is doubled, which is how cmd escapes one inside a quoted string.
+// The empty argument is the window title, so a quoted path is not taken as that
+// title. `%`, `^`, `!`, and `"` are closed out of the quotes and caret-escaped:
+// `%%` is batch syntax, and on a `cmd /C` line it still expands variables.
 fn windows_start_argument(path: &Path) -> String {
-    let escaped = path
-        .to_string_lossy()
-        .replace('%', "%%")
-        .replace('"', "\"\"");
-    format!("/C start \"\" \"{escaped}\"")
+    format!(
+        "/C start \"\" {}",
+        windows_cmd_quoted(&path.to_string_lossy())
+    )
+}
+
+fn windows_cmd_quoted(text: &str) -> String {
+    let mut quoted = String::from("\"");
+    for ch in text.chars() {
+        if matches!(ch, '%' | '^' | '!' | '"') {
+            quoted.push('"');
+            quoted.push('^');
+            quoted.push(ch);
+            quoted.push('"');
+        } else {
+            quoted.push(ch);
+        }
+    }
+    quoted.push('"');
+    quoted
 }
 
 impl EditorCommand {
@@ -717,9 +731,50 @@ mod tests {
             &EditorCommand {
                 program: "cmd".to_owned(),
                 arguments: Vec::new(),
-                raw_argument: Some("/C start \"\" \"C:\\a&calc&%%OS%%\\lib.rs\"".to_owned()),
+                raw_argument: Some(
+                    "/C start \"\" \"C:\\a&calc&\"^%\"OS\"^%\"\\lib.rs\"".to_owned(),
+                ),
             }
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_cmd_quoting_roundtrips_through_cmd() {
+        use std::os::windows::process::CommandExt;
+        use std::process::Command;
+
+        let root = temporary_directory("cmd-quote");
+        fs::create_dir_all(&root).expect("fixture folder should be created");
+        let names = [
+            "plain.rs",
+            "project with spaces.rs",
+            "a&calc&%OS%.rs",
+            "100%.rs",
+            "a^b&c%d e(f).rs",
+            "bang!name.rs",
+        ];
+        for name in names {
+            let path = root.join(name);
+            fs::write(&path, "pub fn value() -> u8 { 1 }\n")
+                .expect("fixture file should be written");
+            let quoted = super::windows_cmd_quoted(&path.to_string_lossy());
+            let output = Command::new("cmd")
+                .raw_arg(format!("/C dir /b {quoted}"))
+                .output()
+                .expect("cmd should run");
+            assert!(
+                output.status.success(),
+                "cmd failed for {name}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert_eq!(
+                String::from_utf8_lossy(&output.stdout).trim(),
+                name,
+                "cmd parsed {quoted} as a different path"
+            );
+        }
+        fs::remove_dir_all(&root).expect("fixture folder should be removed");
     }
 
     #[test]
