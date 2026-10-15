@@ -1,9 +1,10 @@
 use lightwell_core::{
-    block_diff, commit_changes, extract_cargo_map, open_block, project_notes_for_map,
-    recent_commits, remove_project_note, resolve_block_target, set_project_note_for_map,
-    update_project_note_text, BlockDiffDocument, CommitChanges, CommitSummary, EditorSettings,
-    EditorTemplatePreset, FactMap, MapWatchError, MapWatcher, NotesError, ProjectNoteView,
-    EDITOR_TEMPLATE_PRESETS,
+    block_diff, commit_changes, discover_cargo_workspace, extract_cargo_map, open_target,
+    project_notes_for_map, recent_commits, remove_project_note, resolve_block_target,
+    resolve_block_target_in_map, set_project_note_for_map, update_project_note_text,
+    BlockDiffDocument, CommitChanges, CommitSummary, EditorError, EditorSettings, EditorTarget,
+    EditorTemplatePreset, FactMap, MapExtractionError, MapWatchError, MapWatcher, NotesError,
+    ProjectNoteView, EDITOR_TEMPLATE_PRESETS,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -75,6 +76,29 @@ impl WorkspaceWatchers {
             None => extract_cargo_map(root, None).map_err(|error| error.to_string()),
         }
     }
+
+    /// Resolve a block against the watched map when one is running. Rebuilding
+    /// the map runs cargo metadata and re-extracts every module, which made each
+    /// source inspection slow.
+    fn resolve_block(&self, root: &Path, block_id: &str) -> Result<EditorTarget, String> {
+        let current = self
+            .0
+            .lock()
+            .map_err(|_| "The workspace watcher registry is unavailable.".to_owned())?
+            .get(root)
+            .cloned();
+        let Some(current) = current else {
+            return resolve_block_target(root, block_id).map_err(|error| error.to_string());
+        };
+        let facts = current
+            .read()
+            .map_err(|_| "The workspace map cache is unavailable.".to_owned())?;
+        resolve_block_target_in_map(root, &facts, block_id, || {
+            discover_cargo_workspace(root)
+                .map_err(|error| EditorError::from(MapExtractionError::from(error)))
+        })
+        .map_err(|error| error.to_string())
+    }
 }
 
 /// Commits offered by the commit picker.
@@ -140,11 +164,12 @@ pub fn load_workspace_map(app: AppHandle, path: String) -> Result<WorkspaceMapDo
 
 #[tauri::command(async)]
 pub fn inspect_block(
+    watchers: State<'_, WorkspaceWatchers>,
     workspace_path: String,
     block_id: String,
 ) -> Result<SourceFileDocument, String> {
     let root = workspace_root(&workspace_path)?;
-    let target = resolve_block_target(&root, &block_id).map_err(|error| error.to_string())?;
+    let target = watchers.resolve_block(&root, &block_id)?;
     let content = fs::read_to_string(&target.path).map_err(|error| {
         format!(
             "Could not read source file {}: {error}",
@@ -168,12 +193,14 @@ pub fn inspect_block(
 #[tauri::command(async)]
 pub fn open_block_in_editor(
     app: AppHandle,
+    watchers: State<'_, WorkspaceWatchers>,
     workspace_path: String,
     block_id: String,
 ) -> Result<(), String> {
     let root = workspace_root(&workspace_path)?;
     let settings = read_editor_settings(&editor_settings_path(&app)?)?;
-    open_block(&root, &block_id, &settings).map_err(|error| error.to_string())
+    let target = watchers.resolve_block(&root, &block_id)?;
+    open_target(&target, &settings).map_err(|error| error.to_string())
 }
 
 #[tauri::command]

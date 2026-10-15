@@ -222,7 +222,7 @@ function SearchResults({
             <span className="result-title">{node.label}</span>
             <span className="result-path">{node.virtual ? node.pathLabel : node.sourcePath ?? "workspace"}</span>
           </span>
-          <span className={`result-status status-${node.status}`}>{node.status}</span>
+          {node.annotationState !== "missing" && <span className={`result-status status-${node.status}`}>{node.status}</span>}
         </button>
       ))}
     </div>
@@ -269,7 +269,7 @@ function DetailsPanel({
     return (
       <aside className="details-panel">
         <div className="detail-kicker"><span className="kind-dot feature-dot" /> FEATURE GROUP</div>
-        <div className="detail-title-row"><h2>{node.label}</h2><span className={`status-pill status-${node.status}`}>{formatStatus(node.status)}</span></div>
+        <div className="detail-title-row"><h2>{node.label}</h2>{node.annotationState !== "missing" && <span className={`status-pill status-${node.status}`}>{formatStatus(node.status)}</span>}</div>
         <p className="detail-description">{node.description}</p>
         {node.annotationState === "changed" && <div className="stale-note"><CircleAlert size={14} /> Source changed since this note was written.</div>}
         <div className="detail-divider" />
@@ -295,7 +295,7 @@ function DetailsPanel({
   return (
     <aside className="details-panel">
       <div className="detail-kicker"><span className={`kind-dot dot-${node.annotationKind.toLowerCase()}`} /> {node.annotationKind} <span className="detail-kicker-muted">/ {kindLabel(node)}</span></div>
-      <div className="detail-title-row"><h2>{node.label}</h2><span className={`status-pill status-${node.status}`}>{formatStatus(node.status)}</span></div>
+      <div className="detail-title-row"><h2>{node.label}</h2>{node.annotationState !== "missing" && <span className={`status-pill status-${node.status}`}>{formatStatus(node.status)}</span>}</div>
       <p className="detail-description">{node.description}</p>
       {node.annotationState === "changed" && <div className="stale-note"><CircleAlert size={14} /> Code changed since this note was written.</div>}
       {node.annotationState === "missing" && <div className="stale-note"><CircleAlert size={14} /> Add a description to the annotation overlay.</div>}

@@ -17,8 +17,8 @@ pub use diff::{
     CommitSummary, DiffError, FileChange,
 };
 pub use editor::{
-    open_block, resolve_block_target, EditorError, EditorSettings, EditorTarget,
-    EditorTemplatePreset, SourcePosition, EDITOR_TEMPLATE_PRESETS,
+    open_block, open_target, resolve_block_target, resolve_block_target_in_map, EditorError,
+    EditorSettings, EditorTarget, EditorTemplatePreset, SourcePosition, EDITOR_TEMPLATE_PRESETS,
 };
 pub use extract::{extract_cargo_map, project_manifest, MapExtractionError};
 pub use facts::{

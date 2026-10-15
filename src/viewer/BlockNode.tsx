@@ -71,7 +71,8 @@ function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
       <Handle type="target" position={Position.Top} isConnectable={false} />
       <div className="node-topline">
         <span className="node-kind">{block.annotationKind}</span>
-        <span className={`status-pill status-${block.status}`}>{statusLabel(block.status)}</span>
+        {/* Unannotated blocks default to wip in the model; show no status for them. */}
+        {block.annotationState !== "missing" && <span className={`status-pill status-${block.status}`}>{statusLabel(block.status)}</span>}
       </div>
       <div className="node-name-row">
         <span className="node-icon"><Layers3 size={14} strokeWidth={1.8} /></span>
