@@ -437,12 +437,23 @@ const FIT_NEAREST_CHILDREN = 8;
  * each scope change. Fitting every child of a wide scope (80+ crates in one row)
  * zooms out until the cards cannot be read.
  */
+/** A one-time request to center and zoom on a block, such as from Show on map. */
+export interface FocusRequest {
+  readonly blockId: string;
+  readonly sequence: number;
+}
+
 function FitOnScopeChange({
   scopeId,
   layoutRevision,
+  focus,
+  onFocusHandled,
 }: {
   readonly scopeId: string;
   readonly layoutRevision: number;
+  /** Cleared by the parent through onFocusHandled, so a remount does not repeat it. */
+  readonly focus: FocusRequest | null;
+  readonly onFocusHandled: () => void;
 }) {
   const { fitView, getNodes } = useReactFlow();
   const previousScopeId = useRef(scopeId);
@@ -456,6 +467,21 @@ function FitOnScopeChange({
       previousScopeId.current = scopeId;
       nextLayoutRevision.current = layoutRevision + 1;
       waitingForLayout.current = true;
+    }
+    const pendingFocus = focus;
+    const layoutReady = !waitingForLayout.current || layoutRevision >= nextLayoutRevision.current;
+    if (pendingFocus !== null && layoutReady) {
+      waitingForLayout.current = false;
+      const frame = requestAnimationFrame(() => {
+        // Cleared only once the fit runs: a re-render before the frame retries it.
+        onFocusHandled();
+        if (getNodes().some((node) => node.id === pendingFocus.blockId)) {
+          void fitView({ nodes: [{ id: pendingFocus.blockId }], padding: 0.35, minZoom: 0.5, maxZoom: 1.2, duration: 250 });
+        } else {
+          void fitView({ ...GRAPH_FIT_OPTIONS, duration: 200 });
+        }
+      });
+      return () => cancelAnimationFrame(frame);
     }
     if (waitingForLayout.current && layoutRevision >= nextLayoutRevision.current) {
       waitingForLayout.current = false;
@@ -478,7 +504,7 @@ function FitOnScopeChange({
       return () => cancelAnimationFrame(frame);
     }
     return undefined;
-  }, [fitView, getNodes, layoutRevision, scopeId]);
+  }, [fitView, focus, getNodes, layoutRevision, onFocusHandled, scopeId]);
 
   return null;
 }
@@ -536,6 +562,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [editorActionError, setEditorActionError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
+  const clearFocusRequest = useCallback(() => setFocusRequest(null), []);
   const [wordWrap, setWordWrap] = useState(readWordWrapPreference);
   const [wordWrapShortcut, setWordWrapShortcut] = useState(readWordWrapShortcut);
   const changeWordWrapShortcut = useCallback((shortcut: string) => {
@@ -880,6 +908,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const selectSearchNode = useCallback((node: DisplayNode) => {
     setSearch("");
     setActiveNodeId(null);
+    setFocusRequest((current) => ({ blockId: node.id, sequence: (current?.sequence ?? 0) + 1 }));
     if (node.virtual) {
       setInspectedBlockId(null);
       setSelectedId(node.id);
@@ -1122,7 +1151,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             layoutRevision={layoutRevision}
             getSavedViewport={getSavedViewport}
           />
-          <FitOnScopeChange scopeId={scopeId} layoutRevision={layoutRevision} />
+          <FitOnScopeChange scopeId={scopeId} layoutRevision={layoutRevision} focus={focusRequest} onFocusHandled={clearFocusRequest} />
           <Background color={theme === "blueprint" ? "rgba(227,238,255,.22)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
           <Controls showInteractive={false} position="bottom-left" />
         </ReactFlow>
