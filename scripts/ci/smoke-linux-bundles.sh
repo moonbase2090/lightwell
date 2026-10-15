@@ -17,9 +17,9 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 dist_dir="$(cd "${4:-$script_dir/../../dist}" && pwd)"
 
 appimage="$bundle_dir/Lightwell_${version}_amd64.AppImage"
-rpm="$bundle_dir/Lightwell-${version}-1.x86_64.rpm"
+rpm="$bundle_dir/Lightwell_${version}_x86_64.rpm"
 deb="$bundle_dir/Lightwell_${version}_amd64.deb"
-tarball="$bundle_dir/lightwell-${version}-linux-x86_64.tar.gz"
+tarball="$bundle_dir/Lightwell_${version}_linux_x86_64.tar.gz"
 for asset in "$appimage" "$rpm" "$deb" "$tarball"; do
   [[ -f "$asset" ]] || { printf 'missing release asset: %s\n' "$asset" >&2; exit 1; }
 done

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build lightwell-<version>-linux-<arch>.tar.gz from a CLI binary and an
+# Build Lightwell_<version>_linux_<arch>.tar.gz from a CLI binary and an
 # optional desktop app binary.
 set -euo pipefail
 
@@ -16,7 +16,7 @@ case "$arch" in
   *) printf 'unsupported tarball architecture: %s\n' "$arch" >&2; exit 2 ;;
 esac
 
-name="lightwell-$version-linux-$arch"
+name="Lightwell_${version}_linux_${arch}"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 # The archive unpacks to lightwell/; the asset name carries the version.

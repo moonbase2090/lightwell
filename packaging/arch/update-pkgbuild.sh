@@ -5,7 +5,7 @@ set -euo pipefail
 
 version="${1:?Usage: update-pkgbuild.sh VERSION}"
 pkgbuild="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/PKGBUILD"
-tarball="lightwell-${version}-linux-x86_64.tar.gz"
+tarball="Lightwell_${version}_linux_x86_64.tar.gz"
 sums="$(curl -fsSL "https://github.com/moonbase2090/lightwell/releases/download/v${version}/SHA256SUMS")"
 sum="$(printf '%s\n' "$sums" | awk -v name="$tarball" '$2 == name { print $1 }')"
 if [[ ! "$sum" =~ ^[0-9a-f]{64}$ ]]; then

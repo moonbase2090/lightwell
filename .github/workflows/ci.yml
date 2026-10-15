@@ -228,6 +228,8 @@ jobs:
       - name: Install cargo-zigbuild
         run: cargo install --locked cargo-zigbuild --version 0.23.4
       - run: npm ci
+      - name: Keep build machine paths out of the binaries, as the release does
+        run: echo "RUSTFLAGS=--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build" >> "$GITHUB_ENV"
       - name: Build the Linux packages for the GLIBC 2.28 floor
         env:
           APPIMAGE_EXTRACT_AND_RUN: '1'
@@ -329,7 +331,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/dist-linux"
           cp target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-app"
           scripts/ci/build-linux-cli.sh x86_64-unknown-linux-gnu
-          cp "$bundle"/deb/*.deb "$bundle"/appimage/*.AppImage "$bundle"/rpm/*.rpm "$RUNNER_TEMP/dist-linux/"
+          cp "$bundle"/deb/*.deb "$bundle"/appimage/*.AppImage "$RUNNER_TEMP/dist-linux/"
+          cp "$bundle/rpm/Lightwell-${version}-1.x86_64.rpm" "$RUNNER_TEMP/dist-linux/Lightwell_${version}_x86_64.rpm"
           scripts/ci/package-linux-tarball.sh "$version" x86_64 \
             target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-app" "$RUNNER_TEMP/dist-linux"
           ls -l "$RUNNER_TEMP/dist-linux"
