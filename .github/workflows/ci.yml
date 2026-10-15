@@ -219,12 +219,14 @@ jobs:
       - name: Install Tauri Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential curl file imagemagick libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config xvfb xdotool
+          sudo apt-get install -y build-essential curl file imagemagick libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config xvfb xdotool rpm2cpio cpio
       - name: Install cargo-zigbuild
         run: cargo install --locked cargo-zigbuild --version 0.23.4
       - run: npm ci
-      - name: Build the Linux package for the GLIBC 2.28 floor
-        run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb --no-sign
+      - name: Build the Linux packages for the GLIBC 2.28 floor
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb,appimage,rpm --no-sign
       - name: Capture the empty workspace screen from the built app
         run: scripts/ci/capture-open-workspace.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-open-workspace.png"
       - uses: actions/upload-artifact@v4
@@ -313,10 +315,25 @@ jobs:
         run: scripts/ci/check-deb-glibc.sh target/x86_64-unknown-linux-gnu/release/bundle/deb 2.28
       - name: Open the packaged desktop app on WebKitGTK 4.1
         run: scripts/ci/smoke-deb-gui.sh target/x86_64-unknown-linux-gnu/release/bundle/deb "$RUNNER_TEMP/lightwell-deb-gui.png"
+      - name: Package the CLI and desktop app tarball
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          echo "LIGHTWELL_VERSION=$version" >> "$GITHUB_ENV"
+          bundle=target/x86_64-unknown-linux-gnu/release/bundle
+          mkdir -p "$RUNNER_TEMP/dist-linux"
+          cp target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-app"
+          scripts/ci/build-linux-cli.sh x86_64-unknown-linux-gnu
+          cp "$bundle"/deb/*.deb "$bundle"/appimage/*.AppImage "$bundle"/rpm/*.rpm "$RUNNER_TEMP/dist-linux/"
+          scripts/ci/package-linux-tarball.sh "$version" x86_64 \
+            target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-app" "$RUNNER_TEMP/dist-linux"
+          ls -l "$RUNNER_TEMP/dist-linux"
+      - name: Smoke the AppImage, rpm, deb, and tarball headless
+        run: scripts/ci/smoke-linux-bundles.sh "$LIGHTWELL_VERSION" "$RUNNER_TEMP/dist-linux" "$RUNNER_TEMP/linux-smoke"
       - uses: actions/upload-artifact@v4
         with:
           name: lightwell-linux-x86_64-glibc-2.28
-          path: target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+          path: ${{ runner.temp }}/dist-linux/*
           if-no-files-found: error
 
   windows-check:

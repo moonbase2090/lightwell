@@ -1,0 +1,21 @@
+# Installs Lightwell from the portable Linux tarball on the GitHub release.
+# Build with: makepkg -si
+pkgname=lightwell-bin
+pkgver=0.1.8
+pkgrel=1
+pkgdesc='Live code map for Rust, web and Python projects'
+arch=('x86_64')
+url='https://github.com/moonbase2090/lightwell'
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3')
+provides=('lightwell')
+conflicts=('lightwell')
+source=("https://github.com/moonbase2090/lightwell/releases/download/v${pkgver}/lightwell-${pkgver}-linux-x86_64.tar.gz")
+# Replace SKIP with the tarball's line from SHA256SUMS on the release.
+sha256sums=('SKIP')
+
+package() {
+  cd "lightwell-${pkgver}-linux-x86_64"
+  DESTDIR="$pkgdir" PREFIX=/usr ./install.sh
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
