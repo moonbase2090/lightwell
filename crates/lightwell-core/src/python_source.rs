@@ -746,6 +746,7 @@ def load_widget():
         assert_eq!(symbols[0].kind, PythonSymbolKind::Function);
     }
 
+    #[cfg(unix)]
     #[test]
     fn a_symlink_outside_the_root_is_not_a_module() {
         let unique = SystemTime::now()

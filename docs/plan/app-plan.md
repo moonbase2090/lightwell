@@ -29,7 +29,7 @@ Project notes are on in default builds. Set `VITE_ENABLE_PROJECT_NOTES=false` wh
 
 ## Editor action
 
-Clicking a block opens its source in a read-only Monaco inspector, scrolled to that block. Use **Open in editor** to edit the file in another application. By default, launch the operating system's default app for that file type with `open` on macOS or `xdg-open` on Linux. Set an optional command template in the Editor settings panel; Lightwell stores it in the app's user configuration, outside the repository. The template may include file, line, and column placeholders. Ship a few ready-made templates for common launch forms, including JetBrains IDEs, Kiro, Zed, VS Code, Cursor, and vim in a terminal. These presets are examples, not an allowlist; accept arbitrary templates. If the OS handler or configured template cannot launch, or no handler is available, fall back to `VISUAL`, then `EDITOR`.
+Clicking a block opens its source in a read-only Monaco inspector, scrolled to that block. Use **Open in editor** to edit the file in another application. By default, launch the operating system's default app for that file type with `open` on macOS, `xdg-open` on Linux, or `cmd /C start` on Windows. Set an optional command template in the Editor settings panel; Lightwell stores it in the app's user configuration, outside the repository. The template may include file, line, and column placeholders. Ship a few ready-made templates for common launch forms, including JetBrains IDEs, Kiro, Zed, VS Code, Cursor, and vim in a terminal. These presets are examples, not an allowlist; accept arbitrary templates. If the OS handler or configured template cannot launch, or no handler is available, fall back to `VISUAL`, then `EDITOR`.
 
 ## Packaging
 

@@ -32,7 +32,7 @@ fn extraction_does_not_read_rust_sources_outside_opened_folder() {
     fs::write(
         workspace.join("src/lib.rs"),
         format!(
-            "#[path = \"{}\"]\nmod stolen;\n",
+            "#[path = r\"{}\"]\nmod stolen;\n",
             outside.join("secret.rs").display()
         ),
     )

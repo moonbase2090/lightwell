@@ -413,6 +413,7 @@ fn cargo_program() -> Command {
 mod tests {
     use super::{discover_cargo_workspace, CARGO_PROGRAM};
     use std::fs;
+    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -443,17 +444,31 @@ mod tests {
             Self { root }
         }
 
-        fn cargo_script(&self, script: &str) -> PathBuf {
+        fn cargo_script(&self, unix_script: &str, windows_script: &str) -> PathBuf {
             let bin_dir = self.root.join("bin");
             fs::create_dir_all(&bin_dir).expect("fake cargo folder should be created");
-            let program = bin_dir.join("cargo");
-            fs::write(&program, script).expect("fake cargo should be written");
-            let mut permissions = fs::metadata(&program)
-                .expect("fake cargo should have metadata")
-                .permissions();
-            permissions.set_mode(0o755);
-            fs::set_permissions(&program, permissions).expect("fake cargo should be executable");
-            program
+            // Windows CreateProcess cannot run a shebang script. A .cmd stub
+            // exits with the same status and stderr the discovery code checks.
+            #[cfg(unix)]
+            {
+                let _ = windows_script;
+                let program = bin_dir.join("cargo");
+                fs::write(&program, unix_script).expect("fake cargo should be written");
+                let mut permissions = fs::metadata(&program)
+                    .expect("fake cargo should have metadata")
+                    .permissions();
+                permissions.set_mode(0o755);
+                fs::set_permissions(&program, permissions)
+                    .expect("fake cargo should be executable");
+                program
+            }
+            #[cfg(windows)]
+            {
+                let _ = unix_script;
+                let program = bin_dir.join("cargo.cmd");
+                fs::write(&program, windows_script).expect("fake cargo should be written");
+                program
+            }
         }
     }
 
@@ -481,9 +496,26 @@ mod tests {
     #[test]
     fn cargo_exit_127_uses_the_manifest() {
         let fixture = Fixture::new("missing");
-        let _override = CargoOverride::set(fixture.cargo_script("#!/bin/sh\nexit 127\n"));
-        let workspace = discover_cargo_workspace(&fixture.root)
-            .expect("a missing cargo should fall back to the manifest");
+        let _override = CargoOverride::set(
+            fixture.cargo_script("#!/bin/sh\nexit 127\n", "@echo off\r\nexit /b 127\r\n"),
+        );
+        // A freshly written script can return ETXTBSY for a moment on Linux.
+        let mut workspace = None;
+        for attempt in 0..5 {
+            match discover_cargo_workspace(&fixture.root) {
+                Ok(discovered) => {
+                    workspace = Some(discovered);
+                    break;
+                }
+                Err(super::CargoDiscoveryError::CargoStart(source))
+                    if source.kind() == std::io::ErrorKind::ExecutableFileBusy && attempt < 4 =>
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(20 * (attempt as u64 + 1)));
+                }
+                Err(error) => panic!("a missing cargo should fall back to the manifest: {error}"),
+            }
+        }
+        let workspace = workspace.expect("a missing cargo should fall back to the manifest");
         assert_eq!(workspace.packages.len(), 1);
         assert_eq!(workspace.packages[0].name, "fallback-fixture");
         assert_eq!(
@@ -495,9 +527,10 @@ mod tests {
     #[test]
     fn cargo_exit_1_stays_a_discovery_failure() {
         let fixture = Fixture::new("failed");
-        let _override = CargoOverride::set(
-            fixture.cargo_script("#!/bin/sh\necho 'metadata exploded' >&2\nexit 1\n"),
-        );
+        let _override = CargoOverride::set(fixture.cargo_script(
+            "#!/bin/sh\necho 'metadata exploded' >&2\nexit 1\n",
+            "@echo off\r\necho metadata exploded 1>&2\r\nexit /b 1\r\n",
+        ));
         let message = discover_cargo_workspace(&fixture.root)
             .expect_err("a real cargo failure should stay visible")
             .to_string();

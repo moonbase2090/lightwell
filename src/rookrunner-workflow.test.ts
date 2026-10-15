@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { readRepoText } from "./test-tools.js";
 
-const text = readFileSync(new URL("../.github/workflows/rookrunner.yml", import.meta.url), "utf8");
+const text = readRepoText(new URL("../.github/workflows/rookrunner.yml", import.meta.url));
 
 function jobBlock(id: string): string {
   const start = text.indexOf(`\n  ${id}:\n`);

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { test } from "node:test";
+import { readRepoText } from "./test-tools.js";
 
-const text = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
+const text = readRepoText(new URL("../.github/workflows/ci.yml", import.meta.url));
 
 function jobBlock(id: string): string {
   const start = text.indexOf(`\n  ${id}:\n`);
@@ -27,4 +28,14 @@ test("the packaged desktop binary gets a GUI smoke, not an Amazon Linux run", ()
   assert.equal(block.includes("smoke-deb-al2023"), false);
   assert.equal(existsSync(new URL("../scripts/ci/smoke-deb-al2023.sh", import.meta.url)), false);
   assert.equal(existsSync(new URL("../scripts/ci/smoke-deb-gui.sh", import.meta.url)), true);
+});
+
+test("windows runs the npm suite and the cargo tests", () => {
+  const block = jobBlock("windows-check");
+  assert.match(block, /runs-on: windows-latest\n/);
+  assert.equal(block.includes("setup-mingw"), false);
+  assert.match(block, /npm test\n/);
+  assert.match(block, /cargo test -p lightwell-core --lib --locked/);
+  assert.match(block, /cargo test -p lightwell-cli --locked/);
+  assert.match(block, /cargo test -p lightwell-app --bin lightwell --locked/);
 });

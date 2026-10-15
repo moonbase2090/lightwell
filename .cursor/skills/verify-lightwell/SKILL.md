@@ -74,4 +74,19 @@ scripts/verify/browser-preview-proof.sh 127.0.0.1 "$PORT" /tmp/lightwell-verify-
 
 `cli-extract-proof.sh` prints `CLI smoke passed:` on success (same checks as `scripts/ci/smoke-cli.sh`). `browser-preview-proof.sh` expects preview already running on the given host and port.
 
+## Windows
+
+On Windows, `scripts/verify/doctor.sh` is a bash script. Run the same checks from the repository root with Node.js 22, Python 3, Git Bash, `ar` and `strings` on `PATH`, and the MSVC Rust toolchain:
+
+```powershell
+npm.cmd ci
+npm.cmd test
+npm.cmd run build
+cargo test -p lightwell-core --lib --locked
+cargo test -p lightwell-cli --locked
+cargo test -p lightwell-app --bin lightwell --locked
+```
+
+`npm test` runs the shell checks through Git Bash. Keep proof under `$env:TEMP\lightwell-verify-$RUN_ID\proof` and leave machine paths out of anything that will be published.
+
 After product changes to build commands, test commands, or primary user flows, run `/maintain-verification-skill`.

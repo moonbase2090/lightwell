@@ -106,7 +106,7 @@ description = "victim-marker"
         &format!(
             r#"
 [workspace]
-members = ["{}"]
+members = ['{}']
 resolver = "2"
 "#,
             victim.display()
