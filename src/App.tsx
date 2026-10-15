@@ -42,7 +42,7 @@ import SourceInspectorPanel, { type SourceInspectionState } from "./SourceInspec
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
-import { readWordWrapPreference, saveWordWrapPreference } from "./source-view-preferences.js";
+import { readWordWrapPreference, readWordWrapShortcut, saveWordWrapPreference, saveWordWrapShortcut } from "./source-view-preferences.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
 import NoteContextMenu, {
   addNoteShortcut,
@@ -537,6 +537,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
   const [wordWrap, setWordWrap] = useState(readWordWrapPreference);
+  const [wordWrapShortcut, setWordWrapShortcut] = useState(readWordWrapShortcut);
+  const changeWordWrapShortcut = useCallback((shortcut: string) => {
+    saveWordWrapShortcut(shortcut);
+    setWordWrapShortcut(shortcut);
+  }, []);
   const toggleWordWrap = useCallback(() => {
     setWordWrap((current) => {
       saveWordWrapPreference(!current);
@@ -1077,7 +1082,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         hasNote: notedBlockIds.has(noteMenuBlock.id),
         canOpen: noteMenu.line === undefined && mapSource.editor !== undefined,
         sourcePath: noteMenuBlock.sourcePath,
-        ...(noteMenu.line === undefined ? {} : { wordWrap }),
+        ...(noteMenu.line === undefined ? {} : { wordWrap, wordWrapShortcut }),
       })}
       onChoose={(action) => chooseNoteMenuAction(noteMenu, action)}
       onClose={closeNoteMenu}
@@ -1190,6 +1195,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       onOpenInEditor={() => { void handleOpenInEditor(); }}
       onClose={() => setInspectedBlockId(null)}
       wordWrap={wordWrap}
+      wordWrapShortcut={wordWrapShortcut}
       onToggleWordWrap={toggleWordWrap}
       {...(noteByBlockId.has(inspectedBlockId) ? { noteText: noteByBlockId.get(inspectedBlockId)!.text } : {})}
       {...(inspectedNoteAction === undefined ? {} : {
@@ -1348,6 +1354,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           themePreference={themePreference}
           theme={theme}
           onThemeChange={changeTheme}
+          wordWrapShortcut={wordWrapShortcut}
+          onWordWrapShortcutChange={changeWordWrapShortcut}
           onClose={closeSettingsPanel}
         />
       )}

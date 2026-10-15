@@ -22,6 +22,7 @@ export default function SourceInspectorPanel({
   onAddNote,
   noteText,
   wordWrap,
+  wordWrapShortcut,
   onToggleWordWrap,
   onLineContextMenu,
 }: {
@@ -38,6 +39,7 @@ export default function SourceInspectorPanel({
   /** The block's saved project note, shown above the source. */
   readonly noteText?: string;
   readonly wordWrap: boolean;
+  readonly wordWrapShortcut: string;
   readonly onToggleWordWrap: () => void;
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
 }) {
@@ -94,6 +96,7 @@ export default function SourceInspectorPanel({
               path={inspection.document.path}
               theme={theme}
               wordWrap={wordWrap}
+              wordWrapShortcut={wordWrapShortcut}
               onToggleWordWrap={onToggleWordWrap}
               {...(onLineContextMenu === undefined ? {} : { onLineContextMenu })}
             />

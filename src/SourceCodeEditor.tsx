@@ -3,6 +3,7 @@ import * as monaco from "monaco-editor-core";
 import EditorWorker from "./editor.worker.js?worker";
 import { monacoLanguageIdForPath, registerLanguagePackHighlighters } from "./languages/registry.js";
 import type { ResolvedTheme } from "./theme.js";
+import { parseShortcut } from "./source-view-preferences.js";
 
 interface MonacoWorkerWindow extends Window {
   MonacoEnvironment?: {
@@ -100,7 +101,8 @@ export interface SourceCodeEditorProps {
   readonly path: string;
   readonly theme: ResolvedTheme;
   readonly wordWrap: boolean;
-  /** Alt+Z in the editor, as in VS Code. */
+  /** Keyboard shortcut that toggles word wrap, such as "Alt+Z"; "" for none. */
+  readonly wordWrapShortcut: string;
   readonly onToggleWordWrap: () => void;
   /** When set, replaces the browser menu with the app's menu for the clicked or focused line. */
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
@@ -112,7 +114,23 @@ const monacoThemes = {
   blueprint: "lightwell-blueprint",
 } satisfies Record<ResolvedTheme, string>;
 
-export default function SourceCodeEditor({ content, line, column, path, theme, wordWrap, onToggleWordWrap, onLineContextMenu }: SourceCodeEditorProps) {
+/** Monaco keybinding for a shortcut. Ctrl is the Control key and Meta is Cmd or the Windows key on every platform. */
+function monacoKeybinding(text: string): number | null {
+  const shortcut = parseShortcut(text);
+  if (shortcut === null) return null;
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform);
+  const keyName = /^[A-Z]$/.test(shortcut.key) ? `Key${shortcut.key}` : /^[0-9]$/.test(shortcut.key) ? `Digit${shortcut.key}` : shortcut.key;
+  const keyCode = (monaco.KeyCode as unknown as Record<string, number | undefined>)[keyName];
+  if (keyCode === undefined) return null;
+  let binding = keyCode;
+  if (shortcut.ctrl) binding |= mac ? monaco.KeyMod.WinCtrl : monaco.KeyMod.CtrlCmd;
+  if (shortcut.meta) binding |= mac ? monaco.KeyMod.CtrlCmd : monaco.KeyMod.WinCtrl;
+  if (shortcut.alt) binding |= monaco.KeyMod.Alt;
+  if (shortcut.shift) binding |= monaco.KeyMod.Shift;
+  return binding;
+}
+
+export default function SourceCodeEditor({ content, line, column, path, theme, wordWrap, wordWrapShortcut, onToggleWordWrap, onLineContextMenu }: SourceCodeEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const themeRef = useRef(theme);
   themeRef.current = theme;
@@ -155,7 +173,8 @@ export default function SourceCodeEditor({ content, line, column, path, theme, w
       wordWrap: wordWrapRef.current ? "on" : "off",
     });
     editorRef.current = editor;
-    editor.addCommand(monaco.KeyMod.Alt | monaco.KeyCode.KeyZ, () => toggleWrapRef.current());
+    const wrapBinding = monacoKeybinding(wordWrapShortcut);
+    if (wrapBinding !== null) editor.addCommand(wrapBinding, () => toggleWrapRef.current());
     // Monaco measures glyph widths at creation. If the monospace font loads
     // later, text is drawn under the line-number gutter and the first
     // characters of each line are hidden until the widths are measured again.
@@ -189,7 +208,7 @@ export default function SourceCodeEditor({ content, line, column, path, theme, w
       container.removeEventListener("contextmenu", suppressBrowserMenu);
       editor.dispose();
     };
-  }, [column, content, hasContextMenu, line, path]);
+  }, [column, content, hasContextMenu, line, path, wordWrapShortcut]);
 
   useEffect(() => {
     configureMonaco();

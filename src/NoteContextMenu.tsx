@@ -27,6 +27,8 @@ export function noteMenuItems(options: {
   readonly sourcePath: string | null;
   /** Current word wrap in the source view; the toggle is offered only there. */
   readonly wordWrap?: boolean;
+  /** Configured toggle shortcut shown beside the item; "" for none. */
+  readonly wordWrapShortcut?: string;
 }): NoteMenuItem[] {
   const items: NoteMenuItem[] = [];
   if (options.notesAvailable) {
@@ -40,7 +42,9 @@ export function noteMenuItems(options: {
   if (options.canOpen) items.push({ action: "open", label: "Open source" });
   if (options.sourcePath !== null) items.push({ action: "copy-path", label: "Copy path" });
   if (options.wordWrap !== undefined) {
-    items.push({ action: "toggle-word-wrap", label: options.wordWrap ? "Turn word wrap off" : "Turn word wrap on", shortcut: "Alt+Z" });
+    const label = options.wordWrap ? "Turn word wrap off" : "Turn word wrap on";
+    const shortcut = options.wordWrapShortcut ?? "";
+    items.push(shortcut === "" ? { action: "toggle-word-wrap", label } : { action: "toggle-word-wrap", label, shortcut });
   }
   return items;
 }

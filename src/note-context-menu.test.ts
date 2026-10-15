@@ -81,3 +81,9 @@ test("the word wrap toggle appears only for source lines and names the next stat
   assert.equal(labels(noteMenuItems({ ...base, wordWrap: true })).at(-1), "Turn word wrap off");
   assert.equal(noteMenuItems({ ...base, wordWrap: true }).at(-1)?.action, "toggle-word-wrap");
 });
+
+test("the word wrap item shows the configured shortcut, or none when turned off", () => {
+  const base = { notesAvailable: false, hasNote: false, canOpen: false, sourcePath: null, wordWrap: false } as const;
+  assert.equal(noteMenuItems({ ...base, wordWrapShortcut: "Ctrl+Shift+W" }).at(-1)?.shortcut, "Ctrl+Shift+W");
+  assert.equal(noteMenuItems({ ...base, wordWrapShortcut: "" }).at(-1)?.shortcut, undefined);
+});

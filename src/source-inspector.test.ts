@@ -15,6 +15,7 @@ function renderInspector(inspection: SourceInspectionState, options: {
     inspection,
     theme: options.theme ?? "dark",
     wordWrap: false,
+    wordWrapShortcut: "Alt+Z",
     onToggleWordWrap: () => undefined,
     openingEditor: options.openingEditor ?? false,
     editorError: options.editorError ?? "",

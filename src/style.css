@@ -808,3 +808,10 @@ button.node-note-badge:hover, button.node-note-badge:focus-visible { background:
 .project-note-path { display: block; margin-top: 4px; font-size: 11px; opacity: .7; }
 .workspace-shell[data-theme="light"] .block-note-card { border-color: #d3c39f; background: #f7f2e6; }
 .workspace-shell[data-theme="light"] .block-note-header, .workspace-shell[data-theme="light"] .block-note-stale { color: #765b27; }
+
+/* Word wrap shortcut recorder in Settings. */
+.settings-shortcut-row { display: flex; gap: 8px; align-items: center; }
+.settings-shortcut { min-width: 140px; padding: 6px 10px; border: 1px solid rgba(140,170,220,.35); border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.settings-shortcut.recording { border-color: #e4b679; box-shadow: 0 0 0 2px rgba(228,182,121,.25); }
+.settings-shortcut-action { padding: 6px 10px; border: 1px solid rgba(140,170,220,.25); border-radius: 6px; background: transparent; color: inherit; font: inherit; font-size: 12px; cursor: pointer; }
+.settings-shortcut-action:disabled { opacity: .45; cursor: default; }
