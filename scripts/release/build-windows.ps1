@@ -73,7 +73,7 @@ try {
     }
 
     New-Item -ItemType Directory -Force -Path $outputPath | Out-Null
-    $msi = Join-Path $outputPath "lightwell-$Version-x64.msi"
+    $msi = Join-Path $outputPath "Lightwell_${Version}_x64.msi"
     python (Join-Path $repoRoot 'scripts\release\windows_msi.py') --payload $payloadPath --version $Version --out $msi
     if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed.' }
 
