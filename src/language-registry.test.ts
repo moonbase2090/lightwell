@@ -26,7 +26,8 @@ test("registry matches basenames in Windows paths", () => {
 });
 
 test("the viewer's language registry does not import Node built-ins", () => {
-  // The source inspector bundles this module; Vite stubs node:* imports in the browser.
+  // The source inspector bundles this module. Vite stubs node:* imports in the browser,
+  // so path.basename throws and React unmounts the window when a module is opened.
   const source = readFileSync(path.join(import.meta.dirname, "languages", "registry.ts"), "utf8");
   assert.doesNotMatch(source, /from\s+["']node:/);
 });

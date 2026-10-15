@@ -33,6 +33,11 @@ function packMatchesBasename(pack: LanguagePack, basename: string): boolean {
   return pack.basenamePrefixes?.some((prefix) => lower.startsWith(prefix.toLowerCase())) ?? false;
 }
 
+/** Last path segment for `/` or `\` separators. node:path is not available in the viewer bundle. */
+function baseName(filePath: string): string {
+  return filePath.slice(Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")) + 1);
+}
+
 export function languagePackForPath(filePath: string): LanguagePack | null {
   const lower = filePath.toLowerCase();
   const basename = baseName(filePath);
@@ -53,11 +58,6 @@ export function languagePackForPath(filePath: string): LanguagePack | null {
     }
   }
   return match;
-}
-
-/** Last path segment for `/` or `\` separators. node:path is not available in the viewer bundle. */
-function baseName(filePath: string): string {
-  return filePath.slice(Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")) + 1);
 }
 
 function extensionForMonaco(filePath: string): string {
