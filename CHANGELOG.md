@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.1.5 - 2026-10-14
+## 0.1.6 - 2026-10-14
+
+### Fixed
+
+- The Windows installer is named `Lightwell_<version>_x64.msi`, like the other release assets. The release-text check rejected the old name, so 0.1.5 was not published.
+
+## 0.1.5 - 2026-10-14 (not published)
 
 ### Fixed
 
