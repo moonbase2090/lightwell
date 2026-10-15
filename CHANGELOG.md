@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7 - 2026-10-15
+
+### Fixed
+
+- The Windows app opens to Lightwell instead of a `localhost refused to connect` page. The Windows build now embeds the viewer.
+- The macOS disk image is named `Lightwell_<version>_aarch64.dmg`, so every release download carries the version number.
+
 ## 0.1.6 - 2026-10-14
 
 ### Fixed
