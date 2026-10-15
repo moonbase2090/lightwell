@@ -32,17 +32,21 @@ binaries+=("$work/squashfs-root/usr/bin/lightwell")
 APPIMAGE_EXTRACT_AND_RUN=1 "$script_dir/capture-open-workspace.sh" \
   "$work/squashfs-root/AppRun" "$screenshot_dir/lightwell-appimage.png"
 
-# rpm: the payload carries the desktop app.
+# rpm: the payload carries the desktop app. bsdtar reads every rpm payload
+# compression, including zstd, which older rpm2cpio scripts cannot.
+echo "Unpacking $rpm"
 mkdir -p "$work/rpm"
-(cd "$work/rpm" && rpm2cpio "$rpm" | cpio -idm --quiet)
+bsdtar -xf "$rpm" -C "$work/rpm"
 [[ -x "$work/rpm/usr/bin/lightwell" ]] || { echo 'rpm has no usr/bin/lightwell' >&2; exit 1; }
 binaries+=("$work/rpm/usr/bin/lightwell")
 
 # deb
+echo "Unpacking $deb"
 mkdir -p "$work/deb"
 dpkg-deb -x "$deb" "$work/deb"
 binaries+=("$work/deb/usr/bin/lightwell")
 
+echo "Installing $tarball"
 # tarball: install into a scratch prefix and check both binaries.
 tar -C "$work" -xzf "$tarball"
 PREFIX="$work/prefix" "$work/lightwell-$version-linux-x86_64/install.sh"

@@ -46,6 +46,11 @@ jobs:
           version="${tag#v}"
           pkg_version="$(node -p "require('./package.json').version")"
           tauri_version="$(node -p "require('./crates/lightwell-app/tauri.conf.json').version")"
+          pkgbuild_version="$(sed -n 's/^pkgver=//p' packaging/arch/PKGBUILD)"
+          if [[ "$version" != "$pkgbuild_version" ]]; then
+            echo "tag $version must match packaging/arch/PKGBUILD pkgver ($pkgbuild_version)" >&2
+            exit 1
+          fi
           if [[ "$version" != "$pkg_version" || "$version" != "$tauri_version" ]]; then
             echo "tag $version must match package.json ($pkg_version) and tauri.conf.json ($tauri_version)" >&2
             exit 1
@@ -269,7 +274,7 @@ jobs:
       - name: Install Tauri Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config xvfb xdotool imagemagick rpm2cpio cpio
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config xvfb xdotool imagemagick libarchive-tools
       - run: cargo install --locked cargo-zigbuild --version 0.23.4
       - run: npm ci
       - name: Keep build machine paths out of release binaries

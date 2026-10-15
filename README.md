@@ -32,7 +32,7 @@ sudo ./install.sh                     # installs under /usr/local
 PREFIX="$HOME/.local" ./install.sh    # or for the current user only
 ```
 
-`./install.sh --uninstall` removes it again. On Arch, [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD) builds a package from the tarball with `makepkg -si`. For Linux on ARM, `lightwell-<version>-linux-aarch64.tar.gz` carries the command line tool only.
+`./install.sh --uninstall` removes it again. On Arch, [`packaging/arch/PKGBUILD`](packaging/arch/PKGBUILD) builds a package from the tarball with `makepkg -si`; it checks the tarball against the release `SHA256SUMS`. For Linux on ARM, `lightwell-<version>-linux-aarch64.tar.gz` carries the command line tool only.
 
 ### Windows
 

@@ -1,5 +1,9 @@
 # Installs Lightwell from the portable Linux tarball on the GitHub release.
 # Build with: makepkg -si
+#
+# For a new release, set pkgver. The tarball is checked against the
+# release's SHA256SUMS in prepare(). To pin the checksum in the PKGBUILD
+# instead (as an AUR package would), run packaging/arch/update-pkgbuild.sh.
 pkgname=lightwell-bin
 pkgver=0.1.8
 pkgrel=1
@@ -10,9 +14,15 @@ license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3')
 provides=('lightwell')
 conflicts=('lightwell')
-source=("https://github.com/moonbase2090/lightwell/releases/download/v${pkgver}/lightwell-${pkgver}-linux-x86_64.tar.gz")
-# Replace SKIP with the tarball's line from SHA256SUMS on the release.
-sha256sums=('SKIP')
+_tarball="lightwell-${pkgver}-linux-x86_64.tar.gz"
+source=("${_tarball}::${url}/releases/download/v${pkgver}/${_tarball}"
+        "lightwell-${pkgver}-SHA256SUMS::${url}/releases/download/v${pkgver}/SHA256SUMS")
+sha256sums=('SKIP'
+            'SKIP')
+
+prepare() {
+  grep -E "  ${_tarball}\$" "lightwell-${pkgver}-SHA256SUMS" | sha256sum -c -
+}
 
 package() {
   cd "lightwell-${pkgver}-linux-x86_64"
