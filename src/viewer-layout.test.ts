@@ -228,3 +228,21 @@ test("noted cards carry their note text and open callback; other cards do not", 
   notedNode?.data.onOpenNote?.("module:noted");
   assert.deepEqual(opened, ["module:noted"]);
 });
+
+test("a commit's changed blocks stay lit and carry their counts while the rest dims", () => {
+  const changed = moduleBlock("module:changed", "changed");
+  const quiet = moduleBlock("module:quiet", "quiet");
+  const graph = emphasizeGraph({
+    nodes: [mapNode(changed), mapNode(quiet)],
+    edges: [],
+    activeNodeId: null,
+    activeFeatureMemberIds: null,
+    onHover: () => undefined,
+    onActivate: () => undefined,
+    changes: new Map([["module:changed", { added: 2, removed: 1, direct: true }]]),
+  });
+  assert.deepEqual(graph.nodes.map((node) => [node.id, node.data.dimmed, node.data.change]), [
+    ["module:changed", false, { added: 2, removed: 1, direct: true }],
+    ["module:quiet", true, undefined],
+  ]);
+});

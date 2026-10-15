@@ -1,7 +1,8 @@
 use lightwell_core::{
-    discover_cargo_workspace, extract_cargo_map, open_target, project_notes_for_map,
-    remove_project_note, resolve_block_target, resolve_block_target_in_map,
-    set_project_note_for_map, update_project_note_text, EditorError, EditorSettings, EditorTarget,
+    block_diff, commit_changes, discover_cargo_workspace, extract_cargo_map, open_target,
+    project_notes_for_map, recent_commits, remove_project_note, resolve_block_target,
+    resolve_block_target_in_map, set_project_note_for_map, update_project_note_text,
+    BlockDiffDocument, CommitChanges, CommitSummary, EditorError, EditorSettings, EditorTarget,
     EditorTemplatePreset, FactMap, MapExtractionError, MapWatchError, MapWatcher, NotesError,
     ProjectNoteView, EDITOR_TEMPLATE_PRESETS,
 };
@@ -98,6 +99,39 @@ impl WorkspaceWatchers {
         })
         .map_err(|error| error.to_string())
     }
+}
+
+/// Commits offered by the commit picker.
+const COMMIT_PICKER_LIMIT: usize = 50;
+
+// Git and map work runs off the UI thread; a synchronous command blocks the window.
+#[tauri::command(async)]
+pub fn recent_workspace_commits(path: String) -> Result<Vec<CommitSummary>, String> {
+    let root = workspace_root(&path)?;
+    recent_commits(&root, COMMIT_PICKER_LIMIT).map_err(|error| error.to_string())
+}
+
+#[tauri::command(async)]
+pub fn workspace_commit_changes(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+    commit: String,
+) -> Result<CommitChanges, String> {
+    let root = workspace_root(&path)?;
+    let map = watchers.current_map(&root)?;
+    commit_changes(&root, &map, &commit).map_err(|error| error.to_string())
+}
+
+#[tauri::command(async)]
+pub fn workspace_block_diff(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+    commit: String,
+    block_id: String,
+) -> Result<BlockDiffDocument, String> {
+    let root = workspace_root(&path)?;
+    let map = watchers.current_map(&root)?;
+    block_diff(&root, &map, &commit, &block_id).map_err(|error| error.to_string())
 }
 
 #[tauri::command]

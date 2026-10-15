@@ -10,7 +10,7 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell notes list\n  lightwell notes set <block-id> <text...>\n  lightwell notes rm <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell help";
+const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell notes list\n  lightwell notes set <block-id> <text...>\n  lightwell notes rm <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
 
 enum Invocation {
     Help,
@@ -42,6 +42,10 @@ struct WatchOptions {
 }
 
 fn main() -> ExitCode {
+    if is_version_request(env::args_os().skip(1)) {
+        println!("lightwell {}", env!("CARGO_PKG_VERSION"));
+        return ExitCode::SUCCESS;
+    }
     match parse_invocation(env::args_os().skip(1)) {
         Ok(Invocation::Help) => {
             println!("{USAGE}");
@@ -286,6 +290,15 @@ fn parse_watch(mut arguments: impl Iterator<Item = OsString>) -> Result<Invocati
             .ok_or_else(|| "the repository path is required".to_owned())?,
         project_name,
     }))
+}
+
+fn is_version_request(mut arguments: impl Iterator<Item = OsString>) -> bool {
+    match (arguments.next(), arguments.next()) {
+        (Some(argument), None) => {
+            argument == OsStr::new("--version") || argument == OsStr::new("-V")
+        }
+        _ => false,
+    }
 }
 
 fn is_help(argument: &OsStr) -> bool {

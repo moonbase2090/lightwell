@@ -1,3 +1,4 @@
+mod diff;
 mod editor;
 mod extract;
 mod facts;
@@ -11,6 +12,10 @@ mod rust_source;
 mod typescript_source;
 mod watch;
 
+pub use diff::{
+    block_diff, commit_changes, recent_commits, BlockChange, BlockDiffDocument, CommitChanges,
+    CommitSummary, DiffError, FileChange,
+};
 pub use editor::{
     open_block, open_target, resolve_block_target, resolve_block_target_in_map, EditorError,
     EditorSettings, EditorTarget, EditorTemplatePreset, SourcePosition, EDITOR_TEMPLATE_PRESETS,

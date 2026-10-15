@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.1.11 - 2026-10-15
+
+The 0.1.9 and 0.1.10 tags were not published. 0.1.11 carries their changes.
+
+### Changed
+
+- The rpm and Linux tarballs are named `Lightwell_<version>_x86_64.rpm` and `Lightwell_<version>_linux_<arch>.tar.gz`, and the tarballs unpack to `lightwell/`.
+- The release text check scans release text, asset names and text assets such as `SHA256SUMS`, not the contents of binaries. `--deep` keeps the full scan.
+
+## 0.1.10 - 2026-10-15 (not published)
+
+The 0.1.9 tag was not published: its Linux bundle smoke could not find the
+AppImage. 0.1.10 carries the 0.1.9 changes below.
+
+### Fixed
+
+- The release workflow passes the Linux bundle smoke an absolute path.
+
+## 0.1.9 - 2026-10-15 (not published)
+
+### Added
+
+- A universal macOS disk image, `Lightwell_<version>_universal.dmg`, for Intel and Apple Silicon Macs. It is signed and notarized like the Apple Silicon image.
+- Linux builds for distributions beyond Debian and Ubuntu: `Lightwell_<version>_amd64.AppImage`, `Lightwell-<version>-1.x86_64.rpm` for Fedora, RHEL and openSUSE, and a portable `lightwell-<version>-linux-x86_64.tar.gz` with the command line tool, the desktop app and an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball.
+- `lightwell-<version>-linux-aarch64.tar.gz` with the command line tool for Linux on ARM.
+- `lightwell --version`.
+
+### Changed
+
+- CI launches the AppImage headless, unpacks the rpm and deb, installs the tarball, and checks that every desktop binary embeds the viewer instead of loading a dev server.
+
 ## 0.1.8 - 2026-10-15
 
 ### Fixed
