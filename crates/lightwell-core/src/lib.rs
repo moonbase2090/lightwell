@@ -15,7 +15,7 @@ pub use editor::{
     open_block, resolve_block_target, EditorError, EditorSettings, EditorTarget,
     EditorTemplatePreset, SourcePosition, EDITOR_TEMPLATE_PRESETS,
 };
-pub use extract::{extract_cargo_map, MapExtractionError};
+pub use extract::{extract_cargo_map, project_manifest, MapExtractionError};
 pub use facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock, MAP_SCHEMA_VERSION,
