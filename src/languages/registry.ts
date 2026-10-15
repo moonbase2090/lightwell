@@ -1,6 +1,5 @@
 import type * as Monaco from "monaco-editor-core";
 import { BUILTIN_LANGUAGE_PACKS } from "./builtin-packs.js";
-import path from "node:path";
 import type { LanguagePack, LanguagePackId } from "./language-pack.js";
 
 /** Active packs (built-ins today; plugin loader will append here later). */
@@ -34,9 +33,14 @@ function packMatchesBasename(pack: LanguagePack, basename: string): boolean {
   return pack.basenamePrefixes?.some((prefix) => lower.startsWith(prefix.toLowerCase())) ?? false;
 }
 
+/** Last path segment for `/` or `\` separators. node:path is not available in the viewer bundle. */
+function baseName(filePath: string): string {
+  return filePath.slice(Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\")) + 1);
+}
+
 export function languagePackForPath(filePath: string): LanguagePack | null {
   const lower = filePath.toLowerCase();
-  const basename = path.basename(filePath);
+  const basename = baseName(filePath);
   let match: LanguagePack | null = null;
   let matchedExtensionLength = 0;
   for (const pack of LANGUAGE_PACKS) {
@@ -58,7 +62,7 @@ export function languagePackForPath(filePath: string): LanguagePack | null {
 
 function extensionForMonaco(filePath: string): string {
   const lower = filePath.toLowerCase();
-  const basename = path.basename(lower);
+  const basename = baseName(lower);
   if (basename === "package.json" || basename === "tsconfig.json" || basename === "jsconfig.json") {
     return ".json";
   }
