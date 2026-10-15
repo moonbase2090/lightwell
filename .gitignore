@@ -1,6 +1,9 @@
 node_modules/
 dist/
 target/
+build/
+__pycache__/
+*.pyc
 .sc/
 .DS_Store
 crates/lightwell-app/gen/

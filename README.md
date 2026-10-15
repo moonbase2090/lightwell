@@ -57,6 +57,16 @@ npm run tauri:dev
 
 `npm run tauri:build` writes a local bundle.
 
+#### Windows package
+
+On Windows, with Node.js 22, a stable Rust toolchain, and WiX 5.0.2:
+
+```powershell
+powershell -File scripts/release/build-windows.ps1
+```
+
+The script installs WiX 5.0.2 for the current user when `wix` is not already on `PATH`. It writes a per-user MSI. `Lightwell.exe` is the desktop app. `bin\lightwell.exe` is the command line tool. The install adds that `bin` directory to the user `PATH`; pass `ADDTOPATH=0` to msiexec to skip it. Uninstall removes the entry. The script does not sign. Tagged releases sign `Lightwell.exe`, `bin\lightwell.exe`, and the MSI with Azure Artifact Signing in the release workflow. A local build prints `Windows code signing skipped: Azure Artifact Signing settings are absent.`
+
 ## Screenshots
 
 Checked-in Prismattyc preview:
@@ -73,7 +83,7 @@ Maps, project notes, and editor settings stay on your machine. See [PRIVACY.md](
 
 ## Desktop shell
 
-Releases ship a signed and notarized Apple Silicon `.dmg` and an x86_64 Linux `.deb` built for a glibc 2.28 executable floor. See [Install](#install).
+Releases ship a signed and notarized Apple Silicon `.dmg` and an x86_64 Linux `.deb` built for a glibc 2.28 executable floor. See [Install](#install). The Windows package script builds a per-user MSI from source. Published Windows signing is separate.
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 

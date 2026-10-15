@@ -1,0 +1,42 @@
+name: Windows package
+
+# Explicit dispatch only. The per-user MSI is not built on every pull request.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Windows MSI
+    runs-on: windows-2022
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
+      - name: MSI helper tests
+        run: python scripts/release/windows_msi_test.py
+      - name: Build the per-user MSI
+        shell: pwsh
+        run: |
+          ./scripts/release/build-windows.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lightwell-windows-msi
+          path: |
+            build/windows-release/*.msi
+            build/windows-release/SHA256SUMS-windows
+          if-no-files-found: error
