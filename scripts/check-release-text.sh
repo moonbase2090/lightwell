@@ -608,34 +608,43 @@ scan_artifact() {
   esac
 }
 
-# Without --deep: the artifact's name, and its contents only when it is text.
-scan_artifact_shallow() {
-  local file="$1"
-  local names
+# Without --deep: asset names, and contents only of text assets. Names are
+# recorded one per line under "<dir> (asset names)", so a hit prints a line
+# number rather than the name itself.
+scan_artifacts_shallow() {
+  local display="$1"
+  shift
+  local names file
   names="$(mktemp "$tmp/names.XXXXXX")"
-  basename "$file" >"$names"
-  record_text "$file (name)" "$names"
+  for file in "$@"; do
+    basename "$file" >>"$names"
+  done
+  record_text "$display (asset names)" "$names"
   rm -f "$names"
-  if [[ "$(artifact_format "$file")" == text ]]; then
-    record_text "$file" "$file"
-  fi
+  for file in "$@"; do
+    if [[ "$(artifact_format "$file")" == text ]]; then
+      record_text "$file" "$file"
+    fi
+  done
 }
 
 scan_artifact_path() {
   local path="$1"
   if [[ "$deep" -eq 0 ]]; then
+    local file
     if [[ -d "$path" ]]; then
-      local file found=0
+      local files=()
       while IFS= read -r file; do
-        found=1
-        scan_artifact_shallow "$file"
-      done < <(find "$path" -type f)
-      if [[ "$found" -eq 0 ]]; then
+        files+=("$file")
+      done < <(find "$path" -type f | LC_ALL=C sort)
+      if [[ ${#files[@]} -eq 0 ]]; then
         echo "check-release-text: artifact directory is empty: $path" >&2
         fail=1
+      else
+        scan_artifacts_shallow "$path" "${files[@]}"
       fi
     elif [[ -f "$path" ]]; then
-      scan_artifact_shallow "$path"
+      scan_artifacts_shallow "$(dirname "$path")" "$path"
     else
       echo "check-release-text: artifact is missing: $path" >&2
       fail=1
