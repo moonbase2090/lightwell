@@ -40,7 +40,9 @@ try {
 
         $targetRoot = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { Join-Path $repoRoot 'target' }
         $binDir = Join-Path $targetRoot "$Target\release"
-        cargo build --locked --release --target $Target -p lightwell-app
+        # custom-protocol embeds dist/ and serves it from tauri://. Without it the
+        # window loads devUrl (the Vite dev server) and shows a connection error.
+        cargo build --locked --release --target $Target -p lightwell-app --features tauri/custom-protocol
         if ($LASTEXITCODE -ne 0) { throw 'Lightwell GUI build failed.' }
         New-Item -ItemType Directory -Force -Path (Join-Path $payloadPath 'bin') | Out-Null
         Copy-Item -Force -LiteralPath (Join-Path $binDir 'lightwell.exe') -Destination (Join-Path $payloadPath 'Lightwell.exe')
