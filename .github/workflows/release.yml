@@ -309,7 +309,7 @@ jobs:
       - name: Smoke the AppImage, rpm, deb, and tarball headless
         env:
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}
-        run: scripts/ci/smoke-linux-bundles.sh "$RELEASE_VERSION" dist-linux "$RUNNER_TEMP/linux-smoke"
+        run: scripts/ci/smoke-linux-bundles.sh "$RELEASE_VERSION" "$GITHUB_WORKSPACE/dist-linux" "$RUNNER_TEMP/linux-smoke"
       - uses: actions/upload-artifact@v4
         with:
           name: release-linux-x86_64

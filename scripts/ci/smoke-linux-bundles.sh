@@ -9,10 +9,12 @@ set -euo pipefail
 
 usage='Usage: smoke-linux-bundles.sh VERSION BUNDLE_DIR SCREENSHOT_DIR [DIST_DIR]'
 version="${1:?$usage}"
-bundle_dir="${2:?$usage}"
+bundle_dir="$(cd "${2:?$usage}" && pwd)"
 screenshot_dir="${3:?$usage}"
+mkdir -p "$screenshot_dir"
+screenshot_dir="$(cd "$screenshot_dir" && pwd)"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-dist_dir="${4:-$script_dir/../../dist}"
+dist_dir="$(cd "${4:-$script_dir/../../dist}" && pwd)"
 
 appimage="$bundle_dir/Lightwell_${version}_amd64.AppImage"
 rpm="$bundle_dir/Lightwell-${version}-1.x86_64.rpm"
