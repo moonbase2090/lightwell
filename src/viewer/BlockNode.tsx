@@ -47,13 +47,15 @@ function statusLabel(status: DisplayBlock["status"]): string {
 
 function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
   const { block } = data;
+  const folder = block.id.startsWith("dir:");
+  const kind = folder ? "FOLDER" : block.annotationKind;
   const activate = () => data.onActivate(block);
   return (
     <div
-      className={`block-node node-${block.annotationKind.toLowerCase()} status-${block.status}${selected ? " selected" : ""}${data.dimmed ? " dimmed" : ""}${data.highlighted ? " highlighted" : ""}${block.annotationState === "changed" ? " annotation-changed" : ""}`}
+      className={`block-node node-${folder ? "folder" : block.annotationKind.toLowerCase()} status-${block.status}${selected ? " selected" : ""}${data.dimmed ? " dimmed" : ""}${data.highlighted ? " highlighted" : ""}${block.annotationState === "changed" ? " annotation-changed" : ""}`}
       role="button"
       tabIndex={0}
-      aria-label={`${block.label}, ${block.annotationKind}${data.hasNote === true ? ", has note" : ""}`}
+      aria-label={`${block.label}, ${kind}${data.hasNote === true ? ", has note" : ""}`}
       aria-haspopup={data.onContextMenu === undefined ? undefined : "menu"}
       onMouseEnter={() => data.onHover(block.id)}
       onMouseLeave={() => data.onHover(null)}
@@ -78,7 +80,7 @@ function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
     >
       <Handle type="target" position={Position.Top} isConnectable={false} />
       <div className="node-topline">
-        <span className="node-kind">{block.annotationKind}</span>
+        <span className="node-kind">{kind}</span>
         {/* Unannotated blocks default to wip in the model; show no status for them. */}
         {block.annotationState !== "missing" && <span className={`status-pill status-${block.status}`}>{statusLabel(block.status)}</span>}
       </div>

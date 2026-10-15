@@ -170,6 +170,10 @@ button { color: inherit; }
 .map-depth-controls { display: inline-flex; align-items: center; gap: 12px; }
 .map-depth { pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; letter-spacing: .08em; }
 .map-depth select { height: 18px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; color: inherit; background: transparent; font: 11px var(--mono); letter-spacing: 0; }
+.map-view { pointer-events: auto; display: inline-flex; align-items: center; }
+.map-view button { height: 18px; padding: 0 6px; border: 1px solid currentColor; background: transparent; color: inherit; font: 11px var(--mono); letter-spacing: 0; cursor: pointer; }
+.map-view button + button { margin-left: -1px; }
+.map-view button[aria-pressed="true"] { font-weight: 700; text-decoration: underline; }
 .react-flow { background: transparent !important; z-index: 1; }
 .react-flow__pane { cursor: grab; }
 .react-flow__edge-path { transition: opacity .16s ease, stroke-width .16s ease; }
