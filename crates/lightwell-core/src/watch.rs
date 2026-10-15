@@ -1,5 +1,5 @@
-use crate::extract::{block_base, map_workspace};
-use crate::{discover_cargo_workspace, FactMap, MapExtractionError};
+use crate::extract::{block_base, discover_project_workspace, map_workspace};
+use crate::{FactMap, MapExtractionError};
 use notify_debouncer_mini::notify::{self, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use std::error::Error;
@@ -33,8 +33,7 @@ impl MapWatcher {
                     path: requested_path.to_owned(),
                     source,
                 })?;
-        let workspace =
-            discover_cargo_workspace(&requested_path).map_err(MapExtractionError::from)?;
+        let workspace = discover_project_workspace(&requested_path)?;
         let repository_path = workspace.root.clone();
         let (sender, events) = mpsc::channel();
         let mut debouncer = new_debouncer(DEBOUNCE_DELAY, move |result: DebounceEventResult| {
@@ -70,8 +69,7 @@ impl MapWatcher {
                 continue;
             }
 
-            let workspace = discover_cargo_workspace(&self.repository_path)
-                .map_err(MapExtractionError::from)?;
+            let workspace = discover_project_workspace(&self.repository_path)?;
             let next_map = map_workspace(workspace, self.project_name.as_deref())?;
             if !same_fingerprints(&self.current_map, &next_map) {
                 self.current_map = next_map.clone();
@@ -306,5 +304,55 @@ mod tests {
             .expect("watcher should recover and report the edit");
         assert!(!same_fingerprints(&initial, &changed));
         assert!(same_fingerprints(watcher.current_map(), &changed));
+    }
+
+    #[test]
+    fn watcher_refreshes_projects_without_a_root_cargo_manifest() {
+        let fixture = Fixture::new("no-cargo");
+        fs::remove_file(fixture.root.join("Cargo.toml"))
+            .expect("fixture manifest should be removed");
+        fs::remove_file(fixture.root.join("src/lib.rs"))
+            .expect("fixture library should be removed");
+        fs::remove_file(fixture.root.join("src/before.rs"))
+            .expect("fixture module should be removed");
+        fs::write(
+            fixture.root.join("package.json"),
+            "{\"name\": \"web-fixture\", \"version\": \"0.1.0\"}\n",
+        )
+        .expect("package manifest should be written");
+        fs::write(
+            fixture.root.join("src/index.ts"),
+            "export function value(): number { return 1; }\n",
+        )
+        .expect("TypeScript module should be written");
+
+        let mut watcher =
+            MapWatcher::new(&fixture.root, None).expect("watcher should start without Cargo.toml");
+        let initial = watcher.current_map().clone();
+        assert!(
+            !initial.blocks.is_empty(),
+            "the TypeScript module should be mapped"
+        );
+
+        fs::write(
+            fixture.root.join("src/index.ts"),
+            "export function value(): number { return 2; }\n",
+        )
+        .expect("TypeScript module should be edited");
+        let changed = watcher
+            .next_changed_map()
+            .expect("watcher should refresh without Cargo.toml");
+        assert!(!same_fingerprints(&initial, &changed));
+    }
+
+    #[test]
+    fn watcher_still_rejects_folders_with_no_project_manifest() {
+        let fixture = Fixture::new("no-manifest");
+        fs::remove_file(fixture.root.join("Cargo.toml"))
+            .expect("fixture manifest should be removed");
+        assert!(matches!(
+            MapWatcher::new(&fixture.root, None),
+            Err(MapWatchError::Extraction(_))
+        ));
     }
 }

@@ -71,9 +71,19 @@ pub fn extract_cargo_map(
     repository_path: impl AsRef<Path>,
     project_name: Option<&str>,
 ) -> Result<FactMap, MapExtractionError> {
+    map_workspace(discover_project_workspace(repository_path)?, project_name)
+}
+
+/// Find the Cargo workspace for `repository_path`, or an empty one when the
+/// folder is a Node, TypeScript or JavaScript project without a root
+/// `Cargo.toml`. The initial map and live refresh both use this, so a project
+/// that opens also refreshes.
+pub fn discover_project_workspace(
+    repository_path: impl AsRef<Path>,
+) -> Result<CargoWorkspace, MapExtractionError> {
     let requested = repository_path.as_ref();
     match discover_cargo_workspace(requested) {
-        Ok(workspace) => map_workspace(workspace, project_name),
+        Ok(workspace) => Ok(workspace),
         Err(CargoDiscoveryError::ManifestMissing(manifest)) => {
             let root = manifest.parent().unwrap_or(requested);
             let marker = project_manifest(root);
@@ -81,13 +91,10 @@ pub fn extract_cargo_map(
                 .as_ref()
                 .is_some_and(|path| path.file_name() != Some(OsStr::new("Cargo.toml")))
             {
-                map_workspace(
-                    CargoWorkspace {
-                        root: root.to_path_buf(),
-                        packages: Vec::new(),
-                    },
-                    project_name,
-                )
+                Ok(CargoWorkspace {
+                    root: root.to_path_buf(),
+                    packages: Vec::new(),
+                })
             } else {
                 Err(CargoDiscoveryError::ManifestMissing(manifest).into())
             }
