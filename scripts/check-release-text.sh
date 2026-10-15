@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Fail when public release text contains private infrastructure markers.
 # Output is file:line only. Matched text and denylist terms are not printed.
+#
+# Release text is the repository text, --extra files (notes, title, tag
+# message), each --artifact's file name, and plain-text artifacts such as
+# SHA256SUMS. Binary and archive contents are scanned only with --deep:
+# compressed bytes, CI runner paths, and strings in bundled third-party
+# libraries match the generic patterns without being our text.
 set -euo pipefail
 
 # A Windows Store alias can be named python3 and still exit without running
@@ -20,12 +26,13 @@ if ! python_runs python3; then
 fi
 
 usage() {
-  echo "usage: check-release-text.sh [--root DIR] [--extra FILE] [--artifact PATH]" >&2
+  echo "usage: check-release-text.sh [--root DIR] [--extra FILE] [--artifact PATH] [--deep]" >&2
 }
 
 root=""
 extras=()
 artifacts=()
+deep=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --root)
@@ -39,6 +46,10 @@ while [[ $# -gt 0 ]]; do
     --artifact)
       artifacts+=("${2:-}")
       shift 2
+      ;;
+    --deep)
+      deep=1
+      shift
       ;;
     -h | --help)
       usage
@@ -597,8 +608,49 @@ scan_artifact() {
   esac
 }
 
+# Without --deep: asset names, and contents only of text assets. Names are
+# recorded one per line under "<dir> (asset names)", so a hit prints a line
+# number rather than the name itself.
+scan_artifacts_shallow() {
+  local display="$1"
+  shift
+  local names file
+  names="$(mktemp "$tmp/names.XXXXXX")"
+  for file in "$@"; do
+    basename "$file" >>"$names"
+  done
+  record_text "$display (asset names)" "$names"
+  rm -f "$names"
+  for file in "$@"; do
+    if [[ "$(artifact_format "$file")" == text ]]; then
+      record_text "$file" "$file"
+    fi
+  done
+}
+
 scan_artifact_path() {
   local path="$1"
+  if [[ "$deep" -eq 0 ]]; then
+    local file
+    if [[ -d "$path" ]]; then
+      local files=()
+      while IFS= read -r file; do
+        files+=("$file")
+      done < <(find "$path" -type f | LC_ALL=C sort)
+      if [[ ${#files[@]} -eq 0 ]]; then
+        echo "check-release-text: artifact directory is empty: $path" >&2
+        fail=1
+      else
+        scan_artifacts_shallow "$path" "${files[@]}"
+      fi
+    elif [[ -f "$path" ]]; then
+      scan_artifacts_shallow "$(dirname "$path")" "$path"
+    else
+      echo "check-release-text: artifact is missing: $path" >&2
+      fail=1
+    fi
+    return 0
+  fi
   if [[ -d "$path" ]]; then
     local file found=0
     while IFS= read -r file; do

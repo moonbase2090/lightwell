@@ -30,11 +30,12 @@ function writeZip(path: string, name: string, payload: string) {
   );
 }
 
-function scan(artifact: string): { status: number; stdout: string; stderr: string } {
+// Archive and binary tests use --deep; the publish job uses the default scan.
+function scan(artifact: string, deep = true): { status: number; stdout: string; stderr: string } {
   const root = mkdtempSync(join(tmpdir(), "lightwell-release-text-"));
   writeFileSync(join(root, "README.md"), "Public release notes.\n");
   try {
-    const stdout = execScript(script, ["--root", root, "--artifact", artifact], {
+    const stdout = execScript(script, ["--root", root, "--artifact", artifact, ...(deep ? ["--deep"] : [])], {
       encoding: "utf8",
       env: {
         ...process.env,
@@ -90,13 +91,13 @@ test("SHA256SUMS is scanned as text", () => {
     writeFileSync(join(dir, "SHA256SUMS"), `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  lightwell.zip\n${probe}\n`);
     writeFileSync(join(clean, "SHA256SUMS"), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  lightwell.zip\n");
 
-    const failed = scan(dir);
+    const failed = scan(dir, false);
     assert.notEqual(failed.status, 0);
     assert.match(failed.stdout, /SHA256SUMS:/);
     assert.equal(failed.stdout.includes(probe), false);
     assert.equal(failed.stderr.includes(probe), false);
 
-    const passed = scan(clean);
+    const passed = scan(clean, false);
     assert.equal(passed.status, 0, passed.stderr);
     assert.equal(passed.stdout, "");
   } finally {
@@ -291,5 +292,26 @@ test("host name patterns ignore icon names and XDG paths but catch real hosts", 
     assert.notEqual(scan(write("runner.bin", "/home/runner/.cargo/registry/src/lib.rs\n")).status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the default scan checks asset names and text, not compressed members", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lightwell-release-shallow-"));
+  const named = mkdtempSync(join(tmpdir(), "lightwell-release-shallow-name-"));
+  try {
+    writeZip(join(dir, "Lightwell_0.1.11_universal.dmg"), "payload.txt", `${probe}\n`);
+    const passed = scan(dir, false);
+    assert.equal(passed.status, 0, passed.stderr);
+    assert.equal(passed.stdout, "");
+    assert.notEqual(scan(dir, true).status, 0, "--deep still finds the compressed member");
+
+    writeFileSync(join(named, `Lightwell_${probe}_amd64.AppImage`), "\u0000\u0001binary\n");
+    const failed = scan(named, false);
+    assert.notEqual(failed.status, 0);
+    assert.match(failed.stdout, /\(asset names\):1/);
+    assert.equal(failed.stdout.includes(probe), false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(named, { recursive: true, force: true });
   }
 });
