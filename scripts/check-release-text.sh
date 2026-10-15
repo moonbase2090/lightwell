@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Fail when public release text contains private infrastructure markers.
 # Output is file:line only. Matched text and denylist terms are not printed.
+#
+# Release text is the repository text, --extra files (notes, title, tag
+# message), each --artifact's file name, and plain-text artifacts such as
+# SHA256SUMS. Binary and archive contents are scanned only with --deep:
+# compressed bytes, CI runner paths, and strings in bundled third-party
+# libraries match the generic patterns without being our text.
 set -euo pipefail
 
 # A Windows Store alias can be named python3 and still exit without running
@@ -20,12 +26,13 @@ if ! python_runs python3; then
 fi
 
 usage() {
-  echo "usage: check-release-text.sh [--root DIR] [--extra FILE] [--artifact PATH]" >&2
+  echo "usage: check-release-text.sh [--root DIR] [--extra FILE] [--artifact PATH] [--deep]" >&2
 }
 
 root=""
 extras=()
 artifacts=()
+deep=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --root)
@@ -39,6 +46,10 @@ while [[ $# -gt 0 ]]; do
     --artifact)
       artifacts+=("${2:-}")
       shift 2
+      ;;
+    --deep)
+      deep=1
+      shift
       ;;
     -h | --help)
       usage
@@ -597,8 +608,40 @@ scan_artifact() {
   esac
 }
 
+# Without --deep: the artifact's name, and its contents only when it is text.
+scan_artifact_shallow() {
+  local file="$1"
+  local names
+  names="$(mktemp "$tmp/names.XXXXXX")"
+  basename "$file" >"$names"
+  record_text "$file (name)" "$names"
+  rm -f "$names"
+  if [[ "$(artifact_format "$file")" == text ]]; then
+    record_text "$file" "$file"
+  fi
+}
+
 scan_artifact_path() {
   local path="$1"
+  if [[ "$deep" -eq 0 ]]; then
+    if [[ -d "$path" ]]; then
+      local file found=0
+      while IFS= read -r file; do
+        found=1
+        scan_artifact_shallow "$file"
+      done < <(find "$path" -type f)
+      if [[ "$found" -eq 0 ]]; then
+        echo "check-release-text: artifact directory is empty: $path" >&2
+        fail=1
+      fi
+    elif [[ -f "$path" ]]; then
+      scan_artifact_shallow "$path"
+    else
+      echo "check-release-text: artifact is missing: $path" >&2
+      fail=1
+    fi
+    return 0
+  fi
   if [[ -d "$path" ]]; then
     local file found=0
     while IFS= read -r file; do
