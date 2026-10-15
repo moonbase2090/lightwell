@@ -143,6 +143,7 @@ jobs:
 
   tauri-macos-signed:
     # Runs only once Apple signing is configured; until then macOS ships unsigned.
+    # Signs the universal build, the release path with the most moving parts.
     if: ${{ vars.LIGHTWELL_MACOS_SIGNING == 'true' }}
     runs-on: macos-26
     env:
@@ -163,43 +164,47 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87 # stable
         with:
-          targets: aarch64-apple-darwin
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
       - run: npm ci
       - name: Build the unsigned app for signing
-        run: npm run tauri:build -- --target aarch64-apple-darwin --bundles app --no-sign
-      - name: Sign and verify the Apple Silicon app
+        run: npm run tauri:build -- --target universal-apple-darwin --bundles app --no-sign
+      - name: Sign and verify the universal app
         env:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: scripts/ci/sign-macos-app.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app
+        run: scripts/ci/sign-macos-app.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app
       - name: Notarize, staple, and validate the app
         env:
           APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
-        run: scripts/ci/notarize-macos-app.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-arm64.zip"
+        run: scripts/ci/notarize-macos-app.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-universal.zip"
+      - name: Check both architectures and the deployment target
+        run: |
+          lipo -verify_arch arm64 x86_64 target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell
+          scripts/ci/check-macos-minimum.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app 11.0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.12'
       - name: Install dmgbuild
         run: python3 -m pip install --disable-pip-version-check 'dmgbuild==1.6.7'
       - name: Build the drag-to-Applications disk image
-        run: scripts/ci/build-macos-dmg.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-arm64.dmg"
+        run: scripts/ci/build-macos-dmg.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-universal.dmg"
       - name: Sign the disk image
         env:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: scripts/ci/sign-macos-app.sh --dmg "$RUNNER_TEMP/Lightwell-macos-arm64.dmg"
+        run: scripts/ci/sign-macos-app.sh --dmg "$RUNNER_TEMP/Lightwell-macos-universal.dmg"
       - name: Notarize, staple, and validate the disk image
         env:
           APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
-        run: scripts/ci/notarize-macos-app.sh "$RUNNER_TEMP/Lightwell-macos-arm64.dmg"
+        run: scripts/ci/notarize-macos-app.sh "$RUNNER_TEMP/Lightwell-macos-universal.dmg"
       - uses: actions/upload-artifact@v4
         with:
-          name: lightwell-macos-arm64-signed
-          path: ${{ runner.temp }}/Lightwell-macos-arm64.dmg
+          name: lightwell-macos-universal-signed
+          path: ${{ runner.temp }}/Lightwell-macos-universal.dmg
           if-no-files-found: error
 
   tauri-linux-artifact:
