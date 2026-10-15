@@ -14,9 +14,9 @@ license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3')
 provides=('lightwell')
 conflicts=('lightwell')
-_tarball="lightwell-${pkgver}-linux-x86_64.tar.gz"
+_tarball="Lightwell_${pkgver}_linux_x86_64.tar.gz"
 source=("${_tarball}::${url}/releases/download/v${pkgver}/${_tarball}"
-        "lightwell-${pkgver}-SHA256SUMS::${url}/releases/download/v${pkgver}/SHA256SUMS")
+        "SHA256SUMS-${pkgver}::${url}/releases/download/v${pkgver}/SHA256SUMS")
 sha256sums=('SKIP'
             'SKIP')
 
@@ -25,7 +25,7 @@ prepare() {
   # well-formed digest, and the digest must match.
   local expected actual
   expected="$(awk -v name="${_tarball}" '$2 == name && $1 ~ /^[0-9a-f]{64}$/ { print $1 }' \
-    "lightwell-${pkgver}-SHA256SUMS")"
+    "SHA256SUMS-${pkgver}")"
   if [[ -z "$expected" ]]; then
     echo "SHA256SUMS has no checksum for ${_tarball}" >&2
     return 1
@@ -38,7 +38,7 @@ prepare() {
 }
 
 package() {
-  cd "lightwell-${pkgver}-linux-x86_64"
+  cd lightwell
   DESTDIR="$pkgdir" PREFIX=/usr ./install.sh
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

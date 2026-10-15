@@ -302,7 +302,7 @@ jobs:
           bundle=target/x86_64-unknown-linux-gnu/release/bundle
           cp "$bundle/deb/Lightwell_${RELEASE_VERSION}_amd64.deb" dist-linux/
           cp "$bundle/appimage/Lightwell_${RELEASE_VERSION}_amd64.AppImage" dist-linux/
-          cp "$bundle/rpm/Lightwell-${RELEASE_VERSION}-1.x86_64.rpm" dist-linux/
+          cp "$bundle/rpm/Lightwell-${RELEASE_VERSION}-1.x86_64.rpm" "dist-linux/Lightwell_${RELEASE_VERSION}_x86_64.rpm"
           scripts/ci/package-linux-tarball.sh "$RELEASE_VERSION" x86_64 \
             target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-app" dist-linux
           ls -l dist-linux
@@ -554,9 +554,7 @@ jobs:
           fi
           for asset in dist/*; do
             name="$(basename "$asset")"
-            if [[ "$name" != "Lightwell_${RELEASE_VERSION}_"* &&
-                  "$name" != "Lightwell-${RELEASE_VERSION}-"* &&
-                  "$name" != "lightwell-${RELEASE_VERSION}-linux-"* ]]; then
+            if [[ "$name" != "Lightwell_${RELEASE_VERSION}_"* ]]; then
               echo "release asset $name does not carry version $RELEASE_VERSION" >&2
               exit 1
             fi
