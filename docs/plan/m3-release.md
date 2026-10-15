@@ -167,7 +167,11 @@ builds and notarizes without creating or pushing a tag and without
 publishing. The tag version matches `0.1.0` in
 `crates/lightwell-app/tauri.conf.json` and `package.json`. The
 release assets are the stapled macOS zip and the `.deb`, plus one
-`SHA256SUMS` file. There is no updater manifest.
+`SHA256SUMS` file. There is no updater manifest. Later releases name
+every installer `Lightwell_<version>_<arch>.<ext>`: the disk image is
+`Lightwell_<version>_aarch64.dmg`, next to `Lightwell_<version>_amd64.deb`
+and `Lightwell_<version>_x64.msi`. The publish job refuses any asset
+without the version, then writes `SHA256SUMS` over the rest.
 
 Files.
 

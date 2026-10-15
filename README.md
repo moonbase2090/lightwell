@@ -10,7 +10,7 @@ Lightwell v0.1.6 is available for macOS on Apple Silicon, Linux x86_64 and Windo
 
 ### macOS
 
-Download [`Lightwell-macos-arm64.dmg`](https://github.com/moonbase2090/lightwell/releases/latest/download/Lightwell-macos-arm64.dmg) (Apple Silicon, macOS 11.0 or later). The disk image is signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
+Download `Lightwell_<version>_aarch64.dmg` from the [latest release](https://github.com/moonbase2090/lightwell/releases/latest) (Apple Silicon, macOS 11.0 or later). The disk image is signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
 
 ### Linux
 
