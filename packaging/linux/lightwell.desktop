@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Lightwell
+Comment=Live code map for Rust, web and Python projects
+Exec=@BINDIR@/lightwell-app
+Icon=lightwell
+Terminal=false
+Categories=Development;

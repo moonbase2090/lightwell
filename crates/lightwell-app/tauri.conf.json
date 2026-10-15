@@ -44,7 +44,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "targets": ["app", "deb"],
+    "targets": ["app", "deb", "appimage", "rpm"],
     "macOS": {
       "minimumSystemVersion": "11.0"
     }

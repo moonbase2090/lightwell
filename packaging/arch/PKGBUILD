@@ -1,0 +1,44 @@
+# Installs Lightwell from the portable Linux tarball on the GitHub release.
+# Build with: makepkg -si
+#
+# For a new release, set pkgver. The tarball is checked against the
+# release's SHA256SUMS in prepare(). To pin the checksum in the PKGBUILD
+# instead (as an AUR package would), run packaging/arch/update-pkgbuild.sh.
+pkgname=lightwell-bin
+pkgver=0.1.8
+pkgrel=1
+pkgdesc='Live code map for Rust, web and Python projects'
+arch=('x86_64')
+url='https://github.com/moonbase2090/lightwell'
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3')
+provides=('lightwell')
+conflicts=('lightwell')
+_tarball="lightwell-${pkgver}-linux-x86_64.tar.gz"
+source=("${_tarball}::${url}/releases/download/v${pkgver}/${_tarball}"
+        "lightwell-${pkgver}-SHA256SUMS::${url}/releases/download/v${pkgver}/SHA256SUMS")
+sha256sums=('SKIP'
+            'SKIP')
+
+prepare() {
+  # Fail closed: the release SHA256SUMS must list this tarball with a
+  # well-formed digest, and the digest must match.
+  local expected actual
+  expected="$(awk -v name="${_tarball}" '$2 == name && $1 ~ /^[0-9a-f]{64}$/ { print $1 }' \
+    "lightwell-${pkgver}-SHA256SUMS")"
+  if [[ -z "$expected" ]]; then
+    echo "SHA256SUMS has no checksum for ${_tarball}" >&2
+    return 1
+  fi
+  actual="$(sha256sum "${_tarball}" | awk '{ print $1 }')"
+  if [[ "$actual" != "$expected" ]]; then
+    echo "${_tarball} checksum ${actual} does not match SHA256SUMS ${expected}" >&2
+    return 1
+  fi
+}
+
+package() {
+  cd "lightwell-${pkgver}-linux-x86_64"
+  DESTDIR="$pkgdir" PREFIX=/usr ./install.sh
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
