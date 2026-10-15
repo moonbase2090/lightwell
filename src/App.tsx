@@ -408,6 +408,60 @@ function FeatureFooter({
   );
 }
 
+const GRAPH_FIT_OPTIONS = { padding: 0.2, minZoom: 0.18, maxZoom: 1.2 } as const;
+
+/** Children kept in view around the scope block; wide scopes pan for the rest. */
+const FIT_NEAREST_CHILDREN = 8;
+
+/**
+ * Fit the scope block and its nearest children when a map first loads and after
+ * each scope change. Fitting every child of a wide scope (80+ crates in one row)
+ * zooms out until the cards cannot be read.
+ */
+function FitOnScopeChange({
+  scopeId,
+  layoutRevision,
+}: {
+  readonly scopeId: string;
+  readonly layoutRevision: number;
+}) {
+  const { fitView, getNodes } = useReactFlow();
+  const previousScopeId = useRef(scopeId);
+  const nextLayoutRevision = useRef(layoutRevision);
+  const waitingForLayout = useRef(true);
+
+  useEffect(() => {
+    if (previousScopeId.current !== scopeId) {
+      previousScopeId.current = scopeId;
+      nextLayoutRevision.current = layoutRevision + 1;
+      waitingForLayout.current = true;
+    }
+    if (waitingForLayout.current && layoutRevision >= nextLayoutRevision.current) {
+      waitingForLayout.current = false;
+      // Wait a frame so React Flow has measured the new nodes.
+      const frame = requestAnimationFrame(() => {
+        const nodes = getNodes();
+        const root = nodes.find((node) => node.id === scopeId);
+        if (root === undefined || nodes.length <= FIT_NEAREST_CHILDREN + 1) {
+          void fitView({ ...GRAPH_FIT_OPTIONS, duration: 200 });
+          return;
+        }
+        const centerX = (node: (typeof nodes)[number]) => node.position.x + (node.measured?.width ?? 0) / 2;
+        const rootX = centerX(root);
+        const nearest = nodes
+          .filter((node) => node.id !== root.id)
+          .sort((left, right) => Math.abs(centerX(left) - rootX) - Math.abs(centerX(right) - rootX))
+          .slice(0, FIT_NEAREST_CHILDREN);
+        void fitView({ ...GRAPH_FIT_OPTIONS, duration: 200, nodes: [root, ...nearest].map((node) => ({ id: node.id })) });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+    return undefined;
+  }, [fitView, getNodes, layoutRevision, scopeId]);
+
+  return null;
+}
+
 function RestoreViewport({
   refreshVersion,
   layoutRevision,
@@ -1010,8 +1064,6 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
-          fitView
-          fitViewOptions={{ padding: 0.2, minZoom: 0.18, maxZoom: 1.2 }}
           minZoom={0.12}
           maxZoom={1.7}
           defaultEdgeOptions={{ type: "smoothstep" }}
@@ -1021,6 +1073,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             layoutRevision={layoutRevision}
             getSavedViewport={getSavedViewport}
           />
+          <FitOnScopeChange scopeId={scopeId} layoutRevision={layoutRevision} />
           <Background color={theme === "blueprint" ? "rgba(227,238,255,.22)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
           <Controls showInteractive={false} position="bottom-left" />
         </ReactFlow>

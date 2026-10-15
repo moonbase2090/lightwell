@@ -404,9 +404,22 @@ thread_local! {
 fn cargo_program() -> Command {
     #[cfg(test)]
     if let Some(program) = CARGO_PROGRAM.with(|program| program.borrow().clone()) {
-        return Command::new(program);
+        return without_console_window(Command::new(program));
     }
-    Command::new("cargo")
+    without_console_window(Command::new("cargo"))
+}
+
+/// The desktop app has no console, so Windows opens a console window for each
+/// console child (cargo, cmd, editor .cmd shims). CREATE_NO_WINDOW suppresses it;
+/// GUI editors still open their own windows.
+pub(crate) fn without_console_window(mut command: Command) -> Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command
 }
 
 #[cfg(test)]

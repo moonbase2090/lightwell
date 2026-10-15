@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { BUILTIN_LANGUAGE_PACKS } from "./languages/builtin-packs.js";
@@ -16,6 +17,18 @@ test("registry maps Rust and manifest paths", () => {
   assert.equal(monacoLanguageIdForPath("src/lib.rs"), "rust");
   assert.equal(sourceLanguageIdForPath("Cargo.toml"), "toml");
   assert.equal(monacoLanguageIdForPath("crates/app/Cargo.toml"), "toml");
+});
+
+test("registry matches basenames in Windows paths", () => {
+  assert.equal(sourceLanguageIdForPath(String.raw`C:\repo\web\package.json`), "web");
+  assert.equal(monacoLanguageIdForPath(String.raw`C:\repo\web\package.json`), "json");
+  assert.equal(monacoLanguageIdForPath(String.raw`C:\repo\web\vite.config.ts`), "typescript");
+});
+
+test("the viewer's language registry does not import Node built-ins", () => {
+  // The source inspector bundles this module; Vite stubs node:* imports in the browser.
+  const source = readFileSync(path.join(import.meta.dirname, "languages", "registry.ts"), "utf8");
+  assert.doesNotMatch(source, /from\s+["']node:/);
 });
 
 test("registry maps Python sources", () => {

@@ -81,7 +81,10 @@ pub fn recent_workspaces(app: AppHandle) -> Result<Vec<WorkspaceEntry>, String> 
     read_recent_workspaces(&recent_workspaces_path(&app)?)
 }
 
-#[tauri::command]
+// Commands that run cargo metadata, extract maps, read sources, or launch
+// editors use `async` so Tauri runs them off the UI thread; a synchronous
+// command blocks the window until it returns.
+#[tauri::command(async)]
 pub fn open_workspace(path: String) -> Result<WorkspaceEntry, String> {
     let root = workspace_root(&path)?;
     Ok(WorkspaceEntry {
@@ -93,7 +96,7 @@ pub fn open_workspace(path: String) -> Result<WorkspaceEntry, String> {
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn load_workspace_map(app: AppHandle, path: String) -> Result<WorkspaceMapDocument, String> {
     let root = workspace_root(&path)?;
     let facts = extract_cargo_map(&root, None).map_err(|error| error.to_string())?;
@@ -101,7 +104,7 @@ pub fn load_workspace_map(app: AppHandle, path: String) -> Result<WorkspaceMapDo
     Ok(workspace_map_document(&root, facts))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn inspect_block(
     workspace_path: String,
     block_id: String,
@@ -128,7 +131,7 @@ pub fn inspect_block(
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn open_block_in_editor(
     app: AppHandle,
     workspace_path: String,
@@ -159,7 +162,7 @@ pub fn editor_template_presets() -> Vec<EditorTemplatePreset> {
     EDITOR_TEMPLATE_PRESETS.to_vec()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn watch_workspace(
     app: AppHandle,
     watchers: State<'_, WorkspaceWatchers>,
@@ -169,7 +172,7 @@ pub fn watch_workspace(
     start_workspace_watcher(&app, watchers.inner(), root)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn add_workspace_note(
     watchers: State<'_, WorkspaceWatchers>,
     path: String,
@@ -183,7 +186,7 @@ pub fn add_workspace_note(
         .map_err(|error| error.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn edit_workspace_note(
     watchers: State<'_, WorkspaceWatchers>,
     path: String,
@@ -203,7 +206,7 @@ pub fn edit_workspace_note(
     Ok(ProjectNotesState::Ready { notes })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remove_workspace_note(
     watchers: State<'_, WorkspaceWatchers>,
     path: String,
