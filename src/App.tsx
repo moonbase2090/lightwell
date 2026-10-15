@@ -37,7 +37,7 @@ import {
   type Viewport,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNotesSnapshot } from "./map-source.js";
+import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNoteView, ProjectNotesSnapshot } from "./map-source.js";
 import EditorSettingsPanel from "./EditorSettingsPanel.js";
 import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
@@ -45,6 +45,7 @@ import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import { rollUpChanges, unmappedFiles, type BlockDiff } from "./commit-diff.js";
 import type { CommitChanges, CommitSummary } from "./map-source.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
+import { readWordWrapPreference, readWordWrapShortcut, saveWordWrapPreference, saveWordWrapShortcut } from "./source-view-preferences.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
 import NoteContextMenu, {
   addNoteShortcut,
@@ -233,6 +234,20 @@ function noteButtonLabel(hasNote: boolean): "Add note" | "Edit note" {
   return hasNote ? "Edit note" : "Add note";
 }
 
+/** A block's saved project note, shown with the block it belongs to. */
+function BlockNoteCard({ note, onEdit }: { readonly note: ProjectNoteView; readonly onEdit?: () => void }) {
+  return (
+    <section className="block-note-card" aria-label="Project note">
+      <div className="block-note-header">
+        <span><StickyNote size={12} /> PROJECT NOTE</span>
+        {onEdit !== undefined && <button type="button" className="block-note-edit" onClick={onEdit}>Edit</button>}
+      </div>
+      <p className="block-note-text">{note.text}</p>
+      {note.stale && <div className="block-note-stale"><CircleAlert size={12} /> Code changed since this note was written.</div>}
+    </section>
+  );
+}
+
 function DetailsPanel({
   node,
   map,
@@ -240,6 +255,7 @@ function DetailsPanel({
   onSelectBlock,
   noteAction,
   onAddNote,
+  note,
   onBlockContextMenu,
 }: {
   readonly node: DisplayNode;
@@ -249,6 +265,8 @@ function DetailsPanel({
   /** Note button label for this block, or undefined when notes are unavailable. */
   readonly noteAction?: "Add note" | "Edit note";
   readonly onAddNote?: () => void;
+  /** The saved project note for this block, shown above the stats. */
+  readonly note?: ProjectNoteView;
   readonly onBlockContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
 }) {
   const rowMenuProps = (block: DisplayBlock) => onBlockContextMenu === undefined ? {} : {
@@ -309,6 +327,7 @@ function DetailsPanel({
           <StickyNote size={14} /> {noteAction}<kbd>{addNoteShortcut}</kbd>
         </button>
       )}
+      {note !== undefined && <BlockNoteCard note={note} {...(onAddNote === undefined ? {} : { onEdit: onAddNote })} />}
 
       <div className="detail-divider" />
       <div className="detail-section-label">BLOCK STATS</div>
@@ -439,12 +458,23 @@ const FIT_NEAREST_CHILDREN = 8;
  * each scope change. Fitting every child of a wide scope (80+ crates in one row)
  * zooms out until the cards cannot be read.
  */
+/** A one-time request to center and zoom on a block, such as from Show on map. */
+export interface FocusRequest {
+  readonly blockId: string;
+  readonly sequence: number;
+}
+
 function FitOnScopeChange({
   scopeId,
   layoutRevision,
+  focus,
+  onFocusHandled,
 }: {
   readonly scopeId: string;
   readonly layoutRevision: number;
+  /** Cleared by the parent through onFocusHandled, so a remount does not repeat it. */
+  readonly focus: FocusRequest | null;
+  readonly onFocusHandled: () => void;
 }) {
   const { fitView, getNodes } = useReactFlow();
   const previousScopeId = useRef(scopeId);
@@ -458,6 +488,19 @@ function FitOnScopeChange({
       previousScopeId.current = scopeId;
       nextLayoutRevision.current = layoutRevision + 1;
       waitingForLayout.current = true;
+    }
+    const pendingFocus = focus;
+    const layoutReady = !waitingForLayout.current || layoutRevision >= nextLayoutRevision.current;
+    if (pendingFocus !== null && layoutReady) {
+      waitingForLayout.current = false;
+      const frame = requestAnimationFrame(() => {
+        // Cleared only once the fit runs: a re-render before the frame retries it.
+        onFocusHandled();
+        if (getNodes().some((node) => node.id === pendingFocus.blockId)) {
+          void fitView({ nodes: [{ id: pendingFocus.blockId }], padding: 0.35, minZoom: 0.5, maxZoom: 1.2, duration: 250 });
+        }
+      });
+      return () => cancelAnimationFrame(frame);
     }
     if (waitingForLayout.current && layoutRevision >= nextLayoutRevision.current) {
       waitingForLayout.current = false;
@@ -480,7 +523,7 @@ function FitOnScopeChange({
       return () => cancelAnimationFrame(frame);
     }
     return undefined;
-  }, [fitView, getNodes, layoutRevision, scopeId]);
+  }, [fitView, focus, getNodes, layoutRevision, onFocusHandled, scopeId]);
 
   return null;
 }
@@ -544,6 +587,20 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [editorActionError, setEditorActionError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
+  const clearFocusRequest = useCallback(() => setFocusRequest(null), []);
+  const [wordWrap, setWordWrap] = useState(readWordWrapPreference);
+  const [wordWrapShortcut, setWordWrapShortcut] = useState(readWordWrapShortcut);
+  const changeWordWrapShortcut = useCallback((shortcut: string) => {
+    saveWordWrapShortcut(shortcut);
+    setWordWrapShortcut(shortcut);
+  }, []);
+  const toggleWordWrap = useCallback(() => {
+    setWordWrap((current) => {
+      saveWordWrapPreference(!current);
+      return !current;
+    });
+  }, []);
   const [commits, setCommits] = useState<readonly CommitSummary[]>([]);
   const [selectedCommit, setSelectedCommit] = useState("");
   const [commitDiff, setCommitDiff] = useState<
@@ -818,6 +875,14 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
   const closeProjectNotes = useCallback(() => setNotesDialog(null), []);
   const closeNoteMenu = useCallback(() => setNoteMenu(null), []);
+  const noteByBlockId = useMemo(
+    () => new Map(projectNotes.kind === "ready" ? projectNotes.notes.map((note) => [note.blockId, note] as const) : []),
+    [projectNotes],
+  );
+  const noteTextById = useMemo(
+    () => new Map([...noteByBlockId].map(([blockId, note]) => [blockId, note.text] as const)),
+    [noteByBlockId],
+  );
   const notedBlockIds = useMemo(
     () => new Set(projectNotes.kind === "ready" ? projectNotes.notes.map((note) => note.blockId) : []),
     [projectNotes],
@@ -904,9 +969,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     onHover: setHoverNode,
     onActivate: openBlockInspector,
     notedBlockIds,
+    noteTextById,
+    onOpenNote: openNoteFor,
     onContextMenu: showBlockMenu,
     ...(commitDiff.kind === "ready" ? { changes: commitDiff.byBlock } : {}),
-  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, showBlockMenu, commitDiff]);
+  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, noteTextById, openNoteFor, showBlockMenu, commitDiff]);
 
   const noteTargetId = inspectedBlockId ?? (map?.blockById.has(selectedId) === true ? selectedId : null);
   useEffect(() => {
@@ -948,6 +1015,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       cursor = cursor.parentId === null ? undefined : map.blockById.get(cursor.parentId);
     }
     setScopePath(ancestors.length > 1 ? ancestors.slice(0, -1) : ancestors);
+    setFocusRequest((current) => ({ blockId: node.id, sequence: (current?.sequence ?? 0) + 1 }));
   }, [map, mapSource.editor]);
 
   const onNodeClick: NodeMouseHandler<MapNode> = useCallback((_event, node) => {
@@ -1113,6 +1181,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           void navigator.clipboard?.writeText(text).catch(() => setNoteActionError("Could not copy the path."));
         }
         return;
+      case "toggle-word-wrap":
+        toggleWordWrap();
+        return;
       default: {
         const exhaustive: never = action;
         return exhaustive;
@@ -1130,6 +1201,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         hasNote: notedBlockIds.has(noteMenuBlock.id),
         canOpen: noteMenu.line === undefined && mapSource.editor !== undefined,
         sourcePath: noteMenuBlock.sourcePath,
+        ...(noteMenu.line === undefined ? {} : { wordWrap, wordWrapShortcut }),
       })}
       onChoose={(action) => chooseNoteMenuAction(noteMenu, action)}
       onClose={closeNoteMenu}
@@ -1189,7 +1261,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             layoutRevision={layoutRevision}
             getSavedViewport={getSavedViewport}
           />
-          <FitOnScopeChange scopeId={scopeId} layoutRevision={layoutRevision} />
+          <FitOnScopeChange scopeId={scopeId} layoutRevision={layoutRevision} focus={focusRequest} onFocusHandled={clearFocusRequest} />
           <Background color={theme === "blueprint" ? "rgba(227,238,255,.22)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
           <Controls showInteractive={false} position="bottom-left" />
         </ReactFlow>
@@ -1295,6 +1367,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       editorError={editorActionError}
       onOpenInEditor={() => { void handleOpenInEditor(); }}
       onClose={() => setInspectedBlockId(null)}
+      wordWrap={wordWrap}
+      wordWrapShortcut={wordWrapShortcut}
+      onToggleWordWrap={toggleWordWrap}
+      {...(noteByBlockId.has(inspectedBlockId) ? {
+        noteText: noteByBlockId.get(inspectedBlockId)!.text,
+        noteStale: noteByBlockId.get(inspectedBlockId)!.stale,
+      } : {})}
       {...(blockDiff === null ? {} : { diff: blockDiff })}
       {...(inspectedNoteAction === undefined ? {} : {
         noteAction: inspectedNoteAction,
@@ -1312,6 +1391,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       onOpen={(node) => { if (!node.virtual) openBlockInspector(node); }}
       onSelectBlock={setSelectedId}
       onBlockContextMenu={showBlockMenu}
+      {...(noteByBlockId.has(selected.id) ? { note: noteByBlockId.get(selected.id)! } : {})}
       {...(selectedNoteAction === undefined ? {} : {
         noteAction: selectedNoteAction,
         onAddNote: () => openNoteFor(selected.id),
@@ -1437,6 +1517,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           initialText={notesDialog.initialText}
           onSnapshot={acceptProjectNotes}
           onClose={closeProjectNotes}
+          onShowOnMap={(blockId) => {
+            const block = map.blockById.get(blockId);
+            if (block === undefined) return;
+            closeProjectNotes();
+            selectSearchNode(block);
+          }}
         />
       )}
       {settingsOpen && mapSource.editor !== undefined && (
@@ -1445,6 +1531,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           themePreference={themePreference}
           theme={theme}
           onThemeChange={changeTheme}
+          wordWrapShortcut={wordWrapShortcut}
+          onWordWrapShortcutChange={changeWordWrapShortcut}
           onClose={closeSettingsPanel}
         />
       )}

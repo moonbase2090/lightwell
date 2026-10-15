@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, LoaderCircle, Settings2, X } from "lucide-react";
 import type { EditorSettings, MapEditorSource } from "./map-source.js";
 import { isThemePreference, type ResolvedTheme, type ThemePreference } from "./theme.js";
+import { DEFAULT_WORD_WRAP_SHORTCUT, shortcutFromKeyEvent } from "./source-view-preferences.js";
 
 type PanelState =
   | { readonly kind: "loading" }
@@ -74,17 +75,76 @@ export function SaveEditorButton({ status, disabled, onSave }: {
   );
 }
 
+/** Records a key combination: click, press the keys; Escape cancels and Backspace turns it off. */
+export function ShortcutRecorder({
+  id,
+  label,
+  shortcut,
+  defaultShortcut,
+  onChange,
+}: {
+  readonly id: string;
+  readonly label: string;
+  readonly shortcut: string;
+  readonly defaultShortcut: string;
+  readonly onChange: (shortcut: string) => void;
+}) {
+  const [recording, setRecording] = useState(false);
+  const [hint, setHint] = useState("");
+  const stop = () => { setRecording(false); setHint(""); };
+  return (
+    <>
+      <label className="settings-field-label" htmlFor={id}>{label}</label>
+      <div className="settings-shortcut-row">
+        <button
+          id={id}
+          type="button"
+          className={`settings-shortcut${recording ? " recording" : ""}`}
+          aria-describedby={hint.length > 0 ? `${id}-hint` : undefined}
+          onClick={() => { setRecording(true); setHint(""); }}
+          onBlur={stop}
+          onKeyDown={(event) => {
+            if (!recording) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.key === "Escape") { stop(); return; }
+            if (event.key === "Backspace" || event.key === "Delete") { onChange(""); stop(); return; }
+            if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
+            const recorded = shortcutFromKeyEvent(event);
+            if (recorded === null) {
+              setHint("Use Ctrl, Alt, or Meta with a letter or number, or an F-key.");
+              return;
+            }
+            onChange(recorded);
+            stop();
+          }}
+        >
+          {recording ? "Press keys…" : shortcut.length > 0 ? <kbd>{shortcut}</kbd> : "Off"}
+        </button>
+        <button type="button" className="settings-shortcut-action" disabled={shortcut === defaultShortcut} onClick={() => onChange(defaultShortcut)}>Reset</button>
+        <button type="button" className="settings-shortcut-action" disabled={shortcut.length === 0} onClick={() => onChange("")}>Turn off</button>
+      </div>
+      {hint.length > 0 && <p className="settings-error" id={`${id}-hint`} role="alert">{hint}</p>}
+    </>
+  );
+}
+
 export default function EditorSettingsPanel({
   editor,
   themePreference,
   theme,
   onThemeChange,
+  wordWrapShortcut,
+  onWordWrapShortcutChange,
   onClose,
 }: {
   readonly editor: MapEditorSource;
   readonly themePreference: ThemePreference;
   readonly theme: ResolvedTheme;
   readonly onThemeChange: (preference: ThemePreference) => void;
+  /** Source view word wrap shortcut, "" when turned off. */
+  readonly wordWrapShortcut: string;
+  readonly onWordWrapShortcutChange: (shortcut: string) => void;
   readonly onClose: () => void;
 }) {
   const [panelState, setPanelState] = useState<PanelState>({ kind: "loading" });
@@ -196,6 +256,16 @@ export default function EditorSettingsPanel({
             <option value="blueprint">Blueprint</option>
           </select>
           <p className="settings-help">Theme changes apply immediately and stay saved on this device.</p>
+
+          <h3 className="settings-section-title settings-editor-section">Source view</h3>
+          <ShortcutRecorder
+            id="lightwell-word-wrap-shortcut"
+            label="WORD WRAP SHORTCUT"
+            shortcut={wordWrapShortcut}
+            defaultShortcut={DEFAULT_WORD_WRAP_SHORTCUT}
+            onChange={onWordWrapShortcutChange}
+          />
+          <p className="settings-help">Toggles word wrap while the source view has focus. Change it if another program already uses {DEFAULT_WORD_WRAP_SHORTCUT}.</p>
 
           <h3 className="settings-section-title settings-editor-section">Editor</h3>
           <p className="settings-explainer">

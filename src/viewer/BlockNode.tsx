@@ -12,6 +12,8 @@ export interface BlockNodeData extends Record<string, unknown> {
   readonly onHover: (id: string | null) => void;
   readonly onActivate: (block: DisplayBlock) => void;
   readonly hasNote?: boolean;
+  readonly noteText?: string;
+  readonly onOpenNote?: (blockId: string) => void;
   /** Lines the selected commit changed in or under this block. */
   readonly change?: BlockDiff;
   readonly onContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
@@ -23,6 +25,12 @@ function shortPath(sourcePath: string | null): string {
   if (sourcePath === null) return "source path unresolved";
   const parts = sourcePath.split("/");
   return parts.slice(-2).join("/");
+}
+
+/** First lines of a note for a hover preview. */
+export function notePreview(text: string, limit = 280): string {
+  const trimmed = text.trim();
+  return trimmed.length <= limit ? trimmed : `${trimmed.slice(0, limit - 1).trimEnd()}…`;
 }
 
 function statusLabel(status: DisplayBlock["status"]): string {
@@ -91,7 +99,20 @@ function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
             <span className="diff-added">+{data.change.added}</span> <span className="diff-removed">−{data.change.removed}</span>
           </span>
         )}
-        {data.hasNote === true && <span className="node-note-badge" title="Has a project note"><StickyNote size={12} /></span>}
+        {data.hasNote === true && (
+          <button
+            className="node-note-badge nodrag nopan"
+            type="button"
+            title={data.noteText === undefined ? "Open project note" : `Note: ${notePreview(data.noteText)}`}
+            aria-label={`Open the project note for ${block.label}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              data.onOpenNote?.(block.id);
+            }}
+          >
+            <StickyNote size={12} />
+          </button>
+        )}
         {block.annotationState === "changed" && <CircleAlert size={13} className="node-alert" />}
       </div>
       <Handle type="source" position={Position.Bottom} isConnectable={false} />

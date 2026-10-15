@@ -4,7 +4,7 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ReactFlowProvider, type NodeProps } from "@xyflow/react";
 import type { DisplayBlock } from "./model.js";
-import BlockNode, { type BlockNodeData, type MapNode } from "./viewer/BlockNode.js";
+import BlockNode, { notePreview, type BlockNodeData, type MapNode } from "./viewer/BlockNode.js";
 
 function moduleBlock(): DisplayBlock {
   return {
@@ -122,7 +122,16 @@ test("map node marks a block that has a project note and advertises its context 
   });
   assert.match(withNote, /aria-label="old-crate, CRATE, has note"/);
   assert.match(withNote, /aria-haspopup="menu"/);
-  assert.match(withNote, /class="node-note-badge"/);
+  assert.match(withNote, /class="node-note-badge[ "]/);
   const without = renderBlock({ block, dimmed: false, highlighted: false, onHover: () => undefined, onActivate: () => undefined });
   assert.doesNotMatch(without, /node-note-badge|aria-haspopup/);
+});
+
+test("note previews keep short notes and truncate long ones", () => {
+  assert.equal(notePreview("  Big Boss Module \n"), "Big Boss Module");
+  const long = "word ".repeat(100);
+  const preview = notePreview(long, 40);
+  assert.equal(preview.length <= 40, true);
+  assert.equal(preview.endsWith("…"), true);
+  assert.equal(long.startsWith(preview.slice(0, -1)), true);
 });

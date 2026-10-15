@@ -71,6 +71,9 @@ export function emphasizeGraph(args: {
   readonly onHover: (id: string | null) => void;
   readonly onActivate: (block: DisplayBlock) => void;
   readonly notedBlockIds?: ReadonlySet<string>;
+  /** Note text by block id, for the card badge preview. */
+  readonly noteTextById?: ReadonlyMap<string, string>;
+  readonly onOpenNote?: (blockId: string) => void;
   readonly onContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
   /** A commit's changed blocks and their ancestors. Everything else dims while no block is hovered. */
   readonly changes?: ReadonlyMap<string, BlockDiff>;
@@ -93,6 +96,8 @@ export function emphasizeGraph(args: {
       onHover: args.onHover,
       onActivate: args.onActivate,
       hasNote: args.notedBlockIds?.has(node.id) ?? false,
+      ...(args.noteTextById?.has(node.id) === true ? { noteText: args.noteTextById.get(node.id) } : {}),
+      ...(args.onOpenNote === undefined ? {} : { onOpenNote: args.onOpenNote }),
       ...(args.changes?.has(node.id) === true ? { change: args.changes.get(node.id) } : {}),
       ...(args.onContextMenu === undefined ? {} : { onContextMenu: args.onContextMenu }),
     },

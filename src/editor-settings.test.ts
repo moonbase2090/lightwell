@@ -25,6 +25,8 @@ function renderSettings(themePreference: ThemePreference, theme: ResolvedTheme):
     themePreference,
     theme,
     onThemeChange: () => undefined,
+    wordWrapShortcut: "Ctrl+Shift+W",
+    onWordWrapShortcutChange: () => undefined,
     onClose: () => undefined,
   }));
 }
@@ -123,4 +125,10 @@ test("idle state shows neither Saved nor an error", () => {
   assert.equal(html.includes(">Saved<"), false);
   assert.equal(html.includes("role=\"alert\""), false);
   assert.match(html, /aria-busy="false">[^]*Save editor preference<\/button>/);
+});
+
+test("settings show the configured word wrap shortcut", () => {
+  const html = renderSettings("system", "dark");
+  assert.match(html, /WORD WRAP SHORTCUT/);
+  assert.match(html, /<kbd>Ctrl\+Shift\+W<\/kbd>/);
 });
