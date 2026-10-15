@@ -2,4 +2,5 @@
 
 interface ImportMetaEnv {
   readonly VITE_ENABLE_PROJECT_NOTES?: string;
+  readonly VITE_ENABLE_COMMIT_DIFF?: string;
 }

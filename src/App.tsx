@@ -26,6 +26,7 @@ import {
   Search,
   Settings2,
   StickyNote,
+  GitCommitHorizontal,
   Waypoints,
 } from "lucide-react";
 import {
@@ -41,6 +42,8 @@ import EditorSettingsPanel from "./EditorSettingsPanel.js";
 import SourceInspectorPanel, { type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
+import { rollUpChanges, unmappedFiles, type BlockDiff } from "./commit-diff.js";
+import type { CommitChanges, CommitSummary } from "./map-source.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
 import NoteContextMenu, {
@@ -517,6 +520,14 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [editorActionError, setEditorActionError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
+  const [commits, setCommits] = useState<readonly CommitSummary[]>([]);
+  const [selectedCommit, setSelectedCommit] = useState("");
+  const [commitDiff, setCommitDiff] = useState<
+    | { readonly kind: "idle" }
+    | { readonly kind: "loading"; readonly commitId: string }
+    | { readonly kind: "ready"; readonly changes: CommitChanges; readonly byBlock: ReadonlyMap<string, BlockDiff> }
+    | { readonly kind: "error"; readonly message: string }
+  >({ kind: "idle" });
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() => (
     window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
   ));
@@ -697,6 +708,39 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     : undefined;
   const openWorkspaceAction = mapSource.openWorkspace === undefined ? undefined : handleOpenWorkspace;
   const map = loadedMap.kind === "ready" && loadedMap.id === mapKey ? loadedMap.map : null;
+  const history = mapSource.history;
+
+  useEffect(() => {
+    setCommits([]);
+    setSelectedCommit("");
+    setCommitDiff({ kind: "idle" });
+    if (history === undefined || mapKey === null) return;
+    let cancelled = false;
+    void history.listCommits(mapKey)
+      .then((list) => { if (!cancelled) setCommits(list); })
+      .catch(() => { if (!cancelled) setCommits([]); });
+    return () => { cancelled = true; };
+  }, [history, mapKey]);
+
+  useEffect(() => {
+    if (history === undefined || mapKey === null || map === null || selectedCommit === "") {
+      setCommitDiff({ kind: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setCommitDiff({ kind: "loading", commitId: selectedCommit });
+    const currentMap = map;
+    void history.commitChanges(mapKey, selectedCommit)
+      .then((changes) => {
+        if (cancelled) return;
+        const byBlock = rollUpChanges(changes, (id) => currentMap.blockById.get(id)?.parentId);
+        setCommitDiff({ kind: "ready", changes, byBlock });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setCommitDiff({ kind: "error", message: describeError(error, "Could not read this commit.") });
+      });
+    return () => { cancelled = true; };
+  }, [history, map, mapKey, selectedCommit]);
   const projectNotes = loadedMap.kind === "ready" && loadedMap.id === mapKey
     ? loadedMap.projectNotes
     : emptyProjectNotes;
@@ -814,7 +858,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     onActivate: openBlockInspector,
     notedBlockIds,
     onContextMenu: showBlockMenu,
-  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, showBlockMenu]);
+    ...(commitDiff.kind === "ready" ? { changes: commitDiff.byBlock } : {}),
+  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, showBlockMenu, commitDiff]);
 
   const noteTargetId = inspectedBlockId ?? (map?.blockById.has(selectedId) === true ? selectedId : null);
   useEffect(() => {
@@ -1125,6 +1170,21 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <span className="legend-item"><i className="legend-line dependency-line" />depends on <b>{directConnectionSummary.depends}</b></span>
           {staleCount > 0 && <span className="stale-count"><CircleAlert size={12} />{staleCount} changed</span>}
         </div>
+        {history !== undefined && commits.length > 0 && (
+          <label className="commit-picker" title="Light up the blocks a commit changed">
+            <GitCommitHorizontal size={13} />
+            <select
+              aria-label="Show a commit's changes on the map"
+              value={selectedCommit}
+              onChange={(event) => setSelectedCommit(event.currentTarget.value)}
+            >
+              <option value="">No commit</option>
+              {commits.map((commit) => (
+                <option key={commit.id} value={commit.id}>{commit.shortId} {commit.summary}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {projectNotesSource !== undefined && (
           <button
             className="project-notes-open-button"
@@ -1137,6 +1197,25 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           </button>
         )}
       </div>
+      {commitDiff.kind !== "idle" && (
+        <div className="commit-diff-banner" role="status">
+          {commitDiff.kind === "loading" && <span>Reading commit…</span>}
+          {commitDiff.kind === "error" && <span className="commit-diff-error"><CircleAlert size={12} />{commitDiff.message}</span>}
+          {commitDiff.kind === "ready" && (() => {
+            const direct = commitDiff.changes.blocks.length;
+            const mappedPaths = new Set([...map.blockById.values()].flatMap((block) => block.sourcePath === null ? [] : [block.sourcePath.replaceAll("\\", "/")]));
+            const outside = unmappedFiles(commitDiff.changes, mappedPaths).length;
+            return (
+              <span>
+                <code>{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}
+                {" · "}{direct === 1 ? "1 block changed" : `${direct} blocks changed`}
+                {outside > 0 && ` · ${outside === 1 ? "1 file" : `${outside} files`} outside the map`}
+              </span>
+            );
+          })()}
+          <button type="button" className="commit-diff-clear" onClick={() => setSelectedCommit("")}>Clear</button>
+        </div>
+      )}
       {mapContent}
     </main>
   );

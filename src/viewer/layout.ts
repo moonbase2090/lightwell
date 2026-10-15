@@ -1,4 +1,5 @@
 import ELK from "elkjs/lib/elk.bundled.js";
+import type { BlockDiff } from "../commit-diff.js";
 import { MarkerType, type Edge } from "@xyflow/react";
 import type { FactConnection, DisplayBlock } from "../model.js";
 import type { MapNode, BlockNodeData } from "./BlockNode.js";
@@ -71,7 +72,10 @@ export function emphasizeGraph(args: {
   readonly onActivate: (block: DisplayBlock) => void;
   readonly notedBlockIds?: ReadonlySet<string>;
   readonly onContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
+  /** A commit's changed blocks and their ancestors. Everything else dims while no block is hovered. */
+  readonly changes?: ReadonlyMap<string, BlockDiff>;
 }): { readonly nodes: MapNode[]; readonly edges: Edge[] } {
+  const changedIds = args.changes === undefined ? null : new Set(args.changes.keys());
   const directNeighbors = args.activeNodeId === null
     ? new Set<string>()
     : new Set([
@@ -79,7 +83,7 @@ export function emphasizeGraph(args: {
       ...args.edges.filter((edge) => edge.source === args.activeNodeId || edge.target === args.activeNodeId)
         .flatMap((edge) => [edge.source, edge.target]),
     ]);
-  const highlightedIds = args.activeFeatureMemberIds ?? (args.activeNodeId === null ? null : directNeighbors);
+  const highlightedIds = args.activeFeatureMemberIds ?? (args.activeNodeId === null ? changedIds : directNeighbors);
   const nodes = args.nodes.map((node) => ({
     ...node,
     data: {
@@ -89,6 +93,7 @@ export function emphasizeGraph(args: {
       onHover: args.onHover,
       onActivate: args.onActivate,
       hasNote: args.notedBlockIds?.has(node.id) ?? false,
+      ...(args.changes?.has(node.id) === true ? { change: args.changes.get(node.id) } : {}),
       ...(args.onContextMenu === undefined ? {} : { onContextMenu: args.onContextMenu }),
     },
   }));
@@ -97,7 +102,8 @@ export function emphasizeGraph(args: {
     const target = typeof edge.target === "string" ? edge.target : "";
     const highlighted = highlightedIds === null
       || (args.activeNodeId !== null && (source === args.activeNodeId || target === args.activeNodeId))
-      || (args.activeFeatureMemberIds !== null && args.activeFeatureMemberIds.has(source) && args.activeFeatureMemberIds.has(target));
+      || (args.activeFeatureMemberIds !== null && args.activeFeatureMemberIds.has(source) && args.activeFeatureMemberIds.has(target))
+      || (highlightedIds === changedIds && changedIds !== null && changedIds.has(source) && changedIds.has(target));
     const color = source.startsWith("crate:") && target.startsWith("crate:") ? "#59d8c0" : "#4d8df4";
     return {
       ...edge,

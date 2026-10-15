@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { ChevronRight, CircleAlert, Layers3, StickyNote } from "lucide-react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import type { BlockDiff } from "../commit-diff.js";
 import type { DisplayBlock } from "../model.js";
 import { isContextMenuKey } from "../NoteContextMenu.js";
 
@@ -11,6 +12,8 @@ export interface BlockNodeData extends Record<string, unknown> {
   readonly onHover: (id: string | null) => void;
   readonly onActivate: (block: DisplayBlock) => void;
   readonly hasNote?: boolean;
+  /** Lines the selected commit changed in or under this block. */
+  readonly change?: BlockDiff;
   readonly onContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
 }
 
@@ -78,6 +81,14 @@ function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
         <span className="node-path">{shortPath(block.sourcePath)}</span>
         {block.children.length > 0 && (
           <span className="node-children"><span>{block.children.length}</span><ChevronRight size={13} /></span>
+        )}
+        {data.change !== undefined && (
+          <span
+            className={`node-diff${data.change.direct ? "" : " node-diff-inside"}`}
+            title={data.change.direct ? "Lines this commit changed" : "Lines this commit changed inside this block"}
+          >
+            <span className="diff-added">+{data.change.added}</span> <span className="diff-removed">−{data.change.removed}</span>
+          </span>
         )}
         {data.hasNote === true && <span className="node-note-badge" title="Has a project note"><StickyNote size={12} /></span>}
         {block.annotationState === "changed" && <CircleAlert size={13} className="node-alert" />}
