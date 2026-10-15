@@ -257,7 +257,7 @@ test("denylisted text in an archived symlink target fails the scan", () => {
 
 test("a dmg release artifact is scanned without treating the extension as unsupported", () => {
   const dir = mkdtempSync(join(tmpdir(), "lightwell-release-dmg-"));
-  const clean = join(dir, "Lightwell-macos-arm64.dmg");
+  const clean = join(dir, "Lightwell_0.1.7_aarch64.dmg");
   const dirty = join(dir, "dirty.dmg");
   try {
     writeFileSync(clean, "public release payload\n");
