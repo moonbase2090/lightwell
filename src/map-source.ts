@@ -84,10 +84,24 @@ export interface CommitChanges {
   readonly blocks: readonly CommitBlockChange[];
 }
 
+/** One block's file before and after a commit. */
+export interface BlockDiffDocument {
+  readonly commit: CommitSummary;
+  readonly path: string;
+  readonly originalPath: string | null;
+  /** Empty when the commit added the file. */
+  readonly original: string;
+  /** Empty when the commit deleted the file. */
+  readonly modified: string;
+  /** Line in `modified` to reveal. */
+  readonly line: number;
+}
+
 /** Git history for the commit diff view. */
 export interface MapHistorySource {
   listCommits(workspaceId: string): Promise<readonly CommitSummary[]>;
   commitChanges(workspaceId: string, commitId: string): Promise<CommitChanges>;
+  blockDiff(workspaceId: string, commitId: string, blockId: string): Promise<BlockDiffDocument>;
 }
 
 export interface MapSource {

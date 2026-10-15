@@ -1,9 +1,16 @@
 import { Suspense, lazy } from "react";
 import { ArrowUpRight, CircleAlert, LoaderCircle, StickyNote, X } from "lucide-react";
-import type { SourceFileDocument } from "./map-source.js";
+import type { BlockDiffDocument, SourceFileDocument } from "./map-source.js";
 import type { ResolvedTheme } from "./theme.js";
 
 const SourceCodeEditor = lazy(() => import("./SourceCodeEditor.js"));
+const SourceDiffEditor = lazy(() => import("./SourceDiffEditor.js"));
+
+/** A commit's diff for the inspected block, shown instead of the plain source. */
+export type DiffInspectionState =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly document: BlockDiffDocument }
+  | { readonly kind: "error"; readonly message: string };
 
 export type SourceInspectionState =
   | { readonly kind: "loading" }
@@ -21,6 +28,7 @@ export default function SourceInspectorPanel({
   noteAction,
   onAddNote,
   onLineContextMenu,
+  diff,
 }: {
   readonly title: string;
   readonly inspection: SourceInspectionState;
@@ -33,12 +41,14 @@ export default function SourceInspectorPanel({
   readonly noteAction?: "Add note" | "Edit note";
   readonly onAddNote?: () => void;
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
+  /** When set, the panel shows this commit diff instead of the current source. */
+  readonly diff?: DiffInspectionState;
 }) {
   return (
     <aside className="source-inspector" aria-label={`Source inspector for ${title}`}>
       <header className="source-inspector-header">
         <div className="source-inspector-title">
-          <span className="inspector-kicker">READ-ONLY SOURCE</span>
+          <span className="inspector-kicker">{diff === undefined ? "READ-ONLY SOURCE" : diff.kind === "ready" ? `COMMIT ${diff.document.commit.shortId}` : "COMMIT DIFF"}</span>
           <h2>{title}</h2>
           {inspection.kind === "ready" && <code title={inspection.document.path}>{inspection.document.path}</code>}
         </div>
@@ -63,13 +73,30 @@ export default function SourceInspectorPanel({
       {editorError.length > 0 && <div className="inspector-error" role="alert"><CircleAlert size={14} />{editorError}</div>}
 
       <div className="source-inspector-content">
-        {inspection.kind === "loading" && (
+        {diff !== undefined && diff.kind === "loading" && (
+          <div className="inspector-state"><LoaderCircle size={16} className="inspector-spinner" />Loading commit diff…</div>
+        )}
+        {diff !== undefined && diff.kind === "error" && (
+          <div className="inspector-state inspector-error-state" role="alert"><CircleAlert size={16} />{diff.message}</div>
+        )}
+        {diff !== undefined && diff.kind === "ready" && (
+          <Suspense fallback={<div className="inspector-state"><LoaderCircle size={16} className="inspector-spinner" />Loading diff viewer…</div>}>
+            <SourceDiffEditor
+              original={diff.document.original}
+              modified={diff.document.modified}
+              path={diff.document.path}
+              line={diff.document.line}
+              theme={theme}
+            />
+          </Suspense>
+        )}
+        {diff === undefined && inspection.kind === "loading" && (
           <div className="inspector-state"><LoaderCircle size={16} className="inspector-spinner" />Loading source…</div>
         )}
-        {inspection.kind === "error" && (
+        {diff === undefined && inspection.kind === "error" && (
           <div className="inspector-state inspector-error-state" role="alert"><CircleAlert size={16} />{inspection.message}</div>
         )}
-        {inspection.kind === "ready" && (
+        {diff === undefined && inspection.kind === "ready" && (
           <Suspense fallback={<div className="inspector-state"><LoaderCircle size={16} className="inspector-spinner" />Loading code inspector…</div>}>
             <SourceCodeEditor
               content={inspection.document.content}

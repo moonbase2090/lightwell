@@ -39,7 +39,7 @@ import {
 } from "@xyflow/react";
 import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNotesSnapshot } from "./map-source.js";
 import EditorSettingsPanel from "./EditorSettingsPanel.js";
-import SourceInspectorPanel, { type SourceInspectionState } from "./SourceInspectorPanel.js";
+import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import { rollUpChanges, unmappedFiles, type BlockDiff } from "./commit-diff.js";
@@ -472,6 +472,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     | { readonly kind: "ready"; readonly changes: CommitChanges; readonly byBlock: ReadonlyMap<string, BlockDiff> }
     | { readonly kind: "error"; readonly message: string }
   >({ kind: "idle" });
+  const [blockDiff, setBlockDiff] = useState<DiffInspectionState | null>(null);
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() => (
     window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
   ));
@@ -685,6 +686,25 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       });
     return () => { cancelled = true; };
   }, [history, map, mapKey, selectedCommit]);
+
+  // While a commit is shown, inspecting a block it changed opens that block's diff.
+  const diffCommitId = commitDiff.kind === "ready" ? commitDiff.changes.commit.id : null;
+  const inspectedChangedDirectly = commitDiff.kind === "ready" && inspectedBlockId !== null
+    && commitDiff.changes.blocks.some((block) => block.blockId === inspectedBlockId);
+  useEffect(() => {
+    if (history === undefined || mapKey === null || diffCommitId === null || inspectedBlockId === null || !inspectedChangedDirectly) {
+      setBlockDiff(null);
+      return;
+    }
+    let cancelled = false;
+    setBlockDiff({ kind: "loading" });
+    void history.blockDiff(mapKey, diffCommitId, inspectedBlockId)
+      .then((document) => { if (!cancelled) setBlockDiff({ kind: "ready", document }); })
+      .catch((error: unknown) => {
+        if (!cancelled) setBlockDiff({ kind: "error", message: describeError(error, "Could not load this commit diff.") });
+      });
+    return () => { cancelled = true; };
+  }, [diffCommitId, history, inspectedBlockId, inspectedChangedDirectly, mapKey]);
   const projectNotes = loadedMap.kind === "ready" && loadedMap.id === mapKey
     ? loadedMap.projectNotes
     : emptyProjectNotes;
@@ -1171,6 +1191,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       editorError={editorActionError}
       onOpenInEditor={() => { void handleOpenInEditor(); }}
       onClose={() => setInspectedBlockId(null)}
+      {...(blockDiff === null ? {} : { diff: blockDiff })}
       {...(inspectedNoteAction === undefined ? {} : {
         noteAction: inspectedNoteAction,
         onAddNote: () => openNoteFor(inspectedBlockId),

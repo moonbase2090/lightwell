@@ -13,8 +13,8 @@ mod typescript_source;
 mod watch;
 
 pub use diff::{
-    commit_changes, recent_commits, BlockChange, CommitChanges, CommitSummary, DiffError,
-    FileChange,
+    block_diff, commit_changes, recent_commits, BlockChange, BlockDiffDocument, CommitChanges,
+    CommitSummary, DiffError, FileChange,
 };
 pub use editor::{
     open_block, resolve_block_target, EditorError, EditorSettings, EditorTarget,

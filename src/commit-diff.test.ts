@@ -3,7 +3,7 @@ import test from "node:test";
 import { rollUpChanges, unmappedFiles } from "./commit-diff.js";
 import { commitDiffEnabled } from "./feature-flags.js";
 import type { CommitChanges } from "./map-source.js";
-import { parseCommitChanges } from "./map-sources/tauri-types.js";
+import { parseBlockDiffDocument, parseCommitChanges } from "./map-sources/tauri-types.js";
 
 // workspace > crate > module (job.py) > { plan, merge }; crate > other.rs
 const parents: Record<string, string | null> = {
@@ -64,4 +64,20 @@ test("commit changes from the desktop app are validated", () => {
   assert.equal(parseCommitChanges(valid).blocks[0]?.blockId, "module:a");
   assert.throws(() => parseCommitChanges({ ...valid, blocks: [{ blockId: "x", added: -1, removed: 0 }] }));
   assert.throws(() => parseCommitChanges({ ...valid, commit: { id: "abc" } }));
+});
+
+test("block diffs from the desktop app are validated", () => {
+  const valid = {
+    commit: { id: "abc", shortId: "abc", summary: "x", timestamp: 1 },
+    path: "scripts/job.py",
+    originalPath: null,
+    original: "def merge():\n    return 2\n",
+    modified: "def merge():\n    total = 2\n    return total\n",
+    line: 2,
+  };
+  const parsed = parseBlockDiffDocument(valid);
+  assert.equal(parsed.line, 2);
+  assert.equal(parsed.originalPath, null);
+  assert.throws(() => parseBlockDiffDocument({ ...valid, line: 0 }));
+  assert.throws(() => parseBlockDiffDocument({ ...valid, modified: undefined }));
 });
