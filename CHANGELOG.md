@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.1.10 - 2026-10-15
+## 0.1.11 - 2026-10-15
+
+The 0.1.9 and 0.1.10 tags were not published. 0.1.11 carries their changes.
+
+### Changed
+
+- The rpm and Linux tarballs are named `Lightwell_<version>_x86_64.rpm` and `Lightwell_<version>_linux_<arch>.tar.gz`, and the tarballs unpack to `lightwell/`.
+- The release text check scans release text, asset names and text assets such as `SHA256SUMS`, not the contents of binaries. `--deep` keeps the full scan.
+
+## 0.1.10 - 2026-10-15 (not published)
 
 The 0.1.9 tag was not published: its Linux bundle smoke could not find the
 AppImage. 0.1.10 carries the 0.1.9 changes below.
