@@ -88,6 +88,9 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
       sleep 1
       xdotool type --clearmodifiers --delay 100 "$text"
       sleep $(( ${#text} * 100 / 1000 + 4 ))
+      # Let React flush textarea onChange before Save reads editor.text (CI saw "ote one." otherwise).
+      xdotool key --clearmodifiers End space BackSpace
+      sleep 3
     }
 
     save_note_in_dialog() {
