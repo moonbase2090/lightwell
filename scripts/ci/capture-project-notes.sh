@@ -78,6 +78,16 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     note_remove_x=$((dialog_left + 700))
     note_remove_y=$((dialog_top + 598))
 
+    type_in_note_textarea() {
+      local text="$1"
+      xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
+      sleep 2
+      xdotool key --clearmodifiers ctrl+a
+      sleep 0.5
+      xdotool type --clearmodifiers --delay 80 "$text"
+      sleep 2
+    }
+
     sleep 12
     # Bare Xvfb has no window manager. A click focuses the window; windowactivate --sync does not.
     xdotool mousemove --window "$window_id" 180 80 click 1
@@ -90,11 +100,8 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     xdotool mousemove --window "$window_id" "$inspector_close_x" "$inspector_close_y" click 1
     sleep 2
     xdotool mousemove --window "$window_id" "$details_add_note_x" "$details_add_note_y" click 1
-    sleep 2
-    xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
-    sleep 1
-    xdotool type --clearmodifiers --delay 50 "Architecture note one."
-    sleep 1
+    sleep 4
+    type_in_note_textarea "Architecture note one."
     xdotool key --clearmodifiers ctrl+Return
     for _ in $(seq 1 15); do
       if [[ -s "$notes_file" ]]; then break; fi
@@ -118,10 +125,7 @@ if (document.schemaVersion !== 1 || document.notes?.[blockId]?.text !== expected
 }
 NODE
 
-    xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click 1
-    xdotool key --clearmodifiers ctrl+a
-    xdotool type --clearmodifiers --delay 50 "Architecture note updated."
-    sleep 1
+    type_in_note_textarea "Architecture note updated."
     xdotool key --clearmodifiers ctrl+Return
     sleep 2
     node - "$notes_file" "$block_id" "Architecture note updated." <<'NODE'
