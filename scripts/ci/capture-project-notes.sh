@@ -64,19 +64,19 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     fi
 
     eval "$(xdotool getwindowgeometry --shell "$window_id")"
-    map_panel_width=$((WIDTH - 318 - 6))
-    map_canvas_x=$((map_panel_width / 2))
-    map_canvas_y=$((108 + 200))
-    notes_button_x=$((map_panel_width - 56))
-    notes_button_y=$((54 + 54 + 24))
+    source_panel_width=318
+    topbar_height=54
+    overview_height=54
+    inspector_close_x=$((WIDTH - 36))
+    inspector_close_y=$((topbar_height + overview_height + 24))
+    details_add_note_x=$((WIDTH - source_panel_width / 2))
+    details_add_note_y=$((topbar_height + overview_height + 188))
     dialog_left=$(( (WIDTH - 860) / 2 ))
     dialog_top=$(( (HEIGHT - 640) / 2 ))
     note_textarea_x=$((dialog_left + 612))
     note_textarea_y=$((dialog_top + 372))
-    note_save_x=$((dialog_left + 812))
-    note_save_y=$((dialog_top + 598))
     note_remove_x=$((dialog_left + 700))
-    note_remove_y=$note_save_y
+    note_remove_y=$((dialog_top + 598))
 
     sleep 12
     # Bare Xvfb has no window manager. A click focuses the window; windowactivate --sync does not.
@@ -86,19 +86,16 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     xdotool type --clearmodifiers --delay 45 sample
     sleep 2
     xdotool key --clearmodifiers Return
-    sleep 8
-    xdotool key --clearmodifiers Tab
-    sleep 1
-    xdotool mousemove --window "$window_id" "$map_canvas_x" "$map_canvas_y" click 1
-    sleep 1
-    xdotool windowfocus "$window_id" 2>/dev/null || true
-    xdotool mousemove --window "$window_id" "$notes_button_x" "$notes_button_y" click 1
-    sleep 3
+    sleep 10
+    xdotool mousemove --window "$window_id" "$inspector_close_x" "$inspector_close_y" click 1
+    sleep 2
+    xdotool mousemove --window "$window_id" "$details_add_note_x" "$details_add_note_y" click 1
+    sleep 2
     xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
     sleep 1
     xdotool type --clearmodifiers --delay 50 "Architecture note one."
-    sleep 2
-    xdotool mousemove --window "$window_id" "$note_save_x" "$note_save_y" click 1
+    sleep 1
+    xdotool key --clearmodifiers ctrl+Return
     for _ in $(seq 1 15); do
       if [[ -s "$notes_file" ]]; then break; fi
       sleep 1
@@ -121,12 +118,11 @@ if (document.schemaVersion !== 1 || document.notes?.[blockId]?.text !== expected
 }
 NODE
 
-    xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
-    sleep 1
+    xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click 1
     xdotool key --clearmodifiers ctrl+a
     xdotool type --clearmodifiers --delay 50 "Architecture note updated."
-    sleep 2
-    xdotool mousemove --window "$window_id" "$note_save_x" "$note_save_y" click 1
+    sleep 1
+    xdotool key --clearmodifiers ctrl+Return
     sleep 2
     node - "$notes_file" "$block_id" "Architecture note updated." <<'NODE'
 const fs = require("node:fs");
