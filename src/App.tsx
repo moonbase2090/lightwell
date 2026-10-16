@@ -24,6 +24,7 @@ import {
   GitBranch,
   Layers3,
   Search,
+  RotateCw,
   Settings2,
   StickyNote,
   GitCommitHorizontal,
@@ -39,6 +40,7 @@ import {
 } from "@xyflow/react";
 import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNoteView, ProjectNotesSnapshot } from "./map-source.js";
 import EditorSettingsPanel from "./EditorSettingsPanel.js";
+import FileExplorer, { TreeInspector } from "./FileExplorer.js";
 import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
@@ -70,17 +72,22 @@ import {
 } from "./map-depth.js";
 import {
   buildFileTree,
+  defaultExpandedIds,
   fileScopeCrumbs,
-  fileScopeForBlock,
   fileTreeContainsEdges,
   fileTreeDisplayBlock,
   folderNodeId,
   folderPathFromId,
   readMapView,
+  readTreeOrientation,
+  revealExpanded,
   rollupAlongParents,
   scopeDirectory,
   writeMapView,
+  writeTreeOrientation,
+  type FileTreeNode,
   type MapView,
+  type TreeOrientation,
 } from "./file-tree.js";
 
 const nodeTypes = { codeBlock: BlockNodeView };
@@ -393,6 +400,49 @@ function DetailsPanel({
   );
 }
 
+function FolderDetails({
+  node,
+  nodeById,
+  blockById,
+  onSelect,
+}: {
+  readonly node: FileTreeNode;
+  readonly nodeById: ReadonlyMap<string, FileTreeNode>;
+  readonly blockById: ReadonlyMap<string, DisplayBlock>;
+  readonly onSelect: (id: string) => void;
+}) {
+  const children = node.children
+    .map((id) => nodeById.get(id))
+    .filter((child): child is FileTreeNode => child !== undefined);
+  return (
+    <aside className="details-panel">
+      <div className="detail-kicker"><span className="kind-dot" /> FOLDER</div>
+      <div className="detail-title-row"><h2>{node.label}</h2></div>
+      <p className="detail-description">{children.length === 1 ? "1 item in this folder." : `${children.length} items in this folder.`}</p>
+      <div className="detail-path"><span>PATH</span><code>{node.sourcePath ?? node.label}</code></div>
+      {children.length > 0 && (
+        <>
+          <div className="detail-divider compact" />
+          <div className="detail-section-label">CONTENTS <span>{children.length}</span></div>
+          <div className="member-list">
+            {children.map((child) => {
+              const block = child.blockId === null ? undefined : blockById.get(child.blockId);
+              const kind = child.folder ? "folder" : block?.annotationKind.toLowerCase() ?? "file";
+              return (
+                <button className="member-row" key={child.id} type="button" onClick={() => onSelect(child.id)}>
+                  <span className={`member-type member-${kind}`} />
+                  <span>{child.label}</span>
+                  <ChevronRight size={13} />
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </aside>
+  );
+}
+
 function FeatureFooter({
   map,
   group,
@@ -599,6 +649,14 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setViewWorkspaceId(mapKey);
     setMapView(mapKey === null ? "modules" : readMapView(mapDepthStorage(), mapKey));
   }
+  const [orientation, setOrientation] = useState<TreeOrientation>("vertical");
+  const [orientationWorkspaceId, setOrientationWorkspaceId] = useState<string | null>(null);
+  if (mapKey !== orientationWorkspaceId) {
+    setOrientationWorkspaceId(mapKey);
+    setOrientation(mapKey === null ? "vertical" : readTreeOrientation(mapDepthStorage(), mapKey));
+  }
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [expandedFor, setExpandedFor] = useState("");
   const [fileScope, setFileScope] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
@@ -895,6 +953,21 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     if (fileScope === "") return fileTree.nodeById.get(scope.id);
     return fileTree.nodeById.get(folderNodeId(fileScope)) ?? fileTree.nodeById.get(scope.id);
   }, [fileScope, fileTree, scope]);
+  const expansionKey = fileTree === null || fileRoot === undefined
+    ? ""
+    : `${mapKey ?? ""}:${scope?.id ?? ""}:${String(mapDepth)}:${orientation}`;
+  if (fileTree !== null && fileRoot !== undefined && expansionKey !== expandedFor) {
+    setExpandedFor(expansionKey);
+    setExpandedIds(revealExpanded(
+      defaultExpandedIds(fileRoot, fileTree.nodeById, mapDepth),
+      fileTree.nodeById,
+      selectedId,
+    ));
+  }
+  useEffect(() => {
+    if (mapView !== "files" || orientation !== "vertical" || fileTree === null || selectedId.length === 0) return;
+    setExpandedIds((current) => revealExpanded(current, fileTree.nodeById, selectedId));
+  }, [fileTree, mapView, orientation, selectedId]);
   const visibleBlocks = useMemo(() => {
     if (scope === undefined || map === null) return [];
     if (mapView === "modules" || fileTree === null || fileRoot === undefined) {
@@ -983,6 +1056,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       setBaseGraph({ nodes: [], edges: [] });
       return;
     }
+    if (mapView === "files" && orientation === "vertical") {
+      setBaseGraph({ nodes: [], edges: [] });
+      setGraphError("");
+      return;
+    }
     setGraphError("");
     layoutBlocks({ blocks: visibleBlocks, connections: graphConnections })
       .then((graph) => {
@@ -995,14 +1073,17 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
       });
     return () => { cancelled = true; };
-  }, [graphConnections, map, scopeId, visibleBlocks]);
+  }, [graphConnections, map, mapView, orientation, scopeId, visibleBlocks]);
 
+  const selectTreeNode = useCallback((id: string) => {
+    setSelectedId(id);
+    setActiveFeatureId(null);
+    setActiveNodeId(null);
+    setInspectedBlockId(null);
+  }, []);
   const activateBlock = useCallback((block: DisplayBlock) => {
-    const folderPath = folderPathFromId(block.id);
-    if (folderPath !== null) {
-      setFileScope(folderPath);
-      setActiveFeatureId(null);
-      setActiveNodeId(null);
+    if (folderPathFromId(block.id) !== null) {
+      selectTreeNode(block.id);
       return;
     }
     setSelectedId(block.id);
@@ -1010,7 +1091,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setActiveNodeId(null);
     if (mapView === "files") return;
     if (block.children.length > 0) setScopePath((current) => current.at(-1) === block.id ? current : [...current, block.id]);
-  }, [mapView]);
+  }, [mapView, selectTreeNode]);
 
   const openBlockInspector = useCallback((block: DisplayBlock) => {
     activateBlock(block);
@@ -1095,15 +1176,24 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const chooseMapView = useCallback((next: MapView) => {
     setMapView(next);
     if (mapKey !== null) writeMapView(mapDepthStorage(), mapKey, next);
-    if (map === null || scope === undefined) return;
+    if (map === null) return;
     const block = map.blockById.get(selectedId);
-    if (next === "files") {
-      setFileScope(block === undefined ? "" : fileScopeForBlock(block.sourcePath, scopeDirectory(scope.sourcePath)));
-    }
     if (block !== undefined) {
       setFocusRequest((current) => ({ blockId: block.id, sequence: (current?.sequence ?? 0) + 1 }));
     }
-  }, [map, mapKey, scope, selectedId]);
+  }, [map, mapKey, selectedId]);
+  const rotateTree = useCallback(() => {
+    const next: TreeOrientation = orientation === "vertical" ? "horizontal" : "vertical";
+    setOrientation(next);
+    if (mapKey !== null) writeTreeOrientation(mapDepthStorage(), mapKey, next);
+  }, [mapKey, orientation]);
+  const expandAllFolders = useCallback(() => {
+    if (fileTree === null || fileRoot === undefined) return;
+    setExpandedIds(defaultExpandedIds(fileRoot, fileTree.nodeById, "all"));
+  }, [fileRoot, fileTree]);
+  const collapseFolders = useCallback(() => {
+    setExpandedIds(new Set());
+  }, []);
 
   useEffect(() => {
     const editor = mapSource.editor;
@@ -1294,8 +1384,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const selectedNoteAction = notesAvailable && !selected.virtual ? noteButtonLabel(notedBlockIds.has(selected.id)) : undefined;
   const inspectedNoteAction = notesAvailable && inspectedBlockId !== null ? noteButtonLabel(notedBlockIds.has(inspectedBlockId)) : undefined;
 
+  const verticalFiles = mapView === "files" && orientation === "vertical" && fileTree !== null && fileRoot !== undefined;
+  const selectedTreeNode = mapView === "files" && fileTree !== null ? fileTree.nodeById.get(selectedId) : undefined;
+  const folderSelection = selectedTreeNode?.folder === true ? selectedTreeNode : undefined;
   const graphCanvas = (
-    <div className="graph-canvas" aria-label={`${map.facts.project.name} architecture map`}>
+    <div className={`graph-canvas${verticalFiles ? " is-vertical" : ""}`} aria-label={`${map.facts.project.name} architecture map`}>
       <div className="canvas-watermark">
         <span>{mapView === "files" ? "FILE TREE" : scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
         <span className="map-depth-controls">
@@ -1329,9 +1422,40 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <span className="child-count">{mapView === "files" && fileRoot !== undefined ? fileRoot.children.length : scopeChildren.length} direct children</span>
         </span>
       </div>
-      {graphError.length > 0 ? (
+      {verticalFiles && fileTree !== null && fileRoot !== undefined && (
+        <FileExplorer
+          root={fileRoot}
+          nodeById={fileTree.nodeById}
+          blockById={map.blockById}
+          expanded={expandedIds}
+          selectedId={selectedId}
+          depth={mapDepth}
+          depthChoices={scope === undefined ? [DEFAULT_MAP_DEPTH, "all"] : depthOptions(
+            subtreeDepth(fileRoot, fileTree.nodeById),
+            mapDepth,
+          )}
+          onDepth={(next) => {
+            setMapDepth(next);
+            if (mapKey !== null) writeMapDepth(mapDepthStorage(), mapKey, next);
+          }}
+          onToggle={(id) => {
+            setExpandedIds((current) => {
+              const next = new Set(current);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            });
+          }}
+          onSelect={selectTreeNode}
+          onExpandAll={expandAllFolders}
+          onCollapse={collapseFolders}
+          onChooseView={chooseMapView}
+          {...(graphChanges === undefined ? {} : { changes: graphChanges })}
+        />
+      )}
+      {graphError.length > 0 && !verticalFiles ? (
         <div className="graph-message"><CircleAlert size={18} />Could not lay out this map: {graphError}</div>
-      ) : graph.nodes.length === 0 ? (
+      ) : graph.nodes.length === 0 && !verticalFiles ? (
         <div className="graph-message"><Activity size={18} />Preparing graph layout…</div>
       ) : (
         <ReactFlow
@@ -1343,7 +1467,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
-          fitView
+          fitView={mapView !== "files"}
           fitViewOptions={{ padding: 0.2, minZoom: 0.18, maxZoom: 1.2 }}
           minZoom={0.12}
           maxZoom={1.7}
@@ -1356,7 +1480,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           />
           <FitOnScopeChange
             scopeId={mapView === "files" && fileRoot !== undefined ? fileRoot.id : scopeId}
-            viewKey={mapView === "files" ? `files:${fileScope}` : "modules"}
+            viewKey={mapView === "files" ? `files:${fileScope}:${orientation}` : "modules"}
             layoutRevision={layoutRevision}
             focus={focusRequest}
             onFocusHandled={clearFocusRequest}
@@ -1420,6 +1544,18 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             </span>
           ))}
         </nav>
+        {mapView === "files" && (
+          <button
+            className="map-rotate"
+            type="button"
+            aria-label={orientation === "vertical" ? "Rotate file tree to horizontal" : "Rotate file tree to vertical"}
+            title={orientation === "vertical" ? "Show the wide graph" : "Show the indented tree"}
+            onClick={rotateTree}
+          >
+            <RotateCw size={13} />
+            {orientation === "vertical" ? "Horizontal" : "Vertical"}
+          </button>
+        )}
         <div className="connection-legend">
           <span className="legend-item"><i className="legend-line contains-line" />contains <b>{directConnectionSummary.contains}</b></span>
           <span className="legend-item"><i className="legend-line dependency-line" />depends on <b>{directConnectionSummary.depends}</b></span>
@@ -1499,6 +1635,26 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           setNoteMenu({ blockId: inspectedBlockId, x, y, line });
         },
       })}
+    />
+  ) : verticalFiles && selectedTreeNode !== undefined && fileTree !== null ? (
+    <TreeInspector
+      node={selectedTreeNode}
+      nodeById={fileTree.nodeById}
+      block={selectedTreeNode.blockId === null ? undefined : map.blockById.get(selectedTreeNode.blockId)}
+      onSelect={selectTreeNode}
+      {...(selectedTreeNode.folder || selectedTreeNode.blockId === null || mapSource.editor === undefined ? {} : {
+        onOpen: () => {
+          const block = selectedTreeNode.blockId === null ? undefined : map.blockById.get(selectedTreeNode.blockId);
+          if (block !== undefined) openBlockInspector(block);
+        },
+      })}
+    />
+  ) : folderSelection !== undefined && fileTree !== null ? (
+    <FolderDetails
+      node={folderSelection}
+      nodeById={fileTree.nodeById}
+      blockById={map.blockById}
+      onSelect={selectTreeNode}
     />
   ) : (
     <DetailsPanel
