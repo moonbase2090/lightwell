@@ -48,5 +48,13 @@
     "macOS": {
       "minimumSystemVersion": "11.0"
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQzQTBBOTE5MzU1NEQ1NDMKUldSRDFWUTFHYW1nMDladVJRZWhGWFZWRnFoNjFyLzQyTWdtMzkrZy9yMTlQRDVJOGhOOHZRb1YK",
+      "endpoints": [
+        "https://github.com/moonbase2090/lightwell/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

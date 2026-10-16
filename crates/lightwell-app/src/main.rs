@@ -1,12 +1,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod updates;
 mod workspace;
 
 fn main() {
     tauri::Builder::default()
         .manage(workspace::WorkspaceWatchers::default())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            updates::update_delivery,
             workspace::recent_workspaces,
             workspace::open_workspace,
             workspace::load_workspace_map,

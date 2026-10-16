@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Base permissions for the Lightwell desktop window.",
   "windows": ["main"],
-  "permissions": ["core:default", "dialog:allow-open"]
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "process:allow-restart",
+    "updater:default"
+  ]
 }

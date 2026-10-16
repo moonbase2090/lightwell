@@ -348,6 +348,10 @@ button { color: inherit; }
 .settings-select:focus, .settings-command-input:focus { outline: 2px solid #6e91c4; outline-offset: 1px; }
 .settings-select:disabled, .settings-command-input:disabled { opacity: .55; }
 .settings-help { margin: 8px 0 0; color: #8f9eaf; font-size: 10px; line-height: 1.55; }
+.settings-check { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: #d5deea; font-size: 13px; }
+.settings-update-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.update-notes { max-height: 220px; margin: 8px 0 0; overflow: auto; white-space: pre-wrap; border: 1px solid #344454; border-radius: 6px; padding: 10px; color: #d5deea; background: #0f161e; font: 12px/1.45 var(--mono); }
+a.update-download { display: inline-flex; align-items: center; text-decoration: none; }
 .settings-help code { color: #bed0e5; font: 9px var(--mono); }
 .settings-legal-links { margin: 10px 0 0; font-size: 10px; line-height: 1.6; }
 .settings-legal-links a { color: #9ec5ff; text-decoration: underline; text-underline-offset: 2px; }
@@ -502,6 +506,8 @@ button { color: inherit; }
 .workspace-shell[data-theme="light"] .settings-field-label,
 .workspace-shell[data-theme="light"] .settings-panel-title p,
 .workspace-shell[data-theme="light"] .settings-help,
+.workspace-shell[data-theme="light"] .settings-check,
+.workspace-shell[data-theme="light"] .update-notes,
 .workspace-shell[data-theme="light"] .statusbar,
 .workspace-shell[data-theme="light"] .source-state-card p { color: #6b6560; }
 .workspace-shell[data-theme="light"] .project-select-wrap,
@@ -633,6 +639,7 @@ button { color: inherit; }
 .workspace-shell[data-theme="light"] .settings-select:focus,
 .workspace-shell[data-theme="light"] .settings-command-input:focus { outline-color: #6b85a8; }
 .workspace-shell[data-theme="light"] .settings-help code { color: #526a89; }
+.workspace-shell[data-theme="light"] .update-notes { border-color: #d4c9c0; background: #f5f3f0; }
 .workspace-shell[data-theme="light"] .settings-error { border-color: #c9a99c; color: #7a4235; background: #f5e9e3; }
 .workspace-shell[data-theme="light"] .settings-success { border-color: #b7c6aa; color: #48613d; background: #edf2e8; }
 .workspace-shell[data-theme="light"] .settings-status { color: #6b6560; }

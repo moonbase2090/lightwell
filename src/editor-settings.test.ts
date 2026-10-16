@@ -8,6 +8,7 @@ import EditorSettingsPanel, {
   saveEditorPreference,
   type SaveStatus,
 } from "./EditorSettingsPanel.js";
+import type { UpdateDelivery } from "./app-updates.js";
 import type { MapEditorSource } from "./map-source.js";
 import type { ResolvedTheme, ThemePreference } from "./theme.js";
 
@@ -19,7 +20,16 @@ const editor: MapEditorSource = {
   listPresets: () => Promise.reject(new Error("unused")),
 };
 
-function renderSettings(themePreference: ThemePreference, theme: ResolvedTheme): string {
+function renderSettings(
+  themePreference: ThemePreference,
+  theme: ResolvedTheme,
+  extra: {
+    readonly editor?: MapEditorSource;
+    readonly updateDelivery?: UpdateDelivery;
+    readonly autoUpdateCheck?: boolean;
+    readonly updateStatus?: string;
+  } = {},
+): string {
   return renderToStaticMarkup(createElement(EditorSettingsPanel, {
     editor,
     themePreference,
@@ -27,7 +37,13 @@ function renderSettings(themePreference: ThemePreference, theme: ResolvedTheme):
     onThemeChange: () => undefined,
     wordWrapShortcut: "Ctrl+Shift+W",
     onWordWrapShortcutChange: () => undefined,
+    updateDelivery: "integrated",
+    autoUpdateCheck: true,
+    onAutoUpdateCheckChange: () => undefined,
+    updateStatus: "",
+    onCheckForUpdate: () => undefined,
     onClose: () => undefined,
+    ...extra,
   }));
 }
 
@@ -131,4 +147,32 @@ test("settings show the configured word wrap shortcut", () => {
   const html = renderSettings("system", "dark");
   assert.match(html, /WORD WRAP SHORTCUT/);
   assert.match(html, /<kbd>Ctrl\+Shift\+W<\/kbd>/);
+});
+
+test("desktop settings offer an automatic update check and install notes", () => {
+  const html = renderSettings("dark", "dark", { updateStatus: "Version 0.1.13 is available." });
+  assert.match(html, /id="lightwell-auto-update"[^>]*checked/);
+  assert.match(html, /Automatically check for updates/);
+  assert.match(html, /shows the release notes before it installs/);
+  assert.match(html, /Check now/);
+  assert.equal(html.includes("Check now\" disabled"), false);
+  assert.match(html, /Version 0\.1\.13 is available\./);
+});
+
+test("a manual package links to the release instead of installing", () => {
+  const html = renderSettings("dark", "dark", { updateDelivery: "manual", autoUpdateCheck: false });
+  const checkbox = html.match(/<input id="lightwell-auto-update"[^>]*>/);
+  assert.ok(checkbox !== null);
+  assert.equal(checkbox[0].includes("checked"), false);
+  assert.match(html, /cannot replace itself/);
+  assert.match(html, /download link/);
+});
+
+test("the browser preview saves the update choice and does not check", () => {
+  const html = renderSettings("light", "light", { editor: undefined, updateDelivery: "unavailable" });
+  assert.match(html, /Update checks run in the desktop app/);
+  assert.match(html, /<button class="settings-shortcut-action" type="button" disabled="">Check now<\/button>/);
+  assert.equal(html.includes("EDITOR COMMAND TEMPLATE"), false);
+  assert.equal(html.includes("Save editor preference"), false);
+  assert.match(html, /id="lightwell-theme"/);
 });

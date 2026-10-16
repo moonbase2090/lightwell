@@ -7,7 +7,7 @@ version = "0.1.12"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/moonbase2090/lightwell"
-rust-version = "1.85"
+rust-version = "1.90"
 
 [workspace.dependencies]
 fs2 = "0.4"
@@ -23,4 +23,11 @@ syn = { version = "2", features = ["full"] }
 tauri = "2"
 tauri-build = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-process = "2.4.0"
+tauri-plugin-updater = "2.14.0"
 toml = "0.8"
+
+# crates.io has yanked every zip release except 9.0.3 and 9.0.4.
+# tauri-plugin-updater 2.14 still requires zip 4, so resolve that line from the tag.
+[patch.crates-io]
+zip = { git = "https://github.com/zip-rs/zip2", tag = "v4.6.1" }
