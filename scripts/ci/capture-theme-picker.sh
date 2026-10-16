@@ -80,10 +80,15 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
       exit 1
     fi
     settings_button_x=$((window_width - 164))
+    # Match .editor-settings-panel sizing in src/style.css (min(760px, 90vw), min(85vh, 100vh - 48px)).
+    panel_width=$((window_width * 90 / 100))
+    if (( panel_width > 760 )); then panel_width=760; fi
+    panel_height=$((window_height * 85 / 100))
+    if (( panel_height > window_height - 48 )); then panel_height=$((window_height - 48)); fi
     theme_select_x=$((window_width / 2))
-    theme_select_y=$((window_height / 2 - 130))
-    settings_close_x=$((window_width / 2 + 218))
-    settings_close_y=$((window_height / 2 - 245))
+    theme_select_y=$((window_height / 2 - panel_height / 2 + 155))
+    settings_close_x=$((window_width / 2 + panel_width / 2 - 32))
+    settings_close_y=$((window_height / 2 - panel_height / 2 + 40))
     if [[ "$capture_splitters" == "true" ]]; then
       main_top=108
       main_height=$((window_height - main_top - 28))

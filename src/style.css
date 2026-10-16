@@ -329,7 +329,7 @@ button { color: inherit; }
 .inspector-position { height: 27px; min-height: 27px; padding: 0 13px; display: flex; align-items: center; gap: 8px; color: #6f8196; background: #0d1319; border-top: 1px solid #202b36; font: 8px var(--mono); letter-spacing: .06em; }
 .inspector-position i { width: 2px; height: 2px; border-radius: 50%; background: #657589; }
 .settings-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 24px; background: rgba(3, 6, 10, .72); backdrop-filter: blur(4px); }
-.editor-settings-panel { width: min(500px, calc(100vw - 48px)); height: min(570px, calc(100vh - 48px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #354657; border-radius: 11px; background: #121a23; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
+.editor-settings-panel { width: min(760px, 90vw); height: min(85vh, calc(100vh - 48px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid #354657; border-radius: 11px; background: #121a23; box-shadow: 0 28px 90px rgba(0,0,0,.58); }
 .settings-panel-header { min-height: 77px; padding: 15px 17px 14px 19px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #273441; background: linear-gradient(180deg, #18232e, #131c25); }
 .settings-panel-title { display: flex; align-items: center; gap: 11px; min-width: 0; }
 .settings-panel-icon { width: 33px; height: 33px; flex: none; display: grid; place-items: center; border: 1px solid #3b5067; border-radius: 8px; color: #a9c3f2; background: #1d2b3a; }
