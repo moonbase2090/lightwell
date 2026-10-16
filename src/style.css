@@ -908,8 +908,10 @@ button.node-note-badge:hover, button.node-note-badge:focus-visible { background:
 .settings-shortcut-action:disabled { opacity: .45; cursor: default; }
 
 /* Commit diff view (VITE_ENABLE_COMMIT_DIFF). */
-.commit-picker { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; margin-right: 8px; font-size: 12px; }
-.commit-picker select { max-width: 280px; padding: 4px 6px; border: 1px solid rgba(140,170,220,.3); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+.commit-picker { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; margin-right: 8px; font-size: 12px; }
+.commit-picker label { display: inline-flex; align-items: center; gap: 4px; }
+.commit-picker-label { opacity: .75; font-size: 11px; }
+.commit-picker select { max-width: 220px; padding: 4px 6px; border: 1px solid rgba(140,170,220,.3); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .commit-picker option { color: #0c1a30; }
 .commit-diff-banner { display: flex; align-items: center; gap: 12px; padding: 6px 14px; font-size: 12px; border-bottom: 1px solid rgba(140,170,220,.2); background: rgba(95,210,170,.08); }
 .commit-diff-banner code { font-size: 11px; color: #8fe3c5; }

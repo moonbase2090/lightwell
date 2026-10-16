@@ -49,6 +49,8 @@ pub struct BlockChange {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommitChanges {
+    /// When set, changes are everything after this commit through `commit`.
+    pub base_commit: Option<CommitSummary>,
     pub commit: CommitSummary,
     /// Every changed file under the workspace root, mapped or not.
     pub files: Vec<FileChange>,
@@ -59,6 +61,8 @@ pub struct CommitChanges {
 #[derive(Debug)]
 pub enum DiffError {
     InvalidCommit(String),
+    /// `base` is not an ancestor of `head`, or the two commits are the same.
+    InvalidCommitRange { base: String, head: String },
     BlockNotFound(String),
     BlockHasNoSource(String),
     /// The commit did not touch the block's file.
@@ -75,6 +79,10 @@ impl Display for DiffError {
             Self::InvalidCommit(commit) => {
                 write!(formatter, "`{commit}` is not a commit in this repository.")
             }
+            Self::InvalidCommitRange { base, head } => write!(
+                formatter,
+                "`{base}` is not an ancestor of `{head}` in this repository."
+            ),
             Self::BlockNotFound(id) => write!(formatter, "Block {id} is not in the workspace map."),
             Self::BlockHasNoSource(id) => {
                 write!(formatter, "Block {id} has no source file to compare.")
@@ -111,37 +119,132 @@ pub fn commit_changes(
     map: &FactMap,
     commit: &str,
 ) -> Result<CommitChanges, DiffError> {
-    let summary = resolve_commit(root, commit)?;
-    let range = [
+    commit_changes_for(root, map, commit, None)
+}
+
+/// Map changes onto `map` for one commit or for everything after `base` through `head`.
+pub fn commit_changes_for(
+    root: &Path,
+    map: &FactMap,
+    head: &str,
+    base: Option<&str>,
+) -> Result<CommitChanges, DiffError> {
+    let head_summary = resolve_commit(root, head)?;
+    let Some(base) = base.filter(|value| !value.is_empty()) else {
+        let (files, hunks) = single_commit_diff(root, &head_summary.id)?;
+        let blocks = attribute_changes(map, &files, &hunks, |path| {
+            git(root, &["show", &format!("{}:./{path}", head_summary.id)]).ok()
+        });
+        return Ok(CommitChanges {
+            base_commit: None,
+            commit: head_summary,
+            files,
+            blocks,
+        });
+    };
+    let base_summary = resolve_commit(root, base)?;
+    ensure_ancestor(root, &base_summary.id, &head_summary.id)?;
+    let revision = format!("{}..{}", base_summary.id, head_summary.id);
+    let (files, hunks) = revision_diff(root, &revision)?;
+    let blocks = attribute_changes(map, &files, &hunks, |path| {
+        git(root, &["show", &format!("{}:./{path}", head_summary.id)]).ok()
+    });
+    Ok(CommitChanges {
+        base_commit: Some(base_summary),
+        commit: head_summary,
+        files,
+        blocks,
+    })
+}
+
+fn single_commit_diff(root: &Path, commit: &str) -> Result<(Vec<FileChange>, HashMap<String, Vec<Hunk>>), DiffError> {
+    let range = diff_tree_prefix();
+    let numstat = git(
+        root,
+        &[&range[..], &["--numstat", "-z", commit]].concat(),
+    )?;
+    let patch = git(
+        root,
+        &[
+            &range[..],
+            &["-p", "-U0", "--no-color", "--no-ext-diff", commit],
+        ]
+        .concat(),
+    )?;
+    Ok((parse_numstat(&numstat), parse_hunks(&patch)))
+}
+
+fn revision_diff(root: &Path, revision: &str) -> Result<(Vec<FileChange>, HashMap<String, Vec<Hunk>>), DiffError> {
+    let numstat = git(
+        root,
+        &[
+            "diff",
+            "-M",
+            "--relative",
+            "--numstat",
+            "-z",
+            revision,
+            "--",
+            ".",
+        ],
+    )?;
+    let patch = git(
+        root,
+        &[
+            "diff",
+            "-M",
+            "--relative",
+            "-p",
+            "-U0",
+            "--no-color",
+            "--no-ext-diff",
+            revision,
+            "--",
+            ".",
+        ],
+    )?;
+    Ok((parse_numstat(&numstat), parse_hunks(&patch)))
+}
+
+fn diff_tree_prefix() -> [&'static str; 6] {
+    [
         "diff-tree",
         "-r",
         "--root",
         "-M",
         "--no-commit-id",
         "--relative",
-    ];
-    let numstat = git(
-        root,
-        &[&range[..], &["--numstat", "-z", &summary.id]].concat(),
-    )?;
-    let patch = git(
-        root,
-        &[
-            &range[..],
-            &["-p", "-U0", "--no-color", "--no-ext-diff", &summary.id],
-        ]
-        .concat(),
-    )?;
-    let files = parse_numstat(&numstat);
-    let hunks = parse_hunks(&patch);
-    let blocks = attribute_changes(map, &files, &hunks, |path| {
-        git(root, &["show", &format!("{}:./{path}", summary.id)]).ok()
-    });
-    Ok(CommitChanges {
-        commit: summary,
-        files,
-        blocks,
-    })
+    ]
+}
+
+fn ensure_ancestor(root: &Path, base: &str, head: &str) -> Result<(), DiffError> {
+    if base == head {
+        return Err(DiffError::InvalidCommitRange {
+            base: base.to_owned(),
+            head: head.to_owned(),
+        });
+    }
+    let mut command = Command::new("git");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
+    command
+        .arg("-C")
+        .arg(root)
+        .args(["merge-base", "--is-ancestor", base, head]);
+    let output = command.output().map_err(|error| DiffError::Git {
+        command: "merge-base".to_owned(),
+        message: error.to_string(),
+    })?;
+    if !output.status.success() {
+        return Err(DiffError::InvalidCommitRange {
+            base: base.to_owned(),
+            head: head.to_owned(),
+        });
+    }
+    Ok(())
 }
 
 /// One block's file before and after a commit, for a side-by-side diff.
@@ -168,7 +271,18 @@ pub fn block_diff(
     commit: &str,
     block_id: &str,
 ) -> Result<BlockDiffDocument, DiffError> {
-    let summary = resolve_commit(root, commit)?;
+    block_diff_for(root, map, commit, None, block_id)
+}
+
+/// Before and after text for `block_id` across a commit or a `base..head` range.
+pub fn block_diff_for(
+    root: &Path,
+    map: &FactMap,
+    head: &str,
+    base: Option<&str>,
+    block_id: &str,
+) -> Result<BlockDiffDocument, DiffError> {
+    let head_summary = resolve_commit(root, head)?;
     let block = map
         .blocks
         .iter()
@@ -179,48 +293,90 @@ pub fn block_diff(
         .as_deref()
         .map(normalized)
         .ok_or_else(|| DiffError::BlockHasNoSource(block_id.to_owned()))?;
-    let range = [
-        "diff-tree",
-        "-r",
-        "--root",
-        "-M",
-        "--no-commit-id",
-        "--relative",
-    ];
-    let numstat = git(
-        root,
-        &[&range[..], &["--numstat", "-z", &summary.id]].concat(),
-    )?;
-    let file = parse_numstat(&numstat)
-        .into_iter()
-        .find(|file| file.path == path)
-        .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
-    let patch = git(
-        root,
-        &[
-            &range[..],
-            &[
-                "-p",
-                "-U0",
-                "--no-color",
-                "--no-ext-diff",
-                &summary.id,
-                "--",
-                &path,
-            ],
-        ]
-        .concat(),
-    )?;
-    let hunks = parse_hunks(&patch).remove(&path).unwrap_or_default();
 
-    let modified = git(root, &["show", &format!("{}:./{path}", summary.id)]).unwrap_or_default();
+    let (file, hunks) = match base.filter(|value| !value.is_empty()) {
+        None => {
+            let range = diff_tree_prefix();
+            let numstat = git(
+                root,
+                &[&range[..], &["--numstat", "-z", &head_summary.id]].concat(),
+            )?;
+            let file = parse_numstat(&numstat)
+                .into_iter()
+                .find(|file| file.path == path)
+                .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
+            let patch = git(
+                root,
+                &[
+                    &range[..],
+                    &[
+                        "-p",
+                        "-U0",
+                        "--no-color",
+                        "--no-ext-diff",
+                        &head_summary.id,
+                        "--",
+                        &path,
+                    ],
+                ]
+                .concat(),
+            )?;
+            (file, parse_hunks(&patch).remove(&path).unwrap_or_default())
+        }
+        Some(base) => {
+            let base_summary = resolve_commit(root, base)?;
+            ensure_ancestor(root, &base_summary.id, &head_summary.id)?;
+            let revision = format!("{}..{}", base_summary.id, head_summary.id);
+            let numstat = git(
+                root,
+                &[
+                    "diff",
+                    "-M",
+                    "--relative",
+                    "--numstat",
+                    "-z",
+                    &revision,
+                    "--",
+                    &path,
+                ],
+            )?;
+            let file = parse_numstat(&numstat)
+                .into_iter()
+                .find(|file| file.path == path)
+                .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
+            let patch = git(
+                root,
+                &[
+                    "diff",
+                    "-M",
+                    "--relative",
+                    "-p",
+                    "-U0",
+                    "--no-color",
+                    "--no-ext-diff",
+                    &revision,
+                    "--",
+                    &path,
+                ],
+            )?;
+            (file, parse_hunks(&patch).remove(&path).unwrap_or_default())
+        }
+    };
+
+    let modified = git(root, &["show", &format!("{}:./{path}", head_summary.id)]).unwrap_or_default();
     let original_path = file.old_path.clone().unwrap_or_else(|| path.clone());
-    // A root commit has no parent, and an added file has no earlier version.
-    let original = git(
-        root,
-        &["show", &format!("{}^:./{original_path}", summary.id)],
-    )
-    .unwrap_or_default();
+    let original = match base.filter(|value| !value.is_empty()) {
+        None => git(
+            root,
+            &["show", &format!("{}^:./{original_path}", head_summary.id)],
+        )
+        .unwrap_or_default(),
+        Some(base) => {
+            let base_summary = resolve_commit(root, base)?;
+            git(root, &["show", &format!("{}:./{original_path}", base_summary.id)])
+                .unwrap_or_default()
+        }
+    };
 
     let first_change = hunks.iter().map(|hunk| hunk.new_start.max(1)).min();
     let parent_shares_file = block_base(block)
@@ -253,7 +409,7 @@ pub fn block_diff(
     };
 
     Ok(BlockDiffDocument {
-        commit: summary,
+        commit: head_summary,
         path,
         original_path: file.old_path,
         original,
@@ -522,8 +678,8 @@ fn symbol_spans(path: &str, source: &str) -> HashMap<String, (usize, usize)> {
 #[cfg(test)]
 mod tests {
     use super::{
-        block_diff, commit_changes, parse_hunk_header, parse_numstat, recent_commits, symbol_spans,
-        Hunk,
+        block_diff, block_diff_for, commit_changes, commit_changes_for, parse_hunk_header,
+        parse_numstat, recent_commits, symbol_spans, DiffError, Hunk,
     };
     use crate::extract::{block_base, extract_cargo_map};
     use crate::facts::FactBlock;
@@ -661,6 +817,7 @@ mod tests {
         );
 
         let changes = commit_changes(&root, &map, &commits[0].id).unwrap();
+        assert_eq!(changes.base_commit, None);
         assert_eq!(changes.commit.summary, "Change merge");
         let mut paths: Vec<_> = changes
             .files
@@ -707,6 +864,41 @@ mod tests {
 
         assert!(commit_changes(&root, &map, "--help").is_err());
         assert!(commit_changes(&root, &map, "not-a-commit").is_err());
+
+        let ranged = commit_changes_for(&root, &map, &commits[0].id, Some(&commits[1].id)).unwrap();
+        assert_eq!(ranged.base_commit.as_ref().map(|c| c.summary.as_str()), Some("Initial"));
+        assert_eq!(ranged.commit.summary, "Change merge");
+        assert_eq!(ranged.files.len(), changes.files.len());
+
+        fs::write(
+            root.join("scripts/job.py"),
+            "import os\n\ndef plan():\n    return 99\n\n\ndef merge():\n    total = 2\n    return total\n",
+        )
+        .unwrap();
+        git(&root, &["add", "scripts/job.py"]);
+        git(&root, &["commit", "-q", "-m", "Change plan"]);
+        let commits = recent_commits(&root, 10).unwrap();
+        let span = commit_changes_for(&root, &map, &commits[0].id, Some(&commits[2].id)).unwrap();
+        let span_ids: Vec<_> = span
+            .blocks
+            .iter()
+            .map(|block| block.block_id.clone())
+            .collect();
+        assert!(
+            span_ids.contains(&id_of("merge")) && span_ids.contains(&id_of("plan")),
+            "range should include edits from both commits: {span_ids:?}"
+        );
+
+        let range_diff =
+            block_diff_for(&root, &map, &commits[0].id, Some(&commits[2].id), &id_of("plan")).unwrap();
+        assert!(range_diff.original.contains("    return 1\n"));
+        assert!(range_diff.modified.contains("    return 99\n"));
+
+        assert!(matches!(
+            commit_changes_for(&root, &map, &commits[0].id, Some(&commits[0].id)),
+            Err(DiffError::InvalidCommitRange { .. })
+        ));
+
         fs::remove_dir_all(root).unwrap();
     }
 }

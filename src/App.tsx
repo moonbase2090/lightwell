@@ -695,10 +695,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     });
   }, []);
   const [commits, setCommits] = useState<readonly CommitSummary[]>([]);
-  const [selectedCommit, setSelectedCommit] = useState("");
+  const [selectedCommitThrough, setSelectedCommitThrough] = useState("");
+  const [selectedCommitSince, setSelectedCommitSince] = useState("");
   const [commitDiff, setCommitDiff] = useState<
     | { readonly kind: "idle" }
-    | { readonly kind: "loading"; readonly commitId: string }
+    | { readonly kind: "loading"; readonly commitId: string; readonly baseCommitId: string | null }
     | { readonly kind: "ready"; readonly changes: CommitChanges; readonly byBlock: ReadonlyMap<string, BlockDiff> }
     | { readonly kind: "error"; readonly message: string }
   >({ kind: "idle" });
@@ -887,7 +888,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
   useEffect(() => {
     setCommits([]);
-    setSelectedCommit("");
+    setSelectedCommitThrough("");
+    setSelectedCommitSince("");
     setCommitDiff({ kind: "idle" });
     if (history === undefined || mapKey === null) return;
     let cancelled = false;
@@ -898,14 +900,15 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, [history, mapKey]);
 
   useEffect(() => {
-    if (history === undefined || mapKey === null || map === null || selectedCommit === "") {
+    if (history === undefined || mapKey === null || map === null || selectedCommitThrough === "") {
       setCommitDiff({ kind: "idle" });
       return;
     }
+    const baseCommitId = selectedCommitSince === "" ? null : selectedCommitSince;
     let cancelled = false;
-    setCommitDiff({ kind: "loading", commitId: selectedCommit });
+    setCommitDiff({ kind: "loading", commitId: selectedCommitThrough, baseCommitId });
     const currentMap = map;
-    void history.commitChanges(mapKey, selectedCommit)
+    void history.commitChanges(mapKey, selectedCommitThrough, baseCommitId)
       .then((changes) => {
         if (cancelled) return;
         const byBlock = rollUpChanges(changes, (id) => currentMap.blockById.get(id)?.parentId);
@@ -915,10 +918,18 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setCommitDiff({ kind: "error", message: describeError(error, "Could not read this commit.") });
       });
     return () => { cancelled = true; };
-  }, [history, map, mapKey, selectedCommit]);
+  }, [history, map, mapKey, selectedCommitSince, selectedCommitThrough]);
+
+  const commitSinceOptions = useMemo(() => {
+    if (selectedCommitThrough === "") return [];
+    const throughIndex = commits.findIndex((commit) => commit.id === selectedCommitThrough);
+    if (throughIndex < 0) return [];
+    return commits.slice(throughIndex + 1);
+  }, [commits, selectedCommitThrough]);
 
   // While a commit is shown, inspecting a block it changed opens that block's diff.
   const diffCommitId = commitDiff.kind === "ready" ? commitDiff.changes.commit.id : null;
+  const diffBaseCommitId = commitDiff.kind === "ready" ? commitDiff.changes.baseCommit?.id ?? null : null;
   const inspectedChangedDirectly = commitDiff.kind === "ready" && inspectedBlockId !== null
     && commitDiff.changes.blocks.some((block) => block.blockId === inspectedBlockId);
   useEffect(() => {
@@ -928,13 +939,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
     let cancelled = false;
     setBlockDiff({ kind: "loading" });
-    void history.blockDiff(mapKey, diffCommitId, inspectedBlockId)
+    void history.blockDiff(mapKey, diffCommitId, inspectedBlockId, diffBaseCommitId)
       .then((document) => { if (!cancelled) setBlockDiff({ kind: "ready", document }); })
       .catch((error: unknown) => {
         if (!cancelled) setBlockDiff({ kind: "error", message: describeError(error, "Could not load this commit diff.") });
       });
     return () => { cancelled = true; };
-  }, [diffCommitId, history, inspectedBlockId, inspectedChangedDirectly, mapKey]);
+  }, [diffBaseCommitId, diffCommitId, history, inspectedBlockId, inspectedChangedDirectly, mapKey]);
   const projectNotes = loadedMap.kind === "ready" && loadedMap.id === mapKey
     ? loadedMap.projectNotes
     : emptyProjectNotes;
@@ -1644,19 +1655,46 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           {staleCount > 0 && <span className="stale-count"><CircleAlert size={12} />{staleCount} changed</span>}
         </div>
         {history !== undefined && commits.length > 0 && (
-          <label className="commit-picker" title="Light up the blocks a commit changed">
+          <div className="commit-picker" title="Light up the blocks a commit or range changed">
             <GitCommitHorizontal size={13} />
-            <select
-              aria-label="Show a commit's changes on the map"
-              value={selectedCommit}
-              onChange={(event) => setSelectedCommit(event.currentTarget.value)}
-            >
-              <option value="">No commit</option>
-              {commits.map((commit) => (
-                <option key={commit.id} value={commit.id}>{commit.shortId} {commit.summary}</option>
-              ))}
-            </select>
-          </label>
+            <label>
+              <span className="commit-picker-label">Through</span>
+              <select
+                aria-label="Show changes through this commit"
+                value={selectedCommitThrough}
+                onChange={(event) => {
+                  const through = event.currentTarget.value;
+                  setSelectedCommitThrough(through);
+                  if (through === "") setSelectedCommitSince("");
+                  else {
+                    const throughIndex = commits.findIndex((commit) => commit.id === through);
+                    const sinceIndex = commits.findIndex((commit) => commit.id === selectedCommitSince);
+                    if (sinceIndex >= 0 && sinceIndex <= throughIndex) setSelectedCommitSince("");
+                  }
+                }}
+              >
+                <option value="">No commit</option>
+                {commits.map((commit) => (
+                  <option key={commit.id} value={commit.id}>{commit.shortId} {commit.summary}</option>
+                ))}
+              </select>
+            </label>
+            {selectedCommitThrough !== "" && commitSinceOptions.length > 0 && (
+              <label>
+                <span className="commit-picker-label">Since</span>
+                <select
+                  aria-label="Start the range after this commit"
+                  value={selectedCommitSince}
+                  onChange={(event) => setSelectedCommitSince(event.currentTarget.value)}
+                >
+                  <option value="">This commit only</option>
+                  {commitSinceOptions.map((commit) => (
+                    <option key={commit.id} value={commit.id}>{commit.shortId} {commit.summary}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
         )}
         {projectNotesSource !== undefined && (
           <button
@@ -1678,15 +1716,21 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             const direct = commitDiff.changes.blocks.length;
             const mappedPaths = new Set([...map.blockById.values()].flatMap((block) => block.sourcePath === null ? [] : [block.sourcePath.replaceAll("\\", "/")]));
             const outside = unmappedFiles(commitDiff.changes, mappedPaths).length;
+            const base = commitDiff.changes.baseCommit;
             return (
               <span>
-                <code>{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}
+                {base === null
+                  ? <><code>{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}</>
+                  : <><code>{base.shortId}…{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}</>}
                 {" · "}{direct === 1 ? "1 block changed" : `${direct} blocks changed`}
                 {outside > 0 && ` · ${outside === 1 ? "1 file" : `${outside} files`} outside the map`}
               </span>
             );
           })()}
-          <button type="button" className="commit-diff-clear" onClick={() => setSelectedCommit("")}>Clear</button>
+          <button type="button" className="commit-diff-clear" onClick={() => {
+            setSelectedCommitThrough("");
+            setSelectedCommitSince("");
+          }}>Clear</button>
         </div>
       )}
       {mapContent}
