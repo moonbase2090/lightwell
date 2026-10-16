@@ -22,7 +22,7 @@ A developer adds, edits, and removes a project note on a block in the desktop ap
 Preconditions:
 
 - A built Lightwell app binary (CI uses `target/x86_64-unknown-linux-gnu/release/lightwell` from `npm run tauri:build`).
-- `node`, `xvfb-run`, `xdotool`, `xclip`, and ImageMagick (`import`, `convert`, `compare`, `identify`).
+- `node`, `xvfb-run`, `xdotool`, and ImageMagick (`import`, `convert`, `compare`, `identify`).
 - Skip this feature when any of those are missing, and report the missing prerequisite. Browser preview and `lightwell extract` do not exercise this dialog.
 
 The script starts its own display. Do not wrap it in another `xvfb-run`, and do not call `xdotool windowactivate --sync` (bare Xvfb has no `_NET_ACTIVE_WINDOW`).
@@ -38,8 +38,8 @@ The script builds a temporary `notes-proof` crate (`src/sample.rs`), points rece
 1. Click the overview title (y=80) so the undecorated window has keyboard focus. Do not use `windowactivate`.
 2. Ctrl+K, type `sample`, Return, wait for the source inspector to load (~10s). The module label is `sample`.
 3. Close the source inspector, then click **Add note** in the details panel (center of the 318px source column, below the block title).
-4. Wait for the dialog to focus the textarea, click it again, clear it, then paste `Architecture note one.` from the clipboard (`xclip`). Press Ctrl+Enter to save. The file must be schema version 1 and the text for `module:notes-proof:crate root::sample` must match.
-5. Click the textarea, replace the text with `Architecture note updated.`, press Ctrl+Enter.
+4. Wait for the dialog to focus the textarea, click it again, clear it, then type `Architecture note one.` with a 100ms key delay and wait for typing to finish. Click **Save note** (dialog origin + 812, +598). The file must be schema version 1 and the text for `module:notes-proof:crate root::sample` must match.
+5. Replace the text with `Architecture note updated.` and click **Save changes**.
 6. Rewrite `src/sample.rs`. The dialog crop must change by more than 100 pixels. The saved text and `sourceFingerprint` must stay the same.
 7. Click **Remove**. That block id must be gone, and the dialog crop must change by more than 100 pixels from the stale shot.
 
@@ -50,7 +50,7 @@ Coordinates are derived from `xdotool getwindowgeometry --shell` for the live wi
 - Window defaults are 1280×850 (`crates/lightwell-app/tauri.conf.json`). Xvfb is `-screen 0 1440x900x24`. There is no window-manager frame, so geometry origin is the client area.
 - Top bar and overview row are each 54px (`src/style.css`). The source/details column is 318px wide (`defaultTrailingSize` in `src/App.tsx`).
 - Inspector close is near the top-right of that column. **Add note** sits in the details panel below the selected block title.
-- The notes dialog is 860×640 and centered (`.project-notes-dialog`). Textarea click is dialog origin + (612, 372). Saves use Ctrl+Enter. Remove is + (700, 598).
+- The notes dialog is 860×640 and centered (`.project-notes-dialog`). Textarea click is dialog origin + (612, 372). Save is + (812, 598). Remove is + (700, 598).
 
 ## Evidence
 

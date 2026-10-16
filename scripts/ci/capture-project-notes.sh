@@ -75,22 +75,24 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     dialog_top=$(( (HEIGHT - 640) / 2 ))
     note_textarea_x=$((dialog_left + 612))
     note_textarea_y=$((dialog_top + 372))
+    note_save_x=$((dialog_left + 812))
+    note_save_y=$((dialog_top + 598))
     note_remove_x=$((dialog_left + 700))
-    note_remove_y=$((dialog_top + 598))
+    note_remove_y=$note_save_y
 
     type_in_note_textarea() {
       local text="$1"
-      if ! command -v xclip >/dev/null 2>&1; then
-        printf "xclip is required to paste project note text reliably under Xvfb.\n" >&2
-        exit 1
-      fi
       xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
       sleep 2
       xdotool key --clearmodifiers ctrl+a BackSpace
-      sleep 0.5
-      printf '%s' "$text" | xclip -in -selection clipboard
-      xdotool key --clearmodifiers ctrl+v
       sleep 1
+      xdotool type --clearmodifiers --delay 100 "$text"
+      sleep $(( ${#text} * 100 / 1000 + 4 ))
+    }
+
+    save_note_in_dialog() {
+      xdotool mousemove --window "$window_id" "$note_save_x" "$note_save_y" click 1
+      sleep 2
     }
 
     sleep 12
@@ -107,7 +109,7 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     xdotool mousemove --window "$window_id" "$details_add_note_x" "$details_add_note_y" click 1
     sleep 4
     type_in_note_textarea "Architecture note one."
-    xdotool key --clearmodifiers ctrl+Return
+    save_note_in_dialog
     for _ in $(seq 1 15); do
       if [[ -s "$notes_file" ]]; then break; fi
       sleep 1
@@ -131,7 +133,7 @@ if (document.schemaVersion !== 1 || document.notes?.[blockId]?.text !== expected
 NODE
 
     type_in_note_textarea "Architecture note updated."
-    xdotool key --clearmodifiers ctrl+Return
+    save_note_in_dialog
     sleep 2
     node - "$notes_file" "$block_id" "Architecture note updated." <<'NODE'
 const fs = require("node:fs");
