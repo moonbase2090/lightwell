@@ -37,7 +37,7 @@ The script builds a temporary `notes-proof` crate (`src/sample.rs`), points rece
 
 1. Click the overview title (y=80) so the undecorated window has keyboard focus. Do not use `windowactivate`.
 2. Ctrl+K, type `sample`, Return, wait for the source inspector to load (~10s). The module label is `sample`.
-3. Close the source inspector, then click **Add note** in the details panel (center of the 318px source column, below the block title).
+3. Close the source inspector, click **Add note** in the details panel (center of the 318px column, ~142px below the overview row), then press **N** as a fallback so the dialog opens for the selected block.
 4. Wait for the dialog to focus the textarea, click it again, clear it, then type `Architecture note one.` with a 100ms key delay and wait for typing to finish. Click **Save note** (dialog origin + 812, +598). The file must be schema version 1 and the text for `module:notes-proof:crate root::sample` must match.
 5. Replace the text with `Architecture note updated.` and click **Save changes**.
 6. Rewrite `src/sample.rs`. The dialog crop must change by more than 100 pixels. The saved text and `sourceFingerprint` must stay the same.

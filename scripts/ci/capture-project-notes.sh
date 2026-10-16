@@ -69,8 +69,8 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     overview_height=54
     inspector_close_x=$((WIDTH - 36))
     inspector_close_y=$((topbar_height + overview_height + 24))
-    details_add_note_x=$((WIDTH - source_panel_width / 2))
-    details_add_note_y=$((topbar_height + overview_height + 188))
+    details_panel_x=$((WIDTH - source_panel_width / 2))
+    details_add_note_y=$((topbar_height + overview_height + 142))
     dialog_left=$(( (WIDTH - 860) / 2 ))
     dialog_top=$(( (HEIGHT - 640) / 2 ))
     note_textarea_x=$((dialog_left + 612))
@@ -95,6 +95,17 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
       sleep 2
     }
 
+    open_project_notes_dialog() {
+      xdotool mousemove --window "$window_id" "$inspector_close_x" "$inspector_close_y" click 1
+      sleep 2
+      xdotool mousemove --window "$window_id" "$details_panel_x" "$details_add_note_y" click 1
+      sleep 1
+      xdotool mousemove --window "$window_id" "$details_panel_x" "$details_add_note_y" click 1
+      sleep 1
+      xdotool key --clearmodifiers n
+      sleep 4
+    }
+
     sleep 12
     # Bare Xvfb has no window manager. A click focuses the window; windowactivate --sync does not.
     xdotool mousemove --window "$window_id" 180 80 click 1
@@ -104,10 +115,7 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     sleep 2
     xdotool key --clearmodifiers Return
     sleep 10
-    xdotool mousemove --window "$window_id" "$inspector_close_x" "$inspector_close_y" click 1
-    sleep 2
-    xdotool mousemove --window "$window_id" "$details_add_note_x" "$details_add_note_y" click 1
-    sleep 4
+    open_project_notes_dialog
     type_in_note_textarea "Architecture note one."
     save_note_in_dialog
     for _ in $(seq 1 15); do
