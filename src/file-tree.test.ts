@@ -12,6 +12,7 @@ import {
   isIgnoredRepoPath,
   defaultExpandedIds,
   explorerBadge,
+  explorerPathTail,
   explorerRows,
   filterExplorerRows,
   treeBreadcrumb,
@@ -30,6 +31,13 @@ import {
   type FileTreeSource,
   type MapViewStorage,
 } from "./file-tree.js";
+
+test("explorer path tails keep the last two path segments", () => {
+  assert.equal(explorerPathTail(null), null);
+  assert.equal(explorerPathTail(""), null);
+  assert.equal(explorerPathTail("src/lib.rs"), "src/lib.rs");
+  assert.equal(explorerPathTail("crates/core/src/main.rs"), "src/main.rs");
+});
 
 test("the map view defaults to modules and is stored per workspace", () => {
   assert.equal(parseMapView(null), "modules");

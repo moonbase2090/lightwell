@@ -192,7 +192,7 @@ button { color: inherit; }
 .graph-message { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 10px; color: #9aa8ba; font-size: 12px; }
 .graph-canvas.is-vertical .react-flow,
 .graph-canvas.is-vertical .canvas-watermark { visibility: hidden; pointer-events: none; }
-.file-explorer { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; min-height: 0; background: rgba(8, 16, 28, .35); }
+.file-explorer { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; min-height: 0; background: #0b121a; }
 .file-explorer-toolbar { height: 36px; min-height: 36px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid #1d3348; color: #9fb4c9; font: 10px var(--mono); letter-spacing: .08em; }
 .file-explorer-title { flex: none; color: #c5d6e8; }
 .file-explorer-filter { flex: 1 1 140px; min-width: 80px; height: 24px; padding: 0 8px; border: 1px solid #2c4662; border-radius: 4px; color: #e7eef6; background: rgba(8, 18, 30, .65); font: 12px var(--mono); letter-spacing: 0; }

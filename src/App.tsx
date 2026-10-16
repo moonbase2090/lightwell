@@ -1392,7 +1392,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const folderSelection = selectedTreeNode?.folder === true ? selectedTreeNode : undefined;
   const graphCanvas = (
     <div className={`graph-canvas${verticalFiles ? " is-vertical" : ""}`} aria-label={`${map.facts.project.name} architecture map`}>
-      <div className="canvas-watermark">
+      {!verticalFiles && <div className="canvas-watermark">
         <span>{mapView === "files" ? "FILE TREE" : scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
         <span className="map-depth-controls">
           <div className="map-view" role="group" aria-label="Map view">
@@ -1424,7 +1424,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           </label>
           <span className="child-count">{mapView === "files" && fileRoot !== undefined ? fileRoot.children.length : scopeChildren.length} direct children</span>
         </span>
-      </div>
+      </div>}
       {verticalFiles && fileTree !== null && fileRoot !== undefined && (
         <FileExplorer
           root={fileRoot}
@@ -1643,6 +1643,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     <TreeInspector
       node={selectedTreeNode}
       nodeById={fileTree.nodeById}
+      blockById={map.blockById}
       block={selectedTreeNode.blockId === null ? undefined : map.blockById.get(selectedTreeNode.blockId)}
       onSelect={selectTreeNode}
       {...(selectedTreeNode.folder || selectedTreeNode.blockId === null || mapSource.editor === undefined ? {} : {

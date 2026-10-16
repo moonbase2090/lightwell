@@ -210,6 +210,14 @@ export function treeBreadcrumb(
   return nodes;
 }
 
+/** Short path label for explorer rows (last two segments). */
+export function explorerPathTail(sourcePath: string | null): string | null {
+  if (sourcePath === null || sourcePath.length === 0) return null;
+  const parts = sourcePath.split("/").filter((part) => part.length > 0);
+  if (parts.length === 0) return null;
+  return parts.length <= 2 ? parts.join("/") : parts.slice(-2).join("/");
+}
+
 /** Open every folder between the root and this row so a selection stays on screen. */
 export function revealExpanded(
   expanded: ReadonlySet<string>,
