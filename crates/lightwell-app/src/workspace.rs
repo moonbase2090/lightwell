@@ -120,13 +120,8 @@ pub fn workspace_commit_changes(
 ) -> Result<CommitChanges, String> {
     let root = workspace_root(&path)?;
     let map = watchers.current_map(&root)?;
-    commit_changes_for(
-        &root,
-        &map,
-        &commit,
-        base_commit.as_deref(),
-    )
-    .map_err(|error| error.to_string())
+    commit_changes_for(&root, &map, &commit, base_commit.as_deref())
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command(async)]
@@ -139,14 +134,8 @@ pub fn workspace_block_diff(
 ) -> Result<BlockDiffDocument, String> {
     let root = workspace_root(&path)?;
     let map = watchers.current_map(&root)?;
-    block_diff_for(
-        &root,
-        &map,
-        &commit,
-        base_commit.as_deref(),
-        &block_id,
-    )
-    .map_err(|error| error.to_string())
+    block_diff_for(&root, &map, &commit, base_commit.as_deref(), &block_id)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

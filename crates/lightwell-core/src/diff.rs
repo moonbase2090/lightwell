@@ -62,7 +62,10 @@ pub struct CommitChanges {
 pub enum DiffError {
     InvalidCommit(String),
     /// `base` is not an ancestor of `head`, or the two commits are the same.
-    InvalidCommitRange { base: String, head: String },
+    InvalidCommitRange {
+        base: String,
+        head: String,
+    },
     BlockNotFound(String),
     BlockHasNoSource(String),
     /// The commit did not touch the block's file.
@@ -157,12 +160,12 @@ pub fn commit_changes_for(
     })
 }
 
-fn single_commit_diff(root: &Path, commit: &str) -> Result<(Vec<FileChange>, HashMap<String, Vec<Hunk>>), DiffError> {
+fn single_commit_diff(
+    root: &Path,
+    commit: &str,
+) -> Result<(Vec<FileChange>, HashMap<String, Vec<Hunk>>), DiffError> {
     let range = diff_tree_prefix();
-    let numstat = git(
-        root,
-        &[&range[..], &["--numstat", "-z", commit]].concat(),
-    )?;
+    let numstat = git(root, &[&range[..], &["--numstat", "-z", commit]].concat())?;
     let patch = git(
         root,
         &[
@@ -174,7 +177,10 @@ fn single_commit_diff(root: &Path, commit: &str) -> Result<(Vec<FileChange>, Has
     Ok((parse_numstat(&numstat), parse_hunks(&patch)))
 }
 
-fn revision_diff(root: &Path, revision: &str) -> Result<(Vec<FileChange>, HashMap<String, Vec<Hunk>>), DiffError> {
+fn revision_diff(
+    root: &Path,
+    revision: &str,
+) -> Result<(Vec<FileChange>, HashMap<String, Vec<Hunk>>), DiffError> {
     let numstat = git(
         root,
         &[
@@ -363,7 +369,8 @@ pub fn block_diff_for(
         }
     };
 
-    let modified = git(root, &["show", &format!("{}:./{path}", head_summary.id)]).unwrap_or_default();
+    let modified =
+        git(root, &["show", &format!("{}:./{path}", head_summary.id)]).unwrap_or_default();
     let original_path = file.old_path.clone().unwrap_or_else(|| path.clone());
     let original = match base.filter(|value| !value.is_empty()) {
         None => git(
@@ -373,8 +380,11 @@ pub fn block_diff_for(
         .unwrap_or_default(),
         Some(base) => {
             let base_summary = resolve_commit(root, base)?;
-            git(root, &["show", &format!("{}:./{original_path}", base_summary.id)])
-                .unwrap_or_default()
+            git(
+                root,
+                &["show", &format!("{}:./{original_path}", base_summary.id)],
+            )
+            .unwrap_or_default()
         }
     };
 
@@ -866,7 +876,10 @@ mod tests {
         assert!(commit_changes(&root, &map, "not-a-commit").is_err());
 
         let ranged = commit_changes_for(&root, &map, &commits[0].id, Some(&commits[1].id)).unwrap();
-        assert_eq!(ranged.base_commit.as_ref().map(|c| c.summary.as_str()), Some("Initial"));
+        assert_eq!(
+            ranged.base_commit.as_ref().map(|c| c.summary.as_str()),
+            Some("Initial")
+        );
         assert_eq!(ranged.commit.summary, "Change merge");
         assert_eq!(ranged.files.len(), changes.files.len());
 
@@ -889,8 +902,14 @@ mod tests {
             "range should include edits from both commits: {span_ids:?}"
         );
 
-        let range_diff =
-            block_diff_for(&root, &map, &commits[0].id, Some(&commits[2].id), &id_of("plan")).unwrap();
+        let range_diff = block_diff_for(
+            &root,
+            &map,
+            &commits[0].id,
+            Some(&commits[2].id),
+            &id_of("plan"),
+        )
+        .unwrap();
         assert!(range_diff.original.contains("    return 1\n"));
         assert!(range_diff.modified.contains("    return 99\n"));
 
