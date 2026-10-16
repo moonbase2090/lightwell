@@ -224,7 +224,7 @@ jobs:
       - name: Install Tauri Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential curl file imagemagick libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config xvfb xdotool libarchive-tools
+          sudo apt-get install -y build-essential curl file imagemagick libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config xvfb xdotool xclip libarchive-tools
       - name: Install cargo-zigbuild
         run: cargo install --locked cargo-zigbuild --version 0.23.4
       - run: npm ci
@@ -249,10 +249,15 @@ jobs:
           path: ${{ runner.temp }}/lightwell-live-refresh/*.png
           if-no-files-found: error
       - name: Capture project note editing and stale marking from the built app
-        # Temporarily non-blocking pending a capture-script fix.
         id: notes_capture
-        continue-on-error: true
         run: scripts/ci/capture-project-notes.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-project-notes"
+      - name: Upload project notes failure diagnostics
+        if: failure() && steps.notes_capture.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lightwell-project-notes-failure-debug
+          path: ${{ runner.temp }}/lightwell-project-notes/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: steps.notes_capture.outcome == 'success'
         with:

@@ -63,22 +63,72 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
       exit 1
     fi
 
-    sleep 6
-    xdotool key ctrl+k
+    eval "$(xdotool getwindowgeometry --shell "$window_id")"
+    source_panel_width=318
+    topbar_height=54
+    overview_height=54
+    inspector_close_x=$((WIDTH - 36))
+    inspector_close_y=$((topbar_height + overview_height + 24))
+    details_panel_x=$((WIDTH - source_panel_width / 2))
+    details_add_note_y=$((topbar_height + overview_height + 142))
+    dialog_left=$(( (WIDTH - 860) / 2 ))
+    dialog_top=$(( (HEIGHT - 640) / 2 ))
+    note_textarea_x=$((dialog_left + 612))
+    note_textarea_y=$((dialog_top + 372))
+    note_save_x=$((dialog_left + 812))
+    note_save_y=$((dialog_top + 598))
+    note_remove_x=$((dialog_left + 700))
+    note_remove_y=$note_save_y
+
+    type_in_note_textarea() {
+      local text="$1"
+      xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
+      sleep 2
+      xdotool key --clearmodifiers ctrl+a BackSpace
+      sleep 1
+      xdotool type --clearmodifiers --delay 100 "$text"
+      sleep $(( ${#text} * 100 / 1000 + 4 ))
+      # Let React flush textarea onChange before Save reads editor.text (CI saw "ote one." otherwise).
+      xdotool key --clearmodifiers End space BackSpace
+      sleep 3
+    }
+
+    save_note_in_dialog() {
+      xdotool mousemove --window "$window_id" "$note_save_x" "$note_save_y" click 1
+      sleep 2
+    }
+
+    open_project_notes_dialog() {
+      xdotool mousemove --window "$window_id" "$inspector_close_x" "$inspector_close_y" click 1
+      sleep 2
+      xdotool mousemove --window "$window_id" "$details_panel_x" "$details_add_note_y" click 1
+      sleep 1
+      xdotool mousemove --window "$window_id" "$details_panel_x" "$details_add_note_y" click 1
+      sleep 1
+      xdotool key --clearmodifiers n
+      sleep 4
+    }
+
+    sleep 12
+    # Bare Xvfb has no window manager. A click focuses the window; windowactivate --sync does not.
+    xdotool mousemove --window "$window_id" 180 80 click 1
+    sleep 1
+    xdotool key --clearmodifiers ctrl+k
     xdotool type --clearmodifiers --delay 45 sample
     sleep 2
-    xdotool key Return
-    sleep 3
-    xdotool mousemove --window "$window_id" 900 131 click 1
-    sleep 2
-    xdotool mousemove --window "$window_id" 760 455 click 1
-    xdotool type --clearmodifiers --delay 35 "Architecture note one."
-    xdotool mousemove --window "$window_id" 995 704 click 1
+    xdotool key --clearmodifiers Return
+    sleep 10
+    open_project_notes_dialog
+    type_in_note_textarea "Architecture note one."
+    save_note_in_dialog
     for _ in $(seq 1 15); do
       if [[ -s "$notes_file" ]]; then break; fi
       sleep 1
     done
     if [[ ! -s "$notes_file" ]]; then
+      import -window "$window_id" "$artifact_dir/notes-failure.png" 2>/dev/null || true
+      printf "Window geometry was %sx%s (notes dialog origin %s,%s).\n" "$WIDTH" "$HEIGHT" "$dialog_left" "$dialog_top" >&2
+      ls -la "$workspace/.lightwell" >&2 2>&1 || true
       cat "$app_log" >&2
       printf "Saving the first project note did not create .lightwell/notes.json.\n" >&2
       exit 1
@@ -93,10 +143,8 @@ if (document.schemaVersion !== 1 || document.notes?.[blockId]?.text !== expected
 }
 NODE
 
-    xdotool mousemove --window "$window_id" 760 455 click 1
-    xdotool key ctrl+a
-    xdotool type --clearmodifiers --delay 35 "Architecture note updated."
-    xdotool mousemove --window "$window_id" 995 704 click 1
+    type_in_note_textarea "Architecture note updated."
+    save_note_in_dialog
     sleep 2
     node - "$notes_file" "$block_id" "Architecture note updated." <<'NODE'
 const fs = require("node:fs");
@@ -144,7 +192,7 @@ if (note?.text !== expectedText || note.sourceFingerprint !== originalFingerprin
 }
 NODE
 
-    xdotool mousemove --window "$window_id" 885 704 click 1
+    xdotool mousemove --window "$window_id" "$note_remove_x" "$note_remove_y" click 1
     for _ in $(seq 1 15); do
       if node - "$notes_file" "$block_id" <<'NODE'
 const fs = require("node:fs");

@@ -24,3 +24,4 @@ Read this index before driving Lightwell. Each feature file is a user-facing rec
 - [CLI workspace extract](./cli-extract.md) — produce a schema v1 facts JSON from this repository.
 - [Browser preview maps](./browser-preview-maps.md) — serve the built viewer and confirm the preview responds.
 - [Map search](./map-search.md) — keyboard search over the architecture map (manual or browser automation).
+- [Project notes capture](./project-notes-capture.md) — desktop create, edit, stale, and remove on Linux with Xvfb (skip when Tauri display tools are missing).
