@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { DisplayBlock } from "./model.js";
 import {
   explorerBadge,
+  explorerPathTail,
   filterExplorerRows,
   treeBreadcrumb,
   treeDepth,
@@ -120,6 +121,7 @@ export default function FileExplorer({
           const badge = badgeFor(node, block);
           const change = changes?.get(node.id);
           const selected = node.id === selectedId;
+          const pathTail = explorerPathTail(node.sourcePath);
           return (
             <div
               key={node.id}
@@ -160,8 +162,8 @@ export default function FileExplorer({
               )}
               <span className={`file-badge file-badge-${badge.toLowerCase()}`}>{badge}</span>
               <span className="file-explorer-label">{node.label}</span>
-              {node.sourcePath !== null && node.sourcePath.length > 0 && (
-                <span className="file-explorer-path">{node.sourcePath}</span>
+              {pathTail !== null && (
+                <span className="file-explorer-path">{pathTail}</span>
               )}
               {change !== undefined && (change.added > 0 || change.removed > 0) && (
                 <span className="file-explorer-diff">+{change.added} −{change.removed}</span>
@@ -179,12 +181,14 @@ export default function FileExplorer({
 export function TreeInspector({
   node,
   nodeById,
+  blockById,
   block,
   onSelect,
   onOpen,
 }: {
   readonly node: FileTreeNode;
   readonly nodeById: ReadonlyMap<string, FileTreeNode>;
+  readonly blockById: ReadonlyMap<string, DisplayBlock>;
   readonly block: DisplayBlock | undefined;
   readonly onSelect: (id: string) => void;
   readonly onOpen?: () => void;
@@ -192,6 +196,9 @@ export function TreeInspector({
   const badge = badgeFor(node, block);
   const crumbs = treeBreadcrumb(nodeById, node.id);
   const depth = treeDepth(nodeById, node.id);
+  const children = node.children
+    .map((id) => nodeById.get(id))
+    .filter((child): child is FileTreeNode => child !== undefined);
   return (
     <aside className="details-panel tree-inspector">
       <div className="detail-kicker">INSPECTOR</div>
@@ -202,6 +209,25 @@ export function TreeInspector({
         <div><strong>{node.children.length}</strong><span>Direct children</span></div>
         <div><strong>{depth}</strong><span>Depth</span></div>
       </div>
+      {children.length > 0 && (
+        <>
+          <div className="detail-divider compact" />
+          <div className="detail-section-label">CHILDREN <span>{children.length}</span></div>
+          <div className="member-list">
+            {children.map((child) => {
+              const childBlock = child.blockId === null ? undefined : blockById.get(child.blockId);
+              const kind = child.folder ? "folder" : childBlock?.annotationKind.toLowerCase() ?? "file";
+              return (
+                <button className="member-row" key={child.id} type="button" onClick={() => onSelect(child.id)}>
+                  <span className={`member-type member-${kind}`} />
+                  <span>{child.label}</span>
+                  <ChevronRight size={13} />
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
       <div className="detail-section-label">Breadcrumb</div>
       <div className="tree-inspector-crumbs">
         {crumbs.map((crumb, index) => (
