@@ -22,3 +22,5 @@ serde.workspace = true
 serde_json.workspace = true
 tauri.workspace = true
 tauri-plugin-dialog.workspace = true
+tauri-plugin-process.workspace = true
+tauri-plugin-updater.workspace = true

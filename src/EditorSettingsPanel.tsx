@@ -3,6 +3,7 @@ import { Check, CircleAlert, LoaderCircle, Settings2, X } from "lucide-react";
 import type { EditorSettings, MapEditorSource } from "./map-source.js";
 import { isThemePreference, type ResolvedTheme, type ThemePreference } from "./theme.js";
 import { DEFAULT_WORD_WRAP_SHORTCUT, shortcutFromKeyEvent } from "./source-view-preferences.js";
+import type { UpdateDelivery } from "./app-updates.js";
 
 type PanelState =
   | { readonly kind: "loading" }
@@ -136,15 +137,25 @@ export default function EditorSettingsPanel({
   onThemeChange,
   wordWrapShortcut,
   onWordWrapShortcutChange,
+  updateDelivery,
+  autoUpdateCheck,
+  onAutoUpdateCheckChange,
+  updateStatus,
+  onCheckForUpdate,
   onClose,
 }: {
-  readonly editor: MapEditorSource;
+  readonly editor?: MapEditorSource;
   readonly themePreference: ThemePreference;
   readonly theme: ResolvedTheme;
   readonly onThemeChange: (preference: ThemePreference) => void;
   /** Source view word wrap shortcut, "" when turned off. */
   readonly wordWrapShortcut: string;
   readonly onWordWrapShortcutChange: (shortcut: string) => void;
+  readonly updateDelivery: UpdateDelivery;
+  readonly autoUpdateCheck: boolean;
+  readonly onAutoUpdateCheckChange: (enabled: boolean) => void;
+  readonly updateStatus: string;
+  readonly onCheckForUpdate: () => void;
   readonly onClose: () => void;
 }) {
   const [panelState, setPanelState] = useState<PanelState>({ kind: "loading" });
@@ -155,6 +166,10 @@ export default function EditorSettingsPanel({
   const dialogRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    if (editor === undefined) {
+      setPanelState({ kind: "ready", presets: [] });
+      return;
+    }
     let cancelled = false;
     void Promise.all([editor.loadSettings(), editor.listPresets()])
       .then(([settings, presets]) => {
@@ -203,6 +218,7 @@ export default function EditorSettingsPanel({
   const clearSaveStatus = () => setSaveStatus((current) => (current.kind === "saving" ? current : { kind: "idle" }));
 
   const save = async () => {
+    if (editor === undefined) return;
     setSaveStatus({ kind: "saving" });
     const outcome = await saveEditorPreference(editor, template);
     if ("settings" in outcome) setTemplate(outcome.settings.commandTemplate ?? "");
@@ -223,7 +239,7 @@ export default function EditorSettingsPanel({
             <span className="settings-panel-icon"><Settings2 size={16} /></span>
             <div>
               <h2 id="editor-settings-title">Settings</h2>
-              <p>Choose how Lightwell looks and opens source files</p>
+              <p>Choose how Lightwell looks, opens source files, and checks for updates</p>
             </div>
           </div>
           <button
@@ -267,6 +283,31 @@ export default function EditorSettingsPanel({
           />
           <p className="settings-help">Toggles word wrap while the source view has focus. Change it if another program already uses {DEFAULT_WORD_WRAP_SHORTCUT}.</p>
 
+          <h3 className="settings-section-title settings-editor-section">Updates</h3>
+          <label className="settings-check" htmlFor="lightwell-auto-update">
+            <input
+              id="lightwell-auto-update"
+              type="checkbox"
+              checked={autoUpdateCheck}
+              onChange={(event) => onAutoUpdateCheckChange(event.currentTarget.checked)}
+            />
+            Automatically check for updates
+          </label>
+          <p className="settings-help">
+            {updateDelivery === "unavailable"
+              ? "Update checks run in the desktop app. This choice is saved on this device."
+              : updateDelivery === "manual"
+                ? "This package cannot replace itself. When an update is available, Lightwell shows the release notes and a download link."
+                : "Lightwell shows the release notes before it installs an update."}
+          </p>
+          <div className="settings-update-row">
+            <button className="settings-shortcut-action" type="button" onClick={onCheckForUpdate} disabled={updateDelivery === "unavailable"}>
+              Check now
+            </button>
+            {updateStatus.length > 0 && <span className="settings-help">{updateStatus}</span>}
+          </div>
+
+          {editor !== undefined && <>
           <h3 className="settings-section-title settings-editor-section">Editor</h3>
           <p className="settings-explainer">
             The inspector is read-only. Use <strong>Open in editor</strong> to make changes in your editor.
@@ -313,8 +354,9 @@ export default function EditorSettingsPanel({
             Presets are examples. You can enter any editor command. Lightwell passes arguments directly without shell evaluation.
           </p>
 
-          {panelState.kind === "loading" && <div className="settings-status">Loading editor settings…</div>}
-          {panelState.kind === "error" && <div className="settings-error" role="alert"><CircleAlert size={14} />{panelState.message}</div>}
+          {editor !== undefined && panelState.kind === "loading" && <div className="settings-status">Loading editor settings…</div>}
+          {editor !== undefined && panelState.kind === "error" && <div className="settings-error" role="alert"><CircleAlert size={14} />{panelState.message}</div>}
+          </>}
 
           <h3 className="settings-section-title">About Lightwell</h3>
           <p className="settings-help">
@@ -332,11 +374,13 @@ export default function EditorSettingsPanel({
         <footer className="settings-panel-footer">
           <SaveStatusMessage status={saveStatus} />
           <button className="settings-cancel-button" type="button" onClick={onClose}>Close</button>
-          <SaveEditorButton
-            status={saveStatus}
-            disabled={panelState.kind !== "ready"}
-            onSave={() => { void save(); }}
-          />
+          {editor !== undefined && (
+            <SaveEditorButton
+              status={saveStatus}
+              disabled={panelState.kind !== "ready"}
+              onSave={() => { void save(); }}
+            />
+          )}
         </footer>
       </section>
     </div>

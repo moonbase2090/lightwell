@@ -38,8 +38,12 @@ import {
   type Viewport,
   type NodeMouseHandler,
 } from "@xyflow/react";
+import { isTauri } from "@tauri-apps/api/core";
 import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNoteView, ProjectNotesSnapshot } from "./map-source.js";
 import EditorSettingsPanel from "./EditorSettingsPanel.js";
+import UpdatePrompt from "./UpdatePrompt.js";
+import { readUpdateCheck, writeUpdateCheck, type UpdateDelivery } from "./app-updates.js";
+import { checkDesktopUpdate, desktopUpdateDelivery, type DesktopUpdate } from "./desktop-updates.js";
 import FileExplorer, { TreeInspector } from "./FileExplorer.js";
 import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
@@ -668,6 +672,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [openingEditor, setOpeningEditor] = useState(false);
   const [editorActionError, setEditorActionError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [autoUpdateCheck, setAutoUpdateCheck] = useState(() => readUpdateCheck(window.localStorage));
+  const [updateDelivery, setUpdateDelivery] = useState<UpdateDelivery>(() => (isTauri() ? "integrated" : "unavailable"));
+  const [updateStatus, setUpdateStatus] = useState("");
+  const [updateOffer, setUpdateOffer] = useState<DesktopUpdate | null>(null);
+  const [installingUpdate, setInstallingUpdate] = useState(false);
+  const updateRequest = useRef(0);
+  const updateOfferRef = useRef<DesktopUpdate | null>(null);
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const clearFocusRequest = useCallback(() => setFocusRequest(null), []);
@@ -1232,6 +1243,74 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, [inspectedBlockId, mapKey, mapSource.editor]);
 
   const closeSettingsPanel = useCallback(() => setSettingsOpen(false), []);
+  const changeAutoUpdateCheck = useCallback((enabled: boolean) => {
+    writeUpdateCheck(window.localStorage, enabled);
+    setAutoUpdateCheck(enabled);
+  }, []);
+  const replaceUpdateOffer = useCallback((next: DesktopUpdate | null) => {
+    const previous = updateOfferRef.current;
+    updateOfferRef.current = next;
+    setUpdateOffer(next);
+    if (previous !== null && previous !== next) void previous.dismiss();
+  }, []);
+  const checkForUpdate = useCallback(async () => {
+    if (!isTauri()) return;
+    const request = updateRequest.current + 1;
+    updateRequest.current = request;
+    setUpdateStatus("Checking…");
+    try {
+      const delivery = await desktopUpdateDelivery();
+      if (updateRequest.current !== request) return;
+      setUpdateDelivery(delivery);
+      const update = await checkDesktopUpdate();
+      if (updateRequest.current !== request) return;
+      if (update === null) {
+        replaceUpdateOffer(null);
+        setUpdateStatus("Lightwell is up to date.");
+        return;
+      }
+      replaceUpdateOffer(update);
+      setUpdateStatus(`Version ${update.version} is available.`);
+    } catch (error: unknown) {
+      if (updateRequest.current !== request) return;
+      replaceUpdateOffer(null);
+      setUpdateStatus(describeError(error, "Could not check for updates."));
+    }
+  }, [replaceUpdateOffer]);
+  const installOfferedUpdate = useCallback(async () => {
+    const offer = updateOfferRef.current;
+    if (offer === null || updateDelivery !== "integrated") return;
+    setInstallingUpdate(true);
+    try {
+      await offer.install();
+    } catch (error: unknown) {
+      setInstallingUpdate(false);
+      setUpdateStatus(describeError(error, "Could not install the update."));
+    }
+  }, [updateDelivery]);
+  const dismissUpdateOffer = useCallback(() => {
+    replaceUpdateOffer(null);
+  }, [replaceUpdateOffer]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let cancelled = false;
+    if (!readUpdateCheck(window.localStorage)) {
+      void desktopUpdateDelivery()
+        .then((delivery) => {
+          if (!cancelled) setUpdateDelivery(delivery);
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) setUpdateStatus(describeError(error, "Could not check for updates."));
+        });
+      return () => { cancelled = true; };
+    }
+    void checkForUpdate();
+    return () => {
+      cancelled = true;
+      updateRequest.current += 1;
+    };
+  }, [checkForUpdate]);
 
   useLayoutEffect(() => {
     if (activeFeatureId === null || shellRef.current === null || map === null) {
@@ -1718,11 +1797,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <SearchResults query={search} nodes={nodeSearch} onChoose={selectSearchNode} />
         </div>
         <div className="top-status">
-          {mapSource.editor !== undefined && (
-            <button className="editor-settings-button" type="button" onClick={() => setSettingsOpen(true)}>
-              <Settings2 size={13} />Settings
-            </button>
-          )}
+          <button className="editor-settings-button" type="button" onClick={() => setSettingsOpen(true)}>
+            <Settings2 size={13} />Settings
+          </button>
           <span className="local-map-indicator"><span className="live-dot" />LOCAL MAP</span>
         </div>
       </header>
@@ -1800,7 +1877,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           }}
         />
       )}
-      {settingsOpen && mapSource.editor !== undefined && (
+      {settingsOpen && (
         <EditorSettingsPanel
           editor={mapSource.editor}
           themePreference={themePreference}
@@ -1808,7 +1885,22 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           onThemeChange={changeTheme}
           wordWrapShortcut={wordWrapShortcut}
           onWordWrapShortcutChange={changeWordWrapShortcut}
+          updateDelivery={updateDelivery}
+          autoUpdateCheck={autoUpdateCheck}
+          onAutoUpdateCheckChange={changeAutoUpdateCheck}
+          updateStatus={updateStatus}
+          onCheckForUpdate={() => { void checkForUpdate(); }}
           onClose={closeSettingsPanel}
+        />
+      )}
+      {updateOffer !== null && updateDelivery !== "unavailable" && (
+        <UpdatePrompt
+          version={updateOffer.version}
+          notes={updateOffer.notes}
+          delivery={updateDelivery}
+          installing={installingUpdate}
+          onInstall={() => { void installOfferedUpdate(); }}
+          onClose={dismissUpdateOffer}
         />
       )}
     </div>

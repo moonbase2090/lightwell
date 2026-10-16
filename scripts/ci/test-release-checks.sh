@@ -161,6 +161,8 @@ EOF
 
 test_release_notes_from_tag
 
+"$script_dir/test-update-manifest.sh"
+
 case "$(uname -s)" in
   Darwin) test_macos ;;
   Linux) test_linux ;;

@@ -26,6 +26,12 @@ Other x86_64 distributions can use [`Lightwell_0.1.12_amd64.AppImage`](https://g
 
 Download [`Lightwell_0.1.12_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_x64.msi) (x64) and run it to install Lightwell.
 
+### Updates
+
+The signed macOS disk image, the Windows MSI, and the Linux AppImage check for updates. The check is on by default. Settings can turn it off, and Check now looks immediately. Lightwell shows the release notes before it installs an update.
+
+The Debian package, the RPM, and the Linux tarball cannot replace themselves. Those installs still check, show the notes, and link to the [latest release](https://github.com/moonbase2090/lightwell/releases/latest).
+
 ### From source
 
 Build Lightwell from this repository. The viewer needs Node.js 22. The command line and desktop app need a stable Rust toolchain.

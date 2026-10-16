@@ -120,10 +120,14 @@ jobs:
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
         run: scripts/ci/notarize-macos-app.sh "$RUNNER_TEMP/Lightwell_${RELEASE_VERSION}_aarch64.dmg"
+      - name: Pack the signed app for the updater
+        run: scripts/ci/pack-macos-update.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell_${RELEASE_VERSION}_aarch64.app.tar.gz"
       - uses: actions/upload-artifact@v4
         with:
           name: release-macos-arm64
-          path: ${{ runner.temp }}/Lightwell_${{ needs.validate.outputs.version }}_aarch64.dmg
+          path: |
+            ${{ runner.temp }}/Lightwell_${{ needs.validate.outputs.version }}_aarch64.dmg
+            ${{ runner.temp }}/Lightwell_${{ needs.validate.outputs.version }}_aarch64.app.tar.gz
           if-no-files-found: error
 
   macos-unsigned:
@@ -215,10 +219,14 @@ jobs:
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
         run: scripts/ci/notarize-macos-app.sh "$RUNNER_TEMP/Lightwell_${RELEASE_VERSION}_universal.dmg"
+      - name: Pack the signed universal app for the updater
+        run: scripts/ci/pack-macos-update.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell_${RELEASE_VERSION}_universal.app.tar.gz"
       - uses: actions/upload-artifact@v4
         with:
           name: release-macos-universal
-          path: ${{ runner.temp }}/Lightwell_${{ needs.validate.outputs.version }}_universal.dmg
+          path: |
+            ${{ runner.temp }}/Lightwell_${{ needs.validate.outputs.version }}_universal.dmg
+            ${{ runner.temp }}/Lightwell_${{ needs.validate.outputs.version }}_universal.app.tar.gz
           if-no-files-found: error
 
   macos-universal-unsigned:
@@ -582,6 +590,30 @@ jobs:
             --extra build/release-text/title.txt \
             --extra build/release-text/tag-message.txt \
             --artifact dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Sign updater artifacts
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          set -euo pipefail
+          scripts/ci/publish-update-manifest.sh dist release-notes.md "$RELEASE_VERSION" "$RELEASE_TAG"
+          if [[ -f dist/latest.json ]]; then
+            cd dist
+            files=()
+            for file in Lightwell_*.sig latest.json; do
+              if [[ -f "$file" ]]; then
+                files+=("$file")
+              fi
+            done
+            if [[ ${#files[@]} -gt 0 ]]; then
+              sha256sum "${files[@]}" >> SHA256SUMS
+            fi
+          fi
       - name: Publish verified tag
         env:
           GH_TOKEN: ${{ github.token }}
