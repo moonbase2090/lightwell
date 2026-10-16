@@ -80,12 +80,17 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
 
     type_in_note_textarea() {
       local text="$1"
+      if ! command -v xclip >/dev/null 2>&1; then
+        printf "xclip is required to paste project note text reliably under Xvfb.\n" >&2
+        exit 1
+      fi
       xdotool mousemove --window "$window_id" "$note_textarea_x" "$note_textarea_y" click --repeat 2 1
       sleep 2
-      xdotool key --clearmodifiers ctrl+a
+      xdotool key --clearmodifiers ctrl+a BackSpace
       sleep 0.5
-      xdotool type --clearmodifiers --delay 80 "$text"
-      sleep 2
+      printf '%s' "$text" | xclip -in -selection clipboard
+      xdotool key --clearmodifiers ctrl+v
+      sleep 1
     }
 
     sleep 12
