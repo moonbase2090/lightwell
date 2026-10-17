@@ -43,11 +43,20 @@ const historyApi: MapHistorySource = {
   listCommits(workspaceId) {
     return invoke<unknown>("recent_workspace_commits", { path: workspaceId }).then(parseCommitSummaries);
   },
-  commitChanges(workspaceId, commitId) {
-    return invoke<unknown>("workspace_commit_changes", { path: workspaceId, commit: commitId }).then(parseCommitChanges);
+  commitChanges(workspaceId, commitId, baseCommitId = null) {
+    return invoke<unknown>("workspace_commit_changes", {
+      path: workspaceId,
+      commit: commitId,
+      baseCommit: baseCommitId,
+    }).then(parseCommitChanges);
   },
-  blockDiff(workspaceId, commitId, blockId) {
-    return invoke<unknown>("workspace_block_diff", { path: workspaceId, commit: commitId, blockId }).then(parseBlockDiffDocument);
+  blockDiff(workspaceId, commitId, blockId, baseCommitId = null) {
+    return invoke<unknown>("workspace_block_diff", {
+      path: workspaceId,
+      commit: commitId,
+      blockId,
+      baseCommit: baseCommitId,
+    }).then(parseBlockDiffDocument);
   },
 };
 

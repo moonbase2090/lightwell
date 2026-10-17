@@ -17,6 +17,7 @@ const parents: Record<string, string | null> = {
 const parentOf = (id: string) => parents[id];
 
 const changes = (blocks: CommitChanges["blocks"], files: CommitChanges["files"] = []): CommitChanges => ({
+  baseCommit: null,
   commit: { id: "a41f9c2", shortId: "a41f9c2", summary: "Split layout", timestamp: 0 },
   files,
   blocks,
@@ -57,11 +58,19 @@ test("the commit diff view is off unless the flag is exactly true", () => {
 
 test("commit changes from the desktop app are validated", () => {
   const valid = {
+    baseCommit: null,
     commit: { id: "abc", shortId: "abc", summary: "x", timestamp: 1 },
     files: [{ path: "a.py", oldPath: null, added: 1, removed: 0, binary: false }],
     blocks: [{ blockId: "module:a", added: 1, removed: 0 }],
   };
   assert.equal(parseCommitChanges(valid).blocks[0]?.blockId, "module:a");
+  assert.deepEqual(
+    parseCommitChanges({
+      ...valid,
+      baseCommit: { id: "def", shortId: "def", summary: "base", timestamp: 0 },
+    }).baseCommit?.shortId,
+    "def",
+  );
   assert.throws(() => parseCommitChanges({ ...valid, blocks: [{ blockId: "x", added: -1, removed: 0 }] }));
   assert.throws(() => parseCommitChanges({ ...valid, commit: { id: "abc" } }));
 });

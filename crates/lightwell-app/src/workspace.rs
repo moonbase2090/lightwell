@@ -1,5 +1,5 @@
 use lightwell_core::{
-    block_diff, commit_changes, discover_cargo_workspace, extract_cargo_map, open_target,
+    block_diff_for, commit_changes_for, discover_cargo_workspace, extract_cargo_map, open_target,
     project_notes_for_map, recent_commits, remove_project_note, resolve_block_target,
     resolve_block_target_in_map, set_project_note_for_map, update_project_note_text,
     BlockDiffDocument, CommitChanges, CommitSummary, EditorError, EditorSettings, EditorTarget,
@@ -116,10 +116,12 @@ pub fn workspace_commit_changes(
     watchers: State<'_, WorkspaceWatchers>,
     path: String,
     commit: String,
+    base_commit: Option<String>,
 ) -> Result<CommitChanges, String> {
     let root = workspace_root(&path)?;
     let map = watchers.current_map(&root)?;
-    commit_changes(&root, &map, &commit).map_err(|error| error.to_string())
+    commit_changes_for(&root, &map, &commit, base_commit.as_deref())
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command(async)]
@@ -128,10 +130,12 @@ pub fn workspace_block_diff(
     path: String,
     commit: String,
     block_id: String,
+    base_commit: Option<String>,
 ) -> Result<BlockDiffDocument, String> {
     let root = workspace_root(&path)?;
     let map = watchers.current_map(&root)?;
-    block_diff(&root, &map, &commit, &block_id).map_err(|error| error.to_string())
+    block_diff_for(&root, &map, &commit, base_commit.as_deref(), &block_id)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

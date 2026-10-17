@@ -223,7 +223,10 @@ export function parseCommitChanges(value: unknown): CommitChanges {
     }
     return { blockId: block.blockId, added: block.added, removed: block.removed };
   });
-  return { commit: parseCommitSummary(value.commit), files, blocks };
+  const baseCommit = value.baseCommit === null || value.baseCommit === undefined
+    ? null
+    : parseCommitSummary(value.baseCommit);
+  return { baseCommit, commit: parseCommitSummary(value.commit), files, blocks };
 }
 
 export function parseBlockDiffDocument(value: unknown): BlockDiffDocument {
