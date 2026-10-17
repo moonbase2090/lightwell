@@ -21,9 +21,9 @@ test("go fixture extracts packages, files, and import edges", () => {
   const packages = discoverGoPackages(fixtureRoot);
   const facts = goFactBlocks({ packages, rootPath: fixtureRoot, workspaceId: "workspace:go-sample" });
   const go = facts.blocks;
-  assert.ok(go.some((block) => block.modulePath === "example.com/go-sample/api"));
-  assert.ok(go.some((block) => block.modulePath === "example.com/go-sample/api/api"));
-  assert.ok(go.some((block) => block.modulePath === "example.com/go-sample/api/api.Greet"));
+  assert.ok(go.some((block) => block.type === "module" && block.modulePath === "example.com/go-sample/api"));
+  assert.ok(go.some((block) => block.type === "module" && block.modulePath === "example.com/go-sample/api/api"));
+  assert.ok(go.some((block) => block.type === "module" && block.modulePath === "example.com/go-sample/api/api.Greet"));
   assert.ok(facts.connections.some((edge) => edge.kind === "depends_on"));
 });
 
