@@ -6,29 +6,29 @@ Lightwell maps Rust workspaces, TypeScript, JavaScript, HTML and CSS projects (i
 
 ## Install
 
-Lightwell v0.1.12 is available for macOS (Apple Silicon and Intel), Linux x86_64 and ARM64, and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [lightwellcli.com](https://lightwellcli.com/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
+Lightwell v0.1.13 is available for macOS (Apple Silicon and Intel), Linux x86_64 and ARM64, and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [lightwellcli.com](https://lightwellcli.com/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
 
 ### macOS
 
-Download [`Lightwell_0.1.12_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.12_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
+Download [`Lightwell_0.1.13_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.13/Lightwell_0.1.13_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.13_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.13/Lightwell_0.1.13_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
 
 ### Linux
 
-Download [`Lightwell_0.1.12_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
+Download [`Lightwell_0.1.13_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.13/Lightwell_0.1.13_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
 
 ```sh
-sudo apt install ./Lightwell_0.1.12_amd64.deb
+sudo apt install ./Lightwell_0.1.13_amd64.deb
 ```
 
-Other x86_64 distributions can use [`Lightwell_0.1.12_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_amd64.AppImage), [`Lightwell_0.1.12_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.12_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.12_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_linux_aarch64.tar.gz) carries the command line tool.
+Other x86_64 distributions can use [`Lightwell_0.1.13_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.13/Lightwell_0.1.13_amd64.AppImage), [`Lightwell_0.1.13_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.13/Lightwell_0.1.13_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.13_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.13/Lightwell_0.1.13_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.13_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.13/Lightwell_0.1.13_linux_aarch64.tar.gz) carries the command line tool.
 
 ### Windows
 
-Download [`Lightwell_0.1.12_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.12/Lightwell_0.1.12_x64.msi) (x64) and run it to install Lightwell.
+Download [`Lightwell_0.1.13_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.13/Lightwell_0.1.13_x64.msi) (x64) and run it to install Lightwell.
 
 ### Updates
 
-The signed macOS disk image, the Windows MSI, and the Linux AppImage check for updates. The check is on by default. Settings can turn it off, and Check now looks immediately. Lightwell shows the release notes before it installs an update.
+The signed macOS disk image, the Windows MSI, and the Linux AppImage check for updates. The check is on by default. Settings can turn it off, and **Check now** looks immediately. When an update is available, Lightwell shows the release notes and download links.
 
 The Debian package, the RPM, and the Linux tarball cannot replace themselves. Those installs still check, show the notes, and link to the [latest release](https://github.com/moonbase2090/lightwell/releases/latest).
 
@@ -99,7 +99,9 @@ Releases ship signed and notarized Apple Silicon and universal `.dmg` images, an
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 
-The workspace map has a **Modules** / **Files** toggle. Modules shows the module map. Files groups the same blocks into a file tree of repository folders. A **Depth** control sets how many levels the map draws, from 1 to the full tree. Lightwell saves both choices per workspace. In the source view, right-click a line or press **Alt+Z** to turn word wrap on or off.
+The workspace map has a **Modules** / **Files** toggle. Modules shows the module map. **Files** opens an explorer-style vertical tree with a filter box, **Expand all** and **Collapse all**, and an inspector for the selected file or folder. A rotate control on the toolbar switches to the horizontal graph layout; Lightwell saves the orientation per workspace and defaults to vertical. A **Depth** control sets how many levels the map draws in Modules view, from 1 to the full tree. Lightwell saves depth per workspace.
+
+Use the commit picker (**Through** and optional **Since**) to highlight blocks and connections that changed across a commit or range, with line counts on changed blocks and a side-by-side diff in the source inspector. In the source view, right-click a line or press **Alt+Z** to turn word wrap on or off.
 
 Project notes are on in default and release builds. To omit the notes commands and leave the dialog unwired, set:
 
