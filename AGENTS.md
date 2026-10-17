@@ -2,6 +2,8 @@
 
 Lightwell maps Rust workspaces and shows their crates, entry points, modules, Cargo features, dependency edges, and product notes in a React viewer and Tauri desktop app.
 
+Run `./scripts/install-hooks.sh` once per clone (or `scripts/install-hooks.ps1` on Windows) so staged `.rs` files are checked with `rustfmt` before each commit.
+
 ## Run the tests
 
 ```sh
