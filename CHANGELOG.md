@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.13 - 2026-10-17
+
+### Added
+
+- In **Files** mode, an explorer-style vertical file tree with a filter box, **Expand all** and **Collapse all**, kind badges and short paths on each row, and an inspector that shows the selected file or folder and its children. A rotate control on the map toolbar switches back to the horizontal graph; the choice is saved per workspace and vertical is the default (#129, #130).
+- A commit diff view on the map toolbar: pick **Through** and optional **Since** commits to see which blocks changed and which connections were added, removed, or changed. Changed blocks show line counts; inspecting a changed block opens a side-by-side diff (#132, #133, #134).
+- In-app update checks, on by default. When a newer release is available, Lightwell shows the release notes and download links; Settings can turn checks off or run **Check now** (#131). One-click install is not available until an updater signing key is configured for the build.
+- A larger Settings dialog for editor and update preferences (#128).
+
+### Changed
+
+- The commit diff view is on in default desktop builds. Set `VITE_ENABLE_COMMIT_DIFF=false` when building to omit history commands.
+- Contributors can install an optional pre-commit hook that runs `rustfmt --check` on staged Rust files (`scripts/install-hooks.sh`) (#135).
+
 ## 0.1.12 - 2026-10-15
 
 ### Added
