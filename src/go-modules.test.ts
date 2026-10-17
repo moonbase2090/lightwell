@@ -36,10 +36,10 @@ test("cargo extraction includes go modules when go.mod is present", () => {
     writeFileSync(path.join(root, "go.mod"), "module example.com/host\n\ngo 1.22\n");
     writeFileSync(path.join(root, "main.go"), "package main\n\nfunc main() {}\n");
     const map = extractCargoMap({ repositoryPath: root, projectName: "Go Host" });
-    const go = map.blocks.filter((block) => block.type === "module" && block.language === "go");
-    assert.ok(go.some((block) => block.modulePath === "example.com/host"));
-    assert.ok(go.some((block) => block.modulePath === "example.com/host/main"));
-    assert.ok(go.some((block) => block.modulePath === "example.com/host/main.main"));
+    const go = map.blocks;
+    assert.ok(go.some((block) => block.type === "module" && block.language === "go" && block.modulePath === "example.com/host"));
+    assert.ok(go.some((block) => block.type === "module" && block.language === "go" && block.modulePath === "example.com/host/main"));
+    assert.ok(go.some((block) => block.type === "module" && block.language === "go" && block.modulePath === "example.com/host/main.main"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
