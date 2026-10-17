@@ -43,6 +43,9 @@ const historyApi: MapHistorySource = {
   listCommits(workspaceId) {
     return invoke<unknown>("recent_workspace_commits", { path: workspaceId }).then(parseCommitSummaries);
   },
+  listSinceCommits(workspaceId, throughCommitId) {
+    return invoke<unknown>("workspace_since_commits", { path: workspaceId, through: throughCommitId }).then(parseCommitSummaries);
+  },
   commitChanges(workspaceId, commitId, baseCommitId = null) {
     return invoke<unknown>("workspace_commit_changes", {
       path: workspaceId,

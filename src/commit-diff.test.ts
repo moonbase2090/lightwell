@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { rollUpChanges, unmappedFiles } from "./commit-diff.js";
+import { connectionChangesById, rollUpChanges, unmappedFiles } from "./commit-diff.js";
 import type { CommitChanges } from "./map-source.js";
 import { parseBlockDiffDocument, parseCommitChanges } from "./map-sources/tauri-types.js";
 
@@ -15,11 +15,16 @@ const parents: Record<string, string | null> = {
 };
 const parentOf = (id: string) => parents[id];
 
-const changes = (blocks: CommitChanges["blocks"], files: CommitChanges["files"] = []): CommitChanges => ({
+const changes = (
+  blocks: CommitChanges["blocks"],
+  files: CommitChanges["files"] = [],
+  connections: CommitChanges["connections"] = [],
+): CommitChanges => ({
   baseCommit: null,
   commit: { id: "a41f9c2", shortId: "a41f9c2", summary: "Split layout", timestamp: 0 },
   files,
   blocks,
+  connections,
 });
 
 test("ancestors light up with the counts of the blocks inside them", () => {
@@ -40,6 +45,14 @@ test("a module and its symbols sharing one file are counted once above the modul
   assert.equal(diff.has("plan"), false);
 });
 
+test("connection changes are keyed by edge id for the graph", () => {
+  const map = connectionChangesById(changes([], [], [
+    { id: "depends:crate:a->crate:b", source: "crate:a", target: "crate:b", kind: "depends_on", state: "removed" },
+  ]));
+  assert.equal(map.get("depends:crate:a->crate:b"), "removed");
+  assert.equal(map.size, 1);
+});
+
 test("changed files without a block are reported", () => {
   const files = [
     { path: "scripts/job.py", oldPath: null, added: 2, removed: 1, binary: false },
@@ -54,6 +67,7 @@ test("commit changes from the desktop app are validated", () => {
     commit: { id: "abc", shortId: "abc", summary: "x", timestamp: 1 },
     files: [{ path: "a.py", oldPath: null, added: 1, removed: 0, binary: false }],
     blocks: [{ blockId: "module:a", added: 1, removed: 0 }],
+    connections: [{ id: "contains:a->b", source: "a", target: "b", kind: "contains", state: "added" }],
   };
   assert.equal(parseCommitChanges(valid).blocks[0]?.blockId, "module:a");
   assert.deepEqual(

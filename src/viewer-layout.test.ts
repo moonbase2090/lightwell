@@ -229,6 +229,30 @@ test("noted cards carry their note text and open callback; other cards do not", 
   assert.deepEqual(opened, ["module:noted"]);
 });
 
+test("a commit's added connection is highlighted on the graph", () => {
+  const left = moduleBlock("module:left", "left");
+  const right = moduleBlock("module:right", "right");
+  const edges = [{
+    id: "contains:module:left->module:right",
+    source: "module:left",
+    target: "module:right",
+    type: "smoothstep",
+    style: { stroke: "#4d8df4", strokeWidth: 1.2, opacity: 0.34 },
+  }];
+  const graph = emphasizeGraph({
+    nodes: [mapNode(left), mapNode(right)],
+    edges,
+    activeNodeId: null,
+    activeFeatureMemberIds: null,
+    onHover: () => undefined,
+    onActivate: () => undefined,
+    changes: new Map(),
+    connectionChanges: new Map([["contains:module:left->module:right", "added"]]),
+  });
+  assert.equal(graph.edges[0]?.style?.opacity, 0.86);
+  assert.equal(graph.edges[0]?.animated, true);
+});
+
 test("a commit's changed blocks stay lit and carry their counts while the rest dims", () => {
   const changed = moduleBlock("module:changed", "changed");
   const quiet = moduleBlock("module:quiet", "quiet");

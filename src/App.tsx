@@ -48,7 +48,7 @@ import FileExplorer, { TreeInspector } from "./FileExplorer.js";
 import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
-import { rollUpChanges, unmappedFiles, type BlockDiff } from "./commit-diff.js";
+import { connectionChangesById, rollUpChanges, unmappedFiles, type BlockDiff } from "./commit-diff.js";
 import type { CommitChanges, CommitSummary } from "./map-source.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
 import { readWordWrapPreference, readWordWrapShortcut, saveWordWrapPreference, saveWordWrapShortcut } from "./source-view-preferences.js";
@@ -695,6 +695,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     });
   }, []);
   const [commits, setCommits] = useState<readonly CommitSummary[]>([]);
+  const [sinceCommits, setSinceCommits] = useState<readonly CommitSummary[]>([]);
   const [selectedCommitThrough, setSelectedCommitThrough] = useState("");
   const [selectedCommitSince, setSelectedCommitSince] = useState("");
   const [commitDiff, setCommitDiff] = useState<
@@ -888,6 +889,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
   useEffect(() => {
     setCommits([]);
+    setSinceCommits([]);
     setSelectedCommitThrough("");
     setSelectedCommitSince("");
     setCommitDiff({ kind: "idle" });
@@ -920,12 +922,24 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     return () => { cancelled = true; };
   }, [history, map, mapKey, selectedCommitSince, selectedCommitThrough]);
 
-  const commitSinceOptions = useMemo(() => {
-    if (selectedCommitThrough === "") return [];
-    const throughIndex = commits.findIndex((commit) => commit.id === selectedCommitThrough);
-    if (throughIndex < 0) return [];
-    return commits.slice(throughIndex + 1);
-  }, [commits, selectedCommitThrough]);
+  useEffect(() => {
+    if (history === undefined || mapKey === null || selectedCommitThrough === "") {
+      setSinceCommits([]);
+      return;
+    }
+    let cancelled = false;
+    void history.listSinceCommits(mapKey, selectedCommitThrough)
+      .then((list) => { if (!cancelled) setSinceCommits(list); })
+      .catch(() => { if (!cancelled) setSinceCommits([]); });
+    return () => { cancelled = true; };
+  }, [history, mapKey, selectedCommitThrough]);
+
+  useEffect(() => {
+    if (selectedCommitSince === "") return;
+    if (!sinceCommits.some((commit) => commit.id === selectedCommitSince)) {
+      setSelectedCommitSince("");
+    }
+  }, [selectedCommitSince, sinceCommits]);
 
   // While a commit is shown, inspecting a block it changed opens that block's diff.
   const diffCommitId = commitDiff.kind === "ready" ? commitDiff.changes.commit.id : null;
@@ -1135,6 +1149,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
     return rollupAlongParents(direct, fileTree.parentOf);
   }, [commitDiff, fileTree, mapView]);
+  const graphConnectionChanges = useMemo(
+    () => (commitDiff.kind === "ready" ? connectionChangesById(commitDiff.changes) : undefined),
+    [commitDiff],
+  );
   const graph = useMemo(() => emphasizeGraph({
     nodes: baseGraph.nodes,
     edges: baseGraph.edges,
@@ -1147,7 +1165,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     onOpenNote: openNoteFor,
     onContextMenu: showBlockMenu,
     ...(graphChanges === undefined ? {} : { changes: graphChanges }),
-  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, noteTextById, openNoteFor, showBlockMenu, graphChanges]);
+    ...(graphConnectionChanges === undefined ? {} : { connectionChanges: graphConnectionChanges }),
+  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, noteTextById, openNoteFor, showBlockMenu, graphChanges, graphConnectionChanges]);
 
   const noteTargetId = inspectedBlockId ?? (map?.blockById.has(selectedId) === true ? selectedId : null);
   useEffect(() => {
@@ -1666,11 +1685,6 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                   const through = event.currentTarget.value;
                   setSelectedCommitThrough(through);
                   if (through === "") setSelectedCommitSince("");
-                  else {
-                    const throughIndex = commits.findIndex((commit) => commit.id === through);
-                    const sinceIndex = commits.findIndex((commit) => commit.id === selectedCommitSince);
-                    if (sinceIndex >= 0 && sinceIndex <= throughIndex) setSelectedCommitSince("");
-                  }
                 }}
               >
                 <option value="">No commit</option>
@@ -1679,7 +1693,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                 ))}
               </select>
             </label>
-            {selectedCommitThrough !== "" && commitSinceOptions.length > 0 && (
+            {selectedCommitThrough !== "" && sinceCommits.length > 0 && (
               <label>
                 <span className="commit-picker-label">Since</span>
                 <select
@@ -1688,7 +1702,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                   onChange={(event) => setSelectedCommitSince(event.currentTarget.value)}
                 >
                   <option value="">This commit only</option>
-                  {commitSinceOptions.map((commit) => (
+                  {sinceCommits.map((commit) => (
                     <option key={commit.id} value={commit.id}>{commit.shortId} {commit.summary}</option>
                   ))}
                 </select>
@@ -1717,12 +1731,14 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             const mappedPaths = new Set([...map.blockById.values()].flatMap((block) => block.sourcePath === null ? [] : [block.sourcePath.replaceAll("\\", "/")]));
             const outside = unmappedFiles(commitDiff.changes, mappedPaths).length;
             const base = commitDiff.changes.baseCommit;
+            const connectionCount = commitDiff.changes.connections.length;
             return (
               <span>
                 {base === null
                   ? <><code>{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}</>
                   : <><code>{base.shortId}…{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}</>}
                 {" · "}{direct === 1 ? "1 block changed" : `${direct} blocks changed`}
+                {connectionCount > 0 && ` · ${connectionCount === 1 ? "1 connection" : `${connectionCount} connections`}`}
                 {outside > 0 && ` · ${outside === 1 ? "1 file" : `${outside} files`} outside the map`}
               </span>
             );

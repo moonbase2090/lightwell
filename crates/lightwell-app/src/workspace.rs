@@ -1,10 +1,11 @@
 use lightwell_core::{
-    block_diff_for, commit_changes_for, discover_cargo_workspace, extract_cargo_map, open_target,
-    project_notes_for_map, recent_commits, remove_project_note, resolve_block_target,
-    resolve_block_target_in_map, set_project_note_for_map, update_project_note_text,
-    BlockDiffDocument, CommitChanges, CommitSummary, EditorError, EditorSettings, EditorTarget,
-    EditorTemplatePreset, FactMap, MapExtractionError, MapWatchError, MapWatcher, NotesError,
-    ProjectNoteView, EDITOR_TEMPLATE_PRESETS,
+    block_diff_for, commit_changes_for, discover_cargo_workspace, extract_cargo_map,
+    filter_commits_that_are_ancestors, open_target, project_notes_for_map, recent_commits,
+    remove_project_note, resolve_block_target, resolve_block_target_in_map,
+    set_project_note_for_map, update_project_note_text, BlockDiffDocument, CommitChanges,
+    CommitSummary, EditorError, EditorSettings, EditorTarget, EditorTemplatePreset, FactMap,
+    MapExtractionError, MapWatchError, MapWatcher, NotesError, ProjectNoteView,
+    EDITOR_TEMPLATE_PRESETS,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -109,6 +110,16 @@ const COMMIT_PICKER_LIMIT: usize = 50;
 pub fn recent_workspace_commits(path: String) -> Result<Vec<CommitSummary>, String> {
     let root = workspace_root(&path)?;
     recent_commits(&root, COMMIT_PICKER_LIMIT).map_err(|error| error.to_string())
+}
+
+#[tauri::command(async)]
+pub fn workspace_since_commits(
+    path: String,
+    through: String,
+) -> Result<Vec<CommitSummary>, String> {
+    let root = workspace_root(&path)?;
+    let commits = recent_commits(&root, COMMIT_PICKER_LIMIT).map_err(|error| error.to_string())?;
+    filter_commits_that_are_ancestors(&root, &through, &commits).map_err(|error| error.to_string())
 }
 
 #[tauri::command(async)]
