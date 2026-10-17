@@ -1,5 +1,6 @@
 import ELK from "elkjs/lib/elk.bundled.js";
 import type { BlockDiff } from "../commit-diff.js";
+import type { ConnectionChangeState } from "../map-source.js";
 import { MarkerType, type Edge } from "@xyflow/react";
 import type { FactConnection, DisplayBlock } from "../model.js";
 import type { MapNode, BlockNodeData } from "./BlockNode.js";
@@ -77,6 +78,7 @@ export function emphasizeGraph(args: {
   readonly onContextMenu?: (block: DisplayBlock, x: number, y: number) => void;
   /** A commit's changed blocks and their ancestors. Everything else dims while no block is hovered. */
   readonly changes?: ReadonlyMap<string, BlockDiff>;
+  readonly connectionChanges?: ReadonlyMap<string, ConnectionChangeState>;
 }): { readonly nodes: MapNode[]; readonly edges: Edge[] } {
   const changedIds = args.changes === undefined ? null : new Set(args.changes.keys());
   const directNeighbors = args.activeNodeId === null
@@ -105,19 +107,28 @@ export function emphasizeGraph(args: {
   const edges = args.edges.map((edge) => {
     const source = typeof edge.source === "string" ? edge.source : "";
     const target = typeof edge.target === "string" ? edge.target : "";
+    const connectionChange = args.connectionChanges?.get(edge.id);
     const highlighted = highlightedIds === null
       || (args.activeNodeId !== null && (source === args.activeNodeId || target === args.activeNodeId))
       || (args.activeFeatureMemberIds !== null && args.activeFeatureMemberIds.has(source) && args.activeFeatureMemberIds.has(target))
-      || (highlightedIds === changedIds && changedIds !== null && changedIds.has(source) && changedIds.has(target));
-    const color = source.startsWith("crate:") && target.startsWith("crate:") ? "#59d8c0" : "#4d8df4";
+      || (highlightedIds === changedIds && changedIds !== null && changedIds.has(source) && changedIds.has(target))
+      || connectionChange === "added"
+      || connectionChange === "changed"
+      || connectionChange === "removed";
+    const color = connectionChange === "removed"
+      ? "#e07070"
+      : connectionChange === "added" || connectionChange === "changed"
+        ? (source.startsWith("crate:") && target.startsWith("crate:") ? "#7ef0d8" : "#7ab0ff")
+        : source.startsWith("crate:") && target.startsWith("crate:") ? "#59d8c0" : "#4d8df4";
     return {
       ...edge,
-      animated: highlighted && highlightedIds !== null,
+      animated: highlighted && highlightedIds !== null && connectionChange !== "removed",
       style: {
         ...edge.style,
         stroke: color,
         strokeWidth: highlighted ? 1.8 : 1,
         opacity: highlighted ? 0.86 : 0.09,
+        ...(connectionChange === "removed" ? { strokeDasharray: "5 4" } : {}),
       },
     };
   });

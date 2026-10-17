@@ -5,16 +5,18 @@
 //! their module's file. Each symbol owns the lines from its definition to the
 //! next top-level symbol, measured in the file as it was at the commit.
 
-use crate::extract::block_base;
-use crate::facts::{FactBlock, FactMap};
+use crate::extract::MapExtractionError;
+use crate::extract::{block_base, extract_cargo_map};
+use crate::facts::{Connection, DependencyScope, FactBlock, FactMap, MapStats};
 use crate::python_source::parse_python_source;
 use crate::typescript_source::parse_typescript_source;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +50,18 @@ pub struct BlockChange {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ConnectionChange {
+    pub id: String,
+    pub source: String,
+    pub target: String,
+    /// `contains` or `depends_on`.
+    pub kind: String,
+    /// `added`, `removed`, or `changed`.
+    pub state: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CommitChanges {
     /// When set, changes are everything after this commit through `commit`.
     pub base_commit: Option<CommitSummary>,
@@ -56,6 +70,8 @@ pub struct CommitChanges {
     pub files: Vec<FileChange>,
     /// Blocks in the map with at least one changed line, in map order.
     pub blocks: Vec<BlockChange>,
+    /// Graph edges that were added, removed, or changed between the before and after maps.
+    pub connections: Vec<ConnectionChange>,
 }
 
 #[derive(Debug)]
@@ -74,6 +90,7 @@ pub enum DiffError {
         command: String,
         message: String,
     },
+    MapExtraction(String),
 }
 
 impl Display for DiffError {
@@ -92,6 +109,9 @@ impl Display for DiffError {
             }
             Self::FileUnchanged(path) => write!(formatter, "This commit did not change {path}."),
             Self::Git { command, message } => write!(formatter, "git {command} failed: {message}"),
+            Self::MapExtraction(message) => {
+                write!(formatter, "Could not map the workspace: {message}")
+            }
         }
     }
 }
@@ -133,16 +153,24 @@ pub fn commit_changes_for(
     base: Option<&str>,
 ) -> Result<CommitChanges, DiffError> {
     let head_summary = resolve_commit(root, head)?;
+    let project_name = Some(map.project.name.as_str());
     let Some(base) = base.filter(|value| !value.is_empty()) else {
         let (files, hunks) = single_commit_diff(root, &head_summary.id)?;
         let blocks = attribute_changes(map, &files, &hunks, |path| {
             git(root, &["show", &format!("{}:./{path}", head_summary.id)]).ok()
         });
+        let connections = connection_changes_between(
+            root,
+            project_name,
+            parent_commit(root, &head_summary.id).as_deref(),
+            &head_summary.id,
+        )?;
         return Ok(CommitChanges {
             base_commit: None,
             commit: head_summary,
             files,
             blocks,
+            connections,
         });
     };
     let base_summary = resolve_commit(root, base)?;
@@ -152,12 +180,32 @@ pub fn commit_changes_for(
     let blocks = attribute_changes(map, &files, &hunks, |path| {
         git(root, &["show", &format!("{}:./{path}", head_summary.id)]).ok()
     });
+    let connections =
+        connection_changes_between(root, project_name, Some(&base_summary.id), &head_summary.id)?;
     Ok(CommitChanges {
         base_commit: Some(base_summary),
         commit: head_summary,
         files,
         blocks,
+        connections,
     })
+}
+
+/// Commits from `commits` that are strict ancestors of `head`, preserving order.
+pub fn filter_commits_that_are_ancestors(
+    root: &Path,
+    head: &str,
+    commits: &[CommitSummary],
+) -> Result<Vec<CommitSummary>, DiffError> {
+    let head_summary = resolve_commit(root, head)?;
+    Ok(commits
+        .iter()
+        .filter(|commit| {
+            commit.id != head_summary.id
+                && ensure_ancestor(root, &commit.id, &head_summary.id).is_ok()
+        })
+        .cloned()
+        .collect())
 }
 
 fn single_commit_diff(
@@ -223,6 +271,154 @@ fn diff_tree_prefix() -> [&'static str; 6] {
     ]
 }
 
+fn parent_commit(root: &Path, commit: &str) -> Option<String> {
+    git(root, &["rev-parse", &format!("{commit}^")])
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
+fn connection_changes_between(
+    root: &Path,
+    project_name: Option<&str>,
+    before_commit: Option<&str>,
+    head_commit: &str,
+) -> Result<Vec<ConnectionChange>, DiffError> {
+    let head_map = extract_map_at_commit(root, head_commit, project_name)?;
+    let before_map = match before_commit {
+        Some(commit) => extract_map_at_commit(root, commit, project_name)?,
+        None => empty_map_like(&head_map),
+    };
+    Ok(diff_connections(
+        &before_map.connections,
+        &head_map.connections,
+    ))
+}
+
+fn empty_map_like(template: &FactMap) -> FactMap {
+    FactMap::schema_v1(
+        template.project.clone(),
+        Vec::new(),
+        Vec::new(),
+        Vec::new(),
+        MapStats::default(),
+    )
+}
+
+fn extract_map_at_commit(
+    root: &Path,
+    commit: &str,
+    project_name: Option<&str>,
+) -> Result<FactMap, DiffError> {
+    let worktree = temporary_worktree_path("map");
+    let worktree_arg = path_for_git(&worktree);
+    git(
+        root,
+        &["worktree", "add", "--detach", &worktree_arg, commit],
+    )?;
+    let map = extract_cargo_map(&worktree, project_name)
+        .map_err(|error| DiffError::MapExtraction(map_extraction_message(&error)));
+    let _ = git(root, &["worktree", "remove", "--force", &worktree_arg]);
+    let _ = std::fs::remove_dir_all(&worktree);
+    map
+}
+
+fn map_extraction_message(error: &MapExtractionError) -> String {
+    error.to_string()
+}
+
+fn temporary_worktree_path(label: &str) -> PathBuf {
+    let unique = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    std::env::temp_dir().join(format!("lightwell-{label}-{}-{unique}", std::process::id()))
+}
+
+fn path_for_git(path: &Path) -> String {
+    path.to_string_lossy().into_owned()
+}
+
+fn connection_key(connection: &Connection) -> (String, String, String, String) {
+    match connection {
+        Connection::Contains { source, target, .. } => (
+            "contains".to_owned(),
+            source.clone(),
+            target.clone(),
+            String::new(),
+        ),
+        Connection::DependsOn {
+            source,
+            target,
+            dependency_scope,
+            ..
+        } => (
+            "depends_on".to_owned(),
+            source.clone(),
+            target.clone(),
+            dependency_scope_label(*dependency_scope),
+        ),
+    }
+}
+
+fn dependency_scope_label(scope: DependencyScope) -> String {
+    match scope {
+        DependencyScope::Normal => "normal".to_owned(),
+        DependencyScope::Build => "build".to_owned(),
+    }
+}
+
+fn diff_connections(before: &[Connection], after: &[Connection]) -> Vec<ConnectionChange> {
+    let mut before_by_key: HashMap<(String, String, String, String), &Connection> = HashMap::new();
+    for connection in before {
+        before_by_key.insert(connection_key(connection), connection);
+    }
+    let mut after_by_key: HashMap<(String, String, String, String), &Connection> = HashMap::new();
+    for connection in after {
+        after_by_key.insert(connection_key(connection), connection);
+    }
+    let mut changes = Vec::new();
+    for (key, connection) in &after_by_key {
+        match before_by_key.get(key) {
+            None => changes.push(connection_change(connection, "added")),
+            Some(before_connection) if before_connection != connection => {
+                changes.push(connection_change(connection, "changed"));
+            }
+            _ => {}
+        }
+    }
+    for (key, connection) in &before_by_key {
+        if !after_by_key.contains_key(key) {
+            changes.push(connection_change(connection, "removed"));
+        }
+    }
+    changes.sort_by(|left, right| left.id.cmp(&right.id));
+    changes
+}
+
+fn connection_change(connection: &Connection, state: &str) -> ConnectionChange {
+    match connection {
+        Connection::Contains {
+            id, source, target, ..
+        } => ConnectionChange {
+            id: id.clone(),
+            source: source.clone(),
+            target: target.clone(),
+            kind: "contains".to_owned(),
+            state: state.to_owned(),
+        },
+        Connection::DependsOn {
+            id, source, target, ..
+        } => ConnectionChange {
+            id: id.clone(),
+            source: source.clone(),
+            target: target.clone(),
+            kind: "depends_on".to_owned(),
+            state: state.to_owned(),
+        },
+    }
+}
+
 fn ensure_ancestor(root: &Path, base: &str, head: &str) -> Result<(), DiffError> {
     if base == head {
         return Err(DiffError::InvalidCommitRange {
@@ -240,10 +436,12 @@ fn ensure_ancestor(root: &Path, base: &str, head: &str) -> Result<(), DiffError>
         .arg("-C")
         .arg(root)
         .args(["merge-base", "--is-ancestor", base, head]);
-    let output = command.output().map_err(|error| DiffError::Git {
-        command: "merge-base".to_owned(),
-        message: error.to_string(),
-    })?;
+    let output = command
+        .output()
+        .map_err(|_| DiffError::InvalidCommitRange {
+            base: base.to_owned(),
+            head: head.to_owned(),
+        })?;
     if !output.status.success() {
         return Err(DiffError::InvalidCommitRange {
             base: base.to_owned(),
@@ -724,6 +922,34 @@ mod tests {
             .status()
             .expect("git should run");
         assert!(status.success(), "git {args:?} failed");
+    }
+
+    #[test]
+    fn connection_diff_reports_added_and_removed_edges() {
+        use crate::facts::Connection;
+        let before = vec![Connection::Contains {
+            id: "contains:workspace->crate:a".into(),
+            source: "workspace".into(),
+            target: "crate:a".into(),
+        }];
+        let after = vec![
+            Connection::Contains {
+                id: "contains:workspace->crate:a".into(),
+                source: "workspace".into(),
+                target: "crate:a".into(),
+            },
+            Connection::Contains {
+                id: "contains:crate:a->module:b".into(),
+                source: "crate:a".into(),
+                target: "module:b".into(),
+            },
+        ];
+        let changes = super::diff_connections(&before, &after);
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].state, "added");
+        assert_eq!(changes[0].id, "contains:crate:a->module:b");
+        let removed = super::diff_connections(&after, &before);
+        assert_eq!(removed[0].state, "removed");
     }
 
     #[test]

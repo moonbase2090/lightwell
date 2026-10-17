@@ -78,12 +78,23 @@ export interface CommitBlockChange {
   readonly removed: number;
 }
 
+export type ConnectionChangeState = "added" | "removed" | "changed";
+
+export interface CommitConnectionChange {
+  readonly id: string;
+  readonly source: string;
+  readonly target: string;
+  readonly kind: "contains" | "depends_on";
+  readonly state: ConnectionChangeState;
+}
+
 export interface CommitChanges {
   /** When set, changes are everything after this commit through `commit`. */
   readonly baseCommit: CommitSummary | null;
   readonly commit: CommitSummary;
   readonly files: readonly CommitFileChange[];
   readonly blocks: readonly CommitBlockChange[];
+  readonly connections: readonly CommitConnectionChange[];
 }
 
 /** One block's file before and after a commit. */
@@ -102,6 +113,7 @@ export interface BlockDiffDocument {
 /** Git history for the commit diff view. */
 export interface MapHistorySource {
   listCommits(workspaceId: string): Promise<readonly CommitSummary[]>;
+  listSinceCommits(workspaceId: string, throughCommitId: string): Promise<readonly CommitSummary[]>;
   commitChanges(workspaceId: string, commitId: string, baseCommitId?: string | null): Promise<CommitChanges>;
   blockDiff(workspaceId: string, commitId: string, blockId: string, baseCommitId?: string | null): Promise<BlockDiffDocument>;
 }
