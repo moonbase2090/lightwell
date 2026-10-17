@@ -38,6 +38,11 @@ test("registry maps Python sources", () => {
   assert.equal(monacoLanguageIdForPath("pkg/mod.py"), "python");
 });
 
+test("registry maps Go sources", () => {
+  assert.equal(sourceLanguageIdForPath("pkg/main.go"), "go");
+  assert.equal(monacoLanguageIdForPath("pkg/main.go"), "go");
+});
+
 test("registry maps web extensions without .ts swallowing .tsx", () => {
   assert.equal(sourceLanguageIdForPath("src/App.tsx"), "web");
   assert.equal(sourceLanguageIdForPath("src/cli.ts"), "web");
@@ -60,7 +65,7 @@ test("registry entries have unique longest extensions", () => {
 });
 
 test("built-in packs expose extractor and fixture seams", () => {
-  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 4);
+  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 5);
   const rust = languagePackForPath("src/lib.rs");
   assert.equal(rust?.extractor?.kind, "rust-workspace");
   assert.equal(rust?.extractor?.moduleTreeModule, "extract/rust-modules");
@@ -76,6 +81,10 @@ test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(python?.extractor?.kind, "python-module");
   assert.equal(python?.fixtures?.root, "crates/lightwell-core/fixtures/python-sample");
   assert.equal(typeof python?.registerHighlighter, "function");
+  const go = languagePackForPath("main.go");
+  assert.equal(go?.extractor?.kind, "go-module");
+  assert.equal(go?.fixtures?.root, "crates/lightwell-core/fixtures/go-sample");
+  assert.equal(typeof go?.registerHighlighter, "function");
 });
 
 test("extractWorkspaceMap uses rust pack workspace extractor on fixture workspace", () => {

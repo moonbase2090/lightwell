@@ -8,6 +8,7 @@
 use crate::extract::MapExtractionError;
 use crate::extract::{block_base, extract_cargo_map};
 use crate::facts::{Connection, DependencyScope, FactBlock, FactMap, MapStats};
+use crate::go_source::parse_go_source;
 use crate::python_source::parse_python_source;
 use crate::typescript_source::parse_typescript_source;
 use serde::Serialize;
@@ -855,6 +856,12 @@ fn symbol_spans(path: &str, source: &str) -> HashMap<String, (usize, usize)> {
     let lower = path.to_ascii_lowercase();
     let mut lines: Vec<(usize, String)> = if lower.ends_with(".py") || lower.ends_with(".pyi") {
         parse_python_source(source)
+            .1
+            .into_iter()
+            .map(|symbol| (symbol.line, symbol.name))
+            .collect()
+    } else if lower.ends_with(".go") {
+        parse_go_source(source)
             .1
             .into_iter()
             .map(|symbol| (symbol.line, symbol.name))

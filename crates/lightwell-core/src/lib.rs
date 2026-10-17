@@ -2,6 +2,7 @@ mod diff;
 mod editor;
 mod extract;
 mod facts;
+mod go_source;
 pub mod language_pack;
 mod manifest;
 mod metadata;
