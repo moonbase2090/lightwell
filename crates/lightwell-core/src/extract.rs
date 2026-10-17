@@ -2,7 +2,7 @@ use crate::facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock,
 };
-use crate::go_source::{discover_go_packages, GoFile, GoPackage, GoSymbol};
+use crate::go_source::{discover_go_packages, go_import_alias_paths, GoFile, GoPackage, GoSymbol};
 use crate::metadata::{
     discover_cargo_workspace, CargoDependencyKind, CargoDiscoveryError, CargoPackage,
     CargoWorkspace, RustModule,
@@ -674,23 +674,86 @@ fn append_go_blocks(
                 connections,
             )?;
         }
+        let mut import_edges = HashSet::new();
         for file in &package.files {
             for import in &file.imports {
                 if let Some(target) = package_ids.get(&import.path) {
                     if target != &package_id {
                         let id = connection_id("depends_on", &package_id, target);
-                        connections.push(Connection::DependsOn {
-                            id,
-                            source: package_id.clone(),
-                            target: target.clone(),
-                            dependency_scope: DependencyScope::Normal,
-                        });
+                        if import_edges.insert(id.clone()) {
+                            connections.push(Connection::DependsOn {
+                                id,
+                                source: package_id.clone(),
+                                target: target.clone(),
+                                dependency_scope: DependencyScope::Normal,
+                            });
+                        }
                     }
                 }
             }
         }
     }
+    append_go_call_connections(packages, blocks, connections);
     Ok(())
+}
+
+fn append_go_call_connections(
+    packages: &[GoPackage],
+    blocks: &[FactBlock],
+    connections: &mut Vec<Connection>,
+) {
+    let mut symbol_ids: HashMap<(String, String), String> = HashMap::new();
+    for block in blocks {
+        let FactBlock::Module(module) = block else {
+            continue;
+        };
+        if module.language != "go" || module.cfg_attributes.len() != 1 {
+            continue;
+        }
+        let kind = module.cfg_attributes[0].as_str();
+        if kind != "func" && kind != "method" && kind != "type" {
+            continue;
+        }
+        symbol_ids.insert(
+            (module.package_name.clone(), module.base.label.clone()),
+            module.base.id.clone(),
+        );
+    }
+    let mut call_edges = HashSet::new();
+    for package in packages {
+        for file in &package.files {
+            if file.unreadable {
+                continue;
+            }
+            let stem = file
+                .path
+                .file_stem()
+                .and_then(|name| name.to_str())
+                .unwrap_or("file");
+            let module_path = format!("{}/{}", package.import_path, stem);
+            let file_id = go_file_block_id(&module_path, file.test);
+            let aliases = go_import_alias_paths(&file.imports);
+            for call in &file.calls {
+                let import_path = match aliases.get(&call.qualifier) {
+                    Some(path) => path,
+                    None => continue,
+                };
+                let target_id = match symbol_ids.get(&(import_path.clone(), call.name.clone())) {
+                    Some(id) => id,
+                    None => continue,
+                };
+                let id = connection_id("depends_on", &file_id, target_id);
+                if call_edges.insert(id.clone()) {
+                    connections.push(Connection::DependsOn {
+                        id,
+                        source: file_id.clone(),
+                        target: target_id.clone(),
+                        dependency_scope: DependencyScope::Normal,
+                    });
+                }
+            }
+        }
+    }
 }
 
 fn package_fingerprint(

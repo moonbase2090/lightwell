@@ -61,6 +61,25 @@ impl GoImport {
     }
 }
 
+/// Map local import alias (or default package name) to import path.
+pub(crate) fn go_import_alias_paths(imports: &[GoImport]) -> HashMap<String, String> {
+    let mut alias_to_path = HashMap::new();
+    for import in imports {
+        if import.alias.as_deref() == Some("_") || import.alias.as_deref() == Some(".") {
+            continue;
+        }
+        let alias = import
+            .alias
+            .clone()
+            .or_else(|| import.path.rsplit('/').next().map(str::to_owned))
+            .unwrap_or_default();
+        if !alias.is_empty() {
+            alias_to_path.insert(alias, import.path.clone());
+        }
+    }
+    alias_to_path
+}
+
 impl GoSymbol {
     pub(crate) fn outline_label(&self) -> &'static str {
         match self.kind {
@@ -506,20 +525,7 @@ fn parse_func_line(line: &str, line_no: usize) -> Option<GoSymbol> {
 }
 
 fn parse_calls(source: &str, imports: &[GoImport]) -> Vec<GoCall> {
-    let mut alias_to_path: HashMap<String, String> = HashMap::new();
-    for import in imports {
-        if import.alias.as_deref() == Some("_") || import.alias.as_deref() == Some(".") {
-            continue;
-        }
-        let alias = import
-            .alias
-            .clone()
-            .or_else(|| import.path.rsplit('/').next().map(str::to_owned))
-            .unwrap_or_default();
-        if !alias.is_empty() {
-            alias_to_path.insert(alias, import.path.clone());
-        }
-    }
+    let alias_to_path = go_import_alias_paths(imports);
     let mut calls = Vec::new();
     for (index, line) in source.lines().enumerate() {
         let line_no = index + 1;
@@ -595,6 +601,7 @@ mod tests {
     #[test]
     fn go_modules_merge_into_workspace_maps() {
         let root = fixture_root();
+        let packages = discover_go_packages(&root).expect("go fixture");
         let map = extract_cargo_map(&root, Some("Go Sample")).expect("extract");
         let go_blocks = map
             .blocks
@@ -610,5 +617,44 @@ mod tests {
         assert!(map.connections.iter().any(|connection| {
             matches!(connection, crate::facts::Connection::DependsOn { .. })
         }));
+        let api = packages
+            .iter()
+            .find(|pkg| pkg.import_path.ends_with("/api"))
+            .expect("api package");
+        let api_go = api.files.iter().find(|file| !file.test).expect("api.go");
+        assert!(
+            !api_go.calls.is_empty(),
+            "qualified calls such as util.Label should be recorded"
+        );
+        let main_pkg = packages
+            .iter()
+            .find(|pkg| pkg.import_path == "example.com/go-sample")
+            .expect("main package");
+        let main_go = main_pkg
+            .files
+            .iter()
+            .find(|file| !file.test)
+            .expect("main.go");
+        assert!(
+            main_go
+                .calls
+                .iter()
+                .any(|call| call.qualifier == "api" && call.name == "Greet"),
+            "main should record api.Greet call"
+        );
+        assert!(
+            map.connections.iter().any(|connection| {
+                matches!(
+                    connection,
+                    crate::facts::Connection::DependsOn {
+                        source,
+                        target,
+                        ..
+                    } if source.contains("example-com-go-sample-api-api")
+                        && target.contains("util-util-label")
+                )
+            }),
+            "call edges should link file blocks to callee symbols"
+        );
     }
 }
