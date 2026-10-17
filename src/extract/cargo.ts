@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import type {
@@ -13,6 +13,7 @@ import type {
   ModuleBlock,
   WorkspaceBlock,
 } from "../model.js";
+import { discoverDotnet, dotnetFactBlocks } from "./dotnet-modules.js";
 import { discoverPythonModules, pythonFactBlocks } from "./python-modules.js";
 import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
 import { discoverWebModules, webFactBlocks } from "./web-modules.js";
@@ -244,7 +245,11 @@ function deriveChildren(blocks: readonly FactBlock[]): FactBlock[] {
 export function extractCargoMap(args: { readonly repositoryPath: string; readonly projectName?: string }): FactMap {
   const requestedRoot = path.resolve(args.repositoryPath);
   const manifestPath = path.join(requestedRoot, "Cargo.toml");
-  if (!existsSync(manifestPath)) throw new Error(`No Cargo.toml found at ${relativePath(requestedRoot, manifestPath)}`);
+  if (!existsSync(manifestPath)) {
+    const marker = nonCargoProjectMarker(requestedRoot);
+    if (marker === null) throw new Error(`No Cargo.toml found at ${relativePath(requestedRoot, manifestPath)}`);
+    return extractWithoutCargo({ rootPath: requestedRoot, markerPath: marker, projectName: args.projectName });
+  }
   const result = spawnSync("cargo", ["metadata", "--no-deps", "--format-version", "1", "--manifest-path", manifestPath], {
     cwd: requestedRoot,
     encoding: "utf8",
@@ -400,6 +405,10 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   const webFacts = webFactBlocks({ modules: webModules, rootPath, workspaceId: projectId });
   blocks.push(...webFacts.blocks);
   connections.push(...webFacts.connections);
+  const dotnet = discoverDotnet(rootPath);
+  const dotnetFacts = dotnetFactBlocks({ workspace: dotnet, rootPath, workspaceId: projectId });
+  blocks.push(...dotnetFacts.blocks);
+  connections.push(...dotnetFacts.connections);
   const finalWorkspaceFingerprint = hashText([
     ...packages.map((pkg) => {
       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
@@ -407,6 +416,8 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
     }),
     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
     ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
+    ...dotnet.projects.map((project) => `dotnet:${project.name}:${hashFile(project.path)}`),
+    ...dotnet.files.map((file) => `dotnet:${relativePath(rootPath, file.path)}:${hashFile(file.path)}`),
   ].sort().join("\n"));
   const workspaceIndex = blocks.findIndex((block) => block.id === projectId);
   if (workspaceIndex >= 0) blocks[workspaceIndex] = { ...workspaceBlock, fingerprint: finalWorkspaceFingerprint || workspaceFingerprint };
@@ -441,6 +452,88 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
     cargoFeatures: completedBlocks.filter((block) => block.type === "cargo_feature").length,
   };
 
+  return {
+    schemaVersion: 1,
+    project: { id: projectId, name: projectLabel, rootPath: "." },
+    blocks: completedBlocks,
+    connections,
+    groups,
+    stats,
+  };
+}
+
+const namedProjectMarkers = ["package.json", "tsconfig.json", "jsconfig.json"];
+
+function nonCargoProjectMarker(root: string): string | null {
+  for (const name of namedProjectMarkers) {
+    const candidate = path.join(root, name);
+    if (isFile(candidate)) return candidate;
+  }
+  let names: string[];
+  try {
+    names = readdirSync(root);
+  } catch {
+    return null;
+  }
+  for (const name of names) {
+    const candidate = path.join(root, name);
+    if (!isFile(candidate)) continue;
+    const extension = path.extname(name).toLowerCase();
+    if (extension === ".sln" || extension === ".csproj" || extension === ".vbproj") return candidate;
+  }
+  return null;
+}
+
+function isFile(candidate: string): boolean {
+  try {
+    return statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function extractWithoutCargo(args: { readonly rootPath: string; readonly markerPath: string; readonly projectName?: string }): FactMap {
+  const rootPath = args.rootPath;
+  const projectLabel = args.projectName ?? path.basename(rootPath);
+  const projectId = `workspace:${slug(projectLabel)}`;
+  const pythonModules = discoverPythonModules(rootPath);
+  const pythonFacts = pythonFactBlocks({ modules: pythonModules, rootPath, workspaceId: projectId });
+  const webModules = discoverWebModules(rootPath);
+  const webFacts = webFactBlocks({ modules: webModules, rootPath, workspaceId: projectId });
+  const dotnet = discoverDotnet(rootPath);
+  const dotnetFacts = dotnetFactBlocks({ workspace: dotnet, rootPath, workspaceId: projectId });
+  const fingerprint = hashText([
+    ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
+    ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
+    ...dotnet.projects.map((project) => `dotnet:${project.name}:${hashFile(project.path)}`),
+    ...dotnet.files.map((file) => `dotnet:${relativePath(rootPath, file.path)}:${hashFile(file.path)}`),
+  ].sort().join("\n"));
+  const blocks: FactBlock[] = [{
+    id: projectId,
+    label: projectLabel,
+    type: "workspace",
+    parentId: null,
+    children: [],
+    sourcePath: relativePath(rootPath, args.markerPath),
+    fingerprint,
+    memberCount: 0,
+  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks];
+  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections];
+  const completedBlocks = deriveChildren(blocks);
+  const workspaceChildren = completedBlocks.find((block) => block.id === projectId)?.children ?? [];
+  const groups: FactGroup[] = [{
+    id: "group:crates",
+    label: "Workspace crates",
+    memberIds: workspaceChildren.filter((id) => id.startsWith("crate:")),
+  }];
+  const stats = {
+    blocks: completedBlocks.length,
+    connections: connections.length,
+    crates: completedBlocks.filter((block) => block.type === "crate").length,
+    apps: completedBlocks.filter((block) => block.type === "app").length,
+    modules: completedBlocks.filter((block) => block.type === "module").length,
+    cargoFeatures: completedBlocks.filter((block) => block.type === "cargo_feature").length,
+  };
   return {
     schemaVersion: 1,
     project: { id: projectId, name: projectLabel, rootPath: "." },

@@ -98,6 +98,10 @@ pub enum CargoDiscoveryError {
         path: PathBuf,
         source: io::Error,
     },
+    DotnetSourceRead {
+        path: PathBuf,
+        source: io::Error,
+    },
     PathOutsideOpenedFolder {
         path: PathBuf,
         opened_root: PathBuf,
@@ -171,6 +175,13 @@ impl Display for CargoDiscoveryError {
                     path.display()
                 )
             }
+            Self::DotnetSourceRead { path, source } => {
+                write!(
+                    formatter,
+                    "Could not read .NET source {}: {source}",
+                    path.display()
+                )
+            }
             Self::InvalidRustSource { path, reason } => write!(
                 formatter,
                 "Could not parse Rust source {}: {reason}",
@@ -193,7 +204,8 @@ impl Error for CargoDiscoveryError {
             | Self::CargoStart(source)
             | Self::SourceRead { source, .. }
             | Self::PythonSourceRead { source, .. }
-            | Self::TypeScriptSourceRead { source, .. } => Some(source),
+            | Self::TypeScriptSourceRead { source, .. }
+            | Self::DotnetSourceRead { source, .. } => Some(source),
             Self::InvalidMetadata(source) => Some(source),
             Self::InvalidManifestToml { source, .. } => Some(source),
             Self::ManifestMissing(_)

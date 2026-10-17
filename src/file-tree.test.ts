@@ -142,6 +142,10 @@ test("explorer badges use the outline kind when a symbol has one", () => {
   assert.equal(explorerBadge({ folder: false, blockType: "module", language: "python", symbolKind: "class" }), "TYPE");
   assert.equal(explorerBadge({ folder: false, blockType: "module", language: "typescript", symbolKind: "const" }), "CONST");
   assert.equal(explorerBadge({ folder: false, blockType: "module", language: "typescript", symbolKind: "function" }), "FN");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "csharp", symbolKind: "method" }), "FN");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "csharp", symbolKind: "partial class" }), "TYPE");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "vb", symbolKind: "module" }), "TYPE");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "csharp", symbolKind: "namespace" }), "MOD");
   assert.equal(explorerBadge({ folder: false, blockType: "app" }), "APP");
   assert.equal(explorerBadge({ folder: false, blockType: "cargo_feature" }), "FEAT");
 });

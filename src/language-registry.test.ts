@@ -60,7 +60,7 @@ test("registry entries have unique longest extensions", () => {
 });
 
 test("built-in packs expose extractor and fixture seams", () => {
-  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 4);
+  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 5);
   const rust = languagePackForPath("src/lib.rs");
   assert.equal(rust?.extractor?.kind, "rust-workspace");
   assert.equal(rust?.extractor?.moduleTreeModule, "extract/rust-modules");
@@ -76,6 +76,13 @@ test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(python?.extractor?.kind, "python-module");
   assert.equal(python?.fixtures?.root, "crates/lightwell-core/fixtures/python-sample");
   assert.equal(typeof python?.registerHighlighter, "function");
+  const dotnet = languagePackForPath("Widget.cs");
+  assert.equal(dotnet?.id, "dotnet");
+  assert.equal(dotnet?.extractor?.kind, "dotnet-module");
+  assert.equal(dotnet?.fixtures?.root, "crates/lightwell-core/fixtures/dotnet-sample");
+  assert.equal(monacoLanguageIdForPath("Widget.cs"), "csharp");
+  assert.equal(monacoLanguageIdForPath("Part.vb"), "vb");
+  assert.equal(typeof dotnet?.registerHighlighter, "function");
 });
 
 test("extractWorkspaceMap uses rust pack workspace extractor on fixture workspace", () => {

@@ -127,7 +127,7 @@ export function explorerRows(
 
 export type ExplorerBadge = "FILE" | "MOD" | "FN" | "TYPE" | "CONST" | "APP" | "FEAT";
 
-/** Short kind badge for an explorer row. Symbol kinds come from Python and web outline blocks. */
+/** Short kind badge for an explorer row. Symbol kinds come from Python, web, and .NET outline blocks. */
 export function explorerBadge(source: {
   readonly folder: boolean;
   readonly blockType?: FactBlockType;
@@ -140,9 +140,24 @@ export function explorerBadge(source: {
   if (source.blockType === "app") return "APP";
   if (source.blockType === "cargo_feature") return "FEAT";
   const kind = source.symbolKind ?? "";
-  if (source.language === "python" || source.language === "typescript" || source.language === "javascript") {
-    if (kind === "def" || kind === "async def" || kind === "function") return "FN";
-    if (kind === "class" || kind === "interface" || kind === "type") return "TYPE";
+  if (
+    source.language === "python"
+    || source.language === "typescript"
+    || source.language === "javascript"
+    || source.language === "csharp"
+    || source.language === "vb"
+  ) {
+    if (kind === "def" || kind === "async def" || kind === "function" || kind === "method") return "FN";
+    if (
+      kind === "class"
+      || kind === "partial class"
+      || kind === "interface"
+      || kind === "type"
+      || kind === "struct"
+      || kind === "record"
+      || kind === "enum"
+      || kind === "module"
+    ) return "TYPE";
     if (kind === "const") return "CONST";
   }
   return "MOD";

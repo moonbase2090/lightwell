@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>CSharpApp</AssemblyName>
+    <RootNamespace>CSharpApp</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\vb\VbApp.vbproj" />
+  </ItemGroup>
+</Project>

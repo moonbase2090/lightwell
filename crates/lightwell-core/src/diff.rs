@@ -5,6 +5,7 @@
 //! their module's file. Each symbol owns the lines from its definition to the
 //! next top-level symbol, measured in the file as it was at the commit.
 
+use crate::dotnet_source::{parse_csharp_source, parse_vb_source};
 use crate::extract::MapExtractionError;
 use crate::extract::{block_base, extract_cargo_map};
 use crate::facts::{Connection, DependencyScope, FactBlock, FactMap, MapStats};
@@ -864,6 +865,18 @@ fn symbol_spans(path: &str, source: &str) -> HashMap<String, (usize, usize)> {
         .any(|extension| lower.ends_with(extension))
     {
         parse_typescript_source(source)
+            .1
+            .into_iter()
+            .map(|symbol| (symbol.line, symbol.name))
+            .collect()
+    } else if lower.ends_with(".cs") {
+        parse_csharp_source(source)
+            .1
+            .into_iter()
+            .map(|symbol| (symbol.line, symbol.name))
+            .collect()
+    } else if lower.ends_with(".vb") {
+        parse_vb_source(source)
             .1
             .into_iter()
             .map(|symbol| (symbol.line, symbol.name))
