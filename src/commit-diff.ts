@@ -1,4 +1,4 @@
-import type { CommitChanges } from "./map-source.js";
+import type { CommitChanges, ConnectionChangeState } from "./map-source.js";
 
 export interface BlockDiff {
   readonly added: number;
@@ -39,4 +39,10 @@ export function rollUpChanges(
 /** Changed files with no block in the map, such as docs or config outside any crate. */
 export function unmappedFiles(changes: CommitChanges, mappedPaths: ReadonlySet<string>): readonly string[] {
   return changes.files.map((file) => file.path).filter((path) => !mappedPaths.has(path));
+}
+
+export function connectionChangesById(
+  changes: CommitChanges,
+): ReadonlyMap<string, ConnectionChangeState> {
+  return new Map(changes.connections.map((connection) => [connection.id, connection.state]));
 }

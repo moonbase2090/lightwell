@@ -24,6 +24,7 @@ fn main() {
             workspace::save_editor_settings,
             workspace::editor_template_presets,
             workspace::recent_workspace_commits,
+            workspace::workspace_since_commits,
             workspace::workspace_commit_changes,
             workspace::workspace_block_diff,
         ])

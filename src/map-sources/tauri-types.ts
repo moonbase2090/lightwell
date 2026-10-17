@@ -2,6 +2,8 @@ import type {
   BlockDiffDocument,
   CommitBlockChange,
   CommitChanges,
+  CommitConnectionChange,
+  ConnectionChangeState,
   CommitFileChange,
   CommitSummary,
   EditorSettings,
@@ -200,8 +202,37 @@ export function parseCommitSummaries(value: unknown): readonly CommitSummary[] {
   return value.map(parseCommitSummary);
 }
 
+function parseConnectionChangeState(value: unknown): ConnectionChangeState {
+  if (value === "added" || value === "removed" || value === "changed") return value;
+  throw new Error("The desktop app returned an invalid connection change.");
+}
+
+function parseConnectionChange(value: unknown): CommitConnectionChange {
+  if (
+    !isRecord(value)
+    || typeof value.id !== "string"
+    || typeof value.source !== "string"
+    || typeof value.target !== "string"
+    || (value.kind !== "contains" && value.kind !== "depends_on")
+  ) {
+    throw new Error("The desktop app returned an invalid connection change.");
+  }
+  return {
+    id: value.id,
+    source: value.source,
+    target: value.target,
+    kind: value.kind,
+    state: parseConnectionChangeState(value.state),
+  };
+}
+
 export function parseCommitChanges(value: unknown): CommitChanges {
-  if (!isRecord(value) || !Array.isArray(value.files) || !Array.isArray(value.blocks)) {
+  if (
+    !isRecord(value)
+    || !Array.isArray(value.files)
+    || !Array.isArray(value.blocks)
+    || !Array.isArray(value.connections)
+  ) {
     throw new Error("The desktop app returned invalid commit changes.");
   }
   const files = value.files.map((file: unknown): CommitFileChange => {
@@ -223,10 +254,11 @@ export function parseCommitChanges(value: unknown): CommitChanges {
     }
     return { blockId: block.blockId, added: block.added, removed: block.removed };
   });
+  const connections = value.connections.map(parseConnectionChange);
   const baseCommit = value.baseCommit === null || value.baseCommit === undefined
     ? null
     : parseCommitSummary(value.baseCommit);
-  return { baseCommit, commit: parseCommitSummary(value.commit), files, blocks };
+  return { baseCommit, commit: parseCommitSummary(value.commit), files, blocks, connections };
 }
 
 export function parseBlockDiffDocument(value: unknown): BlockDiffDocument {
