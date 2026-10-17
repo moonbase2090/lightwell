@@ -128,8 +128,7 @@ export const tauriMapSource: MapSource = {
   ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_PROJECT_NOTES) === "false"
     ? {}
     : { projectNotes: projectNotesApi }),
-  // Off by default (REVIEW_POLICY.md section 5). Compared inline so the bundler drops it.
-  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_COMMIT_DIFF) === "true"
-    ? { history: historyApi }
-    : {}),
+  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_COMMIT_DIFF) === "false"
+    ? {}
+    : { history: historyApi }),
 };

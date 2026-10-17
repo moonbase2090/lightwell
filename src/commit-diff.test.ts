@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { rollUpChanges, unmappedFiles } from "./commit-diff.js";
-import { commitDiffEnabled } from "./feature-flags.js";
 import type { CommitChanges } from "./map-source.js";
 import { parseBlockDiffDocument, parseCommitChanges } from "./map-sources/tauri-types.js";
 
@@ -47,13 +46,6 @@ test("changed files without a block are reported", () => {
     { path: "NOTES.txt", oldPath: null, added: 1, removed: 0, binary: false },
   ];
   assert.deepEqual(unmappedFiles(changes([], files), new Set(["scripts/job.py"])), ["NOTES.txt"]);
-});
-
-test("the commit diff view is off unless the flag is exactly true", () => {
-  assert.equal(commitDiffEnabled(undefined), false);
-  assert.equal(commitDiffEnabled("1"), false);
-  assert.equal(commitDiffEnabled("false"), false);
-  assert.equal(commitDiffEnabled("true"), true);
 });
 
 test("commit changes from the desktop app are validated", () => {

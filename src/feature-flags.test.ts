@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { projectNotesEnabled } from "./feature-flags.js";
+import { commitDiffEnabled, projectNotesEnabled } from "./feature-flags.js";
 
 test("project notes are on when the build sets no flag", () => {
   assert.equal(projectNotesEnabled(undefined), true);
@@ -22,4 +22,21 @@ test("notes call sites compare the env string so the bundler can drop the branch
     assert.match(source, /import\.meta\.env\.VITE_ENABLE_PROJECT_NOTES\) === "false"/);
     assert.equal(source.includes("projectNotesEnabled"), false);
   }
+});
+
+test("commit diff is on when the build sets no flag", () => {
+  assert.equal(commitDiffEnabled(undefined), true);
+  assert.equal(commitDiffEnabled(""), true);
+  assert.equal(commitDiffEnabled("true"), true);
+});
+
+test("commit diff can be turned off with VITE_ENABLE_COMMIT_DIFF=false", () => {
+  assert.equal(commitDiffEnabled("false"), false);
+  assert.equal(commitDiffEnabled(" FALSE "), true);
+});
+
+test("history call sites compare the env string so the bundler can drop the branch", () => {
+  const tauri = readFileSync(new URL("./map-sources/tauri.ts", import.meta.url), "utf8");
+  assert.match(tauri, /import\.meta\.env\.VITE_ENABLE_COMMIT_DIFF\) === "false"/);
+  assert.equal(tauri.includes("commitDiffEnabled"), false);
 });
