@@ -28,7 +28,7 @@ Download [`Lightwell_0.1.13_x64.msi`](https://github.com/moonbase2090/lightwell/
 
 ### Updates
 
-The signed macOS disk image, the Windows MSI, and the Linux AppImage check for updates. The check is on by default. Settings can turn it off, and **Check now** looks immediately. When an update is available, Lightwell shows the release notes and download links.
+The signed macOS disk image, the Windows MSI, and the Linux AppImage check for updates. The check is on by default. Settings can turn it off, and **Check now** looks immediately. When an update is available, Lightwell shows the release notes and download links. Tagged releases sign updater payloads and publish `latest.json` when the `TAURI_SIGNING_PRIVATE_KEY` repository secret is configured; the release workflow fails if that secret is missing.
 
 The Debian package, the RPM, and the Linux tarball cannot replace themselves. Those installs still check, show the notes, and link to the [latest release](https://github.com/moonbase2090/lightwell/releases/latest).
 
@@ -99,7 +99,7 @@ Releases ship signed and notarized Apple Silicon and universal `.dmg` images, an
 
 In the desktop app, choose **Open workspace** and select a folder with a `Cargo.toml`. Recent workspaces are kept in Lightwell's user config folder, outside the project. The browser preview continues to use the checked-in Prismattyc and Scorecard fixtures.
 
-The workspace map has a **Modules** / **Files** toggle. Modules shows the module map. **Files** opens an explorer-style vertical tree with a filter box, **Expand all** and **Collapse all**, and an inspector for the selected file or folder. A rotate control on the toolbar switches to the horizontal graph layout; Lightwell saves the orientation per workspace and defaults to vertical. A **Depth** control sets how many levels the map draws in Modules view, from 1 to the full tree. Lightwell saves depth per workspace.
+The workspace map has a **Modules** / **Files** toggle. Modules shows the module map. **Files** opens an explorer-style vertical tree with a filter box, **Expand all** and **Collapse**, and an inspector for the selected file or folder. A rotate control on the toolbar switches to the horizontal graph layout; Lightwell saves the orientation per workspace and defaults to vertical. A **Depth** control sets how many levels the map draws in Modules and Files views, from 1 to the full tree. Lightwell saves depth per workspace.
 
 Use the commit picker (**Through** and optional **Since**) to highlight blocks and connections that changed across a commit or range, with line counts on changed blocks and a side-by-side diff in the source inspector. In the source view, right-click a line or press **Alt+Z** to turn word wrap on or off.
 

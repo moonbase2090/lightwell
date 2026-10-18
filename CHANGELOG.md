@@ -2,10 +2,19 @@
 
 ## Unreleased
 
+### Fixed
+
+- README and release notes use **Collapse** (not “Collapse all”) for the Files explorer control, and document that **Depth** applies in Files view as well as Modules.
+
 ### Added
 
 - C# and VB.NET map extraction. A solution or project defines the project boundary. Namespaces, source files, types (including partial types), and methods become blocks. Project references, imports, and resolved type names become connections. `bin/` and `obj/` are skipped. Both languages are highlighted in the source view. Support is on by default.
 - Go language pack: `go.mod` workspaces map packages, `.go` files, import edges, and top-level functions, methods, and types, with Monaco highlighting and commit-diff symbol spans for `.go` files.
+- Tauri updater signing for release builds: a production public key in the app, `latest.json` on tagged releases, and a hard failure when the signing secret is absent in the release workflow.
+
+### Changed
+
+- Release publishing now requires `TAURI_SIGNING_PRIVATE_KEY` in GitHub Actions secrets so `latest.json` is always signed for shipped tags.
 
 ### Fixed
 
@@ -16,7 +25,7 @@
 
 ### Added
 
-- In **Files** mode, an explorer-style vertical file tree with a filter box, **Expand all** and **Collapse all**, kind badges and short paths on each row, and an inspector that shows the selected file or folder and its children. A rotate control on the map toolbar switches back to the horizontal graph; the choice is saved per workspace and vertical is the default (#129, #130).
+- In **Files** mode, an explorer-style vertical file tree with a filter box, **Expand all** and **Collapse**, kind badges and short paths on each row, and an inspector that shows the selected file or folder and its children. A rotate control on the map toolbar switches back to the horizontal graph; the choice is saved per workspace and vertical is the default (#129, #130).
 - A commit diff view on the map toolbar: pick **Through** and optional **Since** commits to see which blocks changed and which connections were added, removed, or changed. Changed blocks show line counts; inspecting a changed block opens a side-by-side diff (#132, #133, #134).
 - In-app update checks, on by default. When a newer release is available, Lightwell shows the release notes and download links; Settings can turn checks off or run **Check now** (#131). One-click install is not available until an updater signing key is configured for the build.
 - A larger Settings dialog for editor and update preferences (#128).
@@ -31,7 +40,7 @@
 ### Added
 
 - A Modules / Files toggle on the workspace map. Files groups the mapped blocks into repository folders as a file tree. The choice is saved per workspace and defaults to Modules (#125).
-- A Depth control on the workspace map, from 1 to the depth of the current tree, or All. The default stays 2, and the choice is saved per workspace (#120).
+- A Depth control on the workspace map in Modules and Files views, from 1 to the depth of the current tree, or All. The default stays 2, and the choice is saved per workspace (#120).
 - Project notes show with their block: a project note card in the details panel and source inspector, a note preview on the map card badge, and **Show on map** in the notes dialog.
 - A word wrap toggle in the source view, from the source line context menu or **Alt+Z**. The choice is kept and defaults to off.
 

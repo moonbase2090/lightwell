@@ -28,6 +28,13 @@ skip_out=$(TAURI_SIGNING_PRIVATE_KEY= sh "$root/scripts/ci/publish-update-manife
 printf '%s\n' "$skip_out" | grep -q 'will not include latest.json'
 test ! -e "$skip_dist/latest.json"
 
+fail_dist=$(mktemp -d)
+if LIGHTWELL_RELEASE_REQUIRE_UPDATER_SIGNING=1 TAURI_SIGNING_PRIVATE_KEY= sh "$root/scripts/ci/publish-update-manifest.sh" "$fail_dist" "$work/notes.md" 0.1.12 v0.1.12; then
+  printf 'FAIL publish-update-manifest: expected release failure without signing key\n' >&2
+  exit 1
+fi
+test ! -e "$fail_dist/latest.json"
+
 python3 - "$work/latest.json" <<'PY'
 import json
 import sys
