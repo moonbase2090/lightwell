@@ -5,6 +5,7 @@
 ### Added
 
 - C# and VB.NET map extraction. A solution or project defines the project boundary. Namespaces, source files, types (including partial types), and methods become blocks. Project references, imports, and resolved type names become connections. `bin/` and `obj/` are skipped. Both languages are highlighted in the source view. Support is on by default.
+- Go language pack: `go.mod` workspaces map packages, `.go` files, import edges, and top-level functions, methods, and types, with Monaco highlighting and commit-diff symbol spans for `.go` files.
 
 ## 0.1.13 - 2026-10-17
 
