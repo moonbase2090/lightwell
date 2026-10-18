@@ -13,6 +13,7 @@ import type {
   ModuleBlock,
   WorkspaceBlock,
 } from "../model.js";
+import { discoverGoPackages, goFactBlocks } from "./go-modules.js";
 import { discoverPythonModules, pythonFactBlocks } from "./python-modules.js";
 import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
 import { discoverWebModules, webFactBlocks } from "./web-modules.js";
@@ -400,6 +401,10 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   const webFacts = webFactBlocks({ modules: webModules, rootPath, workspaceId: projectId });
   blocks.push(...webFacts.blocks);
   connections.push(...webFacts.connections);
+  const goPackages = discoverGoPackages(rootPath);
+  const goFacts = goFactBlocks({ packages: goPackages, rootPath, workspaceId: projectId });
+  blocks.push(...goFacts.blocks);
+  connections.push(...goFacts.connections);
   const finalWorkspaceFingerprint = hashText([
     ...packages.map((pkg) => {
       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
@@ -407,6 +412,9 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
     }),
     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
     ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
+    ...goPackages.flatMap((pkg) =>
+      pkg.files.map((file) => `go:${pkg.importPath}:${hashFile(file.path)}`),
+    ),
   ].sort().join("\n"));
   const workspaceIndex = blocks.findIndex((block) => block.id === projectId);
   if (workspaceIndex >= 0) blocks[workspaceIndex] = { ...workspaceBlock, fingerprint: finalWorkspaceFingerprint || workspaceFingerprint };

@@ -2,6 +2,7 @@ use crate::facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock,
 };
+use crate::go_source::{discover_go_packages, go_import_alias_paths, GoFile, GoPackage, GoSymbol};
 use crate::metadata::{
     discover_cargo_workspace, CargoDependencyKind, CargoDiscoveryError, CargoPackage,
     CargoWorkspace, RustModule,
@@ -53,6 +54,8 @@ impl From<CargoDiscoveryError> for MapExtractionError {
 
 const PROJECT_MANIFESTS: &[&str] = &[
     "Cargo.toml",
+    "go.mod",
+    "go.work",
     "package.json",
     "tsconfig.json",
     "jsconfig.json",
@@ -145,6 +148,15 @@ pub(crate) fn map_workspace(
     }
 
     let python_modules = discover_python_modules(&root_path)?;
+    let go_packages = match discover_go_packages(&root_path) {
+        Ok(packages) => packages,
+        Err(CargoDiscoveryError::ManifestMissing(path))
+            if path.file_name().and_then(|name| name.to_str()) == Some("go.mod") =>
+        {
+            Vec::new()
+        }
+        Err(error) => return Err(error.into()),
+    };
     let typescript_modules = discover_typescript_modules(&root_path)?;
     let mut workspace_inputs: Vec<_> = crate_fingerprints
         .into_iter()
@@ -157,6 +169,20 @@ pub(crate) fn map_workspace(
     for module in &typescript_modules {
         let fingerprint = fingerprints.file(&module.path)?;
         workspace_inputs.push(format!("web:{}:{fingerprint}", module.name));
+    }
+    for package in &go_packages {
+        for file in &package.files {
+            if let Ok(fingerprint) = fingerprints.file(&file.path) {
+                workspace_inputs.push(format!(
+                    "go:{}:{}:{fingerprint}",
+                    package.import_path,
+                    file.path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("file")
+                ));
+            }
+        }
     }
     workspace_inputs.sort();
     let workspace_fingerprint = hash_text(&workspace_inputs.join("\n"));
@@ -188,6 +214,14 @@ pub(crate) fn map_workspace(
     )?;
     append_typescript_blocks(
         &typescript_modules,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
+    append_go_blocks(
+        &go_packages,
         &root_path,
         &project_id,
         &mut fingerprints,
@@ -584,6 +618,263 @@ fn append_dependency_connections(
             }
         }
     }
+}
+
+fn append_go_blocks(
+    packages: &[GoPackage],
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let package_ids: HashMap<String, String> = packages
+        .iter()
+        .map(|package| {
+            (
+                package.import_path.clone(),
+                go_package_block_id(&package.import_path),
+            )
+        })
+        .collect();
+    for package in packages {
+        let package_id = package_ids[&package.import_path].clone();
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: package_id.clone(),
+                label: package.name.clone(),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: package
+                    .files
+                    .first()
+                    .map(|file| relative_path(root_path, &file.path)),
+                fingerprint: package_fingerprint(package, fingerprints)?,
+            },
+            package_name: package.import_path.clone(),
+            module_path: package.import_path.clone(),
+            declared_by_path: relative_path(root_path, &package.directory),
+            cfg_attributes: package
+                .files
+                .iter()
+                .flat_map(|file| file.imports.iter().map(|import| import.statement()))
+                .collect(),
+            unresolved: package.files.iter().all(|file| file.unreadable),
+            language: "go".to_owned(),
+        }));
+        connections.push(contains_connection(workspace_id, &package_id));
+        for file in &package.files {
+            append_go_file(
+                &package_id,
+                package,
+                file,
+                root_path,
+                fingerprints,
+                blocks,
+                connections,
+            )?;
+        }
+        let mut import_edges = HashSet::new();
+        for file in &package.files {
+            for import in &file.imports {
+                if let Some(target) = package_ids.get(&import.path) {
+                    if target != &package_id {
+                        let id = connection_id("depends_on", &package_id, target);
+                        if import_edges.insert(id.clone()) {
+                            connections.push(Connection::DependsOn {
+                                id,
+                                source: package_id.clone(),
+                                target: target.clone(),
+                                dependency_scope: DependencyScope::Normal,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    append_go_call_connections(packages, blocks, connections);
+    Ok(())
+}
+
+fn append_go_call_connections(
+    packages: &[GoPackage],
+    blocks: &[FactBlock],
+    connections: &mut Vec<Connection>,
+) {
+    let mut symbol_ids: HashMap<(String, String), String> = HashMap::new();
+    for block in blocks {
+        let FactBlock::Module(module) = block else {
+            continue;
+        };
+        if module.language != "go" || module.cfg_attributes.len() != 1 {
+            continue;
+        }
+        let kind = module.cfg_attributes[0].as_str();
+        if kind != "func" && kind != "method" && kind != "type" {
+            continue;
+        }
+        symbol_ids.insert(
+            (module.package_name.clone(), module.base.label.clone()),
+            module.base.id.clone(),
+        );
+    }
+    let mut call_edges = HashSet::new();
+    for package in packages {
+        for file in &package.files {
+            if file.unreadable {
+                continue;
+            }
+            let stem = file
+                .path
+                .file_stem()
+                .and_then(|name| name.to_str())
+                .unwrap_or("file");
+            let module_path = format!("{}/{}", package.import_path, stem);
+            let file_id = go_file_block_id(&module_path, file.test);
+            let aliases = go_import_alias_paths(&file.imports);
+            for call in &file.calls {
+                let import_path = match aliases.get(&call.qualifier) {
+                    Some(path) => path,
+                    None => continue,
+                };
+                let target_id = match symbol_ids.get(&(import_path.clone(), call.name.clone())) {
+                    Some(id) => id,
+                    None => continue,
+                };
+                let id = connection_id("depends_on", &file_id, target_id);
+                if call_edges.insert(id.clone()) {
+                    connections.push(Connection::DependsOn {
+                        id,
+                        source: file_id.clone(),
+                        target: target_id.clone(),
+                        dependency_scope: DependencyScope::Normal,
+                    });
+                }
+            }
+        }
+    }
+}
+
+fn package_fingerprint(
+    package: &GoPackage,
+    fingerprints: &mut FileFingerprints,
+) -> Result<String, MapExtractionError> {
+    let mut parts = Vec::new();
+    for file in &package.files {
+        parts.push(fingerprints.file(&file.path)?);
+    }
+    parts.sort();
+    Ok(hash_text(&parts.join("\n")))
+}
+
+fn append_go_file(
+    package_id: &str,
+    package: &GoPackage,
+    file: &GoFile,
+    root_path: &Path,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let stem = file
+        .path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("file");
+    let module_path = format!("{}/{}", package.import_path, stem);
+    let id = go_file_block_id(&module_path, file.test);
+    let relative = relative_path(root_path, &file.path);
+    let fingerprint = fingerprints.file(&file.path)?;
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: stem.to_owned(),
+            parent_id: Some(package_id.to_owned()),
+            children: Vec::new(),
+            source_path: Some(relative.clone()),
+            fingerprint: fingerprint.clone(),
+        },
+        package_name: package.import_path.clone(),
+        module_path: module_path.clone(),
+        declared_by_path: relative,
+        cfg_attributes: file
+            .imports
+            .iter()
+            .map(|import| import.statement())
+            .collect(),
+        unresolved: file.unreadable,
+        language: "go".to_owned(),
+    }));
+    connections.push(contains_connection(package_id, &id));
+    for symbol in &file.symbols {
+        append_go_symbol(
+            &id,
+            package,
+            file,
+            symbol,
+            &fingerprint,
+            blocks,
+            connections,
+        );
+    }
+    Ok(())
+}
+
+fn append_go_symbol(
+    parent_id: &str,
+    package: &GoPackage,
+    file: &GoFile,
+    symbol: &GoSymbol,
+    fingerprint: &str,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) {
+    let stem = file
+        .path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("file");
+    let module_path = format!("{}/{}.{}", package.import_path, stem, symbol.name);
+    let id = go_symbol_block_id(&module_path, symbol.outline_label());
+    let relative = blocks.iter().find_map(|block| match block {
+        FactBlock::Module(parent) if parent.base.id == parent_id => parent.base.source_path.clone(),
+        _ => None,
+    });
+    let declared = relative.clone().unwrap_or_default();
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: symbol.name.clone(),
+            parent_id: Some(parent_id.to_owned()),
+            children: Vec::new(),
+            source_path: relative,
+            fingerprint: fingerprint.to_owned(),
+        },
+        package_name: package.import_path.clone(),
+        module_path,
+        declared_by_path: declared,
+        cfg_attributes: vec![symbol.outline_label().to_owned()],
+        unresolved: false,
+        language: "go".to_owned(),
+    }));
+    connections.push(contains_connection(parent_id, &id));
+}
+
+fn go_package_block_id(import_path: &str) -> String {
+    format!("module:go:{}", slug(import_path))
+}
+
+fn go_file_block_id(module_path: &str, test: bool) -> String {
+    let mut id = format!("module:go:{}", slug(module_path));
+    if test {
+        id.push_str(":test");
+    }
+    id
+}
+
+fn go_symbol_block_id(module_path: &str, kind: &str) -> String {
+    format!("module:go:{}:{}", slug(module_path), slug(kind))
 }
 
 fn append_python_blocks(

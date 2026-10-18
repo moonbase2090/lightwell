@@ -140,8 +140,15 @@ export function explorerBadge(source: {
   if (source.blockType === "app") return "APP";
   if (source.blockType === "cargo_feature") return "FEAT";
   const kind = source.symbolKind ?? "";
-  if (source.language === "python" || source.language === "typescript" || source.language === "javascript") {
-    if (kind === "def" || kind === "async def" || kind === "function") return "FN";
+  if (
+    source.language === "python"
+    || source.language === "typescript"
+    || source.language === "javascript"
+    || source.language === "go"
+  ) {
+    if (kind === "def" || kind === "async def" || kind === "function" || kind === "func" || kind === "method") {
+      return "FN";
+    }
     if (kind === "class" || kind === "interface" || kind === "type") return "TYPE";
     if (kind === "const") return "CONST";
   }

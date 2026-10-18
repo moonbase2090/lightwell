@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Go language pack: `go.mod` workspaces map packages, `.go` files, import edges, and top-level functions, methods, and types, with Monaco highlighting and commit-diff symbol spans for `.go` files.
+
 ## 0.1.13 - 2026-10-17
 
 ### Added
