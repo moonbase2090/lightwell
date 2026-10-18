@@ -198,15 +198,18 @@ button { color: inherit; }
 .file-explorer-filter { flex: 1 1 140px; min-width: 80px; height: 24px; padding: 0 8px; border: 1px solid #2c4662; border-radius: 4px; color: #e7eef6; background: rgba(8, 18, 30, .65); font: 12px var(--mono); letter-spacing: 0; }
 .file-explorer-filter::placeholder { color: #6d8296; }
 .file-explorer-command { height: 22px; padding: 0 7px; flex: none; border: 1px solid #2c4662; border-radius: 4px; color: #c5d6e8; background: transparent; font: 11px var(--mono); letter-spacing: 0; cursor: pointer; }
-.file-explorer-command:hover { border-color: #6d90b4; color: #fff; }
+.file-explorer-command:hover:not(:disabled) { border-color: #6d90b4; color: #fff; }
 .file-explorer-count-label { flex: none; color: #8ea3b8; letter-spacing: 0; white-space: nowrap; }
+.file-explorer-zoom { display: flex; align-items: center; gap: 4px; flex: none; }
+.file-explorer-zoom-level { min-width: 3.4em; }
+.file-explorer-command:disabled { opacity: .4; cursor: default; }
 .file-explorer-body { flex: 1; min-height: 0; overflow: auto; padding: 4px 0 12px; }
-.file-explorer-row { position: relative; height: 28px; min-height: 28px; display: flex; align-items: center; gap: 6px; width: 100%; border: 0; color: #d5deea; background: transparent; font-size: 13px; text-align: left; cursor: pointer; }
+.file-explorer-row { position: relative; height: calc(28px * var(--file-tree-zoom, 1)); min-height: calc(28px * var(--file-tree-zoom, 1)); display: flex; align-items: center; gap: calc(6px * var(--file-tree-zoom, 1)); width: 100%; border: 0; color: #d5deea; background: transparent; font-size: calc(13px * var(--file-tree-zoom, 1)); text-align: left; cursor: pointer; }
 .file-explorer-row:hover { background: rgba(112, 152, 255, .08); }
 .file-explorer-row.selected { background: rgba(90, 140, 210, .22); box-shadow: inset 2px 0 0 #7eb0ff; }
 .file-explorer-row:focus-visible { outline: 2px solid #89aaff; outline-offset: -2px; }
 .file-explorer-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(140, 170, 200, .28); pointer-events: none; }
-.file-explorer-twist { width: 16px; height: 16px; padding: 0; display: grid; place-items: center; flex: none; border: 0; border-radius: 3px; color: #9fb0c4; background: transparent; cursor: pointer; }
+.file-explorer-twist { width: calc(16px * var(--file-tree-zoom, 1)); height: calc(16px * var(--file-tree-zoom, 1)); padding: 0; display: grid; place-items: center; flex: none; border: 0; border-radius: 3px; color: #9fb0c4; background: transparent; cursor: pointer; }
 .file-explorer-twist-spacer { visibility: hidden; }
 .file-badge { min-width: 36px; height: 14px; padding: 0 4px; display: inline-grid; place-items: center; flex: none; border-radius: 2px; font: 8px var(--mono); letter-spacing: .04em; }
 .file-badge-file, .file-badge-crate { color: #b7d0ff; background: rgba(70, 120, 210, .28); }
@@ -216,10 +219,11 @@ button { color: inherit; }
 .file-badge-const { color: #9ee0bc; background: rgba(40, 130, 90, .32); }
 .file-badge-app { color: #b7e4ff; background: rgba(40, 110, 180, .32); }
 .file-badge-feat { color: #ead07a; background: rgba(150, 120, 30, .32); }
+.file-explorer-row .file-badge { height: calc(14px * var(--file-tree-zoom, 1)); font-size: calc(8px * var(--file-tree-zoom, 1)); }
 .file-explorer-label { overflow: hidden; min-width: 0; flex: 0 1 auto; text-overflow: ellipsis; white-space: nowrap; }
-.file-explorer-path { margin-left: auto; overflow: hidden; min-width: 0; color: #7f93a8; font: 11px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
-.file-explorer-children { min-width: 1.4em; flex: none; color: #93a6ba; font: 11px var(--mono); text-align: right; }
-.file-explorer-diff { flex: none; color: #8fbfa4; font: 10px var(--mono); }
+.file-explorer-path { overflow: hidden; min-width: 0; max-width: 28ch; flex: 0 1 auto; color: #7f93a8; font-family: var(--mono); font-size: calc(11px * var(--file-tree-zoom, 1)); text-overflow: ellipsis; white-space: nowrap; }
+.file-explorer-children { min-width: 1.4em; flex: none; color: #93a6ba; font-family: var(--mono); font-size: calc(11px * var(--file-tree-zoom, 1)); text-align: right; }
+.file-explorer-diff { flex: none; color: #8fbfa4; font-family: var(--mono); font-size: calc(10px * var(--file-tree-zoom, 1)); }
 .file-explorer-empty { padding: 18px 16px; color: #8290a2; font-size: 12px; }
 .tree-inspector { display: flex; flex-direction: column; gap: 10px; }
 .tree-inspector-path { margin: 0; color: #8ea3b8; font: 12px var(--mono); word-break: break-all; }
