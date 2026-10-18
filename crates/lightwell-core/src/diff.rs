@@ -628,6 +628,120 @@ pub fn block_diff_for(
     })
 }
 
+/// Before and after text for a repository path across a commit or range.
+pub fn path_diff_for(
+    root: &Path,
+    head: &str,
+    base: Option<&str>,
+    path: &str,
+) -> Result<BlockDiffDocument, DiffError> {
+    let head_summary = resolve_commit(root, head)?;
+    let path = normalized(path);
+
+    let (file, hunks) = match base.filter(|value| !value.is_empty()) {
+        None => {
+            let range = diff_tree_prefix();
+            let numstat = git(
+                root,
+                &[&range[..], &["--numstat", "-z", &head_summary.id]].concat(),
+            )?;
+            let file = parse_numstat(&numstat)
+                .into_iter()
+                .find(|file| file.path == path)
+                .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
+            let patch = git(
+                root,
+                &[
+                    &range[..],
+                    &[
+                        "-p",
+                        "-U0",
+                        "--no-color",
+                        "--no-ext-diff",
+                        &head_summary.id,
+                        "--",
+                        &path,
+                    ],
+                ]
+                .concat(),
+            )?;
+            (file, parse_hunks(&patch).remove(&path).unwrap_or_default())
+        }
+        Some(base) => {
+            let base_summary = resolve_commit(root, base)?;
+            ensure_ancestor(root, &base_summary.id, &head_summary.id)?;
+            let revision = format!("{}..{}", base_summary.id, head_summary.id);
+            let numstat = git(
+                root,
+                &[
+                    "diff",
+                    "-M",
+                    "--relative",
+                    "--numstat",
+                    "-z",
+                    &revision,
+                    "--",
+                    &path,
+                ],
+            )?;
+            let file = parse_numstat(&numstat)
+                .into_iter()
+                .find(|file| file.path == path)
+                .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
+            let patch = git(
+                root,
+                &[
+                    "diff",
+                    "-M",
+                    "--relative",
+                    "-p",
+                    "-U0",
+                    "--no-color",
+                    "--no-ext-diff",
+                    &revision,
+                    "--",
+                    &path,
+                ],
+            )?;
+            (file, parse_hunks(&patch).remove(&path).unwrap_or_default())
+        }
+    };
+
+    let modified =
+        git(root, &["show", &format!("{}:./{path}", head_summary.id)]).unwrap_or_default();
+    let original_path = file.old_path.clone().unwrap_or_else(|| path.clone());
+    let original = match base.filter(|value| !value.is_empty()) {
+        None => git(
+            root,
+            &["show", &format!("{}^:./{original_path}", head_summary.id)],
+        )
+        .unwrap_or_default(),
+        Some(base) => {
+            let base_summary = resolve_commit(root, base)?;
+            git(
+                root,
+                &["show", &format!("{}:./{original_path}", base_summary.id)],
+            )
+            .unwrap_or_default()
+        }
+    };
+
+    let line = hunks
+        .iter()
+        .map(|hunk| hunk.new_start.max(1))
+        .min()
+        .unwrap_or(1);
+
+    Ok(BlockDiffDocument {
+        commit: head_summary,
+        path,
+        original_path: file.old_path,
+        original,
+        modified,
+        line,
+    })
+}
+
 fn resolve_commit(root: &Path, commit: &str) -> Result<CommitSummary, DiffError> {
     // A leading dash would be read as an option.
     if commit.is_empty() || commit.starts_with('-') {

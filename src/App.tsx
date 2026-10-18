@@ -50,6 +50,13 @@ import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionSt
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import { connectionChangesById, rollUpChanges, unmappedFiles, type BlockDiff } from "./commit-diff.js";
+import {
+  blockIdForCommitPath,
+  commitDiffEntries,
+  wrapCommitDiffIndex,
+  type CommitDiffEntry,
+} from "./commit-diff-summary.js";
+import CommitDiffSummary from "./CommitDiffSummary.js";
 import type { CommitChanges, CommitSummary } from "./map-source.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
 import { clampTextSize, readTextSize, textSizeVars, writeTextSize, type TextSize } from "./type-scale.js";
@@ -716,7 +723,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     | { readonly kind: "ready"; readonly changes: CommitChanges; readonly byBlock: ReadonlyMap<string, BlockDiff> }
     | { readonly kind: "error"; readonly message: string }
   >({ kind: "idle" });
+  const [commitDiffExpanded, setCommitDiffExpanded] = useState(false);
+  const [commitDiffOnlyChanged, setCommitDiffOnlyChanged] = useState(false);
+  const [commitDiffFocusIndex, setCommitDiffFocusIndex] = useState(0);
   const [blockDiff, setBlockDiff] = useState<DiffInspectionState | null>(null);
+  const [inspectedDiffPath, setInspectedDiffPath] = useState<string | null>(null);
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() => (
     window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
   ));
@@ -945,6 +956,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, [history, map, mapKey, selectedCommitSince, selectedCommitThrough]);
 
   useEffect(() => {
+    setCommitDiffFocusIndex(0);
+    setCommitDiffExpanded(false);
+    setCommitDiffOnlyChanged(false);
+  }, [selectedCommitThrough, selectedCommitSince]);
+
+  useEffect(() => {
     if (history === undefined || mapKey === null || selectedCommitThrough === "") {
       setSinceCommits([]);
       return;
@@ -969,6 +986,19 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const inspectedChangedDirectly = commitDiff.kind === "ready" && inspectedBlockId !== null
     && commitDiff.changes.blocks.some((block) => block.blockId === inspectedBlockId);
   useEffect(() => {
+    if (history === undefined || mapKey === null || diffCommitId === null || inspectedDiffPath === null) return;
+    let cancelled = false;
+    setBlockDiff({ kind: "loading" });
+    void history.fileDiff(mapKey, diffCommitId, inspectedDiffPath, diffBaseCommitId)
+      .then((document) => { if (!cancelled) setBlockDiff({ kind: "ready", document }); })
+      .catch((error: unknown) => {
+        if (!cancelled) setBlockDiff({ kind: "error", message: describeError(error, "Could not load this commit diff.") });
+      });
+    return () => { cancelled = true; };
+  }, [diffBaseCommitId, diffCommitId, history, inspectedDiffPath, mapKey]);
+
+  useEffect(() => {
+    if (inspectedDiffPath !== null) return;
     if (history === undefined || mapKey === null || diffCommitId === null || inspectedBlockId === null || !inspectedChangedDirectly) {
       setBlockDiff(null);
       return;
@@ -981,7 +1011,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setBlockDiff({ kind: "error", message: describeError(error, "Could not load this commit diff.") });
       });
     return () => { cancelled = true; };
-  }, [diffBaseCommitId, diffCommitId, history, inspectedBlockId, inspectedChangedDirectly, mapKey]);
+  }, [diffBaseCommitId, diffCommitId, history, inspectedBlockId, inspectedChangedDirectly, inspectedDiffPath, mapKey]);
   const projectNotes = loadedMap.kind === "ready" && loadedMap.id === mapKey
     ? loadedMap.projectNotes
     : emptyProjectNotes;
@@ -1035,6 +1065,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       .map((node) => fileTreeDisplayBlock(node, map.blockById))
       .filter((block): block is DisplayBlock => block !== null);
   }, [fileRoot, fileTree, map, mapDepth, mapView, scope]);
+  const scopedVisibleBlocks = useMemo(() => {
+    if (commitDiff.kind !== "ready" || !commitDiffOnlyChanged) return visibleBlocks;
+    const changed = commitDiff.byBlock;
+    return visibleBlocks.filter((block) => changed.has(block.id));
+  }, [commitDiff, commitDiffOnlyChanged, visibleBlocks]);
   const graphConnections = useMemo(() => {
     if (map === null) return [];
     if (mapView !== "files" || fileTree === null) return map.connections;
@@ -1043,7 +1078,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       ...map.connections.filter((connection) => connection.kind === "depends_on"),
     ];
   }, [fileTree, map, mapView]);
-  const connectionsInScope = displayConnections(scopeId, visibleBlocks, graphConnections);
+  const connectionsInScope = displayConnections(scopeId, scopedVisibleBlocks, graphConnections);
   const selected = map?.nodeById.get(selectedId) ?? scope;
   const activeFeature = activeFeatureId === null ? undefined : map?.nodeById.get(activeFeatureId);
   const activeFeatureMembers = useMemo(() => activeFeature?.virtual === true ? new Set(activeFeature.memberIds) : null, [activeFeature]);
@@ -1120,7 +1155,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       return;
     }
     setGraphError("");
-    layoutBlocks({ blocks: visibleBlocks, connections: graphConnections, labelScale: textSize.labels })
+    layoutBlocks({ blocks: scopedVisibleBlocks, connections: graphConnections, labelScale: textSize.labels })
       .then((graph) => {
         if (!cancelled) {
           setBaseGraph(graph);
@@ -1131,7 +1166,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
       });
     return () => { cancelled = true; };
-  }, [graphConnections, map, mapView, orientation, scopeId, textSize.labels, visibleBlocks]);
+  }, [graphConnections, map, mapView, orientation, scopeId, scopedVisibleBlocks, textSize.labels]);
 
   const selectTreeNode = useCallback((id: string) => {
     setSelectedId(id);
@@ -1154,6 +1189,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const openBlockInspector = useCallback((block: DisplayBlock) => {
     activateBlock(block);
     if (folderPathFromId(block.id) !== null) return;
+    setInspectedDiffPath(null);
     if (mapSource.editor !== undefined) {
       setInspectedBlockId(block.id);
       setEditorActionError("");
@@ -1161,6 +1197,51 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       setInspectedBlockId(null);
     }
   }, [activateBlock, mapSource.editor]);
+
+  const commitDiffList = useMemo(() => {
+    if (commitDiff.kind !== "ready" || map === null) return [];
+    return commitDiffEntries(commitDiff.changes, map.blockById);
+  }, [commitDiff, map]);
+
+  const navigateCommitDiffEntry = useCallback((entry: CommitDiffEntry) => {
+    if (map === null || commitDiff.kind !== "ready") return;
+    if (entry.kind === "block") {
+      const block = map.blockById.get(entry.blockId);
+      if (block === undefined) return;
+      openBlockInspector(block);
+      setFocusRequest((current) => ({ blockId: block.id, sequence: (current?.sequence ?? 0) + 1 }));
+      return;
+    }
+    const blockId = blockIdForCommitPath(entry.path, commitDiff.changes, map.blockById);
+    if (blockId !== null) {
+      const block = map.blockById.get(blockId);
+      if (block !== undefined) {
+        openBlockInspector(block);
+        setFocusRequest((current) => ({ blockId: block.id, sequence: (current?.sequence ?? 0) + 1 }));
+        return;
+      }
+    }
+    setInspectedBlockId(null);
+    setInspectedDiffPath(entry.path);
+  }, [commitDiff, map, openBlockInspector]);
+
+  useEffect(() => {
+    if (commitDiff.kind !== "ready" || commitDiffList.length === 0) return;
+    const handleKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "[" && event.key !== "]") return;
+      const target = event.target;
+      if (target instanceof HTMLElement && (
+        target.isContentEditable || target.closest("input, textarea, select") !== null
+      )) return;
+      event.preventDefault();
+      const delta = event.key === "[" ? -1 : 1;
+      const next = wrapCommitDiffIndex(commitDiffFocusIndex + delta, commitDiffList.length);
+      setCommitDiffFocusIndex(next);
+      navigateCommitDiffEntry(commitDiffList[next]);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [commitDiff, commitDiffFocusIndex, commitDiffList, navigateCommitDiffEntry]);
 
   const graphChanges = useMemo(() => {
     if (commitDiff.kind !== "ready") return undefined;
@@ -1590,6 +1671,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             if (mapKey !== null) writeFileTreeZoom(mapDepthStorage(), mapKey, next);
           }}
           {...(graphChanges === undefined ? {} : { changes: graphChanges })}
+          {...(commitDiffOnlyChanged && graphChanges !== undefined
+            ? { onlyChangedIds: new Set(graphChanges.keys()) }
+            : {})}
         />
       )}
       {graphError.length > 0 && !verticalFiles ? (
@@ -1750,61 +1834,87 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         )}
       </div>
       {commitDiff.kind !== "idle" && (
-        <div className="commit-diff-banner" role="status">
-          {commitDiff.kind === "loading" && <span>Reading commit…</span>}
-          {commitDiff.kind === "error" && <span className="commit-diff-error"><CircleAlert size={12} />{commitDiff.message}</span>}
-          {commitDiff.kind === "ready" && (() => {
-            const direct = commitDiff.changes.blocks.length;
-            const mappedPaths = new Set([...map.blockById.values()].flatMap((block) => block.sourcePath === null ? [] : [block.sourcePath.replaceAll("\\", "/")]));
-            const outside = unmappedFiles(commitDiff.changes, mappedPaths).length;
-            const base = commitDiff.changes.baseCommit;
-            const connectionCount = commitDiff.changes.connections.length;
-            return (
-              <span>
-                {base === null
-                  ? <><code>{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}</>
-                  : <><code>{base.shortId}…{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}</>}
-                {" · "}{direct === 1 ? "1 block changed" : `${direct} blocks changed`}
-                {connectionCount > 0 && ` · ${connectionCount === 1 ? "1 connection" : `${connectionCount} connections`}`}
-                {outside > 0 && ` · ${outside === 1 ? "1 file" : `${outside} files`} outside the map`}
-              </span>
-            );
-          })()}
-          <button type="button" className="commit-diff-clear" onClick={() => {
-            setSelectedCommitThrough("");
-            setSelectedCommitSince("");
-          }}>Clear</button>
-        </div>
+        commitDiff.kind === "loading" ? (
+          <div className="commit-diff-banner" role="status"><span>Reading commit…</span></div>
+        ) : commitDiff.kind === "error" ? (
+          <div className="commit-diff-banner" role="status">
+            <span className="commit-diff-error"><CircleAlert size={12} />{commitDiff.message}</span>
+            <button type="button" className="commit-diff-clear" onClick={() => {
+              setSelectedCommitThrough("");
+              setSelectedCommitSince("");
+            }}>Clear</button>
+          </div>
+        ) : (
+          <CommitDiffSummary
+            summary={(() => {
+              const direct = commitDiff.changes.blocks.length;
+              const mappedPaths = new Set([...map.blockById.values()].flatMap((block) => block.sourcePath === null ? [] : [block.sourcePath.replaceAll("\\", "/")]));
+              const outside = unmappedFiles(commitDiff.changes, mappedPaths).length;
+              const base = commitDiff.changes.baseCommit;
+              const connectionCount = commitDiff.changes.connections.length;
+              return (
+                <>
+                  {base === null
+                    ? <><code>{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}</>
+                    : <><code>{base.shortId}…{commitDiff.changes.commit.shortId}</code> {commitDiff.changes.commit.summary}</>}
+                  {" · "}{direct === 1 ? "1 block changed" : `${direct} blocks changed`}
+                  {connectionCount > 0 && ` · ${connectionCount === 1 ? "1 connection" : `${connectionCount} connections`}`}
+                  {outside > 0 && ` · ${outside === 1 ? "1 file" : `${outside} files`} outside the map`}
+                </>
+              );
+            })()}
+            entries={commitDiffList}
+            expanded={commitDiffExpanded}
+            onToggleExpanded={() => setCommitDiffExpanded((value) => !value)}
+            onlyChanged={commitDiffOnlyChanged}
+            onOnlyChangedChange={setCommitDiffOnlyChanged}
+            focusIndex={wrapCommitDiffIndex(commitDiffFocusIndex, commitDiffList.length)}
+            onFocusIndexChange={setCommitDiffFocusIndex}
+            onNavigate={navigateCommitDiffEntry}
+            onClear={() => {
+              setSelectedCommitThrough("");
+              setSelectedCommitSince("");
+              setCommitDiffExpanded(false);
+              setCommitDiffOnlyChanged(false);
+              setCommitDiffFocusIndex(0);
+            }}
+          />
+        )
       )}
       {mapContent}
     </main>
   );
-  const sidePanel = inspectedBlockId !== null && mapSource.editor !== undefined ? (
+  const inspectorOpen = mapSource.editor !== undefined && (inspectedBlockId !== null || inspectedDiffPath !== null);
+  const sidePanel = inspectorOpen ? (
     <SourceInspectorPanel
-      title={map.blockById.get(inspectedBlockId)?.label ?? "Source file"}
-      inspection={inspection}
+      title={inspectedDiffPath ?? (inspectedBlockId === null ? "Source file" : map.blockById.get(inspectedBlockId)?.label ?? "Source file")}
+      inspection={inspectedBlockId === null ? { kind: "loading" } : inspection}
       theme={theme}
       openingEditor={openingEditor}
       editorError={editorActionError}
       onOpenInEditor={() => { void handleOpenInEditor(); }}
-      onClose={() => setInspectedBlockId(null)}
+      onClose={() => {
+        setInspectedBlockId(null);
+        setInspectedDiffPath(null);
+        setBlockDiff(null);
+      }}
       wordWrap={wordWrap}
       wordWrapShortcut={wordWrapShortcut}
       onToggleWordWrap={toggleWordWrap}
       codeSize={textSize.code}
-      {...(noteByBlockId.has(inspectedBlockId) ? {
+      {...(inspectedBlockId !== null && noteByBlockId.has(inspectedBlockId) ? {
         noteText: noteByBlockId.get(inspectedBlockId)!.text,
         noteStale: noteByBlockId.get(inspectedBlockId)!.stale,
       } : {})}
       {...(blockDiff === null ? {} : { diff: blockDiff })}
-      {...(inspectedNoteAction === undefined ? {} : {
+      {...(inspectedBlockId !== null && inspectedNoteAction !== undefined ? {
         noteAction: inspectedNoteAction,
         onAddNote: () => openNoteFor(inspectedBlockId),
         onLineContextMenu: (line: number, x: number, y: number) => {
           setNoteActionError("");
           setNoteMenu({ blockId: inspectedBlockId, x, y, line });
         },
-      })}
+      } : {})}
     />
   ) : verticalFiles && selectedTreeNode !== undefined && fileTree !== null ? (
     <TreeInspector

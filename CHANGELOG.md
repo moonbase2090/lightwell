@@ -4,7 +4,8 @@
 
 ### Added
 
-- Settings stores a size for UI text, a size for source code, and a size for tree and map labels. Each one applies across that part of the app and is saved on this device.
+- Commit diff discoverability: expand the summary strip to list changed blocks and map-external files with line counts, jump to a block and its inline diff, filter the map to **Only changed**, step with **Prev** / **Next** or `[` / `]`, and a short legend for line and connection highlights.
+- Settings stores a size for UI text, a size for source code, and a size for labels in the tree and on the map. Each one applies across that part of the app and is saved on this device.
 - The vertical file tree zooms from **−**, the percentage (reset), and **+**, or with Ctrl/Cmd +, Ctrl/Cmd −, and Ctrl/Cmd 0. The level is saved per workspace.
 
 ### Fixed

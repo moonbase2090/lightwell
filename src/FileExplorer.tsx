@@ -10,6 +10,7 @@ import {
   fileTreeZoomCommand,
   fileTreeZoomMetrics,
   filterExplorerRows,
+  filterExplorerRowsToChanged,
   stepFileTreeZoom,
   treeBreadcrumb,
   treeDepth,
@@ -51,6 +52,7 @@ export default function FileExplorer({
   onExpandAll,
   onCollapse,
   onChooseView,
+  onlyChangedIds,
   zoom,
   onZoom,
 }: {
@@ -68,6 +70,7 @@ export default function FileExplorer({
   readonly onExpandAll: () => void;
   readonly onCollapse: () => void;
   readonly onChooseView: (view: MapView) => void;
+  readonly onlyChangedIds?: ReadonlySet<string>;
   readonly zoom: number;
   readonly onZoom: (zoom: number) => void;
 }) {
@@ -81,10 +84,14 @@ export default function FileExplorer({
     zoomRef.current = next;
     onZoomRef.current(next);
   };
-  const rows = useMemo(
-    () => filterExplorerRows(root, nodeById, expanded, filter),
-    [expanded, filter, nodeById, root],
-  );
+  const rows = useMemo(() => {
+    const base = filterExplorerRows(root, nodeById, expanded, filter);
+    if (onlyChangedIds === undefined || onlyChangedIds.size === 0) return base;
+    const allowed = new Set(
+      filterExplorerRowsToChanged(root, nodeById, expanded, onlyChangedIds).map((row) => row.id),
+    );
+    return base.filter((row) => allowed.has(row.id));
+  }, [expanded, filter, nodeById, onlyChangedIds, root]);
   const selectedRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: "nearest" });

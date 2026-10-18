@@ -244,6 +244,34 @@ export function explorerBadge(source: {
   return "MOD";
 }
 
+/** Rows on branches that include a changed node id. */
+export function filterExplorerRowsToChanged(
+  root: FileTreeNode,
+  nodeById: ReadonlyMap<string, FileTreeNode>,
+  expanded: ReadonlySet<string>,
+  changedIds: ReadonlySet<string>,
+): ExplorerRow[] {
+  const rows = explorerRows(root, nodeById, expanded);
+  if (changedIds.size === 0) return rows;
+  const visible = new Set<string>();
+  const mark = (node: FileTreeNode, seen: Set<string>): boolean => {
+    if (seen.has(node.id)) return visible.has(node.id);
+    seen.add(node.id);
+    let childHit = false;
+    for (const childId of node.children) {
+      const child = nodeById.get(childId);
+      if (child !== undefined && mark(child, seen)) childHit = true;
+    }
+    if (childHit || changedIds.has(node.id)) {
+      visible.add(node.id);
+      return true;
+    }
+    return false;
+  };
+  mark(root, new Set());
+  return rows.filter((row) => visible.has(row.id));
+}
+
 /** Rows that match the query, with every ancestor kept so the match stays in context. */
 export function filterExplorerRows(
   root: FileTreeNode,
