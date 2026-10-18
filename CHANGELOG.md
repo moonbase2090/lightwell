@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- README **Updates** section describes in-app install for signed updates on macOS, Windows, and the Linux AppImage starting in 0.1.14.
+
 ## 0.1.14 - 2026-10-18
 
 ### Added
