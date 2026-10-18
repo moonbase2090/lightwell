@@ -27,14 +27,14 @@ jobs:
           curl -fsSL "https://nodejs.org/dist/v${node_version}/${archive}" -o "$RUNNER_TEMP/${archive}"
           tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/node-v${node_version}-linux-${node_arch}/bin" >> "$GITHUB_PATH"
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$RUNNER_TEMP/rustup-init.sh"
           sh "$RUNNER_TEMP/rustup-init.sh" -y --default-toolchain stable --profile minimal --component rustfmt --no-modify-path
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
       - run: npm run check:licenses
       - name: Test the Linux release checks
         run: scripts/ci/test-release-checks.sh
