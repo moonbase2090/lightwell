@@ -5,6 +5,7 @@ import {
   explorerBadge,
   explorerPathTail,
   filterExplorerRows,
+  filterExplorerRowsToChanged,
   treeBreadcrumb,
   treeDepth,
   type ExplorerBadge,
@@ -45,6 +46,7 @@ export default function FileExplorer({
   onExpandAll,
   onCollapse,
   onChooseView,
+  onlyChangedIds,
 }: {
   readonly root: FileTreeNode;
   readonly nodeById: ReadonlyMap<string, FileTreeNode>;
@@ -60,12 +62,17 @@ export default function FileExplorer({
   readonly onExpandAll: () => void;
   readonly onCollapse: () => void;
   readonly onChooseView: (view: MapView) => void;
+  readonly onlyChangedIds?: ReadonlySet<string>;
 }) {
   const [filter, setFilter] = useState("");
-  const rows = useMemo(
-    () => filterExplorerRows(root, nodeById, expanded, filter),
-    [expanded, filter, nodeById, root],
-  );
+  const rows = useMemo(() => {
+    const base = filterExplorerRows(root, nodeById, expanded, filter);
+    if (onlyChangedIds === undefined || onlyChangedIds.size === 0) return base;
+    const allowed = new Set(
+      filterExplorerRowsToChanged(root, nodeById, expanded, onlyChangedIds).map((row) => row.id),
+    );
+    return base.filter((row) => allowed.has(row.id));
+  }, [expanded, filter, nodeById, onlyChangedIds, root]);
   const selectedRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     selectedRef.current?.scrollIntoView({ block: "nearest" });

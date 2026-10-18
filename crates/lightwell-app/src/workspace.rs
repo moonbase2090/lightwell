@@ -1,5 +1,5 @@
 use lightwell_core::{
-    block_diff_for, commit_changes_for, discover_cargo_workspace, extract_cargo_map,
+    block_diff_for, commit_changes_for, discover_cargo_workspace, extract_cargo_map, path_diff_for,
     filter_commits_that_are_ancestors, open_target, project_notes_for_map, recent_commits,
     remove_project_note, resolve_block_target, resolve_block_target_in_map,
     set_project_note_for_map, update_project_note_text, BlockDiffDocument, CommitChanges,
@@ -146,6 +146,19 @@ pub fn workspace_block_diff(
     let root = workspace_root(&path)?;
     let map = watchers.current_map(&root)?;
     block_diff_for(&root, &map, &commit, base_commit.as_deref(), &block_id)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command(async)]
+pub fn workspace_path_diff(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+    commit: String,
+    file_path: String,
+    base_commit: Option<String>,
+) -> Result<BlockDiffDocument, String> {
+    let root = workspace_root(&path)?;
+    path_diff_for(&root, &commit, base_commit.as_deref(), &file_path)
         .map_err(|error| error.to_string())
 }
 

@@ -116,6 +116,7 @@ export interface MapHistorySource {
   listSinceCommits(workspaceId: string, throughCommitId: string): Promise<readonly CommitSummary[]>;
   commitChanges(workspaceId: string, commitId: string, baseCommitId?: string | null): Promise<CommitChanges>;
   blockDiff(workspaceId: string, commitId: string, blockId: string, baseCommitId?: string | null): Promise<BlockDiffDocument>;
+  fileDiff(workspaceId: string, commitId: string, filePath: string, baseCommitId?: string | null): Promise<BlockDiffDocument>;
 }
 
 export interface MapSource {

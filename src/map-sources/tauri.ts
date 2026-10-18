@@ -61,6 +61,14 @@ const historyApi: MapHistorySource = {
       baseCommit: baseCommitId,
     }).then(parseBlockDiffDocument);
   },
+  fileDiff(workspaceId, commitId, filePath, baseCommitId = null) {
+    return invoke<unknown>("workspace_path_diff", {
+      path: workspaceId,
+      commit: commitId,
+      filePath,
+      baseCommit: baseCommitId,
+    }).then(parseBlockDiffDocument);
+  },
 };
 
 export const tauriMapSource: MapSource = {

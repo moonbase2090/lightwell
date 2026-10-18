@@ -33,6 +33,13 @@ export default function CommitDiffSummary({
   const hasList = entries.length > 0;
   const positionLabel = hasList ? `${focusIndex + 1} / ${entries.length}` : "";
 
+  const step = (delta: number) => {
+    if (!hasList) return;
+    const next = (focusIndex + delta + entries.length) % entries.length;
+    onFocusIndexChange(next);
+    onNavigate(entries[next]);
+  };
+
   return (
     <div className={`commit-diff-banner${expanded ? " expanded" : ""}`} role="status">
       <div className="commit-diff-banner-row">
@@ -52,6 +59,7 @@ export default function CommitDiffSummary({
               <input
                 type="checkbox"
                 checked={onlyChanged}
+                aria-label="Only show changed blocks on the map and file tree"
                 onChange={(event) => onOnlyChangedChange(event.currentTarget.checked)}
               />
               Only changed
@@ -61,7 +69,7 @@ export default function CommitDiffSummary({
               type="button"
               className="commit-diff-step"
               disabled={!hasList}
-              onClick={() => onFocusIndexChange((focusIndex + entries.length - 1) % entries.length)}
+              onClick={() => step(-1)}
             >
               Prev
             </button>
@@ -69,7 +77,7 @@ export default function CommitDiffSummary({
               type="button"
               className="commit-diff-step"
               disabled={!hasList}
-              onClick={() => onFocusIndexChange((focusIndex + 1) % entries.length)}
+              onClick={() => step(1)}
             >
               Next
             </button>

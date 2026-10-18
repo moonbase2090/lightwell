@@ -49,7 +49,12 @@ import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionSt
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
 import { connectionChangesById, rollUpChanges, unmappedFiles, type BlockDiff } from "./commit-diff.js";
-import { commitDiffEntries, wrapCommitDiffIndex, type CommitDiffEntry } from "./commit-diff-summary.js";
+import {
+  blockIdForCommitPath,
+  commitDiffEntries,
+  wrapCommitDiffIndex,
+  type CommitDiffEntry,
+} from "./commit-diff-summary.js";
 import CommitDiffSummary from "./CommitDiffSummary.js";
 import type { CommitChanges, CommitSummary } from "./map-source.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
@@ -710,6 +715,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [commitDiffOnlyChanged, setCommitDiffOnlyChanged] = useState(false);
   const [commitDiffFocusIndex, setCommitDiffFocusIndex] = useState(0);
   const [blockDiff, setBlockDiff] = useState<DiffInspectionState | null>(null);
+  const [inspectedDiffPath, setInspectedDiffPath] = useState<string | null>(null);
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() => (
     window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
   ));
@@ -958,6 +964,19 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const inspectedChangedDirectly = commitDiff.kind === "ready" && inspectedBlockId !== null
     && commitDiff.changes.blocks.some((block) => block.blockId === inspectedBlockId);
   useEffect(() => {
+    if (history === undefined || mapKey === null || diffCommitId === null || inspectedDiffPath === null) return;
+    let cancelled = false;
+    setBlockDiff({ kind: "loading" });
+    void history.fileDiff(mapKey, diffCommitId, inspectedDiffPath, diffBaseCommitId)
+      .then((document) => { if (!cancelled) setBlockDiff({ kind: "ready", document }); })
+      .catch((error: unknown) => {
+        if (!cancelled) setBlockDiff({ kind: "error", message: describeError(error, "Could not load this commit diff.") });
+      });
+    return () => { cancelled = true; };
+  }, [diffBaseCommitId, diffCommitId, history, inspectedDiffPath, mapKey]);
+
+  useEffect(() => {
+    if (inspectedDiffPath !== null) return;
     if (history === undefined || mapKey === null || diffCommitId === null || inspectedBlockId === null || !inspectedChangedDirectly) {
       setBlockDiff(null);
       return;
@@ -970,7 +989,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setBlockDiff({ kind: "error", message: describeError(error, "Could not load this commit diff.") });
       });
     return () => { cancelled = true; };
-  }, [diffBaseCommitId, diffCommitId, history, inspectedBlockId, inspectedChangedDirectly, mapKey]);
+  }, [diffBaseCommitId, diffCommitId, history, inspectedBlockId, inspectedChangedDirectly, inspectedDiffPath, mapKey]);
   const projectNotes = loadedMap.kind === "ready" && loadedMap.id === mapKey
     ? loadedMap.projectNotes
     : emptyProjectNotes;
@@ -1148,6 +1167,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const openBlockInspector = useCallback((block: DisplayBlock) => {
     activateBlock(block);
     if (folderPathFromId(block.id) !== null) return;
+    setInspectedDiffPath(null);
     if (mapSource.editor !== undefined) {
       setInspectedBlockId(block.id);
       setEditorActionError("");
@@ -1162,12 +1182,26 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, [commitDiff, map]);
 
   const navigateCommitDiffEntry = useCallback((entry: CommitDiffEntry) => {
-    if (entry.kind !== "block" || map === null) return;
-    const block = map.blockById.get(entry.blockId);
-    if (block === undefined) return;
-    openBlockInspector(block);
-    setFocusRequest((current) => ({ blockId: block.id, sequence: (current?.sequence ?? 0) + 1 }));
-  }, [map, openBlockInspector]);
+    if (map === null || commitDiff.kind !== "ready") return;
+    if (entry.kind === "block") {
+      const block = map.blockById.get(entry.blockId);
+      if (block === undefined) return;
+      openBlockInspector(block);
+      setFocusRequest((current) => ({ blockId: block.id, sequence: (current?.sequence ?? 0) + 1 }));
+      return;
+    }
+    const blockId = blockIdForCommitPath(entry.path, commitDiff.changes, map.blockById);
+    if (blockId !== null) {
+      const block = map.blockById.get(blockId);
+      if (block !== undefined) {
+        openBlockInspector(block);
+        setFocusRequest((current) => ({ blockId: block.id, sequence: (current?.sequence ?? 0) + 1 }));
+        return;
+      }
+    }
+    setInspectedBlockId(null);
+    setInspectedDiffPath(entry.path);
+  }, [commitDiff, map, openBlockInspector]);
 
   useEffect(() => {
     if (commitDiff.kind !== "ready" || commitDiffList.length === 0) return;
@@ -1610,6 +1644,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           onCollapse={collapseFolders}
           onChooseView={chooseMapView}
           {...(graphChanges === undefined ? {} : { changes: graphChanges })}
+          {...(commitDiffOnlyChanged && graphChanges !== undefined
+            ? { onlyChangedIds: new Set(graphChanges.keys()) }
+            : {})}
         />
       )}
       {graphError.length > 0 && !verticalFiles ? (
@@ -1820,31 +1857,36 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       {mapContent}
     </main>
   );
-  const sidePanel = inspectedBlockId !== null && mapSource.editor !== undefined ? (
+  const inspectorOpen = mapSource.editor !== undefined && (inspectedBlockId !== null || inspectedDiffPath !== null);
+  const sidePanel = inspectorOpen ? (
     <SourceInspectorPanel
-      title={map.blockById.get(inspectedBlockId)?.label ?? "Source file"}
-      inspection={inspection}
+      title={inspectedDiffPath ?? (inspectedBlockId === null ? "Source file" : map.blockById.get(inspectedBlockId)?.label ?? "Source file")}
+      inspection={inspectedBlockId === null ? { kind: "loading" } : inspection}
       theme={theme}
       openingEditor={openingEditor}
       editorError={editorActionError}
       onOpenInEditor={() => { void handleOpenInEditor(); }}
-      onClose={() => setInspectedBlockId(null)}
+      onClose={() => {
+        setInspectedBlockId(null);
+        setInspectedDiffPath(null);
+        setBlockDiff(null);
+      }}
       wordWrap={wordWrap}
       wordWrapShortcut={wordWrapShortcut}
       onToggleWordWrap={toggleWordWrap}
-      {...(noteByBlockId.has(inspectedBlockId) ? {
+      {...(inspectedBlockId !== null && noteByBlockId.has(inspectedBlockId) ? {
         noteText: noteByBlockId.get(inspectedBlockId)!.text,
         noteStale: noteByBlockId.get(inspectedBlockId)!.stale,
       } : {})}
       {...(blockDiff === null ? {} : { diff: blockDiff })}
-      {...(inspectedNoteAction === undefined ? {} : {
+      {...(inspectedBlockId !== null && inspectedNoteAction !== undefined ? {
         noteAction: inspectedNoteAction,
         onAddNote: () => openNoteFor(inspectedBlockId),
         onLineContextMenu: (line: number, x: number, y: number) => {
           setNoteActionError("");
           setNoteMenu({ blockId: inspectedBlockId, x, y, line });
         },
-      })}
+      } : {})}
     />
   ) : verticalFiles && selectedTreeNode !== undefined && fileTree !== null ? (
     <TreeInspector

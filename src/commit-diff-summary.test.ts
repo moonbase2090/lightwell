@@ -16,14 +16,20 @@ function block(id: string, label: string): DisplayBlock {
     id,
     label,
     type: "module",
-    status: "ready",
-    description: "",
-    sourcePath: `src/${label}.rs`,
+    parentId: "crate:core",
     children: [],
-    annotationKind: "module",
-    annotationState: "current",
+    sourcePath: `src/${label}.rs`,
+    fingerprint: "fp",
+    packageName: "lightwell-core",
+    modulePath: label,
+    declaredByPath: "src/lib.rs",
     cfgAttributes: [],
-    language: "rust",
+    unresolved: false,
+    description: `${label} module`,
+    annotationKind: "MODULE",
+    status: "ready",
+    annotationState: "current",
+    virtual: false,
   };
 }
 
@@ -47,11 +53,14 @@ test("commitDiffEntries lists direct blocks then unmapped files", () => {
   ]);
   const entries = commitDiffEntries(changes, blockById);
   assert.equal(entries.length, 3);
-  assert.equal(entries[0].kind, "block");
-  assert.equal(entries[0].label, "alpha");
-  assert.equal(entries[1].label, "zebra");
-  assert.equal(entries[2].kind, "file");
-  assert.deepEqual(entries[2], {
+  const first = entries[0];
+  const second = entries[1];
+  const third = entries[2];
+  assert.equal(first.kind, "block");
+  if (first.kind === "block") assert.equal(first.label, "alpha");
+  if (second.kind === "block") assert.equal(second.label, "zebra");
+  assert.equal(third.kind, "file");
+  assert.deepEqual(third, {
     kind: "file",
     path: "README.md",
     added: 4,
