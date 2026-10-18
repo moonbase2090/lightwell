@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+### Added
+
+- The vertical file tree zooms from **−**, the percentage (reset), and **+**, or with Ctrl/Cmd +, Ctrl/Cmd −, and Ctrl/Cmd 0. The level is saved per workspace.
+
 ### Fixed
 
+- The vertical file tree places each row's path and child count beside the name. The path column has a bounded width.
 - A C# namespace whose opening brace is on the next line stays block-scoped, so a later sibling type is not pulled into it. Method overloads keep separate commit-diff spans. C# and VB.NET type names keep non-ASCII characters.
 
 ## 0.1.14 - 2026-10-18
