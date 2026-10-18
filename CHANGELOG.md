@@ -9,6 +9,7 @@
 
 ### Fixed
 
+- README **Updates** section describes in-app install for signed updates on macOS, Windows, and the Linux AppImage starting in 0.1.14.
 - Kind badges, the header strip, and the block and connection counts use a larger default size.
 - The vertical file tree places each row's path and child count beside the name. The path column has a bounded width.
 - A C# namespace whose opening brace is on the next line stays block-scoped, so a later sibling type is not pulled into it. Method overloads keep separate commit-diff spans. C# and VB.NET type names keep non-ASCII characters.
