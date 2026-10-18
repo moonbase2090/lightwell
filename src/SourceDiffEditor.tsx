@@ -3,6 +3,7 @@ import * as monaco from "monaco-editor-core";
 import { monacoLanguageIdForPath } from "./languages/registry.js";
 import { configureMonaco, monacoThemes } from "./SourceCodeEditor.js";
 import type { ResolvedTheme } from "./theme.js";
+import { clampTextSize, codeLineHeight } from "./type-scale.js";
 
 export interface SourceDiffEditorProps {
   readonly original: string;
@@ -11,10 +12,12 @@ export interface SourceDiffEditorProps {
   /** Line in `modified` to reveal. */
   readonly line: number;
   readonly theme: ResolvedTheme;
+  /** Source text size in pixels. */
+  readonly fontSize: number;
 }
 
 /** Read-only side-by-side diff of one file in a commit. */
-export default function SourceDiffEditor({ original, modified, path, line, theme }: SourceDiffEditorProps) {
+export default function SourceDiffEditor({ original, modified, path, line, theme, fontSize }: SourceDiffEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const themeRef = useRef(theme);
   themeRef.current = theme;
@@ -42,8 +45,8 @@ export default function SourceDiffEditor({ original, modified, path, line, theme
       overviewRulerLanes: 0,
       glyphMargin: false,
       folding: false,
-      fontSize: 11,
-      lineHeight: 20,
+      fontSize: clampTextSize(fontSize, "code"),
+      lineHeight: codeLineHeight(fontSize),
       renderOverviewRuler: false,
       scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
     });
@@ -67,7 +70,7 @@ export default function SourceDiffEditor({ original, modified, path, line, theme
       originalModel.dispose();
       modifiedModel.dispose();
     };
-  }, [line, modified, original, path]);
+  }, [fontSize, line, modified, original, path]);
 
   useEffect(() => {
     configureMonaco();

@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
@@ -58,6 +59,7 @@ import {
 import CommitDiffSummary from "./CommitDiffSummary.js";
 import type { CommitChanges, CommitSummary } from "./map-source.js";
 import { readThemePreference, resolveTheme, saveThemePreference, type ThemePreference } from "./theme.js";
+import { clampTextSize, readTextSize, textSizeVars, writeTextSize, type TextSize } from "./type-scale.js";
 import { readWordWrapPreference, readWordWrapShortcut, saveWordWrapPreference, saveWordWrapShortcut } from "./source-view-preferences.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
 import NoteContextMenu, {
@@ -696,6 +698,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const updateRequest = useRef(0);
   const updateOfferRef = useRef<DesktopUpdate | null>(null);
   const [themePreference, setThemePreference] = useState<ThemePreference>(readThemePreference);
+  const [textSize, setTextSize] = useState<TextSize>(() => readTextSize(mapDepthStorage()));
   const [focusRequest, setFocusRequest] = useState<FocusRequest | null>(null);
   const clearFocusRequest = useCallback(() => setFocusRequest(null), []);
   const [wordWrap, setWordWrap] = useState(readWordWrapPreference);
@@ -754,6 +757,16 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const changeTheme = useCallback((preference: ThemePreference) => {
     setThemePreference(preference);
     saveThemePreference(preference);
+  }, []);
+
+  const changeTextSize = useCallback((size: TextSize) => {
+    const next: TextSize = {
+      ui: clampTextSize(size.ui, "ui"),
+      code: clampTextSize(size.code, "code"),
+      labels: clampTextSize(size.labels, "labels"),
+    };
+    setTextSize(next);
+    writeTextSize(mapDepthStorage(), next);
   }, []);
 
   const handleOpenWorkspace = useCallback(async () => {
@@ -1142,7 +1155,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       return;
     }
     setGraphError("");
-    layoutBlocks({ blocks: scopedVisibleBlocks, connections: graphConnections })
+    layoutBlocks({ blocks: scopedVisibleBlocks, connections: graphConnections, labelScale: textSize.labels })
       .then((graph) => {
         if (!cancelled) {
           setBaseGraph(graph);
@@ -1153,7 +1166,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
       });
     return () => { cancelled = true; };
-  }, [graphConnections, map, mapView, orientation, scopeId, scopedVisibleBlocks]);
+  }, [graphConnections, map, mapView, orientation, scopeId, scopedVisibleBlocks, textSize.labels]);
 
   const selectTreeNode = useCallback((id: string) => {
     setSelectedId(id);
@@ -1888,6 +1901,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       wordWrap={wordWrap}
       wordWrapShortcut={wordWrapShortcut}
       onToggleWordWrap={toggleWordWrap}
+      codeSize={textSize.code}
       {...(inspectedBlockId !== null && noteByBlockId.has(inspectedBlockId) ? {
         noteText: noteByBlockId.get(inspectedBlockId)!.text,
         noteStale: noteByBlockId.get(inspectedBlockId)!.stale,
@@ -1939,7 +1953,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   );
 
   return (
-    <div className="workspace-shell" data-theme={theme} ref={shellRef}>
+    <div className="workspace-shell" data-theme={theme} ref={shellRef} style={textSizeVars(textSize) as CSSProperties}>
       <header className={`topbar${openWorkspaceAction === undefined ? "" : " desktop-topbar"}`}>
         <div className="brand-block">
           <div className="brand-mark"><img className="brand-logo" src="/lightwell-mark.svg" width={32} height={32} alt="Lightwell" draggable={false} /></div>
@@ -2076,6 +2090,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           updateStatus={updateStatus}
           onCheckForUpdate={() => { void checkForUpdate(); }}
           onClose={closeSettingsPanel}
+          textSize={textSize}
+          onTextSizeChange={changeTextSize}
         />
       )}
       {updateOffer !== null && updateDelivery !== "unavailable" && (

@@ -21,6 +21,7 @@ function renderInspector(inspection: SourceInspectionState, options: {
     editorError: options.editorError ?? "",
     onOpenInEditor: () => undefined,
     onClose: () => undefined,
+    codeSize: 13,
   }));
 }
 

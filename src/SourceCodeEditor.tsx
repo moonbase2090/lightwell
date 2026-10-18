@@ -4,6 +4,7 @@ import EditorWorker from "./editor.worker.js?worker";
 import { monacoLanguageIdForPath, registerLanguagePackHighlighters } from "./languages/registry.js";
 import type { ResolvedTheme } from "./theme.js";
 import { parseShortcut } from "./source-view-preferences.js";
+import { clampTextSize, codeLineHeight } from "./type-scale.js";
 
 interface MonacoWorkerWindow extends Window {
   MonacoEnvironment?: {
@@ -104,6 +105,8 @@ export interface SourceCodeEditorProps {
   /** Keyboard shortcut that toggles word wrap, such as "Alt+Z"; "" for none. */
   readonly wordWrapShortcut: string;
   readonly onToggleWordWrap: () => void;
+  /** Source text size in pixels. */
+  readonly fontSize: number;
   /** When set, replaces the browser menu with the app's menu for the clicked or focused line. */
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
 }
@@ -130,7 +133,7 @@ function monacoKeybinding(text: string): number | null {
   return binding;
 }
 
-export default function SourceCodeEditor({ content, line, column, path, theme, wordWrap, wordWrapShortcut, onToggleWordWrap, onLineContextMenu }: SourceCodeEditorProps) {
+export default function SourceCodeEditor({ content, line, column, path, theme, wordWrap, wordWrapShortcut, onToggleWordWrap, onLineContextMenu, fontSize }: SourceCodeEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const themeRef = useRef(theme);
   themeRef.current = theme;
@@ -164,8 +167,8 @@ export default function SourceCodeEditor({ content, line, column, path, theme, w
       overviewRulerLanes: 0,
       glyphMargin: false,
       folding: false,
-      fontSize: 11,
-      lineHeight: 20,
+      fontSize: clampTextSize(fontSize, "code"),
+      lineHeight: codeLineHeight(fontSize),
       tabSize: 4,
       padding: { top: 13, bottom: 14 },
       scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
@@ -214,6 +217,13 @@ export default function SourceCodeEditor({ content, line, column, path, theme, w
     configureMonaco();
     monaco.editor.setTheme(monacoThemes[theme]);
   }, [theme]);
+
+  useEffect(() => {
+    editorRef.current?.updateOptions({
+      fontSize: clampTextSize(fontSize, "code"),
+      lineHeight: codeLineHeight(fontSize),
+    });
+  }, [fontSize]);
 
   useEffect(() => {
     editorRef.current?.updateOptions({ wordWrap: wordWrap ? "on" : "off" });
