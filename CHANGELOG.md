@@ -2,25 +2,30 @@
 
 ## Unreleased
 
-### Fixed
-
-- README and release notes use **Collapse** (not “Collapse all”) for the Files explorer control, and document that **Depth** applies in Files view as well as Modules.
-
 ### Added
 
 - The vertical file tree zooms from **−**, the percentage (reset), and **+**, or with Ctrl/Cmd +, Ctrl/Cmd −, and Ctrl/Cmd 0. The level is saved per workspace.
-- C# and VB.NET map extraction. A solution or project defines the project boundary. Namespaces, source files, types (including partial types), and methods become blocks. Project references, imports, and resolved type names become connections. `bin/` and `obj/` are skipped. Both languages are highlighted in the source view. Support is on by default.
-- Go language pack: `go.mod` workspaces map packages, `.go` files, import edges, and top-level functions, methods, and types, with Monaco highlighting and commit-diff symbol spans for `.go` files.
-- Tauri updater signing for release builds: a production public key in the app, `latest.json` on tagged releases, and a hard failure when the signing secret is absent in the release workflow.
-
-### Changed
-
-- Release publishing now requires `TAURI_SIGNING_PRIVATE_KEY` in GitHub Actions secrets so `latest.json` is always signed for shipped tags.
 
 ### Fixed
 
-- Go extraction no longer panics on non-ASCII source before `import` lines; block comments keep newlines so symbol line numbers stay aligned. The TypeScript Go mirror now emits the same qualified-call `depends_on` edges as Rust.
 - The vertical file tree places each row's path and child count beside the name. The path column has a bounded width.
+
+## 0.1.14 - 2026-10-18
+
+### Added
+
+- C# and VB.NET map extraction. A solution or project defines the project boundary. Namespaces, source files, types (including partial types), and methods become blocks. Project references, imports, and resolved type names become connections. `bin/` and `obj/` are skipped. Both languages are highlighted in the source view. Support is on by default (#138).
+- Go language pack: `go.mod` workspaces map packages, `.go` files, import edges, and top-level functions, methods, and types, with Monaco highlighting and commit-diff symbol spans for `.go` files (#137, #139).
+- Tauri updater signing for release builds: a production public key in the app, signed `latest.json` on tagged releases, and a hard failure when the signing secret is absent in the release workflow (#140).
+
+### Changed
+
+- Release publishing now requires `TAURI_SIGNING_PRIVATE_KEY` in GitHub Actions secrets so `latest.json` is always signed for shipped tags (#140).
+
+### Fixed
+
+- README and release notes use **Collapse** (not “Collapse all”) for the Files explorer control, and document that **Depth** applies in Files view as well as Modules (#141).
+- Go extraction no longer panics on non-ASCII source before `import` lines; block comments keep newlines so symbol line numbers stay aligned. The TypeScript Go mirror now emits the same qualified-call `depends_on` edges as Rust (#139).
 
 ## 0.1.13 - 2026-10-17
 
