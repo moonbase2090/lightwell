@@ -18,12 +18,19 @@ export interface GoSymbol {
   readonly receiver: string | null;
 }
 
+export interface GoCall {
+  readonly line: number;
+  readonly qualifier: string;
+  readonly name: string;
+}
+
 export interface GoFile {
   readonly path: string;
   readonly test: boolean;
   readonly unreadable: boolean;
   readonly imports: readonly GoImport[];
   readonly symbols: readonly GoSymbol[];
+  readonly calls: readonly GoCall[];
 }
 
 export interface GoPackage {
@@ -48,10 +55,29 @@ export function discoverGoPackages(repositoryPath: string): GoPackage[] {
   return packages;
 }
 
-export function parseGoSource(source: string): { readonly imports: GoImport[]; readonly symbols: GoSymbol[] } {
+export function parseGoSource(source: string): {
+  readonly imports: GoImport[];
+  readonly symbols: GoSymbol[];
+  readonly calls: GoCall[];
+} {
   const normalized = source.startsWith("\uFEFF") ? source.slice(1) : source;
   const stripped = stripGoComments(normalized);
-  return { imports: parseImports(stripped), symbols: parseSymbols(stripped) };
+  const imports = parseImports(stripped);
+  return {
+    imports,
+    symbols: parseSymbols(stripped),
+    calls: parseCalls(stripped, imports),
+  };
+}
+
+export function goImportAliasPaths(imports: readonly GoImport[]): Map<string, string> {
+  const aliasToPath = new Map<string, string>();
+  for (const importItem of imports) {
+    if (importItem.alias === "_" || importItem.alias === ".") continue;
+    const alias = importItem.alias ?? importItem.path.split("/").at(-1) ?? "";
+    if (alias.length > 0) aliasToPath.set(alias, importItem.path);
+  }
+  return aliasToPath;
 }
 
 export function goImportStatement(item: GoImport): string {
@@ -132,17 +158,54 @@ export function goFactBlocks(args: {
         connections.push(containsConnection(fileId, symbolId));
       }
     }
+    const importEdges = new Set<string>();
     for (const file of pkg.files) {
       for (const importItem of file.imports) {
         const target = packageIds.get(importItem.path);
         if (target === undefined || target === packageId) continue;
         const id = connectionId("depends_on", packageId, target);
-        if (connections.some((edge) => edge.id === id)) continue;
+        if (importEdges.has(id)) continue;
+        importEdges.add(id);
         connections.push({ id, source: packageId, target, kind: "depends_on", dependencyScope: "normal" });
       }
     }
   }
+  appendGoCallConnections(args.packages, blocks, connections);
   return { blocks, connections };
+}
+
+function appendGoCallConnections(
+  packages: readonly GoPackage[],
+  blocks: readonly ModuleBlock[],
+  connections: FactConnection[],
+): void {
+  const symbolIds = new Map<string, string>();
+  for (const block of blocks) {
+    if (block.type !== "module" || block.language !== "go" || block.cfgAttributes.length !== 1) continue;
+    const kind = block.cfgAttributes[0];
+    if (kind !== "func" && kind !== "method" && kind !== "type") continue;
+    symbolIds.set(`${block.packageName}\0${block.label}`, block.id);
+  }
+  const callEdges = new Set<string>();
+  for (const pkg of packages) {
+    for (const file of pkg.files) {
+      if (file.unreadable) continue;
+      const stem = path.basename(file.path, ".go");
+      const modulePath = `${pkg.importPath}/${stem}`;
+      const fileId = goFileBlockId(modulePath, file.test);
+      const aliases = goImportAliasPaths(file.imports);
+      for (const call of file.calls) {
+        const importPath = aliases.get(call.qualifier);
+        if (importPath === undefined) continue;
+        const targetId = symbolIds.get(`${importPath}\0${call.name}`);
+        if (targetId === undefined) continue;
+        const id = connectionId("depends_on", fileId, targetId);
+        if (callEdges.has(id)) continue;
+        callEdges.add(id);
+        connections.push({ id, source: fileId, target: targetId, kind: "depends_on", dependencyScope: "normal" });
+      }
+    }
+  }
 }
 
 function readGoModulePath(root: string): string {
@@ -175,6 +238,7 @@ function packageFromDirectory(root: string, modulePath: string, directory: strin
         unreadable: true,
         imports: [],
         symbols: [],
+        calls: [],
       });
       continue;
     }
@@ -187,6 +251,7 @@ function packageFromDirectory(root: string, modulePath: string, directory: strin
       unreadable: false,
       imports: parsed.imports,
       symbols: parsed.symbols,
+      calls: parsed.calls,
     });
   }
   const name = packageName ?? path.basename(directory);
@@ -246,8 +311,14 @@ function stripGoComments(source: string): string {
     }
     if (chars[index] === "/" && index + 1 < chars.length && chars[index + 1] === "*") {
       index += 2;
-      while (index + 1 < chars.length && !(chars[index] === "*" && chars[index + 1] === "/")) index += 1;
-      index = Math.min(index + 2, chars.length);
+      while (index < chars.length) {
+        if (index + 1 < chars.length && chars[index] === "*" && chars[index + 1] === "/") {
+          index += 2;
+          break;
+        }
+        if (chars[index] === "\n") out += "\n";
+        index += 1;
+      }
       continue;
     }
     if (chars[index] === '"' || chars[index] === "`") {
@@ -295,6 +366,12 @@ function stripGoComments(source: string): string {
   return out;
 }
 
+function advanceSourceIndex(source: string, index: number): number {
+  const codePoint = source.codePointAt(index);
+  if (codePoint === undefined) return index;
+  return index + (codePoint > 0xffff ? 2 : 1);
+}
+
 function parseImports(source: string): GoImport[] {
   const imports: GoImport[] = [];
   let lineNo = 1;
@@ -306,7 +383,8 @@ function parseImports(source: string): GoImport[] {
       continue;
     }
     if (source.startsWith("import ", index)) {
-      const rest = source.slice(index + "import ".length);
+      const importStart = index + "import ".length;
+      const rest = source.slice(importStart);
       const trimmed = rest.trimStart();
       if (trimmed.startsWith("(")) {
         const block = readParenBlock(trimmed);
@@ -315,18 +393,37 @@ function parseImports(source: string): GoImport[] {
           const importItem = parseImportEntry(entry, lineNo);
           if (importItem !== null) imports.push(importItem);
         }
-        index += "import ".length + consumed;
+        index = importStart + consumed;
         continue;
       }
       const entry = rest.split("\n")[0]?.trim() ?? "";
       const importItem = parseImportEntry(entry, lineNo);
       if (importItem !== null) imports.push(importItem);
-      index += "import ".length + entry.length;
+      index = importStart + entry.length;
       continue;
     }
-    index += 1;
+    index = advanceSourceIndex(source, index);
   }
   return imports;
+}
+
+function parseCalls(source: string, imports: readonly GoImport[]): GoCall[] {
+  const aliases = goImportAliasPaths(imports);
+  const calls: GoCall[] = [];
+  const lines = source.split("\n");
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const lineNo = lineIndex + 1;
+    const line = lines[lineIndex] ?? "";
+    for (const token of line.split(/[^a-zA-Z0-9_.]+/)) {
+      if (!token.includes(".")) continue;
+      const [qualifier, name] = token.split(".", 2);
+      if (qualifier === undefined || name === undefined || qualifier.length === 0 || name.length === 0) continue;
+      if (!/^[A-Z]/.test(name)) continue;
+      if (!aliases.has(qualifier)) continue;
+      calls.push({ line: lineNo, qualifier, name });
+    }
+  }
+  return calls;
 }
 
 function readParenBlock(source: string): { readonly text: string } {

@@ -313,10 +313,16 @@ fn strip_go_comments(source: &str) -> String {
         }
         if chars[index] == '/' && index + 1 < chars.len() && chars[index + 1] == '*' {
             index += 2;
-            while index + 1 < chars.len() && !(chars[index] == '*' && chars[index + 1] == '/') {
+            while index < chars.len() {
+                if index + 1 < chars.len() && chars[index] == '*' && chars[index + 1] == '/' {
+                    index += 2;
+                    break;
+                }
+                if chars[index] == '\n' {
+                    out.push('\n');
+                }
                 index += 1;
             }
-            index = (index + 2).min(chars.len());
             continue;
         }
         if chars[index] == '"' || chars[index] == '`' {
@@ -373,13 +379,17 @@ fn parse_imports(source: &str) -> Vec<GoImport> {
     let mut line_no = 1usize;
     let mut index = 0usize;
     while index < source.len() {
-        if source.as_bytes()[index] == b'\n' {
+        let Some(ch) = source[index..].chars().next() else {
+            break;
+        };
+        if ch == '\n' {
             line_no += 1;
             index += 1;
             continue;
         }
         if source[index..].starts_with("import ") {
-            let rest = &source[index + "import ".len()..];
+            let import_start = index + "import ".len();
+            let rest = &source[import_start..];
             if rest.trim_start().starts_with('(') {
                 let trimmed = rest.trim_start();
                 let (block, consumed) = read_paren_block(trimmed);
@@ -388,17 +398,17 @@ fn parse_imports(source: &str) -> Vec<GoImport> {
                         imports.push(import);
                     }
                 }
-                index += "import ".len() + (rest.len() - trimmed.len()) + consumed;
+                index = import_start + (rest.len() - trimmed.len()) + consumed;
                 continue;
             }
             let entry = rest.lines().next().unwrap_or("").trim();
             if let Some(import) = parse_import_entry(entry, line_no) {
                 imports.push(import);
             }
-            index += "import ".len() + entry.len();
+            index = import_start + entry.len();
             continue;
         }
-        index += 1;
+        index += ch.len_utf8();
     }
     imports
 }
@@ -587,6 +597,23 @@ mod tests {
             .symbols
             .iter()
             .any(|symbol| { symbol.name == "Label" && symbol.kind == GoSymbolKind::Type }));
+    }
+
+    #[test]
+    fn parse_imports_survives_non_ascii_bytes_before_imports() {
+        let source = "package p\n// 日本語 café\nimport \"example.com/x\"\n";
+        let (imports, _, _) = parse_go_source(source);
+        assert_eq!(imports.len(), 1);
+        assert_eq!(imports[0].path, "example.com/x");
+    }
+
+    #[test]
+    fn block_comment_preserves_line_numbers_for_symbols() {
+        let source = "package p\n/* block\n   comment */\nfunc After() {}\n";
+        let (_, symbols, _) = parse_go_source(source);
+        assert_eq!(symbols.len(), 1);
+        assert_eq!(symbols[0].name, "After");
+        assert_eq!(symbols[0].line, 4);
     }
 
     #[test]
