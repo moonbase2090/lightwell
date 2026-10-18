@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Commit diff discoverability: expand the summary strip to list changed blocks and map-external files with line counts, jump to a block and its inline diff, filter the map to **Only changed**, step with **Prev** / **Next** or `[` / `]`, and a short legend for line and connection highlights.
+
 ## 0.1.14 - 2026-10-18
 
 ### Added
