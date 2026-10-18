@@ -5,6 +5,7 @@
 ### Fixed
 
 - README **Updates** section describes in-app install for signed updates on macOS, Windows, and the Linux AppImage starting in 0.1.14.
+- A C# namespace whose opening brace is on the next line stays block-scoped, so a later sibling type is not pulled into it. Method overloads keep separate commit-diff spans. C# and VB.NET type names keep non-ASCII characters.
 
 ## 0.1.14 - 2026-10-18
 
