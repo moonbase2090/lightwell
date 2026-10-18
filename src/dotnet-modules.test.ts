@@ -38,6 +38,32 @@ class Fake4 {}
   assert.ok(!parsed.symbols.some((symbol) => symbol.name.startsWith("Fake")));
 });
 
+test("an Allman-brace namespace leaves the following sibling outside", () => {
+  const source = readFileSync(path.join(fixtureRoot, "csharp/BraceNamespace.cs"), "utf8");
+  const parsed = parseCsharpSource(source);
+  const inside = parsed.symbols.find((symbol) => symbol.name === "InsideBrace");
+  const outside = parsed.symbols.find((symbol) => symbol.name === "OutsideBrace");
+  assert.equal(inside?.namespace, "CSharpApp");
+  assert.equal(inside?.qualified, "CSharpApp.InsideBrace");
+  assert.equal(outside?.namespace, "");
+  assert.equal(outside?.qualified, "OutsideBrace");
+});
+
+test("type names keep non-ASCII characters", () => {
+  const csharp = parseCsharpSource(readFileSync(path.join(fixtureRoot, "csharp/Cafe.cs"), "utf8"));
+  assert.ok(csharp.symbols.some((symbol) => symbol.name === "Café"));
+  assert.ok(csharp.symbols.some((symbol) => symbol.name === "名前"));
+  const vb = parseVbSource(readFileSync(path.join(fixtureRoot, "vb/Cafe.vb"), "utf8"));
+  assert.ok(vb.symbols.some((symbol) => symbol.name === "Café"));
+});
+
+test("each method overload is its own block", () => {
+  const map = extractCargoMap({ repositoryPath: fixtureRoot, projectName: "DotnetSample" });
+  const chooses = map.blocks.filter((block) => block.type === "module" && block.label === "Choose" && block.cfgAttributes[0] === "method");
+  assert.equal(chooses.length, 2);
+  assert.notEqual(chooses[0]?.id, chooses[1]?.id);
+});
+
 test("a file-scoped C# namespace survives CRLF", () => {
   const parsed = parseCsharpSource("using VbApp;\r\nnamespace A;\r\npublic class B {\r\n public void M() {}\r\n}\r\n");
   assert.equal(parsed.imports[0]?.target, "VbApp");

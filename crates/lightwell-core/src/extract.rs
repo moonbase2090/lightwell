@@ -1140,7 +1140,7 @@ fn ensure_dotnet_namespace(
 
 fn fold_key(qualified: &str, language: &str) -> String {
     if language == "vb" {
-        qualified.to_ascii_lowercase()
+        qualified.to_lowercase()
     } else {
         qualified.to_owned()
     }
@@ -1737,8 +1737,10 @@ fn module_id(package_name: &str, module_path: &str) -> String {
 fn slug(value: &str) -> String {
     let mut slug = String::new();
     for character in value.chars() {
-        if character.is_ascii_alphanumeric() {
-            slug.push(character.to_ascii_lowercase());
+        if character.is_alphanumeric() {
+            for lower in character.to_lowercase() {
+                slug.push(lower);
+            }
         } else if !slug.is_empty() && !slug.ends_with('-') {
             slug.push('-');
         }
