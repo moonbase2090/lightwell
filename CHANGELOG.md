@@ -1,19 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.1.15 - 2026-10-18
 
 ### Added
 
-- Commit diff discoverability: expand the summary strip to list changed blocks and map-external files with line counts, jump to a block and its inline diff, filter the map to **Only changed**, step with **Prev** / **Next** or `[` / `]`, and a short legend for line and connection highlights.
-- Settings stores a size for UI text, a size for source code, and a size for labels in the tree and on the map. Each one applies across that part of the app and is saved on this device.
-- The vertical file tree zooms from **−**, the percentage (reset), and **+**, or with Ctrl/Cmd +, Ctrl/Cmd −, and Ctrl/Cmd 0. The level is saved per workspace.
+- Commit diff discoverability: expand the summary strip to list changed blocks and map-external files with line counts, jump to a block and its inline diff, filter the map to **Only changed**, step with **Prev** / **Next** or `[` / `]`, and a short legend for line and connection highlights (#147).
+- Settings stores a size for UI text, a size for source code, and a size for labels in the tree and on the map. Each one applies across that part of the app and is saved on this device (#145).
+- The vertical file tree zooms from **−**, the percentage (reset), and **+**, or with Ctrl/Cmd +, Ctrl/Cmd −, and Ctrl/Cmd 0. The level is saved per workspace (#144).
 
 ### Fixed
 
-- README **Updates** section describes in-app install for signed updates on macOS, Windows, and the Linux AppImage starting in 0.1.14.
-- Kind badges, the header strip, and the block and connection counts use a larger default size.
-- The vertical file tree places each row's path and child count beside the name. The path column has a bounded width.
-- A C# namespace whose opening brace is on the next line stays block-scoped, so a later sibling type is not pulled into it. Method overloads keep separate commit-diff spans. C# and VB.NET type names keep non-ASCII characters.
+- README **Updates** section describes in-app install for signed updates on macOS, Windows, and the Linux AppImage starting in 0.1.14 (#146).
+- Kind badges, the header strip, and the block and connection counts use a larger default size (#145).
+- The vertical file tree places each row's path and child count beside the name. The path column has a bounded width (#144).
+- A C# namespace whose opening brace is on the next line stays block-scoped, so a later sibling type is not pulled into it. Method overloads keep separate commit-diff spans. C# and VB.NET type names keep non-ASCII characters (#143).
 
 ## 0.1.14 - 2026-10-18
 
