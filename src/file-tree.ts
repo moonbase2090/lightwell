@@ -76,6 +76,84 @@ export function writeTreeOrientation(storage: MapViewStorage | null, workspaceId
   }
 }
 
+/** Default row scale for the vertical file tree. Zoom is stored per workspace. */
+export const FILE_TREE_ZOOM_DEFAULT = 1;
+export const FILE_TREE_ZOOM_MIN = 0.8;
+export const FILE_TREE_ZOOM_MAX = 1.8;
+export const FILE_TREE_ZOOM_STEP = 0.1;
+
+export type FileTreeZoomCommand = "in" | "out" | "reset";
+
+export function fileTreeZoomStorageKey(workspaceId: string): string {
+  return `lightwell.file-tree-zoom.v1:${encodeURIComponent(workspaceId)}`;
+}
+
+/** Snap to a tenth and keep the zoom inside the toolbar range. */
+export function clampFileTreeZoom(value: number): number {
+  if (!Number.isFinite(value)) return FILE_TREE_ZOOM_DEFAULT;
+  const snapped = Math.round(value * 10) / 10;
+  if (snapped < FILE_TREE_ZOOM_MIN) return FILE_TREE_ZOOM_MIN;
+  if (snapped > FILE_TREE_ZOOM_MAX) return FILE_TREE_ZOOM_MAX;
+  return snapped;
+}
+
+export function parseFileTreeZoom(value: string | null): number {
+  if (value === null || value.trim() === "") return FILE_TREE_ZOOM_DEFAULT;
+  return clampFileTreeZoom(Number(value));
+}
+
+export function stepFileTreeZoom(current: number, direction: -1 | 1): number {
+  return clampFileTreeZoom(clampFileTreeZoom(current) + direction * FILE_TREE_ZOOM_STEP);
+}
+
+export function readFileTreeZoom(storage: MapViewStorage | null, workspaceId: string): number {
+  if (storage === null) return FILE_TREE_ZOOM_DEFAULT;
+  try {
+    return parseFileTreeZoom(storage.getItem(fileTreeZoomStorageKey(workspaceId)));
+  } catch {
+    return FILE_TREE_ZOOM_DEFAULT;
+  }
+}
+
+export function writeFileTreeZoom(storage: MapViewStorage | null, workspaceId: string, zoom: number): void {
+  if (storage === null) return;
+  try {
+    storage.setItem(fileTreeZoomStorageKey(workspaceId), String(clampFileTreeZoom(zoom)));
+  } catch {
+    // The tree still uses the chosen zoom for this session.
+  }
+}
+
+/** Ctrl/Cmd plus, minus, or 0. Plain keys and Alt chords do not zoom the tree. */
+export function fileTreeZoomCommand(event: {
+  readonly key: string;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+  readonly altKey: boolean;
+}): FileTreeZoomCommand | null {
+  if (event.altKey || (!event.ctrlKey && !event.metaKey)) return null;
+  if (event.key === "0") return "reset";
+  if (event.key === "+" || event.key === "=") return "in";
+  if (event.key === "-" || event.key === "_") return "out";
+  return null;
+}
+
+/** Indent and guide positions. Scale 1 matches the unzoomed tree. */
+export function fileTreeZoomMetrics(zoom: number): {
+  readonly scale: number;
+  readonly indent: number;
+  readonly pad: number;
+  readonly guide: number;
+} {
+  const scale = clampFileTreeZoom(zoom);
+  return {
+    scale,
+    indent: Math.round(16 * scale),
+    pad: Math.round(8 * scale),
+    guide: Math.round(16 * scale),
+  };
+}
+
 export interface ExplorerRow {
   readonly id: string;
   readonly level: number;

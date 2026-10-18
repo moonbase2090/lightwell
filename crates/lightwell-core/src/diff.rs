@@ -606,7 +606,7 @@ pub fn block_diff_for(
                 == Some(path.as_str())
         });
     let line = if parent_shares_file {
-        match symbol_spans(&path, &modified).get(block_base(block).label.as_str()) {
+        match span_for_block(&symbol_spans(&path, &modified), block) {
             Some(&(start, end)) => hunks
                 .iter()
                 .map(|hunk| hunk.new_start.max(1))
@@ -925,7 +925,7 @@ fn attribute_changes(
         };
         let spans = symbol_spans(&file.path, &source);
         for (index, block) in symbols {
-            let Some(&(start, end)) = spans.get(block_base(block).label.as_str()) else {
+            let Some(&(start, end)) = span_for_block(&spans, block) else {
                 continue;
             };
             let (mut added, mut removed) = (0, 0);
@@ -990,13 +990,13 @@ fn symbol_spans(path: &str, source: &str) -> HashMap<String, (usize, usize)> {
         parse_csharp_source(source)
             .1
             .into_iter()
-            .map(|symbol| (symbol.line, symbol.name))
+            .map(|symbol| (symbol.line, span_name(&symbol)))
             .collect()
     } else if lower.ends_with(".vb") {
         parse_vb_source(source)
             .1
             .into_iter()
-            .map(|symbol| (symbol.line, symbol.name))
+            .map(|symbol| (symbol.line, span_name(&symbol)))
             .collect()
     } else {
         Vec::new()
@@ -1013,11 +1013,34 @@ fn symbol_spans(path: &str, source: &str) -> HashMap<String, (usize, usize)> {
     spans
 }
 
+fn span_name(symbol: &crate::dotnet_source::DotnetSymbol) -> String {
+    if symbol.kind == crate::dotnet_source::DotnetSymbolKind::Method {
+        format!("{}@{}", symbol.name, symbol.line)
+    } else {
+        symbol.name.clone()
+    }
+}
+
+fn span_for_block<'a>(
+    spans: &'a HashMap<String, (usize, usize)>,
+    block: &FactBlock,
+) -> Option<&'a (usize, usize)> {
+    let base = block_base(block);
+    if base.id.contains(":method:") {
+        if let Some(line) = base.id.rsplit(':').next() {
+            if let Some(span) = spans.get(&format!("{}@{line}", base.label)) {
+                return Some(span);
+            }
+        }
+    }
+    spans.get(base.label.as_str())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         block_diff, block_diff_for, commit_changes, commit_changes_for, parse_hunk_header,
-        parse_numstat, recent_commits, symbol_spans, DiffError, Hunk,
+        parse_numstat, recent_commits, span_for_block, symbol_spans, DiffError, Hunk,
     };
     use crate::extract::{block_base, extract_cargo_map};
     use crate::facts::FactBlock;
@@ -1121,6 +1144,43 @@ mod tests {
             (files[2].path.as_str(), files[2].old_path.as_deref()),
             ("new.py", Some("old.py"))
         );
+    }
+
+    #[test]
+    fn each_overload_keeps_its_own_span() {
+        let source = include_str!("../fixtures/dotnet-sample/csharp/Overloads.cs");
+        let spans = symbol_spans("Overloads.cs", source);
+        assert_ne!(
+            spans.get("Choose@4"),
+            spans.get("Choose@9"),
+            "overloads must not share the first span: {spans:?}"
+        );
+        assert_eq!(spans.get("Choose@4").map(|span| span.0), Some(4));
+        assert_eq!(spans.get("Choose@9").map(|span| span.0), Some(9));
+        let first = span_for_block(&spans, &method_block(4)).copied();
+        let second = span_for_block(&spans, &method_block(9)).copied();
+        assert_eq!(first.map(|span| span.0), Some(4));
+        assert_eq!(second.map(|span| span.0), Some(9));
+        assert_ne!(first, second);
+    }
+
+    fn method_block(line: usize) -> FactBlock {
+        FactBlock::Module(crate::facts::ModuleBlock {
+            base: crate::facts::BlockBase {
+                id: format!("module:dotnet:method:app-overloads:choose:{line}"),
+                label: "Choose".to_owned(),
+                parent_id: None,
+                children: Vec::new(),
+                source_path: Some("Overloads.cs".to_owned()),
+                fingerprint: String::new(),
+            },
+            package_name: "App".to_owned(),
+            module_path: "App.Overloads.Choose".to_owned(),
+            declared_by_path: "Overloads.cs".to_owned(),
+            cfg_attributes: vec!["method".to_owned()],
+            unresolved: false,
+            language: "csharp".to_owned(),
+        })
     }
 
     #[test]

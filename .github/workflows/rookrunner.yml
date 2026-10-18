@@ -27,21 +27,21 @@ jobs:
           curl -fsSL "https://nodejs.org/dist/v${node_version}/${archive}" -o "$RUNNER_TEMP/${archive}"
           tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/node-v${node_version}-linux-${node_arch}/bin" >> "$GITHUB_PATH"
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
       - name: Install Rust
         run: |
           curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$RUNNER_TEMP/rustup-init.sh"
           sh "$RUNNER_TEMP/rustup-init.sh" -y --default-toolchain stable --profile minimal --component rustfmt --no-modify-path
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-      - run: npm run check:licenses
-      - name: Test the Linux release checks
-        run: scripts/ci/test-release-checks.sh
       - name: Install Tauri Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config unzip
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npm run check:licenses
+      - name: Test the Linux release checks
+        run: scripts/ci/test-release-checks.sh
       - run: cargo fmt --all -- --check
       - run: cargo check --workspace --locked
       - run: cargo test -p lightwell-app --bin lightwell --locked

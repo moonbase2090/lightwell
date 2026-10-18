@@ -89,11 +89,14 @@ import {
   fileTreeDisplayBlock,
   folderNodeId,
   folderPathFromId,
+  FILE_TREE_ZOOM_DEFAULT,
+  readFileTreeZoom,
   readMapView,
   readTreeOrientation,
   revealExpanded,
   rollupAlongParents,
   scopeDirectory,
+  writeFileTreeZoom,
   writeMapView,
   writeTreeOrientation,
   type FileTreeNode,
@@ -665,6 +668,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   if (mapKey !== orientationWorkspaceId) {
     setOrientationWorkspaceId(mapKey);
     setOrientation(mapKey === null ? "vertical" : readTreeOrientation(mapDepthStorage(), mapKey));
+  }
+  const [fileTreeZoom, setFileTreeZoom] = useState(FILE_TREE_ZOOM_DEFAULT);
+  const [zoomWorkspaceId, setZoomWorkspaceId] = useState<string | null>(null);
+  if (mapKey !== zoomWorkspaceId) {
+    setZoomWorkspaceId(mapKey);
+    setFileTreeZoom(mapKey === null ? FILE_TREE_ZOOM_DEFAULT : readFileTreeZoom(mapDepthStorage(), mapKey));
   }
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [expandedFor, setExpandedFor] = useState("");
@@ -1643,6 +1652,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           onExpandAll={expandAllFolders}
           onCollapse={collapseFolders}
           onChooseView={chooseMapView}
+          zoom={fileTreeZoom}
+          onZoom={(next) => {
+            setFileTreeZoom(next);
+            if (mapKey !== null) writeFileTreeZoom(mapDepthStorage(), mapKey, next);
+          }}
           {...(graphChanges === undefined ? {} : { changes: graphChanges })}
           {...(commitDiffOnlyChanged && graphChanges !== undefined
             ? { onlyChangedIds: new Set(graphChanges.keys()) }
