@@ -47,6 +47,8 @@ npm run dev
 
 Open the local address Vite prints. The preview loads the checked-in maps and does not make network requests.
 
+Settings saves three text sizes on this device: UI text, source code, and tree and map labels. Kind badges, the header strip, and the block and connection counts use a larger default size.
+
 `npm run build` writes the static site to `dist/`.
 
 #### Command line

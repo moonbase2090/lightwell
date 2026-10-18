@@ -3,6 +3,7 @@ import type { BlockDiff } from "../commit-diff.js";
 import type { ConnectionChangeState } from "../map-source.js";
 import { MarkerType, type Edge } from "@xyflow/react";
 import type { FactConnection, DisplayBlock } from "../model.js";
+import { edgeLabelFontSize } from "../type-scale.js";
 import type { MapNode, BlockNodeData } from "./BlockNode.js";
 
 const elk = new ELK();
@@ -12,6 +13,8 @@ const nodeHeight = 94;
 export async function layoutBlocks(args: {
   readonly blocks: readonly DisplayBlock[];
   readonly connections: readonly FactConnection[];
+  /** Scale for connection labels. Defaults to the readable size at 1. */
+  readonly labelScale?: number;
 }): Promise<{ readonly nodes: MapNode[]; readonly edges: Edge[] }> {
   const visibleIds = new Set(args.blocks.map((block) => block.id));
   const connections = args.connections.filter((connection) => visibleIds.has(connection.source) && visibleIds.has(connection.target));
@@ -54,7 +57,7 @@ export async function layoutBlocks(args: {
       type: "smoothstep",
       animated: false,
       label: connection.kind === "depends_on" ? "depends" : undefined,
-      labelStyle: { fill: "#a6b4c8", fontSize: 9, fontWeight: 600 },
+      labelStyle: { fill: "#a6b4c8", fontSize: edgeLabelFontSize(args.labelScale ?? 1), fontWeight: 600 },
       labelBgStyle: { fill: "#111922", fillOpacity: 0.92 },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 12, height: 12 },
       interactionWidth: 16,

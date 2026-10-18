@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Settings stores a size for UI text, a size for source code, and a size for tree and map labels. Each one applies across that part of the app and is saved on this device.
+
+### Fixed
+
+- Kind badges, the header strip, and the block and connection counts use a larger default size.
+
 ## 0.1.14 - 2026-10-18
 
 ### Added

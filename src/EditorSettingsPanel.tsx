@@ -2,6 +2,22 @@ import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, LoaderCircle, Settings2, X } from "lucide-react";
 import type { EditorSettings, MapEditorSource } from "./map-source.js";
 import { isThemePreference, type ResolvedTheme, type ThemePreference } from "./theme.js";
+import {
+  CODE_SIZE_DEFAULT,
+  CODE_SIZE_MAX,
+  CODE_SIZE_MIN,
+  LABEL_SCALE_DEFAULT,
+  LABEL_SCALE_MAX,
+  LABEL_SCALE_MIN,
+  UI_SCALE_DEFAULT,
+  UI_SCALE_MAX,
+  UI_SCALE_MIN,
+  clampTextSize,
+  formatTextSize,
+  stepTextSize,
+  type TextSize,
+  type TextSizeAxis,
+} from "./type-scale.js";
 import { DEFAULT_WORD_WRAP_SHORTCUT, shortcutFromKeyEvent } from "./source-view-preferences.js";
 import type { UpdateDelivery } from "./app-updates.js";
 
@@ -130,6 +146,34 @@ export function ShortcutRecorder({
   );
 }
 
+function TextSizeControl({
+  label,
+  axis,
+  value,
+  onChange,
+}: {
+  readonly label: string;
+  readonly axis: TextSizeAxis;
+  readonly value: number;
+  readonly onChange: (value: number) => void;
+}) {
+  const current = clampTextSize(value, axis);
+  const minimum = axis === "code" ? CODE_SIZE_MIN : axis === "ui" ? UI_SCALE_MIN : LABEL_SCALE_MIN;
+  const maximum = axis === "code" ? CODE_SIZE_MAX : axis === "ui" ? UI_SCALE_MAX : LABEL_SCALE_MAX;
+  const fallback = axis === "code" ? CODE_SIZE_DEFAULT : axis === "ui" ? UI_SCALE_DEFAULT : LABEL_SCALE_DEFAULT;
+  return (
+    <div className="settings-type-size" role="group" aria-label={label}>
+      <span className="settings-field-label">{label}</span>
+      <div className="settings-type-size-row">
+        <button type="button" aria-label={`Decrease ${label}`} disabled={current <= minimum} onClick={() => onChange(stepTextSize(current, axis, -1))}>−</button>
+        <span className="settings-type-size-value">{formatTextSize(current, axis)}</span>
+        <button type="button" aria-label={`Increase ${label}`} disabled={current >= maximum} onClick={() => onChange(stepTextSize(current, axis, 1))}>+</button>
+        <button type="button" className="settings-shortcut-action" aria-label={`Reset ${label}`} disabled={current === fallback} onClick={() => onChange(fallback)}>Reset</button>
+      </div>
+    </div>
+  );
+}
+
 export default function EditorSettingsPanel({
   editor,
   themePreference,
@@ -143,11 +187,15 @@ export default function EditorSettingsPanel({
   updateStatus,
   onCheckForUpdate,
   onClose,
+  textSize,
+  onTextSizeChange,
 }: {
   readonly editor?: MapEditorSource;
   readonly themePreference: ThemePreference;
   readonly theme: ResolvedTheme;
   readonly onThemeChange: (preference: ThemePreference) => void;
+  readonly textSize: TextSize;
+  readonly onTextSizeChange: (size: TextSize) => void;
   /** Source view word wrap shortcut, "" when turned off. */
   readonly wordWrapShortcut: string;
   readonly onWordWrapShortcutChange: (shortcut: string) => void;
@@ -239,7 +287,7 @@ export default function EditorSettingsPanel({
             <span className="settings-panel-icon"><Settings2 size={16} /></span>
             <div>
               <h2 id="editor-settings-title">Settings</h2>
-              <p>Choose how Lightwell looks, opens source files, and checks for updates</p>
+              <p>Choose how Lightwell looks, sizes text, opens source files, and checks for updates</p>
             </div>
           </div>
           <button
@@ -272,6 +320,12 @@ export default function EditorSettingsPanel({
             <option value="blueprint">Blueprint</option>
           </select>
           <p className="settings-help">Theme changes apply immediately and stay saved on this device.</p>
+
+          <h3 className="settings-section-title settings-editor-section">Text size</h3>
+          <TextSizeControl label="UI text" axis="ui" value={textSize.ui} onChange={(ui) => onTextSizeChange({ ...textSize, ui })} />
+          <TextSizeControl label="Source code" axis="code" value={textSize.code} onChange={(code) => onTextSizeChange({ ...textSize, code })} />
+          <TextSizeControl label="Tree and map labels" axis="labels" value={textSize.labels} onChange={(labels) => onTextSizeChange({ ...textSize, labels })} />
+          <p className="settings-help">Each size applies across that part of the app and stays saved on this device.</p>
 
           <h3 className="settings-section-title settings-editor-section">Source view</h3>
           <ShortcutRecorder
