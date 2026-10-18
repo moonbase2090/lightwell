@@ -726,7 +726,11 @@ pub fn path_diff_for(
         }
     };
 
-    let line = hunks.iter().map(|hunk| hunk.new_start.max(1)).min().unwrap_or(1);
+    let line = hunks
+        .iter()
+        .map(|hunk| hunk.new_start.max(1))
+        .min()
+        .unwrap_or(1);
 
     Ok(BlockDiffDocument {
         commit: head_summary,

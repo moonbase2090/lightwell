@@ -1,7 +1,7 @@
 use lightwell_core::{
-    block_diff_for, commit_changes_for, discover_cargo_workspace, extract_cargo_map, path_diff_for,
-    filter_commits_that_are_ancestors, open_target, project_notes_for_map, recent_commits,
-    remove_project_note, resolve_block_target, resolve_block_target_in_map,
+    block_diff_for, commit_changes_for, discover_cargo_workspace, extract_cargo_map,
+    filter_commits_that_are_ancestors, open_target, path_diff_for, project_notes_for_map,
+    recent_commits, remove_project_note, resolve_block_target, resolve_block_target_in_map,
     set_project_note_for_map, update_project_note_text, BlockDiffDocument, CommitChanges,
     CommitSummary, EditorError, EditorSettings, EditorTarget, EditorTemplatePreset, FactMap,
     MapExtractionError, MapWatchError, MapWatcher, NotesError, ProjectNoteView,
