@@ -737,6 +737,7 @@ function parseCsharp(masked: string): { readonly imports: DotnetImport[]; readon
   const namespaces: NsFrame[] = [];
   const types: TypeFrame[] = [];
   let pending: { symbol: DotnetSymbol; kind: DotnetSymbolKind } | null = null;
+  let pendingNamespace: string | null = null;
   let depth = 0;
   for (const [lineNo, line] of csharpLogicalLines(masked)) {
     const startDepth = depth;
@@ -768,12 +769,25 @@ function parseCsharp(masked: string): { readonly imports: DotnetImport[]; readon
       }
       symbols.push(waiting.symbol);
     }
-    if (trimmed === "") {
+    let codeLine = line;
+    if (pendingNamespace !== null) {
+      const full = pendingNamespace;
+      pendingNamespace = null;
+      if (trimmed.startsWith("{")) {
+        namespaces.push({ full, endDepth: startDepth });
+        const brace = line.indexOf("{");
+        if (brace >= 0) codeLine = line.slice(brace + 1);
+      } else {
+        fileNamespace = full;
+      }
+    }
+    const codeTrimmed = codeLine.trim();
+    if (codeTrimmed === "") {
       depth = braceDepth(line, depth);
       popFrames(types, namespaces, depth);
       continue;
     }
-    const code = stripAttributes(trimmed);
+    const code = stripAttributes(codeTrimmed);
     const tokens = tokenize(code);
     const partial = tokens.includes("partial");
     const index = skipModifiers(tokens);
@@ -789,14 +803,14 @@ function parseCsharp(masked: string): { readonly imports: DotnetImport[]; readon
       const name = dottedName(tokens, index + 1);
       if (name !== null) {
         const full = joinNamespace(currentNs, name);
-        if (line.includes(";") && !line.includes("{")) fileNamespace = full;
-        else if (line.includes("{")) namespaces.push({ full, endDepth: startDepth });
-        else fileNamespace = full;
+        if (codeLine.includes(";") && !codeLine.includes("{")) fileNamespace = full;
+        else if (codeLine.includes("{")) namespaces.push({ full, endDepth: startDepth });
+        else pendingNamespace = full;
       }
     } else {
       const declared = csharpType(tokens, index, partial, lineNo, currentNs, types[types.length - 1]);
       if (declared !== null) {
-        if (line.includes("{")) {
+        if (codeLine.includes("{")) {
           types.push({
             qualified: declared.qualified,
             simple: declared.name,
@@ -805,7 +819,7 @@ function parseCsharp(masked: string): { readonly imports: DotnetImport[]; readon
             bodyDepth: startDepth + 1,
           });
           symbols.push(declared);
-        } else if (line.includes(";")) symbols.push(declared);
+        } else if (codeLine.includes(";")) symbols.push(declared);
         else pending = { kind: declared.kind, symbol: declared };
       } else if (types.length > 0) {
         const frame = types[types.length - 1];
@@ -1197,8 +1211,7 @@ function isControl(token: string): boolean {
 }
 
 function isIdent(token: string): boolean {
-  if (!/^[_@A-Za-z][_A-Za-z0-9]*$/.test(token)) return false;
-  return true;
+  return /^[@_\p{L}][@_\p{L}\p{N}]*$/u.test(token);
 }
 
 function dottedName(tokens: readonly string[], start: number): string | null {
@@ -1289,7 +1302,7 @@ function tokenize(line: string): string[] {
   const tokens: string[] = [];
   let current = "";
   for (const character of line) {
-    if (/[A-Za-z0-9_@]/.test(character)) current += character;
+    if (character === "_" || character === "@" || /[\p{L}\p{N}]/u.test(character)) current += character;
     else {
       if (current !== "") tokens.push(current);
       current = "";
@@ -1544,7 +1557,7 @@ function slashRelative(root: string, filePath: string): string {
 }
 
 function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/gu, "");
 }
 
 function hashFile(filePath: string): string {
