@@ -18,13 +18,22 @@ import {
   treeBreadcrumb,
   treeDepth,
   parseGitignore,
+  FILE_TREE_ZOOM_DEFAULT,
+  FILE_TREE_ZOOM_MAX,
+  FILE_TREE_ZOOM_MIN,
+  fileTreeZoomCommand,
+  fileTreeZoomMetrics,
+  parseFileTreeZoom,
   parseMapView,
   parseTreeOrientation,
+  readFileTreeZoom,
   readMapView,
   readTreeOrientation,
+  stepFileTreeZoom,
   revealExpanded,
   rollupAlongParents,
   scopeDirectory,
+  writeFileTreeZoom,
   writeMapView,
   writeTreeOrientation,
   type DirEntry,
@@ -37,6 +46,63 @@ test("explorer path tails keep the last two path segments", () => {
   assert.equal(explorerPathTail(""), null);
   assert.equal(explorerPathTail("src/lib.rs"), "src/lib.rs");
   assert.equal(explorerPathTail("crates/core/src/main.rs"), "src/main.rs");
+});
+
+test("zoom buttons apply each click to the latest scale", () => {
+  const source = readFileSync(new URL("./FileExplorer.tsx", import.meta.url), "utf8");
+  assert.match(source, /zoomRef\.current = next/);
+  assert.match(source, /stepFileTreeZoom\(fileTreeZoomMetrics\(zoomRef\.current\)\.scale, 1\)/);
+  assert.match(source, /stepFileTreeZoom\(fileTreeZoomMetrics\(zoomRef\.current\)\.scale, -1\)/);
+  let zoom = 1;
+  for (let click = 0; click < 4; click += 1) zoom = stepFileTreeZoom(zoom, 1);
+  assert.equal(zoom, 1.4);
+});
+
+test("file tree rows keep the path beside the name", () => {
+  const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
+  const rule = css.match(/\.file-explorer-path\s*\{[^}]*\}/)?.[0] ?? "";
+  assert.match(rule, /max-width:\s*28ch/);
+  assert.equal(/margin-left\s*:\s*auto/.test(rule), false);
+});
+
+test("file tree zoom defaults to 1, steps by a tenth, and is stored per workspace", () => {
+  assert.equal(parseFileTreeZoom(null), FILE_TREE_ZOOM_DEFAULT);
+  assert.equal(parseFileTreeZoom(""), FILE_TREE_ZOOM_DEFAULT);
+  assert.equal(parseFileTreeZoom("nope"), FILE_TREE_ZOOM_DEFAULT);
+  assert.equal(parseFileTreeZoom("1.4"), 1.4);
+  assert.equal(parseFileTreeZoom("9"), FILE_TREE_ZOOM_MAX);
+  assert.equal(parseFileTreeZoom("0.1"), FILE_TREE_ZOOM_MIN);
+  assert.equal(stepFileTreeZoom(1, 1), 1.1);
+  assert.equal(stepFileTreeZoom(1, -1), 0.9);
+  assert.equal(stepFileTreeZoom(FILE_TREE_ZOOM_MAX, 1), FILE_TREE_ZOOM_MAX);
+  assert.equal(stepFileTreeZoom(FILE_TREE_ZOOM_MIN, -1), FILE_TREE_ZOOM_MIN);
+  assert.deepEqual(fileTreeZoomMetrics(1), { scale: 1, indent: 16, pad: 8, guide: 16 });
+  assert.deepEqual(fileTreeZoomMetrics(1.5), { scale: 1.5, indent: 24, pad: 12, guide: 24 });
+  assert.equal(fileTreeZoomCommand({ key: "=", ctrlKey: false, metaKey: true, altKey: false }), "in");
+  assert.equal(fileTreeZoomCommand({ key: "+", ctrlKey: true, metaKey: false, altKey: false }), "in");
+  assert.equal(fileTreeZoomCommand({ key: "-", ctrlKey: true, metaKey: false, altKey: false }), "out");
+  assert.equal(fileTreeZoomCommand({ key: "_", ctrlKey: false, metaKey: true, altKey: false }), "out");
+  assert.equal(fileTreeZoomCommand({ key: "0", ctrlKey: true, metaKey: false, altKey: false }), "reset");
+  assert.equal(fileTreeZoomCommand({ key: "=", ctrlKey: false, metaKey: false, altKey: false }), null);
+  assert.equal(fileTreeZoomCommand({ key: "=", ctrlKey: true, metaKey: false, altKey: true }), null);
+  assert.equal(fileTreeZoomCommand({ key: "k", ctrlKey: true, metaKey: false, altKey: false }), null);
+  const storage = new MemoryStorage();
+  writeFileTreeZoom(storage, "/work/alpha", 1.4);
+  writeFileTreeZoom(storage, "/work/beta", 0.9);
+  assert.equal(readFileTreeZoom(storage, "/work/alpha"), 1.4);
+  assert.equal(readFileTreeZoom(storage, "/work/beta"), 0.9);
+  assert.equal(readFileTreeZoom(storage, "/work/gamma"), FILE_TREE_ZOOM_DEFAULT);
+  assert.equal(readFileTreeZoom(null, "/work/alpha"), FILE_TREE_ZOOM_DEFAULT);
+  const throwing: MapViewStorage = {
+    getItem() {
+      throw new Error("storage blocked");
+    },
+    setItem() {
+      throw new Error("storage blocked");
+    },
+  };
+  assert.equal(readFileTreeZoom(throwing, "/work/alpha"), FILE_TREE_ZOOM_DEFAULT);
+  writeFileTreeZoom(throwing, "/work/alpha", 1.2);
 });
 
 test("the map view defaults to modules and is stored per workspace", () => {
