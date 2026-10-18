@@ -6,6 +6,10 @@
 
 - Go language pack: `go.mod` workspaces map packages, `.go` files, import edges, and top-level functions, methods, and types, with Monaco highlighting and commit-diff symbol spans for `.go` files.
 
+### Fixed
+
+- Go extraction no longer panics on non-ASCII source before `import` lines; block comments keep newlines so symbol line numbers stay aligned. The TypeScript Go mirror now emits the same qualified-call `depends_on` edges as Rust.
+
 ## 0.1.13 - 2026-10-17
 
 ### Added
