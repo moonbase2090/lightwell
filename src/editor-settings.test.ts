@@ -11,6 +11,7 @@ import EditorSettingsPanel, {
 import type { UpdateDelivery } from "./app-updates.js";
 import type { MapEditorSource } from "./map-source.js";
 import type { ResolvedTheme, ThemePreference } from "./theme.js";
+import { DEFAULT_TEXT_SIZE, type TextSize } from "./type-scale.js";
 
 const editor: MapEditorSource = {
   inspectBlock: () => Promise.reject(new Error("unused")),
@@ -28,6 +29,7 @@ function renderSettings(
     readonly updateDelivery?: UpdateDelivery;
     readonly autoUpdateCheck?: boolean;
     readonly updateStatus?: string;
+    readonly textSize?: TextSize;
   } = {},
 ): string {
   return renderToStaticMarkup(createElement(EditorSettingsPanel, {
@@ -43,6 +45,8 @@ function renderSettings(
     updateStatus: "",
     onCheckForUpdate: () => undefined,
     onClose: () => undefined,
+    textSize: DEFAULT_TEXT_SIZE,
+    onTextSizeChange: () => undefined,
     ...extra,
   }));
 }
@@ -61,6 +65,33 @@ test("settings panel shows blueprint without a contrast disclaimer and locks edi
   assert.match(html, /class="settings-save-button"[^>]*disabled/);
   assert.equal(html.includes("id=\"lightwell-theme\" disabled"), false);
   assert.match(html, /aria-label="Close settings"/);
+});
+
+test("settings panel shows the three text sizes and disables reset at the defaults", () => {
+  const html = renderSettings("blueprint", "blueprint");
+
+  assert.match(html, /Text size/);
+  assert.match(html, /aria-label="UI text"/);
+  assert.match(html, /aria-label="Source code"/);
+  assert.match(html, /aria-label="Tree and map labels"/);
+  assert.match(html, />100%</);
+  assert.match(html, />13 px</);
+  assert.match(html, /aria-label="Reset UI text" disabled=""/);
+  assert.match(html, /aria-label="Reset Source code" disabled=""/);
+  assert.match(html, /aria-label="Decrease UI text"(?! disabled)/);
+});
+
+test("settings panel shows a saved text size and disables the control at its bound", () => {
+  const html = renderSettings("dark", "dark", {
+    textSize: { ui: 1.2, code: 16, labels: 0.8 },
+  });
+
+  assert.match(html, />120%</);
+  assert.match(html, />16 px</);
+  assert.match(html, />80%</);
+  assert.equal(html.includes('aria-label="Reset UI text" disabled'), false);
+  assert.match(html, /aria-label="Decrease Tree and map labels" disabled=""/);
+  assert.equal(html.includes('aria-label="Decrease UI text" disabled'), false);
 });
 
 test("settings panel hides the blueprint warning for the dark theme", () => {

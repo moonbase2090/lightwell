@@ -4,10 +4,12 @@
 
 ### Added
 
+- Settings stores a size for UI text, a size for source code, and a size for tree and map labels. Each one applies across that part of the app and is saved on this device.
 - The vertical file tree zooms from **−**, the percentage (reset), and **+**, or with Ctrl/Cmd +, Ctrl/Cmd −, and Ctrl/Cmd 0. The level is saved per workspace.
 
 ### Fixed
 
+- Kind badges, the header strip, and the block and connection counts use a larger default size.
 - The vertical file tree places each row's path and child count beside the name. The path column has a bounded width.
 - A C# namespace whose opening brace is on the next line stays block-scoped, so a later sibling type is not pulled into it. Method overloads keep separate commit-diff spans. C# and VB.NET type names keep non-ASCII characters.
 

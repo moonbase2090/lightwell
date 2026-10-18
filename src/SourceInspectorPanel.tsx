@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { ArrowUpRight, CircleAlert, LoaderCircle, StickyNote, X } from "lucide-react";
 import type { BlockDiffDocument, SourceFileDocument } from "./map-source.js";
 import type { ResolvedTheme } from "./theme.js";
+import type { TextSize } from "./type-scale.js";
 
 const SourceCodeEditor = lazy(() => import("./SourceCodeEditor.js"));
 const SourceDiffEditor = lazy(() => import("./SourceDiffEditor.js"));
@@ -34,6 +35,7 @@ export default function SourceInspectorPanel({
   onToggleWordWrap,
   onLineContextMenu,
   diff,
+  codeSize,
 }: {
   readonly title: string;
   readonly inspection: SourceInspectionState;
@@ -54,6 +56,8 @@ export default function SourceInspectorPanel({
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
   /** When set, the panel shows this commit diff instead of the current source. */
   readonly diff?: DiffInspectionState;
+  /** Source text size in pixels. */
+  readonly codeSize: TextSize["code"];
 }) {
   return (
     <aside className="source-inspector" aria-label={`Source inspector for ${title}`}>
@@ -110,6 +114,7 @@ export default function SourceInspectorPanel({
               path={diff.document.path}
               line={diff.document.line}
               theme={theme}
+              fontSize={codeSize}
             />
           </Suspense>
         )}
@@ -130,6 +135,7 @@ export default function SourceInspectorPanel({
               wordWrap={wordWrap}
               wordWrapShortcut={wordWrapShortcut}
               onToggleWordWrap={onToggleWordWrap}
+              fontSize={codeSize}
               {...(onLineContextMenu === undefined ? {} : { onLineContextMenu })}
             />
           </Suspense>
