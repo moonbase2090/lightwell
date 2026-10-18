@@ -1,3 +1,6 @@
+use crate::dotnet_source::{
+    discover_dotnet, DotnetFile, DotnetImport, DotnetSymbolKind, DotnetWorkspace,
+};
 use crate::facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock,
@@ -62,12 +65,32 @@ const PROJECT_MANIFESTS: &[&str] = &[
 ];
 
 /// The manifest that shows `root` is a project Lightwell can open.
-/// `Cargo.toml` wins when a folder is also a Node or TypeScript project.
+/// `Cargo.toml` wins when a folder is also a Node, TypeScript, or .NET project.
 pub fn project_manifest(root: &Path) -> Option<PathBuf> {
-    PROJECT_MANIFESTS.iter().find_map(|name| {
+    if let Some(path) = PROJECT_MANIFESTS.iter().find_map(|name| {
         let path = root.join(name);
         path.is_file().then_some(path)
-    })
+    }) {
+        return Some(path);
+    }
+    let entries = fs::read_dir(root).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_file() && is_dotnet_project_file(&path) {
+            return Some(path);
+        }
+    }
+    None
+}
+
+fn is_dotnet_project_file(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| extension.to_ascii_lowercase())
+            .as_deref(),
+        Some("sln" | "csproj" | "vbproj")
+    )
 }
 
 pub fn extract_cargo_map(
@@ -78,7 +101,7 @@ pub fn extract_cargo_map(
 }
 
 /// Find the Cargo workspace for `repository_path`, or an empty one when the
-/// folder is a Node, TypeScript or JavaScript project without a root
+/// folder is a Node, TypeScript, JavaScript, or .NET project without a root
 /// `Cargo.toml`. The initial map and live refresh both use this, so a project
 /// that opens also refreshes.
 pub fn discover_project_workspace(
@@ -158,6 +181,7 @@ pub(crate) fn map_workspace(
         Err(error) => return Err(error.into()),
     };
     let typescript_modules = discover_typescript_modules(&root_path)?;
+    let dotnet = discover_dotnet(&root_path)?;
     let mut workspace_inputs: Vec<_> = crate_fingerprints
         .into_iter()
         .map(|(name, fingerprint)| format!("{name}:{fingerprint}"))
@@ -169,6 +193,17 @@ pub(crate) fn map_workspace(
     for module in &typescript_modules {
         let fingerprint = fingerprints.file(&module.path)?;
         workspace_inputs.push(format!("web:{}:{fingerprint}", module.name));
+    }
+    for project in &dotnet.projects {
+        let fingerprint = fingerprints.file(&project.path)?;
+        workspace_inputs.push(format!("dotnet:{}:{fingerprint}", project.name));
+    }
+    for file in &dotnet.files {
+        let fingerprint = fingerprints.file(&file.path)?;
+        workspace_inputs.push(format!(
+            "dotnet:{}:{fingerprint}",
+            path_to_slashes(file.path.strip_prefix(&root_path).unwrap_or(&file.path))
+        ));
     }
     for package in &go_packages {
         for file in &package.files {
@@ -214,6 +249,14 @@ pub(crate) fn map_workspace(
     )?;
     append_typescript_blocks(
         &typescript_modules,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
+    append_dotnet_blocks(
+        &dotnet,
         &root_path,
         &project_id,
         &mut fingerprints,
@@ -618,6 +661,712 @@ fn append_dependency_connections(
             }
         }
     }
+}
+
+fn append_dotnet_blocks(
+    dotnet: &DotnetWorkspace,
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let mut seen = HashSet::new();
+    let mut project_ids: HashMap<PathBuf, String> = HashMap::new();
+    for project in &dotnet.projects {
+        let relative = relative_path(root_path, &project.path);
+        let id = dotnet_block_id("project", &[&relative]);
+        let fingerprint = fingerprints.file(&project.path)?;
+        push_dotnet_module(
+            blocks,
+            connections,
+            &id,
+            &project.name,
+            workspace_id,
+            &project.name,
+            &project.name,
+            &relative,
+            vec!["project".to_owned()],
+            false,
+            &project.language,
+            &relative,
+            &fingerprint,
+        );
+        project_ids.insert(normalize_path(&project.path), id);
+    }
+    for project in &dotnet.projects {
+        let Some(source_id) = project_ids.get(&normalize_path(&project.path)).cloned() else {
+            continue;
+        };
+        for reference in &project.references {
+            let Some(target) = dotnet
+                .projects
+                .iter()
+                .find(|candidate| dotnet_paths_match(&candidate.path, reference))
+            else {
+                continue;
+            };
+            let Some(target_id) = project_ids.get(&normalize_path(&target.path)) else {
+                continue;
+            };
+            if source_id == *target_id {
+                continue;
+            }
+            push_depends(connections, &mut seen, &source_id, target_id);
+        }
+    }
+
+    let mut namespace_ids: HashMap<(String, String), String> = HashMap::new();
+    let mut file_ids: HashMap<PathBuf, String> = HashMap::new();
+    for file in &dotnet.files {
+        let relative = relative_path(root_path, &file.path);
+        let fingerprint = fingerprints.file(&file.path)?;
+        let project_key = file
+            .project_path
+            .as_ref()
+            .map(|path| relative_path(root_path, path))
+            .unwrap_or_default();
+        let project_id = file
+            .project_path
+            .as_ref()
+            .and_then(|path| project_ids.get(&normalize_path(path)).cloned());
+        let namespace_id = if file.namespace.is_empty() {
+            None
+        } else {
+            Some(ensure_dotnet_namespace(
+                blocks,
+                connections,
+                &mut namespace_ids,
+                &project_key,
+                &file.namespace,
+                project_id.as_deref().unwrap_or(workspace_id),
+                &file.language,
+                &relative,
+                &fingerprint,
+            ))
+        };
+        let parent = namespace_id
+            .or(project_id)
+            .unwrap_or_else(|| workspace_id.to_owned());
+        let id = dotnet_block_id("file", &[&relative]);
+        let label = file
+            .path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| relative.clone());
+        let package_name = package_name_for(dotnet, file);
+        let cfg = if file.imports.is_empty() {
+            vec!["file".to_owned()]
+        } else {
+            file.imports
+                .iter()
+                .map(|item| item.statement.clone())
+                .collect()
+        };
+        push_dotnet_module(
+            blocks,
+            connections,
+            &id,
+            &label,
+            &parent,
+            &package_name,
+            &relative,
+            &relative,
+            cfg,
+            file.unreadable,
+            &file.language,
+            &relative,
+            &fingerprint,
+        );
+        file_ids.insert(normalize_path(&file.path), id);
+    }
+
+    struct TypeRec {
+        id: String,
+        qualified: String,
+        simple: String,
+        language: String,
+        kind: DotnetSymbolKind,
+        partial: bool,
+        bases: Vec<String>,
+        member_types: Vec<String>,
+        files: Vec<PathBuf>,
+        source: String,
+        fingerprint: String,
+        parent: String,
+        package_name: String,
+    }
+    let mut types: HashMap<String, TypeRec> = HashMap::new();
+    struct MethodRec {
+        name: String,
+        owner_key: String,
+        line: usize,
+        language: String,
+        source: String,
+        fingerprint: String,
+        package_name: String,
+    }
+    let mut methods = Vec::new();
+    for file in &dotnet.files {
+        let relative = relative_path(root_path, &file.path);
+        let fingerprint = fingerprints.file(&file.path)?;
+        let project_key = file
+            .project_path
+            .as_ref()
+            .map(|path| relative_path(root_path, path))
+            .unwrap_or_default();
+        let package_name = package_name_for(dotnet, file);
+        let fallback = file_ids
+            .get(&normalize_path(&file.path))
+            .cloned()
+            .unwrap_or_else(|| workspace_id.to_owned());
+        for symbol in &file.symbols {
+            let owner_key = format!(
+                "{project_key}|{}",
+                fold_key(&symbol.qualified, &file.language)
+            );
+            if symbol.kind == DotnetSymbolKind::Method {
+                methods.push(MethodRec {
+                    name: symbol.name.clone(),
+                    owner_key,
+                    line: symbol.line,
+                    language: file.language.clone(),
+                    source: relative.clone(),
+                    fingerprint: fingerprint.clone(),
+                    package_name: package_name.clone(),
+                });
+                continue;
+            }
+            let parent = namespace_ids
+                .get(&(project_key.clone(), symbol.namespace.clone()))
+                .cloned()
+                .unwrap_or_else(|| fallback.clone());
+            types
+                .entry(owner_key)
+                .and_modify(|record| {
+                    record.partial = record.partial || symbol.partial;
+                    record.bases.extend(symbol.bases.clone());
+                    record.member_types.extend(symbol.member_types.clone());
+                    record.files.push(file.path.clone());
+                })
+                .or_insert_with(|| TypeRec {
+                    id: dotnet_block_id("type", &[&project_key, &symbol.qualified]),
+                    qualified: symbol.qualified.clone(),
+                    simple: symbol.name.clone(),
+                    language: file.language.clone(),
+                    kind: symbol.kind,
+                    partial: symbol.partial,
+                    bases: symbol.bases.clone(),
+                    member_types: symbol.member_types.clone(),
+                    files: vec![file.path.clone()],
+                    source: relative.clone(),
+                    fingerprint: fingerprint.clone(),
+                    parent,
+                    package_name: package_name.clone(),
+                });
+        }
+    }
+
+    let mut exact_types: HashMap<String, String> = HashMap::new();
+    let mut folded_types: HashMap<String, Vec<String>> = HashMap::new();
+    let mut simple_exact: HashMap<String, Vec<String>> = HashMap::new();
+    let mut simple_folded: HashMap<String, Vec<String>> = HashMap::new();
+    let mut ordered: Vec<_> = types.into_iter().collect();
+    ordered.sort_by(|left, right| left.0.cmp(&right.0));
+    let mut type_by_key: HashMap<String, TypeRec> = HashMap::new();
+    for (key, record) in &ordered {
+        exact_types.insert(record.qualified.clone(), record.id.clone());
+        folded_types
+            .entry(record.qualified.to_ascii_lowercase())
+            .or_default()
+            .push(record.id.clone());
+        simple_exact
+            .entry(record.simple.clone())
+            .or_default()
+            .push(record.id.clone());
+        simple_folded
+            .entry(record.simple.to_ascii_lowercase())
+            .or_default()
+            .push(record.id.clone());
+        type_by_key.insert(
+            key.clone(),
+            TypeRec {
+                id: record.id.clone(),
+                qualified: record.qualified.clone(),
+                simple: record.simple.clone(),
+                language: record.language.clone(),
+                kind: record.kind,
+                partial: record.partial,
+                bases: record.bases.clone(),
+                member_types: record.member_types.clone(),
+                files: record.files.clone(),
+                source: record.source.clone(),
+                fingerprint: record.fingerprint.clone(),
+                parent: record.parent.clone(),
+                package_name: record.package_name.clone(),
+            },
+        );
+    }
+    for (key, record) in ordered {
+        let label = record
+            .kind
+            .cfg_label(record.partial || record.files.len() > 1);
+        push_dotnet_module(
+            blocks,
+            connections,
+            &record.id,
+            &record.simple,
+            &record.parent,
+            &record.package_name,
+            &record.qualified,
+            &record.source,
+            vec![label.to_owned()],
+            false,
+            &record.language,
+            &record.source,
+            &record.fingerprint,
+        );
+        for path in &record.files {
+            if let Some(file_id) = file_ids.get(&normalize_path(path)) {
+                let edge = format!("contains:{file_id}->{}", record.id);
+                if file_id != &record.parent && seen.insert(edge) {
+                    connections.push(contains_connection(file_id, &record.id));
+                }
+            }
+        }
+        let _ = key;
+    }
+
+    let mut method_ids = Vec::new();
+    for method in &methods {
+        let Some(owner) = type_by_key.get(&method.owner_key) else {
+            continue;
+        };
+        let id = dotnet_block_id(
+            "method",
+            &[&owner.qualified, &method.name, &method.line.to_string()],
+        );
+        push_dotnet_module(
+            blocks,
+            connections,
+            &id,
+            &method.name,
+            &owner.id,
+            &method.package_name,
+            &format!("{}.{}", owner.qualified, method.name),
+            &method.source,
+            vec!["method".to_owned()],
+            false,
+            &method.language,
+            &method.source,
+            &method.fingerprint,
+        );
+        method_ids.push((id, method));
+    }
+
+    let namespace_exact: HashMap<String, String> = namespace_ids
+        .iter()
+        .map(|((_, namespace), id)| (namespace.clone(), id.clone()))
+        .collect();
+    let namespace_folded: HashMap<String, String> = namespace_ids
+        .iter()
+        .map(|((_, namespace), id)| (namespace.to_ascii_lowercase(), id.clone()))
+        .collect();
+
+    for file in &dotnet.files {
+        let Some(file_id) = file_ids.get(&normalize_path(&file.path)) else {
+            continue;
+        };
+        let fold = file.language == "vb";
+        let mut aliases = HashMap::new();
+        let mut imports = Vec::new();
+        for other in dotnet_imports_for(dotnet, file) {
+            if let Some(alias) = &other.alias {
+                aliases.insert(
+                    if fold {
+                        alias.to_ascii_lowercase()
+                    } else {
+                        alias.clone()
+                    },
+                    other.target.clone(),
+                );
+            }
+            imports.push(other.target.clone());
+            if let Some(target) = resolve_dotnet_name(
+                &other.target,
+                fold,
+                &file.namespace,
+                &[],
+                &HashMap::new(),
+                &exact_types,
+                &folded_types,
+                &simple_exact,
+                &simple_folded,
+                &namespace_exact,
+                &namespace_folded,
+            ) {
+                if &target != file_id {
+                    push_depends(connections, &mut seen, file_id, &target);
+                }
+            }
+        }
+        for symbol in &file.symbols {
+            let source_id = if symbol.kind == DotnetSymbolKind::Method {
+                method_ids
+                    .iter()
+                    .find(|(id, method)| {
+                        let _ = id;
+                        method.name == symbol.name
+                            && method.line == symbol.line
+                            && method.source == relative_path(root_path, &file.path)
+                    })
+                    .map(|(id, _)| id.clone())
+            } else {
+                let key = format!(
+                    "{}|{}",
+                    file.project_path
+                        .as_ref()
+                        .map(|path| relative_path(root_path, path))
+                        .unwrap_or_default(),
+                    fold_key(&symbol.qualified, &file.language)
+                );
+                type_by_key.get(&key).map(|record| record.id.clone())
+            };
+            let Some(source_id) = source_id else { continue };
+            let mut names = symbol.bases.clone();
+            names.extend(symbol.member_types.clone());
+            for name in names {
+                if let Some(target) = resolve_dotnet_name(
+                    &name,
+                    fold,
+                    &symbol.namespace,
+                    &imports,
+                    &aliases,
+                    &exact_types,
+                    &folded_types,
+                    &simple_exact,
+                    &simple_folded,
+                    &namespace_exact,
+                    &namespace_folded,
+                ) {
+                    if target != source_id {
+                        push_depends(connections, &mut seen, &source_id, &target);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn package_name_for(dotnet: &DotnetWorkspace, file: &DotnetFile) -> String {
+    file.project_path
+        .as_ref()
+        .and_then(|path| {
+            dotnet
+                .projects
+                .iter()
+                .find(|project| dotnet_paths_match(&project.path, path))
+                .map(|project| project.name.clone())
+        })
+        .unwrap_or_else(|| "dotnet".to_owned())
+}
+
+fn dotnet_imports_for<'a>(
+    dotnet: &'a DotnetWorkspace,
+    file: &'a DotnetFile,
+) -> Vec<&'a DotnetImport> {
+    let mut imports: Vec<&DotnetImport> = file.imports.iter().collect();
+    for other in &dotnet.files {
+        if !same_project(file, other) {
+            continue;
+        }
+        for import in &other.imports {
+            if import.global
+                && !file
+                    .imports
+                    .iter()
+                    .any(|item| item.statement == import.statement)
+            {
+                imports.push(import);
+            }
+        }
+    }
+    imports
+}
+
+fn same_project(left: &DotnetFile, right: &DotnetFile) -> bool {
+    match (&left.project_path, &right.project_path) {
+        (Some(left), Some(right)) => dotnet_paths_match(left, right),
+        _ => false,
+    }
+}
+
+fn ensure_dotnet_namespace(
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+    namespace_ids: &mut HashMap<(String, String), String>,
+    project_key: &str,
+    namespace: &str,
+    parent: &str,
+    language: &str,
+    source: &str,
+    fingerprint: &str,
+) -> String {
+    let key = (project_key.to_owned(), namespace.to_owned());
+    if let Some(id) = namespace_ids.get(&key) {
+        return id.clone();
+    }
+    let id = dotnet_block_id("namespace", &[project_key, namespace]);
+    let label = namespace.rsplit('.').next().unwrap_or(namespace);
+    push_dotnet_module(
+        blocks,
+        connections,
+        &id,
+        label,
+        parent,
+        namespace,
+        namespace,
+        source,
+        vec!["namespace".to_owned()],
+        false,
+        language,
+        source,
+        fingerprint,
+    );
+    namespace_ids.insert(key, id.clone());
+    id
+}
+
+fn fold_key(qualified: &str, language: &str) -> String {
+    if language == "vb" {
+        qualified.to_ascii_lowercase()
+    } else {
+        qualified.to_owned()
+    }
+}
+
+fn dotnet_block_id(kind: &str, parts: &[&str]) -> String {
+    let mut id = format!("module:dotnet:{kind}");
+    for part in parts {
+        id.push(':');
+        let slugged = slug(part);
+        if slugged.is_empty() {
+            id.push_str("global");
+        } else {
+            id.push_str(&slugged);
+        }
+    }
+    id
+}
+
+fn push_dotnet_module(
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+    id: &str,
+    label: &str,
+    parent: &str,
+    package_name: &str,
+    module_path: &str,
+    declared_by: &str,
+    cfg_attributes: Vec<String>,
+    unresolved: bool,
+    language: &str,
+    source: &str,
+    fingerprint: &str,
+) {
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.to_owned(),
+            label: label.to_owned(),
+            parent_id: Some(parent.to_owned()),
+            children: Vec::new(),
+            source_path: Some(source.to_owned()),
+            fingerprint: fingerprint.to_owned(),
+        },
+        package_name: package_name.to_owned(),
+        module_path: module_path.to_owned(),
+        declared_by_path: declared_by.to_owned(),
+        cfg_attributes,
+        unresolved,
+        language: language.to_owned(),
+    }));
+    connections.push(contains_connection(parent, id));
+}
+
+fn push_depends(
+    connections: &mut Vec<Connection>,
+    seen: &mut HashSet<String>,
+    source: &str,
+    target: &str,
+) {
+    let id = connection_id("depends_on", source, target);
+    if seen.insert(id.clone()) {
+        connections.push(Connection::DependsOn {
+            id,
+            source: source.to_owned(),
+            target: target.to_owned(),
+            dependency_scope: DependencyScope::Normal,
+        });
+    }
+}
+
+fn dotnet_paths_match(left: &Path, right: &Path) -> bool {
+    let left = normalize_path(left);
+    let right = normalize_path(right);
+    if left == right {
+        return true;
+    }
+    left.file_name() == right.file_name()
+        && left.parent().and_then(|path| path.file_name())
+            == right.parent().and_then(|path| path.file_name())
+}
+
+fn resolve_dotnet_name(
+    raw: &str,
+    fold: bool,
+    namespace: &str,
+    imports: &[String],
+    aliases: &HashMap<String, String>,
+    exact_types: &HashMap<String, String>,
+    folded_types: &HashMap<String, Vec<String>>,
+    simple_exact: &HashMap<String, Vec<String>>,
+    simple_folded: &HashMap<String, Vec<String>>,
+    namespace_exact: &HashMap<String, String>,
+    namespace_folded: &HashMap<String, String>,
+) -> Option<String> {
+    let mut name = raw
+        .trim()
+        .trim_start_matches("global::")
+        .trim_end_matches('?')
+        .to_owned();
+    if name.is_empty() || is_dotnet_primitive(&name) {
+        return None;
+    }
+    let alias_key = if fold {
+        name.to_ascii_lowercase()
+    } else {
+        name.clone()
+    };
+    if let Some(target) = aliases.get(&alias_key) {
+        name = target.clone();
+    } else if let Some((head, tail)) = name.split_once('.') {
+        let head_key = if fold {
+            head.to_ascii_lowercase()
+        } else {
+            head.to_owned()
+        };
+        if let Some(target) = aliases.get(&head_key) {
+            name = format!("{target}.{tail}");
+        }
+    }
+    if let Some(found) = lookup_qualified(
+        &name,
+        fold,
+        exact_types,
+        folded_types,
+        namespace_exact,
+        namespace_folded,
+    ) {
+        return Some(found);
+    }
+    if !name.contains('.') {
+        let qualified = if namespace.is_empty() {
+            name.clone()
+        } else {
+            format!("{namespace}.{name}")
+        };
+        if let Some(found) = lookup_qualified(
+            &qualified,
+            fold,
+            exact_types,
+            folded_types,
+            namespace_exact,
+            namespace_folded,
+        ) {
+            return Some(found);
+        }
+        for import in imports {
+            let candidate = format!("{import}.{name}");
+            if let Some(found) = lookup_qualified(
+                &candidate,
+                fold,
+                exact_types,
+                folded_types,
+                namespace_exact,
+                namespace_folded,
+            ) {
+                return Some(found);
+            }
+        }
+        let simple = if fold {
+            unique(simple_folded.get(&name.to_ascii_lowercase()))
+        } else {
+            unique(simple_exact.get(&name))
+        };
+        if simple.is_some() {
+            return simple;
+        }
+    }
+    None
+}
+
+fn lookup_qualified(
+    name: &str,
+    fold: bool,
+    exact_types: &HashMap<String, String>,
+    folded_types: &HashMap<String, Vec<String>>,
+    namespace_exact: &HashMap<String, String>,
+    namespace_folded: &HashMap<String, String>,
+) -> Option<String> {
+    if fold {
+        unique(folded_types.get(&name.to_ascii_lowercase()))
+            .or_else(|| namespace_folded.get(&name.to_ascii_lowercase()).cloned())
+    } else {
+        exact_types
+            .get(name)
+            .cloned()
+            .or_else(|| namespace_exact.get(name).cloned())
+    }
+}
+
+fn unique(values: Option<&Vec<String>>) -> Option<String> {
+    let values = values?;
+    if values.len() == 1 {
+        values.first().cloned()
+    } else {
+        None
+    }
+}
+
+fn is_dotnet_primitive(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "void"
+            | "int"
+            | "string"
+            | "bool"
+            | "boolean"
+            | "byte"
+            | "char"
+            | "decimal"
+            | "double"
+            | "float"
+            | "long"
+            | "short"
+            | "object"
+            | "uint"
+            | "ulong"
+            | "ushort"
+            | "nint"
+            | "nuint"
+            | "dynamic"
+            | "var"
+            | "integer"
+            | "single"
+            | "date"
+            | "datetime"
+    )
 }
 
 fn append_go_blocks(

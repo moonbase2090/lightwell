@@ -408,7 +408,7 @@ fn workspace_root(path: &str) -> Result<PathBuf, String> {
     }
     if lightwell_core::project_manifest(&root).is_none() {
         return Err(format!(
-            "No Cargo.toml, go.mod, package.json, tsconfig.json, or jsconfig.json was found in {}. Choose a project folder.",
+            "No Cargo.toml, go.mod, go.work, package.json, tsconfig.json, jsconfig.json, .sln, .csproj, or .vbproj was found in {}. Choose a project folder.",
             root.display()
         ));
     }

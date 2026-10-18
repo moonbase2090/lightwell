@@ -1,7 +1,7 @@
 import type * as Monaco from "monaco-editor-core";
 import type { FactMap } from "../model.js";
 
-export type LanguagePackId = "rust" | "toml" | "web" | "python" | "go";
+export type LanguagePackId = "rust" | "toml" | "web" | "python" | "go" | "dotnet";
 
 export interface WorkspaceExtractArgs {
   readonly repositoryPath: string;
@@ -32,6 +32,11 @@ export type LanguagePackExtractor =
       readonly kind: "go-module";
       readonly moduleId: "extract/go-modules";
       readonly coreSourceModule: "lightwell_core::go_source";
+    }
+  | {
+      readonly kind: "dotnet-module";
+      readonly moduleId: "extract/dotnet-modules";
+      readonly coreSourceModule: "lightwell_core::dotnet_source";
     };
 
 export interface LanguagePackFixtures {

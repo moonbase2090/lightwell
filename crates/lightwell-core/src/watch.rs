@@ -160,12 +160,14 @@ fn event_is_relevant(repository_path: &Path, map: &FactMap, event_path: &Path) -
         if event_path == source_path {
             return true;
         }
-        source_path
-            .extension()
-            .is_some_and(|extension| extension == "rs")
-            && source_path
-                .parent()
-                .is_some_and(|parent| event_path.starts_with(parent))
+        source_path.extension().is_some_and(|extension| {
+            matches!(
+                extension.to_string_lossy().to_ascii_lowercase().as_str(),
+                "rs" | "cs" | "vb" | "csproj" | "vbproj" | "sln"
+            )
+        }) && source_path
+            .parent()
+            .is_some_and(|parent| event_path.starts_with(parent))
     })
 }
 

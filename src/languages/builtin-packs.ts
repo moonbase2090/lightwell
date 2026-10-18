@@ -1,4 +1,5 @@
 import type { LanguagePack } from "./language-pack.js";
+import { DOTNET_LANGUAGE_PACK } from "./packs/dotnet.js";
 import { GO_LANGUAGE_PACK } from "./packs/go.js";
 import { PYTHON_LANGUAGE_PACK } from "./packs/python.js";
 import { RUST_LANGUAGE_PACK } from "./packs/rust.js";
@@ -15,4 +16,5 @@ export const BUILTIN_LANGUAGE_PACKS: readonly LanguagePack[] = [
   WEB_LANGUAGE_PACK,
   PYTHON_LANGUAGE_PACK,
   GO_LANGUAGE_PACK,
+  DOTNET_LANGUAGE_PACK,
 ];

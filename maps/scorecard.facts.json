@@ -50,10 +50,13 @@
         "module:web:testdata-web-site-index",
         "module:web:testdata-web-site-site",
         "module:web:testdata-web-site-site",
-        "module:web:testdata-web-site-bad-index"
+        "module:web:testdata-web-site-bad-index",
+        "module:dotnet:project:testdata-cov-csharp-app-csproj",
+        "module:dotnet:project:testdata-csharp-pack-app-csproj",
+        "module:dotnet:project:testdata-csharp-pack-fail-app-csproj"
       ],
       "sourcePath": "Cargo.toml",
-      "fingerprint": "aae84d41cdc0b11ffe2bac52f9a4a1f3dfbe60b535f36b3dc71bcf832ee2198b",
+      "fingerprint": "6f54e2568abeff1c08e94a5f14c44f8d1e9c85c1edec5f174bf4e235f7b29019",
       "memberCount": 8
     },
     {
@@ -1875,6 +1878,246 @@
       "cfgAttributes": [],
       "unresolved": false,
       "language": "html"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:project:testdata-cov-csharp-app-csproj",
+      "label": "App",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:dotnet:file:testdata-cov-csharp-app-cs",
+        "module:dotnet:file:testdata-cov-csharp-apptest-cs"
+      ],
+      "sourcePath": "testdata/cov_csharp/App.csproj",
+      "fingerprint": "a037a81fb4eb84df73355897047183aad8b1773196bb0296f764c941622c6a54",
+      "packageName": "App",
+      "modulePath": "App",
+      "declaredByPath": "testdata/cov_csharp/App.csproj",
+      "cfgAttributes": [
+        "project"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:project:testdata-csharp-pack-app-csproj",
+      "label": "App",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:dotnet:file:testdata-csharp-pack-program-cs"
+      ],
+      "sourcePath": "testdata/csharp_pack/App.csproj",
+      "fingerprint": "c05b140e932e6cf00cb56b9242cf5f39f650cceb5e9d79ddd15d6d2d0729b64e",
+      "packageName": "App",
+      "modulePath": "App",
+      "declaredByPath": "testdata/csharp_pack/App.csproj",
+      "cfgAttributes": [
+        "project"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:project:testdata-csharp-pack-fail-app-csproj",
+      "label": "App",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:dotnet:file:testdata-csharp-pack-fail-program-cs"
+      ],
+      "sourcePath": "testdata/csharp_pack_fail/App.csproj",
+      "fingerprint": "c05b140e932e6cf00cb56b9242cf5f39f650cceb5e9d79ddd15d6d2d0729b64e",
+      "packageName": "App",
+      "modulePath": "App",
+      "declaredByPath": "testdata/csharp_pack_fail/App.csproj",
+      "cfgAttributes": [
+        "project"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:file:testdata-cov-csharp-app-cs",
+      "label": "App.cs",
+      "parentId": "module:dotnet:project:testdata-cov-csharp-app-csproj",
+      "children": [
+        "module:dotnet:type:testdata-cov-csharp-app-csproj:app"
+      ],
+      "sourcePath": "testdata/cov_csharp/App.cs",
+      "fingerprint": "cd99a0cb56aa011e0545eb6cf9bb737b7a78a30435268372205555c87a9af336",
+      "packageName": "App",
+      "modulePath": "testdata/cov_csharp/App.cs",
+      "declaredByPath": "testdata/cov_csharp/App.cs",
+      "cfgAttributes": [
+        "file"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:file:testdata-cov-csharp-apptest-cs",
+      "label": "AppTest.cs",
+      "parentId": "module:dotnet:project:testdata-cov-csharp-app-csproj",
+      "children": [
+        "module:dotnet:type:testdata-cov-csharp-app-csproj:apptest"
+      ],
+      "sourcePath": "testdata/cov_csharp/AppTest.cs",
+      "fingerprint": "59c3959529874d913cf0485f395c6d56f85aaf659c5f5c17ac96de19dd4d772f",
+      "packageName": "App",
+      "modulePath": "testdata/cov_csharp/AppTest.cs",
+      "declaredByPath": "testdata/cov_csharp/AppTest.cs",
+      "cfgAttributes": [
+        "using Xunit"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:file:testdata-csharp-pack-program-cs",
+      "label": "Program.cs",
+      "parentId": "module:dotnet:project:testdata-csharp-pack-app-csproj",
+      "children": [
+        "module:dotnet:type:testdata-csharp-pack-app-csproj:program"
+      ],
+      "sourcePath": "testdata/csharp_pack/Program.cs",
+      "fingerprint": "76bd54d53f4dea0aead39f0ff80708b81bfc625fd515df0542c78f2a1488977a",
+      "packageName": "App",
+      "modulePath": "testdata/csharp_pack/Program.cs",
+      "declaredByPath": "testdata/csharp_pack/Program.cs",
+      "cfgAttributes": [
+        "file"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:file:testdata-csharp-pack-fail-program-cs",
+      "label": "Program.cs",
+      "parentId": "module:dotnet:project:testdata-csharp-pack-fail-app-csproj",
+      "children": [
+        "module:dotnet:type:testdata-csharp-pack-fail-app-csproj:program"
+      ],
+      "sourcePath": "testdata/csharp_pack_fail/Program.cs",
+      "fingerprint": "b0953de566911bfb9c6917095b2b10e4770f4a16983e9ee7c6088431a7479101",
+      "packageName": "App",
+      "modulePath": "testdata/csharp_pack_fail/Program.cs",
+      "declaredByPath": "testdata/csharp_pack_fail/Program.cs",
+      "cfgAttributes": [
+        "file"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:type:testdata-cov-csharp-app-csproj:app",
+      "label": "App",
+      "parentId": "module:dotnet:file:testdata-cov-csharp-app-cs",
+      "children": [
+        "module:dotnet:method:app:choose:2"
+      ],
+      "sourcePath": "testdata/cov_csharp/App.cs",
+      "fingerprint": "cd99a0cb56aa011e0545eb6cf9bb737b7a78a30435268372205555c87a9af336",
+      "packageName": "App",
+      "modulePath": "App",
+      "declaredByPath": "testdata/cov_csharp/App.cs",
+      "cfgAttributes": [
+        "class"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:type:testdata-cov-csharp-app-csproj:apptest",
+      "label": "AppTest",
+      "parentId": "module:dotnet:file:testdata-cov-csharp-apptest-cs",
+      "children": [
+        "module:dotnet:method:apptest:positive:5"
+      ],
+      "sourcePath": "testdata/cov_csharp/AppTest.cs",
+      "fingerprint": "59c3959529874d913cf0485f395c6d56f85aaf659c5f5c17ac96de19dd4d772f",
+      "packageName": "App",
+      "modulePath": "AppTest",
+      "declaredByPath": "testdata/cov_csharp/AppTest.cs",
+      "cfgAttributes": [
+        "class"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:type:testdata-csharp-pack-app-csproj:program",
+      "label": "Program",
+      "parentId": "module:dotnet:file:testdata-csharp-pack-program-cs",
+      "children": [],
+      "sourcePath": "testdata/csharp_pack/Program.cs",
+      "fingerprint": "76bd54d53f4dea0aead39f0ff80708b81bfc625fd515df0542c78f2a1488977a",
+      "packageName": "App",
+      "modulePath": "Program",
+      "declaredByPath": "testdata/csharp_pack/Program.cs",
+      "cfgAttributes": [
+        "class"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:type:testdata-csharp-pack-fail-app-csproj:program",
+      "label": "Program",
+      "parentId": "module:dotnet:file:testdata-csharp-pack-fail-program-cs",
+      "children": [],
+      "sourcePath": "testdata/csharp_pack_fail/Program.cs",
+      "fingerprint": "b0953de566911bfb9c6917095b2b10e4770f4a16983e9ee7c6088431a7479101",
+      "packageName": "App",
+      "modulePath": "Program",
+      "declaredByPath": "testdata/csharp_pack_fail/Program.cs",
+      "cfgAttributes": [
+        "class"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:method:app:choose:2",
+      "label": "choose",
+      "parentId": "module:dotnet:type:testdata-cov-csharp-app-csproj:app",
+      "children": [],
+      "sourcePath": "testdata/cov_csharp/App.cs",
+      "fingerprint": "cd99a0cb56aa011e0545eb6cf9bb737b7a78a30435268372205555c87a9af336",
+      "packageName": "App",
+      "modulePath": "App.choose",
+      "declaredByPath": "testdata/cov_csharp/App.cs",
+      "cfgAttributes": [
+        "method"
+      ],
+      "unresolved": false,
+      "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:dotnet:method:apptest:positive:5",
+      "label": "positive",
+      "parentId": "module:dotnet:type:testdata-cov-csharp-app-csproj:apptest",
+      "children": [],
+      "sourcePath": "testdata/cov_csharp/AppTest.cs",
+      "fingerprint": "59c3959529874d913cf0485f395c6d56f85aaf659c5f5c17ac96de19dd4d772f",
+      "packageName": "App",
+      "modulePath": "AppTest.positive",
+      "declaredByPath": "testdata/cov_csharp/AppTest.cs",
+      "cfgAttributes": [
+        "method"
+      ],
+      "unresolved": false,
+      "language": "csharp"
     }
   ],
   "connections": [
@@ -2563,6 +2806,84 @@
       "target": "module:web:testdata-web-site-bad-index"
     },
     {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:dotnet:project:testdata-cov-csharp-app-csproj",
+      "source": "workspace:scorecard",
+      "target": "module:dotnet:project:testdata-cov-csharp-app-csproj"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:dotnet:project:testdata-csharp-pack-app-csproj",
+      "source": "workspace:scorecard",
+      "target": "module:dotnet:project:testdata-csharp-pack-app-csproj"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:dotnet:project:testdata-csharp-pack-fail-app-csproj",
+      "source": "workspace:scorecard",
+      "target": "module:dotnet:project:testdata-csharp-pack-fail-app-csproj"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:project:testdata-cov-csharp-app-csproj->module:dotnet:file:testdata-cov-csharp-app-cs",
+      "source": "module:dotnet:project:testdata-cov-csharp-app-csproj",
+      "target": "module:dotnet:file:testdata-cov-csharp-app-cs"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:project:testdata-cov-csharp-app-csproj->module:dotnet:file:testdata-cov-csharp-apptest-cs",
+      "source": "module:dotnet:project:testdata-cov-csharp-app-csproj",
+      "target": "module:dotnet:file:testdata-cov-csharp-apptest-cs"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:project:testdata-csharp-pack-app-csproj->module:dotnet:file:testdata-csharp-pack-program-cs",
+      "source": "module:dotnet:project:testdata-csharp-pack-app-csproj",
+      "target": "module:dotnet:file:testdata-csharp-pack-program-cs"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:project:testdata-csharp-pack-fail-app-csproj->module:dotnet:file:testdata-csharp-pack-fail-program-cs",
+      "source": "module:dotnet:project:testdata-csharp-pack-fail-app-csproj",
+      "target": "module:dotnet:file:testdata-csharp-pack-fail-program-cs"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:file:testdata-cov-csharp-app-cs->module:dotnet:type:testdata-cov-csharp-app-csproj:app",
+      "source": "module:dotnet:file:testdata-cov-csharp-app-cs",
+      "target": "module:dotnet:type:testdata-cov-csharp-app-csproj:app"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:file:testdata-cov-csharp-apptest-cs->module:dotnet:type:testdata-cov-csharp-app-csproj:apptest",
+      "source": "module:dotnet:file:testdata-cov-csharp-apptest-cs",
+      "target": "module:dotnet:type:testdata-cov-csharp-app-csproj:apptest"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:file:testdata-csharp-pack-program-cs->module:dotnet:type:testdata-csharp-pack-app-csproj:program",
+      "source": "module:dotnet:file:testdata-csharp-pack-program-cs",
+      "target": "module:dotnet:type:testdata-csharp-pack-app-csproj:program"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:file:testdata-csharp-pack-fail-program-cs->module:dotnet:type:testdata-csharp-pack-fail-app-csproj:program",
+      "source": "module:dotnet:file:testdata-csharp-pack-fail-program-cs",
+      "target": "module:dotnet:type:testdata-csharp-pack-fail-app-csproj:program"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:type:testdata-cov-csharp-app-csproj:app->module:dotnet:method:app:choose:2",
+      "source": "module:dotnet:type:testdata-cov-csharp-app-csproj:app",
+      "target": "module:dotnet:method:app:choose:2"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:dotnet:type:testdata-cov-csharp-app-csproj:apptest->module:dotnet:method:apptest:positive:5",
+      "source": "module:dotnet:type:testdata-cov-csharp-app-csproj:apptest",
+      "target": "module:dotnet:method:apptest:positive:5"
+    },
+    {
       "kind": "depends_on",
       "id": "depends_on:crate:sc-cli->crate:sc-core",
       "source": "crate:sc-cli",
@@ -2650,11 +2971,11 @@
     }
   ],
   "stats": {
-    "blocks": 115,
-    "connections": 124,
+    "blocks": 128,
+    "connections": 137,
     "crates": 8,
     "apps": 2,
-    "modules": 103,
+    "modules": 116,
     "cargoFeatures": 1
   }
 }

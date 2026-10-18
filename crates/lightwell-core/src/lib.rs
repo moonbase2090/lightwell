@@ -1,4 +1,5 @@
 mod diff;
+mod dotnet_source;
 mod editor;
 mod extract;
 mod facts;
