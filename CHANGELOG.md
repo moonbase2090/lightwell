@@ -10,6 +10,7 @@
 ### Fixed
 
 - Go extraction no longer panics on non-ASCII source before `import` lines; block comments keep newlines so symbol line numbers stay aligned. The TypeScript Go mirror now emits the same qualified-call `depends_on` edges as Rust.
+- A C# namespace whose opening brace is on the next line stays block-scoped, so a later sibling type is not pulled into it. Method overloads keep separate commit-diff spans. C# and VB.NET type names keep non-ASCII characters.
 
 ## 0.1.13 - 2026-10-17
 
