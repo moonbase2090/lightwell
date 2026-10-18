@@ -918,6 +918,7 @@ fn parse_csharp(masked: &str) -> (Vec<DotnetImport>, Vec<DotnetSymbol>) {
     let mut namespaces: Vec<NsFrame> = Vec::new();
     let mut types: Vec<TypeFrame> = Vec::new();
     let mut pending: Option<PendingType> = None;
+    let mut pending_namespace: Option<String> = None;
     let mut depth = 0usize;
     for (line_no, line) in csharp_logical_lines(masked) {
         let start_depth = depth;
@@ -952,12 +953,27 @@ fn parse_csharp(masked: &str) -> (Vec<DotnetImport>, Vec<DotnetSymbol>) {
             }
             symbols.push(waiting.symbol);
         }
-        if trimmed.is_empty() {
+        let mut code_line = line.to_owned();
+        if let Some(full) = pending_namespace.take() {
+            if trimmed.starts_with('{') {
+                namespaces.push(NsFrame {
+                    full,
+                    end_depth: start_depth,
+                });
+                if let Some(brace) = line.find('{') {
+                    code_line = line[brace + 1..].to_owned();
+                }
+            } else {
+                file_namespace = Some(full);
+            }
+        }
+        let code_trimmed = code_line.trim();
+        if code_trimmed.is_empty() {
             depth = brace_depth(&line, depth);
             pop_frames(&mut types, &mut namespaces, depth);
             continue;
         }
-        let code = strip_attributes(trimmed);
+        let code = strip_attributes(code_trimmed);
         let tokens = tokenize(&code);
         let partial = tokens.iter().any(|token| token == "partial");
         let index = skip_modifiers(&tokens);
@@ -972,21 +988,21 @@ fn parse_csharp(masked: &str) -> (Vec<DotnetImport>, Vec<DotnetSymbol>) {
         } else if tokens.get(index).map(String::as_str) == Some("namespace") {
             if let Some(name) = dotted_name(&tokens, index + 1) {
                 let full = join_namespace(&current_ns, &name);
-                if line.contains(';') && !line.contains('{') {
+                if code_line.contains(';') && !code_line.contains('{') {
                     file_namespace = Some(full);
-                } else if line.contains('{') {
+                } else if code_line.contains('{') {
                     namespaces.push(NsFrame {
                         full,
                         end_depth: start_depth,
                     });
                 } else {
-                    file_namespace = Some(full);
+                    pending_namespace = Some(full);
                 }
             }
         } else if let Some(declared) =
             csharp_type(&tokens, index, partial, line_no, &current_ns, types.last())
         {
-            if line.contains('{') {
+            if code_line.contains('{') {
                 types.push(TypeFrame {
                     qualified: declared.qualified.clone(),
                     simple: declared.name.clone(),
@@ -995,7 +1011,7 @@ fn parse_csharp(masked: &str) -> (Vec<DotnetImport>, Vec<DotnetSymbol>) {
                     body_depth: start_depth + 1,
                 });
                 symbols.push(declared);
-            } else if line.contains(';') {
+            } else if code_line.contains(';') {
                 symbols.push(declared);
             } else {
                 pending = Some(PendingType {
@@ -1631,10 +1647,10 @@ fn is_control(token: &str) -> bool {
 fn is_ident(token: &str) -> bool {
     let mut chars = token.chars();
     match chars.next() {
-        Some(first) if first == '_' || first == '@' || first.is_ascii_alphabetic() => {}
+        Some(first) if first == '_' || first == '@' || first.is_alphabetic() => {}
         _ => return false,
     }
-    chars.all(|character| character == '_' || character.is_ascii_alphanumeric())
+    chars.all(|character| character == '_' || character.is_alphanumeric())
 }
 
 fn dotted_name(tokens: &[String], start: usize) -> Option<String> {
@@ -1744,7 +1760,7 @@ fn tokenize(line: &str) -> Vec<String> {
     let mut tokens = Vec::new();
     let mut current = String::new();
     for character in line.chars() {
-        if character.is_ascii_alphanumeric() || character == '_' || character == '@' {
+        if character.is_alphanumeric() || character == '_' || character == '@' {
             current.push(character);
         } else {
             if !current.is_empty() {
@@ -1964,6 +1980,48 @@ class Fake4 {}
         assert!(modules
             .iter()
             .any(|module| module.base.label == "Run" && module.cfg_attributes == ["method"]));
+        assert!(modules
+            .iter()
+            .any(|module| module.base.label == "Café" && module.language == "csharp"));
+        assert!(modules.iter().any(|module| module.base.label == "名前"));
+        assert!(modules
+            .iter()
+            .any(|module| module.base.label == "Café" && module.language == "vb"));
+        let chooses: Vec<_> = modules
+            .iter()
+            .filter(|module| module.base.label == "Choose" && module.cfg_attributes == ["method"])
+            .collect();
+        assert_eq!(chooses.len(), 2, "each overload stays a block");
+        assert_ne!(chooses[0].base.id, chooses[1].base.id);
+    }
+
+    #[test]
+    fn allman_brace_namespace_leaves_the_following_sibling_outside() {
+        let source = include_str!("../fixtures/dotnet-sample/csharp/BraceNamespace.cs");
+        let (_imports, symbols) = parse_csharp_source(source);
+        let inside = symbols
+            .iter()
+            .find(|symbol| symbol.name == "InsideBrace")
+            .expect("InsideBrace");
+        let outside = symbols
+            .iter()
+            .find(|symbol| symbol.name == "OutsideBrace")
+            .expect("OutsideBrace");
+        assert_eq!(inside.namespace, "CSharpApp");
+        assert_eq!(outside.namespace, "");
+        assert_eq!(inside.qualified, "CSharpApp.InsideBrace");
+        assert_eq!(outside.qualified, "OutsideBrace");
+    }
+
+    #[test]
+    fn type_names_keep_non_ascii_characters() {
+        let source = include_str!("../fixtures/dotnet-sample/csharp/Cafe.cs");
+        let (_imports, symbols) = parse_csharp_source(source);
+        assert!(symbols.iter().any(|symbol| symbol.name == "Café"));
+        assert!(symbols.iter().any(|symbol| symbol.name == "名前"));
+        let vb = include_str!("../fixtures/dotnet-sample/vb/Cafe.vb");
+        let (_imports, symbols) = parse_vb_source(vb);
+        assert!(symbols.iter().any(|symbol| symbol.name == "Café"));
     }
 
     fn connection_ends(connection: &crate::facts::Connection, source: &str, target: &str) -> bool {
