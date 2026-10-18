@@ -28,7 +28,7 @@ Download [`Lightwell_0.1.13_x64.msi`](https://github.com/moonbase2090/lightwell/
 
 ### Updates
 
-The signed macOS disk image, the Windows MSI, and the Linux AppImage check for updates. The check is on by default. Settings can turn it off, and **Check now** looks immediately. When an update is available, Lightwell shows the release notes and download links.
+The signed macOS disk image, the Windows MSI, and the Linux AppImage check for updates. The check is on by default. Settings can turn it off, and **Check now** looks immediately. When an update is available, Lightwell shows the release notes and download links. Tagged releases sign updater payloads and publish `latest.json` when the `TAURI_SIGNING_PRIVATE_KEY` repository secret is configured; the release workflow fails if that secret is missing.
 
 The Debian package, the RPM, and the Linux tarball cannot replace themselves. Those installs still check, show the notes, and link to the [latest release](https://github.com/moonbase2090/lightwell/releases/latest).
 

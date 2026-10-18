@@ -5,6 +5,11 @@
 ### Added
 
 - Go language pack: `go.mod` workspaces map packages, `.go` files, import edges, and top-level functions, methods, and types, with Monaco highlighting and commit-diff symbol spans for `.go` files.
+- Tauri updater signing for release builds: a production public key in the app, `latest.json` on tagged releases, and a hard failure when the signing secret is absent in the release workflow.
+
+### Changed
+
+- Release publishing now requires `TAURI_SIGNING_PRIVATE_KEY` in GitHub Actions secrets so `latest.json` is always signed for shipped tags.
 
 ## 0.1.13 - 2026-10-17
 

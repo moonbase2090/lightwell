@@ -595,6 +595,7 @@ jobs:
           node-version: 22
       - name: Sign updater artifacts
         env:
+          LIGHTWELL_RELEASE_REQUIRE_UPDATER_SIGNING: "1"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           RELEASE_VERSION: ${{ needs.validate.outputs.version }}

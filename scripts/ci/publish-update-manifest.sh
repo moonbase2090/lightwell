@@ -9,6 +9,10 @@ version=$3
 tag=$4
 
 if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+  if [ -n "${LIGHTWELL_RELEASE_REQUIRE_UPDATER_SIGNING:-}" ]; then
+    printf 'TAURI_SIGNING_PRIVATE_KEY is not set. Release cannot publish latest.json.\n' >&2
+    exit 1
+  fi
   printf 'TAURI_SIGNING_PRIVATE_KEY is not set. This release will not include latest.json.\n'
   exit 0
 fi
