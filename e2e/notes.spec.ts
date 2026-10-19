@@ -89,11 +89,6 @@ test.describe("project notes (ipc)", () => {
     await page.keyboard.press("Escape");
   });
 
-  test("NOTES-08: source-line menu is covered via EDIT-09", async ({ page }) => {
-    await gotoIpc(page);
-    await expect(page.getByLabel("Project summary")).toBeVisible();
-  });
-
   test("NOTES-11: saving a note reports the on-disk message", async ({ page }) => {
     await gotoIpc(page);
     await page.locator(".react-flow__node").first().click();

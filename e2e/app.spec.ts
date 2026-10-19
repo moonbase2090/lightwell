@@ -11,15 +11,15 @@ test.describe("app shell (web)", () => {
 
   test("APP-03: search input filters blocks", async ({ page }) => {
     const search = page.getByPlaceholder("Search blocks and features…");
-    await search.fill("pmux");
+    await search.fill("main");
     await expect(page.getByLabel("Map search results")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(search).toHaveValue("");
   });
 
   test("APP-04: search results list picks first match on Enter", async ({ page }) => {
-    await page.getByPlaceholder("Search blocks and features…").fill("pmux-mcp");
-    await expect(page.getByLabel("Map search results")).toContainText("pmux-mcp");
+    await page.getByPlaceholder("Search blocks and features…").fill("main");
+    await expect(page.getByLabel("Map search results")).toContainText("main");
     await page.keyboard.press("Enter");
     await expect(page.getByPlaceholder("Search blocks and features…")).toHaveValue("");
   });
@@ -82,14 +82,18 @@ test.describe("app shell (web)", () => {
 test.describe("app shell (ipc)", () => {
   test("APP-02: open workspace button runs open_workspace via dialog stub", async ({ page }) => {
     await gotoIpc(page);
+    // Start on the second workspace so the open action must visibly move
+    // the viewer: it already shows the first entry when the handler is a
+    // no-op, which the old assertion could not tell apart.
+    const select = page.getByRole("combobox", { name: "PROJECT" });
+    await select.selectOption({ label: "Scorecard" });
+    await expect(page.getByLabel("Project summary")).toContainText("Scorecard");
     const btn = page.getByRole("button", { name: /open.*workspace|choose rust workspace/i }).first();
     await expect(btn).toBeVisible();
     await btn.click();
-    // Dialog is stubbed at the IPC layer; the following open_workspace
-    // command resolves to the fixture entry and the viewer stays ready.
-    await expect(page.getByLabel("Project summary")).toBeVisible();
-    // The open_workspace result is the first fixture entry, so the viewer
-    // shows its label; a rejected command would render an error banner.
+    // Dialog is stubbed at the IPC layer; open_workspace resolves to the
+    // first fixture entry, so the viewer switches back to it. A no-op or
+    // rejected command leaves Scorecard showing (or renders an alert).
     await expect(page.getByLabel("Project summary")).toContainText("Prismattyc");
     await expect(page.getByRole("alert")).toHaveCount(0);
   });

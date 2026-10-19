@@ -12,8 +12,8 @@ test.describe("file tree (web)", () => {
   });
 
   test("TREE-01: filter input keeps matching rows", async ({ page }) => {
-    await page.getByPlaceholder("Filter symbols...").fill("pmux");
-    await expect(page.getByRole("tree", { name: "File tree" })).toContainText("pmux");
+    await page.getByPlaceholder("Filter symbols...").fill("main");
+    await expect(page.getByRole("tree", { name: "File tree" })).toContainText("main");
   });
 
   test("TREE-02: tree copy of the view toggle is present", async ({ page }) => {

@@ -19,7 +19,17 @@ test.describe("inspectors (web)", () => {
 
   test("INSP-03: child block rows are listed for a parent", async ({ page }) => {
     await selectFirstNode(page);
-    await expect(page.getByLabel("Project summary")).toBeVisible();
+    // The workspace root starts selected: one row per crate, collapsed
+    // behind a "+ N more blocks" overflow marker.
+    await expect(page.getByText("CHILD BLOCKS")).toBeVisible();
+    await expect(page.getByText(/more blocks/)).toBeVisible();
+    // Selecting a crate lists that crate's own child rows instead: a single
+    // row and no overflow marker. A dead select handler leaves the root's
+    // rows in place, so neither post-action state can hold pre-action.
+    await page.locator(".details-panel .member-row").first().click();
+    await expect(page.getByText("CHILD BLOCKS")).toBeVisible();
+    await expect(page.locator(".details-panel .member-row")).toHaveCount(1);
+    await expect(page.getByText(/more blocks/)).toHaveCount(0);
   });
 
   test("INSP-04: feature details list connected blocks", async ({ page }) => {
@@ -30,10 +40,15 @@ test.describe("inspectors (web)", () => {
 
   test("INSP-05: folder details render in horizontal Files view", async ({ page }) => {
     await page.getByRole("group", { name: "Map view" }).first().getByRole("button", { name: "Files" }).click();
+    // Vertical Files view shows the tree inspector, never folder details.
+    await expect(page.getByText(/items in this folder\./)).toHaveCount(0);
     await page.getByRole("button", { name: /Rotate file tree to horizontal/ }).click();
-    const node = page.locator(".react-flow__node").first();
-    await node.click();
-    await expect(page.getByLabel("Project summary")).toBeVisible();
+    // The Files canvas renders folders as "<name>, FOLDER" buttons.
+    await page.getByRole("button", { name: /, FOLDER/ }).first().click();
+    // The horizontal Files view now renders that folder's details. Without
+    // the rotate and select actions this panel never appears.
+    await expect(page.getByText(/items in this folder\./)).toBeVisible();
+    await expect(page.getByText("CONTENTS")).toBeVisible();
   });
 
   test("INSP-06: tree inspector shows the selected row", async ({ page }) => {

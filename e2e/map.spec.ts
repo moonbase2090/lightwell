@@ -57,25 +57,43 @@ test.describe("map canvas (web)", () => {
   });
 
   test("MAP-14: clicking a feature card selects the group", async ({ page }) => {
-    const card = page.locator(".feature-card, [class*='feature']").filter({ hasText: "FEATURE" }).first();
+    const card = page.locator(".feature-card").first();
+    // No card starts selected; the inspector shows block details.
+    await expect(page.locator(".feature-card.chosen")).toHaveCount(0);
+    await expect(page.getByText("CONNECTED BLOCKS")).toHaveCount(0);
     await card.click();
-    // Inspector switches to the feature-group details.
-    await expect(page.getByText(/FEATURE/).first()).toBeVisible();
+    // The click marks the card chosen and the inspector switches to the
+    // feature-group details. A dead click handler changes neither.
+    await expect(card).toHaveClass(/chosen/);
+    await expect(page.getByText("CONNECTED BLOCKS")).toBeVisible();
   });
 });
 
 test.describe("map canvas (ipc)", () => {
   test("MAP-07: graph node shows label and selects on click", async ({ page }) => {
     await gotoIpc(page);
+    // No source inspector is open before the click selects a node.
+    await expect(page.getByLabel(/Source inspector for/)).toHaveCount(0);
     const node = page.locator(".react-flow__node").first();
     await expect(node).toBeVisible();
     await node.click();
-    await expect(page.getByLabel("Project summary")).toBeVisible();
+    // The click selects the workspace root block and opens its inspector.
+    // A dead click handler opens nothing, so neither state holds pre-action.
+    await expect(page.getByLabel("Source inspector for Prismattyc")).toBeVisible();
+    await expect(page.getByText("READ-ONLY SOURCE")).toBeVisible();
   });
 
-  test("MAP-09: note badge flow is available on nodes", async ({ page }) => {
+  test("MAP-09: note badge appears on the node after adding a note", async ({ page }) => {
     await gotoIpc(page);
-    // No notes exist yet, so no badge; creating one is covered in notes.spec.
-    await expect(page.locator(".react-flow__node").first()).toBeVisible();
+    // No notes exist yet, so no badge is rendered.
+    await expect(page.locator(".node-note-badge")).toHaveCount(0);
+    await page.locator(".react-flow__node").first().click();
+    await page.keyboard.press("n");
+    await page.getByLabel("Project note text").fill("map badge note");
+    await page.keyboard.press("Control+Enter");
+    await page.keyboard.press("Escape");
+    // Saving the note marks the node: its note badge renders. Without the
+    // add-note flow the badge count stays zero.
+    await expect(page.locator(".node-note-badge").first()).toBeVisible();
   });
 });
