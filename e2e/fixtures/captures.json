@@ -1,0 +1,377 @@
+{
+ "workspaces": [
+  {
+   "id": "workspace:prismattyc",
+   "label": "Prismattyc"
+  },
+  {
+   "id": "workspace:scorecard",
+   "label": "Scorecard"
+  }
+ ],
+ "fixturePath": "crates/lightwell-core/fixtures/web-sample",
+ "maps": {
+  "workspace:prismattyc": {
+   "facts": {
+    "schemaVersion": 1,
+    "project": {
+     "id": "workspace:prismattyc",
+     "name": "Prismattyc",
+     "rootPath": "."
+    },
+    "blocks": [
+     {
+      "type": "workspace",
+      "id": "workspace:prismattyc",
+      "label": "Prismattyc",
+      "parentId": null,
+      "children": [
+       "crate:web-sample"
+      ],
+      "sourcePath": "Cargo.toml",
+      "fingerprint": "165dff2311669a1228e232ea8dba3fe5744a66ade7381c6f60258b36daa53326",
+      "memberCount": 1
+     },
+     {
+      "type": "crate",
+      "id": "crate:web-sample",
+      "label": "web-sample",
+      "parentId": "workspace:prismattyc",
+      "children": [
+       "app:web-sample:main"
+      ],
+      "sourcePath": "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+      "fingerprint": "b14a818aba960a5a5ddac3f8e3ac380ee8d75751b3ccbfdd751c5a480684ebb6",
+      "packageName": "web-sample",
+      "version": "0.2.28",
+      "description": null
+     },
+     {
+      "type": "app",
+      "id": "app:web-sample:main",
+      "label": "main",
+      "parentId": "crate:web-sample",
+      "children": [
+       "module:web-sample:main"
+      ],
+      "sourcePath": "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+      "fingerprint": "80f943cd164d6825696005a48851d20ab4e29e73de19cd373d92aac19cfba97d",
+      "packageName": "web-sample",
+      "targetName": "main",
+      "entryPath": "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+      "targetKind": "bin"
+     },
+     {
+      "type": "module",
+      "id": "module:web-sample:main",
+      "label": "main",
+      "parentId": "app:web-sample:main",
+      "children": [],
+      "sourcePath": "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+      "fingerprint": "2dc91aebdc75ea6beb2f183aba88ae2dc45927afe47f9c38db16867fdf1e3eff",
+      "packageName": "web-sample",
+      "modulePath": "main",
+      "declaredByPath": "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+      "cfgAttributes": [],
+      "unresolved": false
+     }
+    ],
+    "connections": [
+     {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->crate:web-sample",
+      "source": "workspace:prismattyc",
+      "target": "crate:web-sample"
+     },
+     {
+      "kind": "contains",
+      "id": "contains:crate:web-sample->app:web-sample:main",
+      "source": "crate:web-sample",
+      "target": "app:web-sample:main"
+     },
+     {
+      "kind": "contains",
+      "id": "contains:app:web-sample:main->module:web-sample:main",
+      "source": "app:web-sample:main",
+      "target": "module:web-sample:main"
+     }
+    ],
+    "groups": [],
+    "stats": {
+     "blocks": 4,
+     "connections": 3,
+     "crates": 1,
+     "apps": 1,
+     "modules": 1,
+     "cargoFeatures": 0
+    }
+   },
+   "annotations": {
+    "schemaVersion": 1,
+    "projectId": "workspace:prismattyc",
+    "blocks": {},
+    "features": [],
+    "groups": []
+   },
+   "projectNotes": {
+    "kind": "ready",
+    "notes": []
+   }
+  },
+  "workspace:scorecard": {
+   "facts": {
+    "schemaVersion": 1,
+    "project": {
+     "id": "workspace:scorecard",
+     "name": "Scorecard",
+     "rootPath": "."
+    },
+    "blocks": [
+     {
+      "type": "workspace",
+      "id": "workspace:scorecard",
+      "label": "Scorecard",
+      "parentId": null,
+      "children": [
+       "crate:typescript-sample"
+      ],
+      "sourcePath": "Cargo.toml",
+      "fingerprint": "6f54e2568abeff1c08e94a5f14c44f8d1e9c85c1edec5f174bf4e235f7b29019",
+      "memberCount": 1
+     },
+     {
+      "type": "crate",
+      "id": "crate:typescript-sample",
+      "label": "typescript-sample",
+      "parentId": "workspace:scorecard",
+      "children": [
+       "app:typescript-sample:lib",
+       "module:typescript-sample:lib"
+      ],
+      "sourcePath": "crates/lightwell-core/fixtures/typescript-sample/lib.ts",
+      "fingerprint": "e9e3752b820c0dad1769e355d53e97e5aa2516d13cdb52a5d592c32bc205263d",
+      "packageName": "typescript-sample",
+      "version": "0.1.6",
+      "description": null
+     },
+     {
+      "type": "app",
+      "id": "app:typescript-sample:lib",
+      "label": "lib",
+      "parentId": "crate:typescript-sample",
+      "children": [],
+      "sourcePath": "crates/lightwell-core/fixtures/typescript-sample/lib.ts",
+      "fingerprint": "60c2be456a4176cab783883c2e59cfce539d7a7cc30643f0bdbe2d2f09e8fe90",
+      "packageName": "typescript-sample",
+      "targetName": "lib",
+      "entryPath": "crates/lightwell-core/fixtures/typescript-sample/lib.ts",
+      "targetKind": "bin"
+     },
+     {
+      "type": "module",
+      "id": "module:typescript-sample:lib",
+      "label": "lib",
+      "parentId": "crate:typescript-sample",
+      "children": [],
+      "sourcePath": "crates/lightwell-core/fixtures/typescript-sample/lib.ts",
+      "fingerprint": "bbc94e1c3608bcbb682731ce6d58a972c2ae3cbc1353193fd7a174e536b34ea2",
+      "packageName": "typescript-sample",
+      "modulePath": "lib",
+      "declaredByPath": "crates/lightwell-core/fixtures/typescript-sample/lib.ts",
+      "cfgAttributes": [],
+      "unresolved": false
+     }
+    ],
+    "connections": [
+     {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->crate:typescript-sample",
+      "source": "workspace:scorecard",
+      "target": "crate:typescript-sample"
+     },
+     {
+      "kind": "contains",
+      "id": "contains:crate:typescript-sample->app:typescript-sample:lib",
+      "source": "crate:typescript-sample",
+      "target": "app:typescript-sample:lib"
+     },
+     {
+      "kind": "contains",
+      "id": "contains:crate:typescript-sample->module:typescript-sample:lib",
+      "source": "crate:typescript-sample",
+      "target": "module:typescript-sample:lib"
+     }
+    ],
+    "groups": [],
+    "stats": {
+     "blocks": 4,
+     "connections": 3,
+     "crates": 1,
+     "apps": 1,
+     "modules": 1,
+     "cargoFeatures": 0
+    }
+   },
+   "annotations": {
+    "schemaVersion": 1,
+    "projectId": "workspace:scorecard",
+    "blocks": {},
+    "features": [],
+    "groups": []
+   },
+   "projectNotes": {
+    "kind": "ready",
+    "notes": []
+   }
+  }
+ },
+ "sources": {
+  "workspace:prismattyc": {
+   "path": "Cargo.toml",
+   "content": "[workspace]\nmembers = [\"crates/lightwell-app\", \"crates/lightwell-core\", \"crates/lightwell-cli\"]\nresolver = \"2\"\n\n[workspace.package]\nversion = \"0.1.15\"\nedition = \"2021\"\nlicense = \"MIT\"\nrepository = \"https://github.com/moonbase2090/lightwell\"\nrust-version = \"1.90\"\n\n[workspace.dependencies]\nfs2 = \"0.4\"\nglob = \"0.3\"\nnotify-debouncer-mini = \"0.7\"\nproc-macro2 = { version = \"1\", features = [\"span-locations\"] }\nquote = \"1\"\nsha2 = \"0.10\"\nserde = { version = \"1\", features = [\"derive\"] }\nserde_json = \"1\"\nshell-words = \"1.1\"\nsyn = { version = \"2\", features = [\"full\"] }\ntauri = \"2\"\ntauri-build = \"2\"\ntauri-plugin-dialog = \"2\"\ntauri-plugin-process = \"2.4.0\"\ntauri-plugin-updater = \"2.14.0\"\ntoml = \"0.8\"\n\n# crates.io has yanked every zip release except 9.0.3 and 9.0.4.\n# tauri-plugin-updater 2.14 still requires zip 4, so resolve that line from the tag.\n[patch.crates-io]\nzip = { git = \"https://github.com/zip-rs/zip2\", tag = \"v4.6.1\" }\n",
+   "line": 1,
+   "column": 1
+  },
+  "crate:web-sample": {
+   "path": "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+   "content": "export const version = 1;\n",
+   "line": 1,
+   "column": 1
+  },
+  "app:web-sample:main": {
+   "path": "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+   "content": "export const version = 1;\n",
+   "line": 1,
+   "column": 1
+  },
+  "module:web-sample:main": {
+   "path": "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+   "content": "export const version = 1;\n",
+   "line": 1,
+   "column": 1
+  },
+  "workspace:scorecard": {
+   "path": "Cargo.toml",
+   "content": "[workspace]\nmembers = [\"crates/lightwell-app\", \"crates/lightwell-core\", \"crates/lightwell-cli\"]\nresolver = \"2\"\n\n[workspace.package]\nversion = \"0.1.15\"\nedition = \"2021\"\nlicense = \"MIT\"\nrepository = \"https://github.com/moonbase2090/lightwell\"\nrust-version = \"1.90\"\n\n[workspace.dependencies]\nfs2 = \"0.4\"\nglob = \"0.3\"\nnotify-debouncer-mini = \"0.7\"\nproc-macro2 = { version = \"1\", features = [\"span-locations\"] }\nquote = \"1\"\nsha2 = \"0.10\"\nserde = { version = \"1\", features = [\"derive\"] }\nserde_json = \"1\"\nshell-words = \"1.1\"\nsyn = { version = \"2\", features = [\"full\"] }\ntauri = \"2\"\ntauri-build = \"2\"\ntauri-plugin-dialog = \"2\"\ntauri-plugin-process = \"2.4.0\"\ntauri-plugin-updater = \"2.14.0\"\ntoml = \"0.8\"\n\n# crates.io has yanked every zip release except 9.0.3 and 9.0.4.\n# tauri-plugin-updater 2.14 still requires zip 4, so resolve that line from the tag.\n[patch.crates-io]\nzip = { git = \"https://github.com/zip-rs/zip2\", tag = \"v4.6.1\" }\n",
+   "line": 1,
+   "column": 1
+  },
+  "crate:typescript-sample": {
+   "path": "crates/lightwell-core/fixtures/typescript-sample/lib.ts",
+   "content": "import { readFile } from \"node:fs/promises\";\n\nexport function loadConfig(path: string): Promise<string> {\n  return readFile(path, \"utf8\");\n}\n\nexport class Widget {\n  readonly id: string;\n  constructor(id: string) {\n    this.id = id;\n  }\n}\n\nexport type Options = { readonly debug: boolean };\n",
+   "line": 1,
+   "column": 1
+  },
+  "app:typescript-sample:lib": {
+   "path": "crates/lightwell-core/fixtures/typescript-sample/lib.ts",
+   "content": "import { readFile } from \"node:fs/promises\";\n\nexport function loadConfig(path: string): Promise<string> {\n  return readFile(path, \"utf8\");\n}\n\nexport class Widget {\n  readonly id: string;\n  constructor(id: string) {\n    this.id = id;\n  }\n}\n\nexport type Options = { readonly debug: boolean };\n",
+   "line": 1,
+   "column": 1
+  },
+  "module:typescript-sample:lib": {
+   "path": "crates/lightwell-core/fixtures/typescript-sample/lib.ts",
+   "content": "import { readFile } from \"node:fs/promises\";\n\nexport function loadConfig(path: string): Promise<string> {\n  return readFile(path, \"utf8\");\n}\n\nexport class Widget {\n  readonly id: string;\n  constructor(id: string) {\n    this.id = id;\n  }\n}\n\nexport type Options = { readonly debug: boolean };\n",
+   "line": 1,
+   "column": 1
+  }
+ },
+ "commits": [
+  {
+   "id": "51c227998171f52dcd2dfc26b76243f284ea30ba",
+   "shortId": "51c2279",
+   "summary": "Add Playwright web/ipc/app-layer suite (stage 2)",
+   "timestamp": 1792446062
+  },
+  {
+   "id": "1d5384d8ad85deeee4d3d76cf063eae6a2e5d3f0",
+   "shortId": "1d5384d",
+   "summary": "Merge pull request #153 from moonbase2090/docs/feature-map",
+   "timestamp": 1792426591
+  },
+  {
+   "id": "c15258c59970a51a5064d6bea8bd748125115024",
+   "shortId": "c15258c",
+   "summary": "Name the coverage layers web, ipc, and app.",
+   "timestamp": 1792423991
+  },
+  {
+   "id": "848accf4ef68d2fa85e8060cc92d51a53503aba3",
+   "shortId": "848accf",
+   "summary": "Cover the desktop app in the feature map.",
+   "timestamp": 1792423913
+  },
+  {
+   "id": "22c87771f9fecc694f399b3a0ef9fbf78c2d77cd",
+   "shortId": "22c8777",
+   "summary": "Add the viewer feature map.",
+   "timestamp": 1792423769
+  },
+  {
+   "id": "3db5c5c0b5cc7682973da278c2895e66c696c54d",
+   "shortId": "3db5c5c",
+   "summary": "Merge pull request #151 from moonbase2090/release/0.1.15",
+   "timestamp": 1792416591
+  },
+  {
+   "id": "a5788bf72762cac11b02abf0677218dd31da5094",
+   "shortId": "a5788bf",
+   "summary": "Release 0.1.15.",
+   "timestamp": 1792349841
+  },
+  {
+   "id": "22a5c8cc736839cf36942971aa220fa177fa29ab",
+   "shortId": "22a5c8c",
+   "summary": "Merge pull request #147 from moonbase2090/feat/commit-diff-discoverability",
+   "timestamp": 1792331068
+  }
+ ],
+ "changes": {
+  "commit": {
+   "id": "51c227998171f52dcd2dfc26b76243f284ea30ba",
+   "shortId": "51c2279",
+   "summary": "Add Playwright web/ipc/app-layer suite (stage 2)",
+   "timestamp": 1792446062
+  },
+  "baseCommit": null,
+  "files": [
+   {
+    "path": "README.md",
+    "oldPath": null,
+    "added": 3,
+    "removed": 1,
+    "binary": false
+   }
+  ],
+  "blocks": [
+   {
+    "blockId": "app:web-sample:main",
+    "added": 3,
+    "removed": 1
+   }
+  ],
+  "connections": []
+ },
+ "diff": {
+  "commit": {
+   "id": "51c227998171f52dcd2dfc26b76243f284ea30ba",
+   "shortId": "51c2279",
+   "summary": "Add Playwright web/ipc/app-layer suite (stage 2)",
+   "timestamp": 1792446062
+  },
+  "path": "README.md",
+  "originalPath": null,
+  "original": "# Lightwell\n\nOld line.\n",
+  "modified": "# Lightwell\n\nNew line.\n",
+  "line": 1
+ },
+ "presets": [
+  {
+   "name": "Visual Studio Code",
+   "template": "code -g {file}:{line}:{column}"
+  },
+  {
+   "name": "Zed",
+   "template": "zed {file}:{line}:{column}"
+  }
+ ]
+}

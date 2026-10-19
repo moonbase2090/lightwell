@@ -225,4 +225,109 @@ The `app` layer is part of the stage-2 plan, not an extra beyond it. As a propos
 
 ## Coverage
 
-Stage 2 will add a table here mapping each Playwright test title to the feature IDs it covers. No tests exist yet, so this section stays empty on purpose.
+Playwright test titles mapped to the feature IDs they prove. APP-10 is not covered: the fixture source never fails on its two maps, so the error card cannot be reached in the web build (see the row text).
+
+| ID | Covering test | Layer |
+| --- | --- | --- |
+| APP-01 | APP-01: project selector switches the viewer | web |
+| APP-02 | APP-02: open workspace button runs open_workspace via dialog stub; app layer not yet covered (stage 2b, tauri-driver) | ipc, app |
+| APP-03 | APP-03: search input filters blocks | web |
+| APP-04 | APP-04: search results list picks first match on Enter | web |
+| APP-05 | APP-05: Cmd/Ctrl+K focuses search | web |
+| APP-06 | APP-06: settings button opens Settings dialog | web |
+| APP-07 | APP-07: LOCAL MAP indicator and status bar are visible | web |
+| APP-08 | APP-08: project summary row shows totals | web |
+| APP-09 | APP-09: map becomes ready after loading | web |
+| APP-10 | NOT COVERED — see note | web |
+| APP-11 | APP-11: workspace list is offered by the mocked source | ipc |
+| APP-12 | APP-12: no workspace error banner after a clean mocked load | ipc |
+| APP-13 | APP-13: default theme is blueprint on the shell | web |
+| APP-14 | APP-14: mocked watch keeps the map ready | ipc |
+| MAP-01 | MAP-01: Modules / Files toggle switches the view; app layer not yet covered (stage 2b, tauri-driver) | ipc, app |
+| MAP-02 | MAP-02: depth control changes the depth value | web |
+| MAP-03 | MAP-03: direct children count is displayed | web |
+| MAP-04 | MAP-04: breadcrumbs show the workspace root | web |
+| MAP-05 | MAP-05: rotate tree button appears in Files view | web |
+| MAP-06 | MAP-06: connection legend shows contains / depends on | web |
+| MAP-07 | MAP-07: graph node shows label and selects on click; app layer not yet covered (stage 2b, tauri-driver) | ipc, app |
+| MAP-08 | MAP-08: hovering a node keeps the canvas visible | web |
+| MAP-09 | MAP-09: note badge flow is available on nodes | web |
+| MAP-10 | MAP-10: canvas controls are present | web |
+| MAP-11 | MAP-11: graph finishes preparing | web |
+| MAP-12 | MAP-12: feature group tabs are listed | web |
+| MAP-13 | MAP-13: feature cards show FEATURE entries | web |
+| MAP-14 | MAP-14: clicking a feature card selects the group | web |
+| TREE-01 | TREE-01: filter input keeps matching rows | web |
+| TREE-02 | TREE-02: tree copy of the view toggle is present | web |
+| TREE-03 | TREE-03: Expand all shows nested rows | web |
+| TREE-04 | TREE-04: Collapse leaves only the root row | web |
+| TREE-05 | TREE-05: zoom buttons step and reset the scale | web |
+| TREE-06 | TREE-06: Ctrl+= zooms in and Ctrl+0 resets | web |
+| TREE-07 | TREE-07: depth control (tree copy) changes value | web |
+| TREE-08 | TREE-08: row count reads N of M nodes | web |
+| TREE-09 | TREE-09: clicking a row selects it | web |
+| TREE-10 | TREE-10: chevron toggles a folder without selecting | web |
+| TREE-11 | TREE-11: empty filter state | web |
+| TREE-12 | TREE-12: rows show kind badges | web |
+| TREE-13 | TREE-13: tree renders under the mocked source | ipc |
+| INSP-01 | INSP-01: block details show kind and label | web |
+| INSP-02 | INSP-02: block stats grid is shown | web |
+| INSP-03 | INSP-03: child block rows are listed for a parent | web |
+| INSP-04 | INSP-04: feature details list connected blocks | web |
+| INSP-05 | INSP-05: folder details render in horizontal Files view | web |
+| INSP-06 | INSP-06: tree inspector shows the selected row | web |
+| INSP-07 | INSP-07: no saved-note card before any note exists | web |
+| INSP-08 | INSP-08: Add note button is offered for a block | web |
+| EDIT-01 | EDIT-01: Open source opens the inspector; app layer not yet covered (stage 2b, tauri-driver) | ipc, app |
+| EDIT-02 | EDIT-02: inspector header closes the inspector | ipc |
+| EDIT-03 | EDIT-03: loading state resolves to code | ipc |
+| EDIT-04 | EDIT-04: no source error on a captured block | ipc |
+| EDIT-05 | EDIT-05: code view is read-only | ipc |
+| EDIT-06 | EDIT-06: position footer reads LINE / COLUMN | ipc |
+| EDIT-07 | EDIT-07: Open in editor button is enabled after load | ipc |
+| EDIT-08 | EDIT-08: editor launch succeeds with the mock | ipc |
+| EDIT-09 | EDIT-09: word wrap item is in the source-line menu | ipc |
+| EDIT-10 | EDIT-10: Alt+Z toggles word wrap in the editor | ipc |
+| DIFF-01 | DIFF-01: Through commit selector lists commits | ipc |
+| DIFF-02 | DIFF-02: Since selector appears after a Through pick | ipc |
+| DIFF-03 | DIFF-03: Reading commit state resolves | ipc |
+| DIFF-04 | DIFF-04: no commit error on captured history | ipc |
+| DIFF-05 | DIFF-05: diff summary banner names the commit | ipc |
+| DIFF-06 | DIFF-06: Only changed toggle toggles | ipc |
+| DIFF-07 | DIFF-07: Prev / Next navigation is present | ipc |
+| DIFF-08 | DIFF-08: bracket keys navigate changes | ipc |
+| DIFF-09 | DIFF-09: change list expands | ipc |
+| DIFF-10 | DIFF-10: block diff view opens for a changed block | ipc |
+| DIFF-11 | DIFF-11: outside-map file entry is listed | ipc |
+| NOTES-01 | NOTES-01: Notes toolbar button opens the dialog | web |
+| NOTES-02 | NOTES-02: Add note button opens the dialog for the block | web |
+| NOTES-03 | NOTES-03: pressing N opens the notes dialog | web |
+| NOTES-04 | NOTES-04: right-click opens the block context menu | web |
+| NOTES-05 | NOTES-05: Delete note item appears after adding via menu | ipc |
+| NOTES-06 | NOTES-06: Open source item appears in the ipc context menu | ipc |
+| NOTES-07 | NOTES-07: Copy path item is in the context menu | web |
+| NOTES-08 | NOTES-08: source-line menu is covered via EDIT-09 | ipc |
+| NOTES-09 | NOTES-09: dialog is titled Project notes with count | web |
+| NOTES-10 | NOTES-10: note list is present in the dialog | web |
+| NOTES-11 | NOTES-11: saving a note reports the on-disk message; app layer not yet covered (stage 2b, tauri-driver) | ipc, app |
+| NOTES-12 | NOTES-12: empty state reads No notes yet | web |
+| NOTES-13 | NOTES-13: no note-action error on a clean open | web |
+| NOTES-14 | NOTES-14: Show on map appears for a saved note | web |
+| NOTES-15 | NOTES-15: memory/ipc notes start non-stale | ipc |
+| SET-01 | SET-01: theme selector applies a theme | web |
+| SET-02 | SET-02: UI text size steps and resets | web |
+| SET-03 | SET-03: source code size steps | web |
+| SET-04 | SET-04: tree/map label size steps | web |
+| SET-05 | SET-05: word wrap shortcut recorder shows guidance on bad chord | web |
+| SET-06 | SET-06: automatic update check toggle toggles | web |
+| SET-07 | SET-07: Check now is enabled on desktop source | ipc |
+| SET-08 | SET-08: editor preset selector fills the template | ipc |
+| SET-09 | SET-09: editor command template accepts text | ipc |
+| SET-10 | SET-10: Save editor preference saves | ipc |
+| SET-11 | SET-11: dialog closes on Escape and traps focus | web |
+| SET-12 | SET-12: no update prompt when no update is found | ipc |
+| SPL-01 | SPL-01: map/source splitter handle is present | web |
+| SPL-02 | SPL-02: map/features splitter handle is present | web |
+| SPL-03 | SPL-03: keyboard resize moves the handle 24px | web |
+| SPL-04 | SPL-04: double-click resets the splitter | web |
+| SPL-05 | SPL-05: splitter size persists across reload | web |
