@@ -166,6 +166,30 @@ jobs:
       - name: Check the package binary's GLIBC requirement
         run: scripts/ci/check-deb-glibc.sh target/x86_64-unknown-linux-gnu/release/bundle/deb 2.28
 
+  playwright:
+    name: Playwright UI suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Node
+        run: |
+          case "$(uname -m)" in
+            x86_64) node_arch=x64 ;;
+            aarch64|arm64) node_arch=arm64 ;;
+            *) echo "unsupported architecture" >&2; exit 2 ;;
+          esac
+          node_version=22.23.3
+          archive="node-v${node_version}-linux-${node_arch}.tar.gz"
+          curl -fsSL "https://nodejs.org/dist/v${node_version}/${archive}" -o "$RUNNER_TEMP/${archive}"
+          tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/node-v${node_version}-linux-${node_arch}/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
   scorecard:
     runs-on: ubuntu-latest
     steps:

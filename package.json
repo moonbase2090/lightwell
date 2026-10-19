@@ -16,7 +16,8 @@
     "check:licenses": "node scripts/check-dependency-licenses.mjs",
     "tauri:dev": "tauri dev --config crates/lightwell-app/tauri.conf.json",
     "tauri:build": "tauri build --config crates/lightwell-app/tauri.conf.json",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.1",
@@ -31,6 +32,7 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.0",
     "@tauri-apps/cli": "^2.12.1",
     "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
