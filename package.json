@@ -16,7 +16,7 @@
     "check:licenses": "node scripts/check-dependency-licenses.mjs",
     "tauri:dev": "tauri dev --config crates/lightwell-app/tauri.conf.json",
     "tauri:build": "tauri build --config crates/lightwell-app/tauri.conf.json",
-    "preview": "vite preview --host 127.0.0.1",
+    "preview": "vite preview --host localhost",
     "test:e2e": "playwright test"
   },
   "dependencies": {
