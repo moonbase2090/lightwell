@@ -56,3 +56,32 @@ test("cargo extraction includes web modules by default", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("extraction opens a JavaScript-only project without Cargo.toml", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "lightwell-js-only-extract-"));
+  try {
+    mkdirSync(path.join(root, "src"));
+    writeFileSync(path.join(root, "package.json"), "{\n  \"name\": \"js-only\",\n  \"type\": \"module\"\n}\n");
+    writeFileSync(path.join(root, "src/app.mjs"), "export function greet() {\n  return \"hello\";\n}\n");
+    writeFileSync(path.join(root, "src/util.cjs"), "exports.answer = 42;\n");
+    writeFileSync(path.join(root, "src/types.mts"), "export const answer: number = 42;\n");
+    const map = extractCargoMap({ repositoryPath: root, projectName: "JS Only" });
+    assert.ok(map.blocks.some((block) => block.type === "workspace" && block.sourcePath === "package.json"));
+    assert.equal(map.stats.crates, 0);
+    for (const extension of [".mjs", ".cjs", ".mts"]) {
+      assert.ok(
+        map.blocks.some((block) => block.sourcePath?.endsWith(extension)),
+        `map should contain a ${extension} block`,
+      );
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+
+  const empty = mkdtempSync(path.join(os.tmpdir(), "lightwell-empty-extract-"));
+  try {
+    assert.throws(() => extractCargoMap({ repositoryPath: empty }), /No Cargo\.toml found/);
+  } finally {
+    rmSync(empty, { recursive: true, force: true });
+  }
+});

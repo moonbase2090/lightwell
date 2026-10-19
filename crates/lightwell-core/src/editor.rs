@@ -1,7 +1,7 @@
-use crate::extract::{block_base, map_workspace};
+use crate::extract::{block_base, discover_project_workspace, map_workspace};
 use crate::facts::{FactBlock, FactMap, ModuleBlock};
 use crate::metadata::{without_console_window, CargoTarget, CargoWorkspace, RustModule};
-use crate::{discover_cargo_workspace, MapExtractionError};
+use crate::MapExtractionError;
 use serde::{Deserialize, Serialize};
 use shell_words::split;
 use std::env;
@@ -114,7 +114,7 @@ pub fn resolve_block_target(
     repository_path: impl AsRef<Path>,
     block_id: &str,
 ) -> Result<EditorTarget, EditorError> {
-    let workspace = discover_cargo_workspace(repository_path).map_err(MapExtractionError::from)?;
+    let workspace = discover_project_workspace(repository_path)?;
     let root = workspace.root.clone();
     let map = map_workspace(workspace.clone(), None)?;
     resolve_block_target_in_map(&root, &map, block_id, || Ok(workspace))
@@ -689,6 +689,62 @@ mod tests {
         .expect("inline module should resolve from the held map");
         assert_eq!(metadata_runs, 1);
         assert_eq!(cached_inline, inline);
+
+        fs::remove_dir_all(root).expect("fixture folder should be removed");
+    }
+
+    #[test]
+    fn resolver_opens_javascript_blocks_without_cargo_toml() {
+        let root = temporary_directory("editor-javascript-source");
+        fs::create_dir_all(root.join("src")).expect("fixture source folder should be created");
+        fs::write(
+            root.join("package.json"),
+            "{\n  \"name\": \"js-only\",\n  \"type\": \"module\"\n}\n",
+        )
+        .expect("package.json should be written");
+        fs::write(
+            root.join("src/app.mjs"),
+            "export function greet() {\n  return \"hello\";\n}\n",
+        )
+        .expect("app.mjs should be written");
+        fs::write(root.join("src/util.cjs"), "exports.answer = 42;\n")
+            .expect("util.cjs should be written");
+        fs::write(
+            root.join("src/types.mts"),
+            "export const answer: number = 42;\n",
+        )
+        .expect("types.mts should be written");
+
+        let map = extract_cargo_map(&root, None).expect("a Node project should extract");
+        for extension in ["mjs", "cjs", "mts"] {
+            assert!(
+                map.blocks.iter().any(|block| block_base(block)
+                    .source_path
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with(&format!(".{extension}")))),
+                "map should contain a .{extension} block"
+            );
+        }
+        let block_id = map
+            .blocks
+            .iter()
+            .find(|block| {
+                block_base(block)
+                    .source_path
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with(".mjs"))
+            })
+            .map(|block| block_base(block).id.clone())
+            .expect("the .mjs file should have a map block");
+
+        let target = resolve_block_target(&root, &block_id)
+            .expect("a JavaScript block should resolve without a Cargo.toml");
+        assert_eq!(
+            target.path,
+            root.join("src/app.mjs").canonicalize().unwrap()
+        );
+        assert_eq!(target.position.line(), 1);
+        assert_eq!(target.position.column(), 1);
 
         fs::remove_dir_all(root).expect("fixture folder should be removed");
     }

@@ -1,5 +1,5 @@
-use crate::extract::{block_base, map_workspace};
-use crate::{discover_cargo_workspace, FactMap, MapExtractionError};
+use crate::extract::{block_base, discover_project_workspace, map_workspace};
+use crate::{FactMap, MapExtractionError};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -303,12 +303,12 @@ pub fn remove_project_note(
     repository_path: impl AsRef<Path>,
     block_id: &str,
 ) -> Result<bool, NotesError> {
-    let workspace = discover_cargo_workspace(repository_path).map_err(MapExtractionError::from)?;
+    let workspace = discover_project_workspace(repository_path)?;
     ProjectNotesStore::new(&workspace.root).remove(block_id)
 }
 
 fn workspace_map(repository_path: impl AsRef<Path>) -> Result<(PathBuf, FactMap), NotesError> {
-    let workspace = discover_cargo_workspace(repository_path).map_err(MapExtractionError::from)?;
+    let workspace = discover_project_workspace(repository_path)?;
     let root = workspace.root.clone();
     let map = map_workspace(workspace, None)?;
     Ok((root, map))
@@ -390,7 +390,11 @@ impl From<MapExtractionError> for NotesError {
 
 #[cfg(test)]
 mod tests {
-    use super::{update_project_note_text, NotesError, ProjectNotesStore};
+    use super::{
+        list_project_notes, remove_project_note, set_project_note, update_project_note_text,
+        NotesError, ProjectNotesStore,
+    };
+    use crate::extract::{block_base, extract_cargo_map};
     use crate::facts::{BlockBase, CrateBlock, FactBlock, FactGroup, FactMap, MapStats, Project};
     use std::fs;
     use std::path::PathBuf;
@@ -565,5 +569,56 @@ mod tests {
         assert!(updated[0].stale);
         assert_eq!(updated[0].text, "Edited after the crate was removed");
         assert_eq!(updated[0].source_fingerprint, "old-fingerprint");
+    }
+
+    #[test]
+    fn notes_can_be_added_and_removed_for_javascript_blocks_without_cargo_toml() {
+        let project = TempProject::new();
+        let root = &project.0;
+        fs::create_dir_all(root.join("src")).expect("fixture source folder should be created");
+        fs::write(
+            root.join("package.json"),
+            "{\n  \"name\": \"js-only\",\n  \"type\": \"module\"\n}\n",
+        )
+        .expect("package.json should be written");
+        fs::write(
+            root.join("src/app.mjs"),
+            "export function greet() {\n  return \"hello\";\n}\n",
+        )
+        .expect("app.mjs should be written");
+        fs::write(root.join("src/util.cjs"), "exports.answer = 42;\n")
+            .expect("util.cjs should be written");
+        fs::write(
+            root.join("src/types.mts"),
+            "export const answer: number = 42;\n",
+        )
+        .expect("types.mts should be written");
+
+        let map = extract_cargo_map(root, None).expect("a Node project should extract");
+        let block_id = map
+            .blocks
+            .iter()
+            .find(|block| {
+                block_base(block)
+                    .source_path
+                    .as_deref()
+                    .is_some_and(|path| path.ends_with(".mjs"))
+            })
+            .map(|block| block_base(block).id.clone())
+            .expect("the .mjs file should have a map block");
+
+        set_project_note(root, &block_id, "Runs in the browser only")
+            .expect("a note should save without a Cargo.toml");
+        let notes = list_project_notes(root).expect("notes should list without a Cargo.toml");
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].block_id, block_id);
+        assert_eq!(notes[0].text, "Runs in the browser only");
+        assert!(!notes[0].stale);
+
+        assert!(remove_project_note(root, &block_id)
+            .expect("a note should remove without a Cargo.toml"));
+        assert!(list_project_notes(root)
+            .expect("notes should list after removal")
+            .is_empty());
     }
 }
