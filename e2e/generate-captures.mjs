@@ -1,10 +1,17 @@
-// Generates e2e/fixtures/captures.json from REAL data:
-// - maps: the checked-in lightwell-core outputs in maps/*.facts.json /
-//   *.annotations.json (produced by the Rust core), served as
-//   load_workspace_map / watch_workspace responses.
+// Generates e2e/fixtures/captures.json as a MINIMAL sanitized fixture.
+//
+// Sources (per e2e/README.md capture rules, real lightwell-core data only):
+// - maps: a 4-block subset (workspace root + one crate + one app + one
+//   module) of the checked-in lightwell-core outputs in
+//   maps/*.facts.json. Structure, fingerprints, versions, kinds, statuses,
+//   and parentage mirror the real documents; everything else is scrubbed:
+//   free-text descriptions are dropped, and all path / package / target /
+//   module identifiers point at in-repo fixture files instead of the
+//   scanned product trees. Annotation overlays are empty (the app renders
+//   blocks without annotations as "No description is written yet").
 // - commits: real `git log` entries from this repository.
-// - sources: real file bytes for the first sourced blocks; the path/line/
-//   column come from the facts documents (core output).
+// - sources: real bytes of in-repo fixture files, keyed by every retained
+//   block id so inspect_block always resolves.
 // changes/diff/presets are hand-built from the Rust/TS types because the
 // fixture workspaces carry no git history (see e2e/README.md).
 import { execFileSync } from "node:child_process";
@@ -14,14 +21,149 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-const prismFacts = JSON.parse(readFileSync(join(root, "maps/prismattyc.facts.json"), "utf8"));
-const prismAnn = JSON.parse(readFileSync(join(root, "maps/prismattyc.annotations.json"), "utf8"));
-const scoreFacts = JSON.parse(readFileSync(join(root, "maps/scorecard.facts.json"), "utf8"));
-const scoreAnn = JSON.parse(readFileSync(join(root, "maps/scorecard.annotations.json"), "utf8"));
+const read = (rel) => readFileSync(join(root, rel), "utf8");
 
-const EMPTY_NOTES = { kind: "ready", notes: [] };
-const prismDoc = { facts: prismFacts, annotations: prismAnn, projectNotes: EMPTY_NOTES };
-const scoreDoc = { facts: scoreFacts, annotations: scoreAnn, projectNotes: EMPTY_NOTES };
+// Each capture workspace keeps the real workspace root plus one crate, one
+// app, and one module. `sourceRel` is a real in-repo fixture file whose bytes
+// back every retained block; `names` are neutral identifiers derived from
+// that fixture file, never from the scanned product trees.
+const WORKSPACES = [
+  {
+    factsRel: "maps/prismattyc.facts.json",
+    annotationsRel: "maps/prismattyc.annotations.json",
+    sourceRel: "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+    crateId: "crate:web-sample",
+    crateLabel: "web-sample",
+    appId: "app:web-sample:main",
+    appLabel: "main",
+    moduleId: "module:web-sample:main",
+    moduleLabel: "main",
+    moduleParent: "app",
+  },
+  {
+    factsRel: "maps/scorecard.facts.json",
+    annotationsRel: "maps/scorecard.annotations.json",
+    sourceRel: "crates/lightwell-core/fixtures/typescript-sample/lib.ts",
+    crateId: "crate:typescript-sample",
+    crateLabel: "typescript-sample",
+    appId: "app:typescript-sample:lib",
+    appLabel: "lib",
+    moduleId: "module:typescript-sample:lib",
+    moduleLabel: "lib",
+    moduleParent: "crate",
+  },
+];
+
+function firstChildOfType(byId, parent, type) {
+  const child = (parent.children ?? []).map((id) => byId[id]).find((b) => b?.type === type);
+  if (!child) throw new Error(`no ${type} child under ${parent.id}`);
+  return child;
+}
+
+function buildDoc(spec) {
+  const facts = JSON.parse(read(spec.factsRel));
+  const annotations = JSON.parse(read(spec.annotationsRel));
+  const byId = Object.fromEntries(facts.blocks.map((b) => [b.id, b]));
+  const rootBlock = facts.blocks.find((b) => b.type === "workspace");
+  if (!rootBlock) throw new Error(`no workspace block in ${spec.factsRel}`);
+  const crateTemplate = firstChildOfType(byId, rootBlock, "crate");
+  const appTemplate = firstChildOfType(byId, crateTemplate, "app");
+  const moduleTemplate = (appTemplate.children ?? []).map((id) => byId[id]).find((b) => b?.type === "module")
+    ?? firstChildOfType(byId, crateTemplate, "module");
+  const sourceContent = read(spec.sourceRel);
+
+  const root = { ...rootBlock, children: [spec.crateId], memberCount: 1 };
+  const crate = {
+    ...crateTemplate,
+    id: spec.crateId,
+    label: spec.crateLabel,
+    parentId: root.id,
+    children: spec.moduleParent === "crate" ? [spec.appId, spec.moduleId] : [spec.appId],
+    sourcePath: spec.sourceRel,
+    packageName: spec.crateLabel,
+    description: null,
+  };
+  const app = {
+    ...appTemplate,
+    id: spec.appId,
+    label: spec.appLabel,
+    parentId: spec.crateId,
+    children: spec.moduleParent === "app" ? [spec.moduleId] : [],
+    sourcePath: spec.sourceRel,
+    packageName: spec.crateLabel,
+    targetName: spec.appLabel,
+    entryPath: spec.sourceRel,
+  };
+  const module = {
+    ...moduleTemplate,
+    id: spec.moduleId,
+    label: spec.moduleLabel,
+    parentId: spec.moduleParent === "app" ? spec.appId : spec.crateId,
+    children: [],
+    sourcePath: spec.sourceRel,
+    packageName: spec.crateLabel,
+    modulePath: spec.appLabel,
+    declaredByPath: spec.sourceRel,
+  };
+  delete module.language;
+  const blocks = [root, crate, app, module];
+  const kept = new Set(blocks.map((b) => b.id));
+  const remap = new Map([
+    [rootBlock.id, root.id],
+    [crateTemplate.id, crate.id],
+    [appTemplate.id, app.id],
+    [moduleTemplate.id, module.id],
+  ]);
+  // Keep only real edges whose endpoints survive, remapped to the new ids.
+  const connections = (facts.connections ?? [])
+    .filter((c) => remap.has(c.source) && remap.has(c.target))
+    .map((c) => ({ ...c, source: remap.get(c.source), target: remap.get(c.target) }))
+    .map((c) => ({ ...c, id: `${c.kind}:${c.source}->${c.target}` }));
+  const doc = {
+    facts: {
+      schemaVersion: 1,
+      project: { ...facts.project },
+      blocks,
+      connections,
+      groups: [],
+      stats: {
+        blocks: blocks.length,
+        connections: connections.length,
+        crates: 1,
+        apps: 1,
+        modules: 1,
+        cargoFeatures: 0,
+      },
+    },
+    // Sanitized overlay: no block/feature descriptions from the scanned
+    // trees. projectId must match facts.project.id (see resolveMap).
+    annotations: {
+      schemaVersion: 1,
+      projectId: annotations.projectId,
+      blocks: {},
+      features: [],
+      groups: [],
+    },
+    projectNotes: { kind: "ready", notes: [] },
+  };
+  if (doc.facts.project.id !== doc.annotations.projectId) {
+    throw new Error(`project mismatch in ${spec.factsRel}`);
+  }
+  const cargoContent = read("Cargo.toml");
+  const sources = {};
+  for (const block of blocks) {
+    const isRoot = block.id === root.id;
+    sources[block.id] = {
+      path: isRoot ? "Cargo.toml" : spec.sourceRel,
+      content: isRoot ? cargoContent : sourceContent,
+      line: 1,
+      column: 1,
+    };
+  }
+  return { doc, sources, rootId: root.id, appId: app.id };
+}
+
+const built = WORKSPACES.map(buildDoc);
 
 const commits = execFileSync("git", ["log", "--format=%H%x09%h%x09%s%x09%at", "-8"], {
   cwd: root,
@@ -34,80 +176,11 @@ const commits = execFileSync("git", ["log", "--format=%H%x09%h%x09%s%x09%at", "-
     return { id, shortId, summary, timestamp: Number(ts) };
   });
 
-// Real source reads: facts blocks carry `sourcePath`; the Prismattyc and
-// Scorecard source trees are not in this repo, so reads answer with the real
-// bytes of the in-repo fixture files (same command, real file content), and
-// keep the block's real sourcePath as the reported path.
-const sources = {};
-{
-  const pool = [
-    "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
-    "crates/lightwell-core/fixtures/typescript-sample/src/index.ts",
-    "crates/lightwell-core/fixtures/python-sample/sample/__init__.py",
-    "crates/lightwell-core/fixtures/go-sample/main.go",
-    "src/App.tsx",
-  ]
-    .map((rel) => {
-      try {
-        return { rel, content: readFileSync(join(root, rel), "utf8") };
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean);
-  let i = 0;
-  for (const facts of [prismFacts, scoreFacts]) {
-    for (const block of facts.blocks ?? []) {
-      if (block.type === "workspace" || typeof block.sourcePath !== "string") continue;
-      if (sources[block.id]) continue;
-      const pick = pool[i++ % pool.length];
-      sources[block.id] = { path: block.sourcePath, content: pick.content, line: 1, column: 1 };
-      if (Object.keys(sources).length >= 40) break;
-    }
-    if (Object.keys(sources).length >= 40) break;
-  }
-}
-// Workspace roots carry a sourcePath (the workspace Cargo.toml) and the
-// desktop inspect_block serves it, so give them the repo's real Cargo.toml
-// bytes under their real sourcePath.
-for (const facts of [prismFacts, scoreFacts]) {
-  for (const block of facts.blocks ?? []) {
-    if (block.type !== "workspace" || typeof block.sourcePath !== "string") continue;
-    if (sources[block.id]) continue;
-    try {
-      sources[block.id] = { path: block.sourcePath, content: readFileSync(join(root, "Cargo.toml"), "utf8"), line: 1, column: 1 };
-    } catch { /* leave uncovered */ }
-  }
-}
-// Fallback: source real fixture files directly so inspect_block always has
-// coverage even when facts spans use workspace-relative paths.
-const fallbackFiles = [
-  "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
-  "crates/lightwell-core/fixtures/typescript-sample/src/index.ts",
-  "crates/lightwell-core/fixtures/python-sample/sample/__init__.py",
-];
-{
-  const anyBlock = (prismFacts.blocks ?? []).find((b) => b.type !== "workspace") ?? prismFacts.blocks[0];
-  for (const rel of fallbackFiles) {
-    try {
-      const content = readFileSync(join(root, rel), "utf8");
-      sources[`fixture:${rel}`] = { path: rel, content, line: 1, column: 1 };
-    } catch { /* fixture may move; real span-based entries above still apply */ }
-  }
-  if (anyBlock && !sources[anyBlock.id]) {
-    try {
-      const rel = fallbackFiles[0];
-      sources[anyBlock.id] = { path: rel, content: readFileSync(join(root, rel), "utf8"), line: 1, column: 1 };
-    } catch { /* leave empty */ }
-  }
-}
-
-const firstBlock = (prismFacts.blocks ?? []).find((b) => b.type !== "workspace") ?? prismFacts.blocks[0];
 const changes = {
   commit: commits[0],
   baseCommit: null,
   files: [{ path: "README.md", oldPath: null, added: 3, removed: 1, binary: false }],
-  blocks: firstBlock ? [{ blockId: firstBlock.id, added: 3, removed: 1 }] : [],
+  blocks: [{ blockId: built[0].appId, added: 3, removed: 1 }],
   connections: [],
 };
 const diff = {
@@ -119,13 +192,17 @@ const diff = {
   line: 1,
 };
 
+const sources = Object.assign({}, ...built.map((b) => b.sources));
 const captures = {
   workspaces: [
     { id: "workspace:prismattyc", label: "Prismattyc" },
     { id: "workspace:scorecard", label: "Scorecard" },
   ],
   fixturePath: "crates/lightwell-core/fixtures/web-sample",
-  maps: { "workspace:prismattyc": prismDoc, "workspace:scorecard": scoreDoc },
+  maps: {
+    "workspace:prismattyc": built[0].doc,
+    "workspace:scorecard": built[1].doc,
+  },
   sources,
   commits,
   changes,

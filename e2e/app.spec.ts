@@ -67,13 +67,13 @@ test.describe("app shell (web)", () => {
       test.info().project.name === "narrow",
       "https://github.com/moonbase2090/lightwell/issues/155",
     );
-    const theme = await page.evaluate(() =>
-      document.documentElement.getAttribute("data-theme") ?? document.body.getAttribute("data-theme") ?? "",
-    );
-    // New installs default to blueprint (SET-01); localStorage may carry a
-    // value from a previous test in the same context, so accept any of the
-    // three resolved themes but require one to be applied.
-    expect(["blueprint", "dark", "light", ""]).toContain(theme);
+    // A saved preference always wins over the default, so reset storage
+    // first instead of accepting whatever carried over.
+    await page.evaluate(() => window.localStorage.clear());
+    await page.reload();
+    await expect(page.getByLabel("Project summary")).toBeVisible();
+    // The shell carries the resolved theme (see theme.ts resolveTheme).
+    await expect(page.locator(".workspace-shell")).toHaveAttribute("data-theme", "blueprint");
     await page.getByRole("button", { name: /settings/i }).first().click();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
   });
@@ -88,11 +88,19 @@ test.describe("app shell (ipc)", () => {
     // Dialog is stubbed at the IPC layer; the following open_workspace
     // command resolves to the fixture entry and the viewer stays ready.
     await expect(page.getByLabel("Project summary")).toBeVisible();
+    // The open_workspace result is the first fixture entry, so the viewer
+    // shows its label; a rejected command would render an error banner.
+    await expect(page.getByLabel("Project summary")).toContainText("Prismattyc");
+    await expect(page.getByRole("alert")).toHaveCount(0);
   });
 
   test("APP-11: workspace list is offered by the mocked source", async ({ page }) => {
     await gotoIpc(page);
     await expect(page.getByLabel("Project summary")).toBeVisible();
+    // recent_workspaces answers from the captures fixture, so the project
+    // selector offers exactly those workspace entries.
+    const select = page.getByRole("combobox", { name: "PROJECT" });
+    await expect(select.locator("option")).toHaveText(["Prismattyc", "Scorecard"]);
   });
 
   test("APP-12: no workspace error banner after a clean mocked load", async ({ page }) => {

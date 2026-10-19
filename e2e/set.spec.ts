@@ -20,6 +20,10 @@ test.describe("settings (web)", () => {
     const select = page.getByRole("combobox", { name: "THEME" });
     await select.selectOption({ label: "Dark" });
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+    // The Dark preference resolves to the dark theme on the shell and is
+    // persisted for this device (see theme.ts saveThemePreference).
+    await expect(page.locator(".workspace-shell")).toHaveAttribute("data-theme", "dark");
+    expect(await page.evaluate(() => window.localStorage.getItem("lightwell.theme"))).toBe("dark");
   });
 
   test("SET-02: UI text size steps and resets", async ({ page }) => {

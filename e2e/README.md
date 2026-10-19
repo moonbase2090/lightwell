@@ -25,14 +25,18 @@ errors were observed.
 
 ## Captures
 
-Regenerate with `node e2e/generate-captures.mjs`. Sources:
+Regenerate with `node e2e/generate-captures.mjs`. The fixture is a minimal
+sanitized subset — 4 blocks per workspace (root + crate + app + module) —
+never the full scanned trees. Sources:
 
-- **Real captures** — workspace maps are the checked-in lightwell-core
-  outputs (`maps/*.facts.json`, `maps/*.annotations.json`); commits are real
+- **Real captures** — block structure, fingerprints, versions, and
+  parentage come from the checked-in lightwell-core outputs
+  (`maps/*.facts.json`, `maps/*.annotations.json`); commits are real
   `git log` entries from this repo; source reads return the real bytes of
-  in-repo fixture files (`crates/lightwell-core/fixtures/**`, `src/App.tsx`)
-  under each block's real `sourcePath` from the facts documents, because the
-  Prismattyc/Scorecard source trees are not in this repo.
+  in-repo fixture files (`crates/lightwell-core/fixtures/**`,
+  `Cargo.toml`). Free-text descriptions are dropped and every retained
+  path / package / target / module identifier points at an in-repo fixture
+  file, because the Prismattyc/Scorecard source trees are not in this repo.
 - **Hand-built from the Rust/TS types** — `workspace_commit_changes`,
   `workspace_block_diff` / `workspace_path_diff`, and
   `editor_template_presets`: the fixture workspaces carry no git history and
