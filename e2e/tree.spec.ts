@@ -88,4 +88,37 @@ test.describe("file tree (ipc)", () => {
     await openFiles(page);
     await expect(page.getByRole("treeitem").first()).toBeVisible();
   });
+
+  test("TREE-14: selecting a file row opens its source by default", async ({ page }) => {
+    await gotoIpc(page);
+    await openFiles(page);
+    await page.getByRole("button", { name: /expand all/i }).click();
+    const fileRow = page.getByRole("treeitem").filter({ hasText: /\.mjs/ }).first();
+    await fileRow.click();
+    await expect(page.getByLabel(/Source inspector for/)).toBeVisible();
+    await expect(page.getByText("READ-ONLY SOURCE")).toBeVisible();
+  });
+
+  test("SET-13: show-details-first keeps the inspector one click from source", async ({ page }) => {
+    await gotoIpc(page);
+    await page.getByRole("button", { name: /settings/i }).first().click();
+    await page.getByLabel(/selecting a file or symbol/i).selectOption("show-details");
+    await page.keyboard.press("Escape");
+    await openFiles(page);
+    await page.getByRole("button", { name: /expand all/i }).click();
+    const fileRow = page.getByRole("treeitem").filter({ hasText: /\.mjs/ }).first();
+    await fileRow.click();
+    // Details first: the tree inspector shows and no source is open yet.
+    await expect(page.getByRole("button", { name: "Open", exact: true })).toBeVisible();
+    await expect(page.getByLabel(/Source inspector for/)).toHaveCount(0);
+    await page.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(page.getByLabel(/Source inspector for/)).toBeVisible();
+    // The choice survives a reload: selecting again still shows details.
+    await page.reload();
+    await openFiles(page);
+    await page.getByRole("button", { name: /expand all/i }).click();
+    await page.getByRole("treeitem").filter({ hasText: /\.mjs/ }).first().click();
+    await expect(page.getByRole("button", { name: "Open", exact: true })).toBeVisible();
+    await expect(page.getByLabel(/Source inspector for/)).toHaveCount(0);
+  });
 });

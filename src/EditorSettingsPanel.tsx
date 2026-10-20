@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleAlert, LoaderCircle, Settings2, X } from "lucide-react";
 import type { EditorSettings, MapEditorSource } from "./map-source.js";
+import type { TreeSelectAction } from "./tree-select.js";
 import { isThemePreference, type ResolvedTheme, type ThemePreference } from "./theme.js";
 import {
   CODE_SIZE_DEFAULT,
@@ -189,6 +190,8 @@ export default function EditorSettingsPanel({
   onClose,
   textSize,
   onTextSizeChange,
+  treeSelectAction,
+  onTreeSelectActionChange,
 }: {
   readonly editor?: MapEditorSource;
   readonly themePreference: ThemePreference;
@@ -196,6 +199,9 @@ export default function EditorSettingsPanel({
   readonly onThemeChange: (preference: ThemePreference) => void;
   readonly textSize: TextSize;
   readonly onTextSizeChange: (size: TextSize) => void;
+  /** What selecting a file or symbol row in the Files view does (SET-13). */
+  readonly treeSelectAction: TreeSelectAction;
+  readonly onTreeSelectActionChange: (action: TreeSelectAction) => void;
   /** Source view word wrap shortcut, "" when turned off. */
   readonly wordWrapShortcut: string;
   readonly onWordWrapShortcutChange: (shortcut: string) => void;
@@ -336,6 +342,25 @@ export default function EditorSettingsPanel({
             onChange={onWordWrapShortcutChange}
           />
           <p className="settings-help">Toggles word wrap while the source view has focus. Change it if another program already uses {DEFAULT_WORD_WRAP_SHORTCUT}.</p>
+
+          <h3 className="settings-section-title settings-editor-section">File tree</h3>
+          <label className="settings-field-label" htmlFor="lightwell-tree-select-action">SELECTING A FILE OR SYMBOL</label>
+          <select
+            id="lightwell-tree-select-action"
+            className="settings-select"
+            value={treeSelectAction}
+            onChange={(event) => {
+              const action = event.currentTarget.value;
+              if (action === "open-source" || action === "show-details") {
+                onTreeSelectActionChange(action);
+                setSaveStatus((current) => (current.kind === "saving" ? current : { kind: "saved" }));
+              }
+            }}
+          >
+            <option value="open-source">Open its source</option>
+            <option value="show-details">Show its details first</option>
+          </select>
+          <p className="settings-help">Folders always show their details. The choice applies at once and stays saved on this device.</p>
 
           <h3 className="settings-section-title settings-editor-section">Updates</h3>
           <label className="settings-check" htmlFor="lightwell-auto-update">
