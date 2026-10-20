@@ -23,7 +23,9 @@ pub use editor::{
     open_block, open_target, resolve_block_target, resolve_block_target_in_map, EditorError,
     EditorSettings, EditorTarget, EditorTemplatePreset, SourcePosition, EDITOR_TEMPLATE_PRESETS,
 };
-pub use extract::{extract_cargo_map, project_manifest, MapExtractionError};
+pub use extract::{
+    discover_project_workspace, extract_cargo_map, project_manifest, MapExtractionError,
+};
 pub use facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock, MAP_SCHEMA_VERSION,

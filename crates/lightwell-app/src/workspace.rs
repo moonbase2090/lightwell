@@ -1,5 +1,5 @@
 use lightwell_core::{
-    block_diff_for, commit_changes_for, discover_cargo_workspace, extract_cargo_map,
+    block_diff_for, commit_changes_for, discover_project_workspace, extract_cargo_map,
     filter_commits_that_are_ancestors, open_target, path_diff_for, project_notes_for_map,
     recent_commits, remove_project_note, resolve_block_target, resolve_block_target_in_map,
     set_project_note_for_map, update_project_note_text, BlockDiffDocument, CommitChanges,
@@ -95,7 +95,7 @@ impl WorkspaceWatchers {
             .read()
             .map_err(|_| "The workspace map cache is unavailable.".to_owned())?;
         resolve_block_target_in_map(root, &facts, block_id, || {
-            discover_cargo_workspace(root)
+            discover_project_workspace(root)
                 .map_err(|error| EditorError::from(MapExtractionError::from(error)))
         })
         .map_err(|error| error.to_string())
@@ -598,10 +598,10 @@ mod tests {
         read_recent_workspaces, workspace_root, write_editor_settings, write_recent_workspaces,
         WorkspaceEntry,
     };
-    use lightwell_core::{extract_cargo_map, EditorSettings, MapWatcher};
+    use lightwell_core::{extract_cargo_map, EditorSettings, FactBlock, MapWatcher};
     use std::fs;
     use std::path::PathBuf;
-    use std::sync::RwLock;
+    use std::sync::{Arc, RwLock};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temporary_directory(label: &str) -> PathBuf {
@@ -638,6 +638,65 @@ mod tests {
         let opened = workspace_root(root.to_str().expect("temporary path should be UTF-8"))
             .expect("a Node project should open");
         assert_eq!(opened, root.canonicalize().expect("root should resolve"));
+        fs::remove_dir_all(root).expect("temporary folder should be removed");
+    }
+
+    #[test]
+    fn watched_nextjs_module_resolves_without_cargo_toml() {
+        let root = temporary_directory("nextjs-inspect");
+        fs::create_dir_all(root.join("app")).expect("fixture app folder should be created");
+        fs::write(
+            root.join("package.json"),
+            "{\n  \"name\": \"next-repro\"\n}\n",
+        )
+        .expect("package.json should be written");
+        fs::write(
+            root.join("tsconfig.json"),
+            "{\n  \"compilerOptions\": {}\n}\n",
+        )
+        .expect("tsconfig.json should be written");
+        fs::write(
+            root.join("app/page.tsx"),
+            "export default function Home() {\n  return <main><h1>Hello Next</h1></main>;\n}\n",
+        )
+        .expect("page should be written");
+        fs::write(root.join("app/globals.css"), "body { margin: 0; }\n")
+            .expect("stylesheet should be written");
+        let root = root.canonicalize().expect("fixture root should resolve");
+        let map = extract_cargo_map(&root, None).expect("a Next.js project should extract");
+        let block_id_for = |blocks: &[lightwell_core::FactBlock], suffix: &str| {
+            blocks
+                .iter()
+                .find_map(|block| match block {
+                    FactBlock::Module(module)
+                        if module
+                            .base
+                            .source_path
+                            .as_deref()
+                            .is_some_and(|path| path.ends_with(suffix)) =>
+                    {
+                        Some(module.base.id.clone())
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("{suffix} should have a map block"))
+        };
+        let expected = ["app/page.tsx", "app/globals.css", "tsconfig.json"]
+            .map(|relative| (relative, block_id_for(&map.blocks, relative)));
+        let watchers = super::WorkspaceWatchers::default();
+        watchers
+            .0
+            .lock()
+            .expect("watcher registry should lock")
+            .insert(root.clone(), Arc::new(RwLock::new(map)));
+        for (relative, block_id) in expected {
+            let target = watchers
+                .resolve_block(&root, &block_id)
+                .unwrap_or_else(|error| {
+                    panic!("{relative} should resolve without Cargo.toml: {error}")
+                });
+            assert_eq!(target.path, root.join(relative));
+        }
         fs::remove_dir_all(root).expect("temporary folder should be removed");
     }
 

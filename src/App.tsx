@@ -229,7 +229,7 @@ function MapSourceState({
         {openWorkspace !== undefined && (
           <button className="open-workspace-primary" type="button" onClick={openWorkspace} disabled={opening}>
             {opening ? <Activity size={15} /> : <FolderOpen size={15} />}
-            {opening ? "Opening workspace…" : "Choose Rust workspace"}
+            {opening ? "Opening workspace…" : "Choose workspace folder"}
           </button>
         )}
         {openWorkspace === undefined && <Icon className="source-state-status" size={15} />}
@@ -789,7 +789,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       setInspectedBlockId(null);
       setMapRequestVersion((version) => version + 1);
     } catch (error: unknown) {
-      setWorkspaceError(describeError(error, "Could not open this Rust workspace."));
+      setWorkspaceError(describeError(error, "Could not open this workspace."));
     } finally {
       setOpeningWorkspace(false);
     }
@@ -1526,8 +1526,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }
   if (mapCatalog.entries.length === 0) {
     return <MapSourceState
-      title="Open a Rust workspace"
-      message={workspaceError || "Choose a folder with a Cargo.toml to build its local architecture map."}
+      title="Open a project folder"
+      message={workspaceError || "Choose a project folder to build its local architecture map."}
       openWorkspace={openWorkspaceAction}
       opening={openingWorkspace}
       error={workspaceError.length > 0}
@@ -1540,10 +1540,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     return <MapSourceState title="Workspace unavailable" message="The selected map is not available from this source." openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
   }
   if (loadedMap.kind === "error" && loadedMap.id === mapKey) {
-    return <MapSourceState title="Could not open this Rust workspace" message={loadedMap.message} openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
+    return <MapSourceState title="Could not open this workspace" message={loadedMap.message} openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
   }
   if (map === null) {
-    return <MapSourceState title="Loading workspace map" message="Extracting Rust packages and modules…" openWorkspace={openWorkspaceAction} opening={openingWorkspace} />;
+    return <MapSourceState title="Loading workspace map" message="Extracting workspace modules…" openWorkspace={openWorkspaceAction} opening={openingWorkspace} />;
   }
   if (selected === undefined) {
     return <MapSourceState title="Map data unavailable" message="The selected workspace did not return a usable map." openWorkspace={openWorkspaceAction} opening={openingWorkspace} error />;
