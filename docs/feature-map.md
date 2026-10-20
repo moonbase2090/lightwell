@@ -72,7 +72,7 @@ The tree replaces the graph in Files view with vertical orientation. Its toolbar
 | TREE-06 | Zoom shortcuts | Global key handler in `FileExplorer` | Ctrl or Cmd with "+", "=", "-", or "_" zooms in or out one step; Ctrl or Cmd with "0" resets to 100%. Plain and Alt-modified keys do nothing. The shortcuts stay inert while a dialog is open. They apply even when focus is outside the tree. | web |
 | TREE-07 | Depth control (tree copy) | File-tree toolbar in `FileExplorer` | Same control and per-workspace value as MAP-02. Changing it also re-seeds which folders start expanded. | web |
 | TREE-08 | Row count | File-tree toolbar in `FileExplorer` | Reads "N of M nodes" where N is the rows currently listed after filtering and M is every node in the file tree. Display only. | web |
-| TREE-09 | Tree rows | File-tree body in `FileExplorer`, role `tree` | Each row indents by level with guide lines and shows a kind badge, label, the last two path segments, and a child count for parents. Clicking selects the row and scrolls it into view; Enter or Space selects a focused row. Selecting a row in vertical view expands its ancestors so it stays visible. A changed row adds "+n −n" counts while a commit diff is active. | web |
+| TREE-09 | Tree rows | File-tree body in `FileExplorer`, role `tree` | Each row indents by level with guide lines and shows a kind badge, label, the last two path segments, and a child count for parents. Clicking selects the row and scrolls it into view; Enter or Space selects a focused row, and ArrowUp, ArrowDown, Home, and End only move focus between visible rows without selecting. Selecting a file or symbol row opens its source right away unless SET-13 is set to show details first; folder rows always show details. Selecting a row in vertical view expands its ancestors so it stays visible. A changed row adds "+n −n" counts while a commit diff is active. | web |
 | TREE-10 | Row expand toggle | Chevron button on each parent row in `FileExplorer` | Expands or collapses that folder without changing the selection. The button label names the action and folder, and the row reports its expanded state. | web |
 | TREE-11 | Empty filter state | File-tree body in `FileExplorer` | When the filter matches nothing, the body reads "No matching symbols" instead of rows. | web |
 | TREE-12 | Row kind badges | File-tree rows in `FileExplorer` and `file-tree` (`explorerBadge`) | Badges read FILE for folders, crates, and workspaces; APP for binary targets; FEAT for Cargo features; MOD for modules; and FN, TYPE, or CONST for function, type, and constant symbols in Python, web, Go, and .NET outlines. Display only. | web |
@@ -168,6 +168,7 @@ The Settings dialog opens from APP-06. Appearance, text size, and source-view ch
 | SET-10 | Save editor preference | `EditorSettingsPanel` footer, desktop builds only | Saves the template (blank clears it). While saving, the button reads "Saving…" and blocks repeat clicks. Success shows "Saved" for 2 seconds; failure shows the error as an alert and keeps the text. The button disables until settings finish loading; a load failure shows its own alert in the Editor section. | ipc |
 | SET-11 | Settings dialog behaviour | `EditorSettingsPanel` | A modal dialog that focuses Close on open, traps Tab among its enabled controls, and closes on Escape, the X button, or Close. Theme and size changes show the same transient "Saved" note as SET-10. The About section links to the privacy policy, terms, and security page in a new tab. | web |
 | SET-12 | Update prompt | `UpdatePrompt` over the shell, desktop builds only | When a check finds an update, a modal shows "Update available", the version, and the release notes (or "No release notes for this version."). "Not now" dismisses it until the next check finds one. Integrated builds offer "Install update" ("Installing…" during install, then the app relaunches; a failure reports in SET-07's status instead). Manual builds explain the package cannot replace itself and link "Download update" to the latest release. The prompt never appears in the web build. | ipc |
+| SET-13 | File tree selection action | `EditorSettingsPanel`, File tree | "Open its source" (the default) opens a selected file or symbol row's source right away; "Show its details first" restores the details card with its Open button. Folder rows always show details. Keyboard selection opens on Enter or Space, the tree's selection keys, so moving focus never opens source. The choice applies at once and saves on this device. See TREE-09. | ipc |
 
 ## Splitters
 
@@ -270,6 +271,8 @@ Playwright test titles mapped to the feature IDs they prove. APP-10 is not cover
 | TREE-11 | TREE-11: empty filter state | web |
 | TREE-12 | TREE-12: rows show kind badges | web |
 | TREE-13 | TREE-13: tree renders under the mocked source | ipc |
+| TREE-14 | TREE-14: selecting a file row opens its source by default | ipc |
+| TREE-15 | TREE-15: arrow keys move focus without opening, Enter opens | ipc |
 | INSP-01 | INSP-01: block details show kind and label | web |
 | INSP-02 | INSP-02: block stats grid is shown | web |
 | INSP-03 | INSP-03: child block rows are listed for a parent | web |
@@ -326,6 +329,7 @@ Playwright test titles mapped to the feature IDs they prove. APP-10 is not cover
 | SET-10 | SET-10: Save editor preference saves | ipc |
 | SET-11 | SET-11: dialog closes on Escape and traps focus | web |
 | SET-12 | SET-12: no update prompt when no update is found | ipc |
+| SET-13 | SET-13: show-details-first keeps the inspector one click from source | ipc |
 | SPL-01 | SPL-01: map/source splitter handle is present | web |
 | SPL-02 | SPL-02: map/features splitter handle is present | web |
 | SPL-03 | SPL-03: keyboard resize moves the handle 24px | web |

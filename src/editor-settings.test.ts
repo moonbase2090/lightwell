@@ -47,6 +47,8 @@ function renderSettings(
     onClose: () => undefined,
     textSize: DEFAULT_TEXT_SIZE,
     onTextSizeChange: () => undefined,
+    treeSelectAction: "open-source",
+    onTreeSelectActionChange: () => undefined,
     ...extra,
   }));
 }
@@ -197,6 +199,30 @@ test("a manual package links to the release instead of installing", () => {
   assert.equal(checkbox[0].includes("checked"), false);
   assert.match(html, /cannot replace itself/);
   assert.match(html, /download link/);
+});
+
+test("file tree selection setting shows the stored choice", () => {
+  const openHtml = renderSettings("blueprint", "blueprint");
+  assert.match(openHtml, /id="lightwell-tree-select-action"/);
+  assert.match(openHtml, /<option value="open-source" selected="">Open its source<\/option>/);
+  const detailsHtml = renderToStaticMarkup(createElement(EditorSettingsPanel, {
+    themePreference: "blueprint",
+    theme: "blueprint",
+    onThemeChange: () => undefined,
+    wordWrapShortcut: "Alt+Z",
+    onWordWrapShortcutChange: () => undefined,
+    updateDelivery: "unavailable",
+    autoUpdateCheck: true,
+    onAutoUpdateCheckChange: () => undefined,
+    updateStatus: "",
+    onCheckForUpdate: () => undefined,
+    onClose: () => undefined,
+    textSize: DEFAULT_TEXT_SIZE,
+    onTextSizeChange: () => undefined,
+    treeSelectAction: "show-details",
+    onTreeSelectActionChange: () => undefined,
+  }));
+  assert.match(detailsHtml, /<option value="show-details" selected="">Show its details first<\/option>/);
 });
 
 test("the browser preview saves the update choice and does not check", () => {

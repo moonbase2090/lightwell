@@ -44,6 +44,7 @@ import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNoteView, Pro
 import EditorSettingsPanel from "./EditorSettingsPanel.js";
 import UpdatePrompt from "./UpdatePrompt.js";
 import { readUpdateCheck, writeUpdateCheck, type UpdateDelivery } from "./app-updates.js";
+import { readTreeSelectAction, writeTreeSelectAction, type TreeSelectAction } from "./tree-select.js";
 import { checkDesktopUpdate, desktopUpdateDelivery, type DesktopUpdate } from "./desktop-updates.js";
 import FileExplorer, { TreeInspector } from "./FileExplorer.js";
 import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
@@ -691,6 +692,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [editorActionError, setEditorActionError] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [autoUpdateCheck, setAutoUpdateCheck] = useState(() => readUpdateCheck(window.localStorage));
+  const [treeSelectAction, setTreeSelectAction] = useState<TreeSelectAction>(() => readTreeSelectAction(window.localStorage));
   const [updateDelivery, setUpdateDelivery] = useState<UpdateDelivery>(() => (isTauri() ? "integrated" : "unavailable"));
   const [updateStatus, setUpdateStatus] = useState("");
   const [updateOffer, setUpdateOffer] = useState<DesktopUpdate | null>(null);
@@ -1198,6 +1200,23 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
   }, [activateBlock, mapSource.editor]);
 
+  // File-tree selection: by default a file or symbol row opens its source
+  // straight away; SET-13 can switch back to details first. Folder rows
+  // always show details. Keyboard selection commits on Enter or Space (the
+  // tree's existing selection keys), so arrowing through rows never opens
+  // source or moves focus.
+  const selectTreeNodeAndMaybeOpen = useCallback((id: string) => {
+    selectTreeNode(id);
+    if (treeSelectAction !== "open-source" || fileTree === null || map === null) return;
+    const node = fileTree.nodeById.get(id);
+    if (node === undefined || node.folder || node.blockId === null) return;
+    const block = map.blockById.get(node.blockId);
+    if (block === undefined || mapSource.editor === undefined) return;
+    setInspectedDiffPath(null);
+    setInspectedBlockId(block.id);
+    setEditorActionError("");
+  }, [fileTree, map, mapSource.editor, selectTreeNode, treeSelectAction]);
+
   const commitDiffList = useMemo(() => {
     if (commitDiff.kind !== "ready" || map === null) return [];
     return commitDiffEntries(commitDiff.changes, map.blockById);
@@ -1379,6 +1398,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const changeAutoUpdateCheck = useCallback((enabled: boolean) => {
     writeUpdateCheck(window.localStorage, enabled);
     setAutoUpdateCheck(enabled);
+  }, []);
+  const changeTreeSelectAction = useCallback((action: TreeSelectAction) => {
+    writeTreeSelectAction(window.localStorage, action);
+    setTreeSelectAction(action);
   }, []);
   const replaceUpdateOffer = useCallback((next: DesktopUpdate | null) => {
     const previous = updateOfferRef.current;
@@ -1661,7 +1684,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
               return next;
             });
           }}
-          onSelect={selectTreeNode}
+          onSelect={selectTreeNodeAndMaybeOpen}
           onExpandAll={expandAllFolders}
           onCollapse={collapseFolders}
           onChooseView={chooseMapView}
@@ -1922,7 +1945,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       nodeById={fileTree.nodeById}
       blockById={map.blockById}
       block={selectedTreeNode.blockId === null ? undefined : map.blockById.get(selectedTreeNode.blockId)}
-      onSelect={selectTreeNode}
+      onSelect={selectTreeNodeAndMaybeOpen}
       {...(selectedTreeNode.folder || selectedTreeNode.blockId === null || mapSource.editor === undefined ? {} : {
         onOpen: () => {
           const block = selectedTreeNode.blockId === null ? undefined : map.blockById.get(selectedTreeNode.blockId);
@@ -1935,7 +1958,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       node={folderSelection}
       nodeById={fileTree.nodeById}
       blockById={map.blockById}
-      onSelect={selectTreeNode}
+      onSelect={selectTreeNodeAndMaybeOpen}
     />
   ) : (
     <DetailsPanel
@@ -2092,6 +2115,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           onClose={closeSettingsPanel}
           textSize={textSize}
           onTextSizeChange={changeTextSize}
+          treeSelectAction={treeSelectAction}
+          onTreeSelectActionChange={changeTreeSelectAction}
         />
       )}
       {updateOffer !== null && updateDelivery !== "unavailable" && (
