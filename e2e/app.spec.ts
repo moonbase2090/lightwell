@@ -35,11 +35,6 @@ test.describe("app shell (web)", () => {
   });
 
   test("APP-06: settings button opens Settings dialog", async ({ page }) => {
-    // Narrow-only: the Settings button is occluded by the search field at 920px.
-    test.fixme(
-      test.info().project.name === "narrow",
-      "https://github.com/moonbase2090/lightwell/issues/155",
-    );
     await page.getByRole("button", { name: /settings/i }).first().click();
     await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
     await page.getByRole("button", { name: "Close settings" }).click();
@@ -62,11 +57,6 @@ test.describe("app shell (web)", () => {
   });
 
   test("APP-13: default theme is blueprint on the shell", async ({ page }) => {
-    // Narrow-only: the Settings button is occluded by the search field at 920px.
-    test.fixme(
-      test.info().project.name === "narrow",
-      "https://github.com/moonbase2090/lightwell/issues/155",
-    );
     // A saved preference always wins over the default, so reset storage
     // first instead of accepting whatever carried over.
     await page.evaluate(() => window.localStorage.clear());
