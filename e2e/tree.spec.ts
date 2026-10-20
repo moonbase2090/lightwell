@@ -105,17 +105,26 @@ test.describe("file tree (ipc)", () => {
     await page.getByRole("button", { name: /expand all/i }).click();
     const rows = page.getByRole("treeitem");
     const fileRow = rows.filter({ hasText: /\.mjs/ }).first();
+    const rowTexts = await rows.allTextContents();
+    const fileIndex = rowTexts.findIndex((text) => /\.mjs/.test(text));
+    expect(fileIndex).toBeGreaterThanOrEqual(0);
+    expect(fileIndex + 1).toBeLessThan(rowTexts.length);
+    const selectedBefore = await page.locator('[role="treeitem"][aria-selected="true"]').textContent();
     await fileRow.focus();
     await expect(fileRow).toBeFocused();
-    // Arrowing moves focus only: no source opens and selection stays put.
+    // ArrowDown must move focus to the NEXT visible row — this fails if the
+    // key handler is a no-op — without selecting it or opening its source.
     await page.keyboard.press("ArrowDown");
-    await expect(rows.nth(0)).not.toBeFocused();
+    await expect(rows.nth(fileIndex + 1)).toBeFocused();
     await expect(page.getByLabel(/Source inspector for/)).toHaveCount(0);
-    const focusedText = await page.evaluate(() => document.activeElement?.textContent ?? "");
-    expect(focusedText.length).toBeGreaterThan(0);
+    await expect(fileRow).toHaveAttribute("aria-selected", /^(false)?$/);
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveText(selectedBefore ?? "");
+    // ArrowUp returns focus to the file row, still without opening source.
     await page.keyboard.press("ArrowUp");
     await expect(fileRow).toBeFocused();
+    await expect(rows.nth(fileIndex + 1)).not.toBeFocused();
     await expect(page.getByLabel(/Source inspector for/)).toHaveCount(0);
+    await expect(page.locator('[role="treeitem"][aria-selected="true"]')).toHaveText(selectedBefore ?? "");
     // Enter commits the selection, which opens the source by default.
     await page.keyboard.press("Enter");
     await expect(page.getByLabel(/Source inspector for/)).toBeVisible();
