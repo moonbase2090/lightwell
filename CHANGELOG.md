@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.16 - 2026-10-20
+
+### Added
+
+- In the file tree, arrow keys move focus between rows (#158).
+
+### Changed
+
+- Selecting a file in the file tree opens its source by default (#158).
+
+### Fixed
+
+- The Settings button stays clickable in a 920px-wide window (#157).
+- Source and notes open for JavaScript-only workspaces (#152).
+
 ## 0.1.15 - 2026-10-18
 
 ### Added
