@@ -6,12 +6,7 @@ async function openSettings(page: import("@playwright/test").Page) {
 }
 
 test.describe("settings (web)", () => {
-  test.beforeEach(async ({ page }, testInfo) => {
-    // Narrow-only: the Settings button is occluded by the search field at 920px.
-    test.fixme(
-      testInfo.project.name === "narrow",
-      "https://github.com/moonbase2090/lightwell/issues/155",
-    );
+  test.beforeEach(async ({ page }) => {
     await gotoWeb(page);
     await openSettings(page);
   });

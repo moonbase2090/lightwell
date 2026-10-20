@@ -41,7 +41,7 @@ button { color: inherit; }
 
 .topbar {
   display: grid;
-  grid-template-columns: 220px 194px minmax(280px, 1fr) 130px;
+  grid-template-columns: 220px 194px minmax(280px, 1fr) auto;
   align-items: center;
   gap: 20px;
   height: 54px;
@@ -849,7 +849,9 @@ a.update-download { display: inline-flex; align-items: center; text-decoration: 
 .workspace-shell[data-theme="blueprint"] .result-feature { background: #E2B8FA; }
 
 @media (max-width: 1240px) {
-  .topbar { grid-template-columns: 190px 174px minmax(220px, 1fr) 95px; gap: 12px; padding: 0 16px; }
+  .topbar { grid-template-columns: 190px 174px minmax(160px, 1fr) auto; gap: 12px; padding: 0 16px; }
+  .top-status { min-width: 0; }
+  .editor-settings-button, .local-map-indicator { flex: none; }
   .topbar.desktop-topbar { grid-template-columns: 190px 174px auto minmax(130px, 1fr) auto; gap: 10px; }
   .overview-row { padding-left: 19px; padding-right: 17px; gap: 12px; }
   .overview-separator { padding: 0 5px; }
