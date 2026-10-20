@@ -113,9 +113,27 @@ export default function FileExplorer({
   }, []);
 
   const selectFromKey = (event: KeyboardEvent<HTMLDivElement>, id: string) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect(id);
+      return;
+    }
+    // Arrow keys only move focus between visible rows; selection (and
+    // opening source) still commits on Enter or Space, so arrowing through
+    // the tree never opens a file or changes the selection.
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Home" && event.key !== "End") return;
+    const tree = event.currentTarget.closest('[role="tree"]');
+    if (tree === null) return;
+    const items = Array.from(tree.querySelectorAll<HTMLElement>('[role="treeitem"]'));
+    const index = items.indexOf(event.currentTarget);
+    if (index < 0) return;
+    const next = event.key === "ArrowDown" ? items[index + 1]
+      : event.key === "ArrowUp" ? items[index - 1]
+      : event.key === "Home" ? items[0]
+      : items[items.length - 1];
+    if (next === undefined) return;
     event.preventDefault();
-    onSelect(id);
+    next.focus();
   };
 
   const zoomStyle = { "--file-tree-zoom": String(metrics.scale) } as CSSProperties;

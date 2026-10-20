@@ -99,6 +99,28 @@ test.describe("file tree (ipc)", () => {
     await expect(page.getByText("READ-ONLY SOURCE")).toBeVisible();
   });
 
+  test("TREE-15: arrow keys move focus without opening, Enter opens", async ({ page }) => {
+    await gotoIpc(page);
+    await openFiles(page);
+    await page.getByRole("button", { name: /expand all/i }).click();
+    const rows = page.getByRole("treeitem");
+    const fileRow = rows.filter({ hasText: /\.mjs/ }).first();
+    await fileRow.focus();
+    await expect(fileRow).toBeFocused();
+    // Arrowing moves focus only: no source opens and selection stays put.
+    await page.keyboard.press("ArrowDown");
+    await expect(rows.nth(0)).not.toBeFocused();
+    await expect(page.getByLabel(/Source inspector for/)).toHaveCount(0);
+    const focusedText = await page.evaluate(() => document.activeElement?.textContent ?? "");
+    expect(focusedText.length).toBeGreaterThan(0);
+    await page.keyboard.press("ArrowUp");
+    await expect(fileRow).toBeFocused();
+    await expect(page.getByLabel(/Source inspector for/)).toHaveCount(0);
+    // Enter commits the selection, which opens the source by default.
+    await page.keyboard.press("Enter");
+    await expect(page.getByLabel(/Source inspector for/)).toBeVisible();
+  });
+
   test("SET-13: show-details-first keeps the inspector one click from source", async ({ page }) => {
     await gotoIpc(page);
     await page.getByRole("button", { name: /settings/i }).first().click();

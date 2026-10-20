@@ -72,7 +72,7 @@ The tree replaces the graph in Files view with vertical orientation. Its toolbar
 | TREE-06 | Zoom shortcuts | Global key handler in `FileExplorer` | Ctrl or Cmd with "+", "=", "-", or "_" zooms in or out one step; Ctrl or Cmd with "0" resets to 100%. Plain and Alt-modified keys do nothing. The shortcuts stay inert while a dialog is open. They apply even when focus is outside the tree. | web |
 | TREE-07 | Depth control (tree copy) | File-tree toolbar in `FileExplorer` | Same control and per-workspace value as MAP-02. Changing it also re-seeds which folders start expanded. | web |
 | TREE-08 | Row count | File-tree toolbar in `FileExplorer` | Reads "N of M nodes" where N is the rows currently listed after filtering and M is every node in the file tree. Display only. | web |
-| TREE-09 | Tree rows | File-tree body in `FileExplorer`, role `tree` | Each row indents by level with guide lines and shows a kind badge, label, the last two path segments, and a child count for parents. Clicking selects the row and scrolls it into view; Enter or Space selects a focused row. Selecting a file or symbol row opens its source right away unless SET-13 is set to show details first; folder rows always show details. Selecting a row in vertical view expands its ancestors so it stays visible. A changed row adds "+n −n" counts while a commit diff is active. | web |
+| TREE-09 | Tree rows | File-tree body in `FileExplorer`, role `tree` | Each row indents by level with guide lines and shows a kind badge, label, the last two path segments, and a child count for parents. Clicking selects the row and scrolls it into view; Enter or Space selects a focused row, and ArrowUp, ArrowDown, Home, and End only move focus between visible rows without selecting. Selecting a file or symbol row opens its source right away unless SET-13 is set to show details first; folder rows always show details. Selecting a row in vertical view expands its ancestors so it stays visible. A changed row adds "+n −n" counts while a commit diff is active. | web |
 | TREE-10 | Row expand toggle | Chevron button on each parent row in `FileExplorer` | Expands or collapses that folder without changing the selection. The button label names the action and folder, and the row reports its expanded state. | web |
 | TREE-11 | Empty filter state | File-tree body in `FileExplorer` | When the filter matches nothing, the body reads "No matching symbols" instead of rows. | web |
 | TREE-12 | Row kind badges | File-tree rows in `FileExplorer` and `file-tree` (`explorerBadge`) | Badges read FILE for folders, crates, and workspaces; APP for binary targets; FEAT for Cargo features; MOD for modules; and FN, TYPE, or CONST for function, type, and constant symbols in Python, web, Go, and .NET outlines. Display only. | web |
@@ -272,6 +272,7 @@ Playwright test titles mapped to the feature IDs they prove. APP-10 is not cover
 | TREE-12 | TREE-12: rows show kind badges | web |
 | TREE-13 | TREE-13: tree renders under the mocked source | ipc |
 | TREE-14 | TREE-14: selecting a file row opens its source by default | ipc |
+| TREE-15 | TREE-15: arrow keys move focus without opening, Enter opens | ipc |
 | INSP-01 | INSP-01: block details show kind and label | web |
 | INSP-02 | INSP-02: block stats grid is shown | web |
 | INSP-03 | INSP-03: child block rows are listed for a parent | web |
