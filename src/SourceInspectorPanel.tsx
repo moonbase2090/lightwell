@@ -34,6 +34,7 @@ export default function SourceInspectorPanel({
   wordWrapShortcut,
   onToggleWordWrap,
   onLineContextMenu,
+  onGoToDefinition,
   diff,
   codeSize,
 }: {
@@ -54,6 +55,7 @@ export default function SourceInspectorPanel({
   readonly wordWrapShortcut: string;
   readonly onToggleWordWrap: () => void;
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
+  readonly onGoToDefinition?: (word: string) => void;
   /** When set, the panel shows this commit diff instead of the current source. */
   readonly diff?: DiffInspectionState;
   /** Source text size in pixels. */
@@ -137,6 +139,7 @@ export default function SourceInspectorPanel({
               onToggleWordWrap={onToggleWordWrap}
               fontSize={codeSize}
               {...(onLineContextMenu === undefined ? {} : { onLineContextMenu })}
+              {...(onGoToDefinition === undefined ? {} : { onGoToDefinition })}
             />
           </Suspense>
         )}

@@ -47,6 +47,7 @@ import { readUpdateCheck, writeUpdateCheck, type UpdateDelivery } from "./app-up
 import { readTreeSelectAction, writeTreeSelectAction, type TreeSelectAction } from "./tree-select.js";
 import { checkDesktopUpdate, desktopUpdateDelivery, type DesktopUpdate } from "./desktop-updates.js";
 import FileExplorer, { TreeInspector } from "./FileExplorer.js";
+import { resolveModuleDefinition } from "./module-definition.js";
 import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
@@ -1924,6 +1925,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       wordWrap={wordWrap}
       wordWrapShortcut={wordWrapShortcut}
       onToggleWordWrap={toggleWordWrap}
+      onGoToDefinition={(word) => {
+        const target = resolveModuleDefinition(word, map.blockById.values(), inspectedBlockId);
+        if (target !== null) setInspectedBlockId(target.id);
+      }}
       codeSize={textSize.code}
       {...(inspectedBlockId !== null && noteByBlockId.has(inspectedBlockId) ? {
         noteText: noteByBlockId.get(inspectedBlockId)!.text,
