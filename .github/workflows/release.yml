@@ -395,7 +395,6 @@ jobs:
         run: python scripts/release/windows_msi_test.py
       - name: Decide whether Artifact Signing is configured
         id: signing
-        shell: pwsh
         env:
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
@@ -403,27 +402,7 @@ jobs:
           AZURE_ARTIFACT_SIGNING_ENDPOINT: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
           AZURE_ARTIFACT_SIGNING_ACCOUNT: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT }}
           AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE: ${{ vars.AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE }}
-        run: |
-          $names = @(
-            'AZURE_TENANT_ID',
-            'AZURE_CLIENT_ID',
-            'AZURE_SUBSCRIPTION_ID',
-            'AZURE_ARTIFACT_SIGNING_ENDPOINT',
-            'AZURE_ARTIFACT_SIGNING_ACCOUNT',
-            'AZURE_ARTIFACT_SIGNING_CERTIFICATE_PROFILE'
-          )
-          $enabled = $true
-          foreach ($name in $names) {
-            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
-              $enabled = $false
-            }
-          }
-          "enabled=$enabled" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          if ($enabled) {
-            Write-Host 'Windows code signing is enabled.'
-          } else {
-            Write-Host 'Windows code signing skipped: Azure Artifact Signing settings are absent.'
-          }
+        run: python scripts/release/signing_decision.py
       - name: Keep build machine paths out of release binaries
         shell: pwsh
         run: |
