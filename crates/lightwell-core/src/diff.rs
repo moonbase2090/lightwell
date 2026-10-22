@@ -7,7 +7,7 @@
 
 use crate::dotnet_source::{parse_csharp_source, parse_vb_source};
 use crate::extract::MapExtractionError;
-use crate::extract::{block_base, extract_cargo_map};
+use crate::extract::{block_base, extract_cargo_map, project_manifest};
 use crate::facts::{Connection, DependencyScope, FactBlock, FactMap, MapStats};
 use crate::go_source::parse_go_source;
 use crate::python_source::parse_python_source;
@@ -289,8 +289,12 @@ fn connection_changes_between(
     let head_map = extract_map_at_commit(root, head_commit, project_name)?;
     let before_map = match before_commit {
         Some(commit) => extract_map_at_commit(root, commit, project_name)?,
-        None => empty_map_like(&head_map),
+        None => None,
     };
+    let Some(head_map) = head_map else {
+        return Ok(Vec::new());
+    };
+    let before_map = before_map.unwrap_or_else(|| empty_map_like(&head_map));
     Ok(diff_connections(
         &before_map.connections,
         &head_map.connections,
@@ -307,19 +311,34 @@ fn empty_map_like(template: &FactMap) -> FactMap {
     )
 }
 
+/// Maps the workspace as it was at `commit`, or `None` when the project did not
+/// exist yet. The workspace can sit below the repository root, so the map is
+/// taken from the same folder inside the temporary worktree.
 fn extract_map_at_commit(
     root: &Path,
     commit: &str,
     project_name: Option<&str>,
-) -> Result<FactMap, DiffError> {
+) -> Result<Option<FactMap>, DiffError> {
+    let prefix = git(root, &["rev-parse", "--show-prefix"])?;
+    let prefix = prefix.trim().trim_end_matches('/');
     let worktree = temporary_worktree_path("map");
     let worktree_arg = path_for_git(&worktree);
     git(
         root,
         &["worktree", "add", "--detach", &worktree_arg, commit],
     )?;
-    let map = extract_cargo_map(&worktree, project_name)
-        .map_err(|error| DiffError::MapExtraction(map_extraction_message(&error)));
+    let workspace = if prefix.is_empty() {
+        worktree.clone()
+    } else {
+        worktree.join(prefix)
+    };
+    let map = if workspace.is_dir() && project_manifest(&workspace).is_some() {
+        extract_cargo_map(&workspace, project_name)
+            .map(Some)
+            .map_err(|error| DiffError::MapExtraction(map_extraction_message(&error)))
+    } else {
+        Ok(None)
+    };
     let _ = git(root, &["worktree", "remove", "--force", &worktree_arg]);
     let _ = std::fs::remove_dir_all(&worktree);
     map
@@ -1044,10 +1063,11 @@ fn span_for_block<'a>(
 mod tests {
     use super::{
         block_diff, block_diff_for, commit_changes, commit_changes_for, parse_hunk_header,
-        parse_numstat, recent_commits, span_for_block, symbol_spans, DiffError, Hunk,
+        parse_numstat, path_diff_for, recent_commits, span_for_block, symbol_spans, DiffError,
+        Hunk,
     };
     use crate::extract::{block_base, extract_cargo_map};
-    use crate::facts::FactBlock;
+    use crate::facts::{FactBlock, FactMap};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::process::Command;
@@ -1338,6 +1358,105 @@ mod tests {
             Err(DiffError::InvalidCommitRange { .. })
         ));
 
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn module_id_ending(map: &FactMap, suffix: &str) -> String {
+        map.blocks
+            .iter()
+            .find(|block| {
+                matches!(block, FactBlock::Module(_))
+                    && block_base(block)
+                        .source_path
+                        .as_deref()
+                        .is_some_and(|path| path.ends_with(suffix))
+            })
+            .map(|block| block_base(block).id.clone())
+            .unwrap_or_else(|| panic!("{suffix} should have a module block"))
+    }
+
+    #[test]
+    fn commit_diff_maps_a_nested_crate_in_a_repo_without_a_root_manifest() {
+        let repo = temporary_directory("nested crate diff");
+        let root = repo.join("tools/my crate");
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::write(repo.join("README.md"), "docs\n").unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"nested\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/lib.rs"), "pub mod old_name;\n").unwrap();
+        fs::write(root.join("src/old_name.rs"), "pub fn value() -> u8 { 1 }\n").unwrap();
+        git(&repo, &["init", "-q"]);
+        git(&repo, &["add", "."]);
+        git(&repo, &["commit", "-q", "-m", "Initial"]);
+        fs::write(root.join("src/lib.rs"), "pub mod new_name;\n").unwrap();
+        git(
+            &repo,
+            &[
+                "mv",
+                "tools/my crate/src/old_name.rs",
+                "tools/my crate/src/new_name.rs",
+            ],
+        );
+        fs::write(root.join("src/new_name.rs"), "pub fn value() -> u8 { 2 }\n").unwrap();
+        fs::write(root.join("logo.bin"), [0_u8, 159, 146, 150, 0, 1]).unwrap();
+        git(&repo, &["add", "."]);
+        git(&repo, &["commit", "-q", "-m", "Rename and change"]);
+        fs::write(root.join("scratch.rs"), "untracked\n").unwrap();
+
+        let map = extract_cargo_map(&root, None).expect("the nested crate should map");
+        let head = recent_commits(&root, 5).unwrap()[0].id.clone();
+        let changes = commit_changes(&root, &map, &head)
+            .unwrap_or_else(|error| panic!("commit diff should not need a root manifest: {error}"));
+        assert!(changes
+            .files
+            .iter()
+            .any(|file| file.path.ends_with("new_name.rs")));
+        let file = path_diff_for(&root, &head, None, "src/new_name.rs").expect("file diff");
+        assert!(file.modified.contains("2"));
+        let block = block_diff(&root, &map, &head, &module_id_ending(&map, "new_name.rs"))
+            .expect("block diff");
+        assert!(block.modified.contains("2"));
+        assert!(path_diff_for(&root, &head, None, "logo.bin").is_ok());
+        fs::remove_dir_all(repo).unwrap();
+    }
+
+    #[test]
+    fn commit_diff_treats_a_commit_before_the_project_existed_as_empty() {
+        let root = temporary_directory("late manifest diff");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("README.md"), "docs\n").unwrap();
+        git(&root, &["init", "-q"]);
+        git(&root, &["add", "."]);
+        git(&root, &["commit", "-q", "-m", "Docs only"]);
+        fs::write(root.join("package.json"), "{\n  \"name\": \"web\"\n}\n").unwrap();
+        fs::write(root.join("index.js"), "export const value = 1;\n").unwrap();
+        git(&root, &["add", "."]);
+        git(&root, &["commit", "-q", "-m", "Add the app"]);
+
+        let map = extract_cargo_map(&root, None).expect("a Node project should map");
+        let commits = recent_commits(&root, 5).unwrap();
+        let changes = commit_changes(&root, &map, &commits[0].id)
+            .unwrap_or_else(|error| panic!("parent without a manifest should diff: {error}"));
+        assert!(changes.files.iter().any(|file| file.path == "index.js"));
+        let range = commit_changes_for(&root, &map, &commits[0].id, Some(&commits[1].id))
+            .expect("range from a commit without a manifest should diff");
+        assert!(range.files.iter().any(|file| file.path == "index.js"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_repo_without_commits_reports_an_invalid_commit_not_a_map_error() {
+        let root = temporary_directory("empty repo diff");
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("package.json"), "{\n  \"name\": \"web\"\n}\n").unwrap();
+        git(&root, &["init", "-q"]);
+        let map = extract_cargo_map(&root, None).expect("a Node project should map");
+        let error = commit_changes(&root, &map, "HEAD")
+            .expect_err("a repository without commits has no HEAD to diff");
+        assert!(matches!(error, DiffError::InvalidCommit(_)), "{error}");
         fs::remove_dir_all(root).unwrap();
     }
 }
