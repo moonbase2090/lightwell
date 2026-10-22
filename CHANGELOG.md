@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.18 - 2026-10-22
+
+### Fixed
+
+- Commit diffs work in projects whose workspace folder is below the repository root or has no root Cargo.toml, such as Next.js workspaces. Diffs no longer fail with "Could not map the workspace" (#173).
+- The source inspector shows the selected block after a changed-file diff was open. Selecting a block from search or with go-to-definition no longer keeps showing the earlier file (#174).
+
 ## 0.1.17 - 2026-10-22
 
 ### Added
