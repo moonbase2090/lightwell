@@ -1,10 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.1.17 - 2026-10-22
 
 ### Added
 
-- In the source inspector, F12 or Ctrl/Cmd+click on a word that names a module opens that module's source. Ambiguous names and the inspected module itself are ignored.
+- In the source inspector, F12 or Ctrl/Cmd+click on a word that names a module opens that module's source. Ambiguous names and the inspected module itself are ignored (#171).
+
+### Changed
+
+- The README download link and the in-app privacy and terms links point to getlightwell.app (#163).
+
+### Fixed
+
+- Selecting a source file opens it in projects without a root Cargo.toml, such as Next.js workspaces (#162).
 
 ## 0.1.16 - 2026-10-20
 

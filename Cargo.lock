@@ -1874,7 +1874,7 @@ dependencies = [
 
 [[package]]
 name = "lightwell-app"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "lightwell-core",
  "serde",
@@ -1888,7 +1888,7 @@ dependencies = [
 
 [[package]]
 name = "lightwell-cli"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "lightwell-core",
  "serde_json",
@@ -1896,7 +1896,7 @@ dependencies = [
 
 [[package]]
 name = "lightwell-core"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "fs2",
  "glob",
