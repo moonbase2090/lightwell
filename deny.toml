@@ -1,0 +1,43 @@
+# cargo-deny: advisories, licenses, bans, and sources.
+# https://embarkstudios.github.io/cargo-deny/
+# The allow-list was surveyed against Cargo.lock. The project is MIT.
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+# Unmaintained and unsound notices fail only for direct dependencies.
+# Transitive ones are tracked upstream and show up as warnings.
+unmaintained = "workspace"
+unsound = "workspace"
+
+[licenses]
+version = 2
+allow = [
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-3-Clause",
+  "CC0-1.0",
+  "CDLA-Permissive-2.0",
+  "ISC",
+  "MIT",
+  "MPL-2.0",
+  "Unicode-3.0",
+  "Zlib",
+]
+confidence-threshold = 0.8
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "warn"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# zip is pinned to an upstream release tag.
+allow-git = ["https://github.com/zip-rs/zip2"]
+
