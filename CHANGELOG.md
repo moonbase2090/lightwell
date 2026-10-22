@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- In the source inspector, F12 or Ctrl/Cmd+click on a word that names a module opens that module's source. Ambiguous names and the inspected module itself are ignored.
+
 ## 0.1.16 - 2026-10-20
 
 ### Added

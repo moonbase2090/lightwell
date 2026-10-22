@@ -109,6 +109,8 @@ export interface SourceCodeEditorProps {
   readonly fontSize: number;
   /** When set, replaces the browser menu with the app's menu for the clicked or focused line. */
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
+  /** When set, F12 and Ctrl/Cmd+click on a word ask the app to open the module it names. */
+  readonly onGoToDefinition?: (word: string) => void;
 }
 
 export const monacoThemes = {
@@ -133,11 +135,13 @@ function monacoKeybinding(text: string): number | null {
   return binding;
 }
 
-export default function SourceCodeEditor({ content, line, column, path, theme, wordWrap, wordWrapShortcut, onToggleWordWrap, onLineContextMenu, fontSize }: SourceCodeEditorProps) {
+export default function SourceCodeEditor({ content, line, column, path, theme, wordWrap, wordWrapShortcut, onToggleWordWrap, onLineContextMenu, onGoToDefinition, fontSize }: SourceCodeEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const themeRef = useRef(theme);
   themeRef.current = theme;
   const contextMenuRef = useRef(onLineContextMenu);
+  const definitionRef = useRef(onGoToDefinition);
+  definitionRef.current = onGoToDefinition;
   contextMenuRef.current = onLineContextMenu;
   const hasContextMenu = onLineContextMenu !== undefined;
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -201,6 +205,17 @@ export default function SourceCodeEditor({ content, line, column, path, theme, w
       editor.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F10, openFromKeyboard);
       editor.addCommand(monaco.KeyCode.ContextMenu, openFromKeyboard);
     }
+    const goToDefinition = () => {
+      const position = editor.getPosition();
+      const word = position === null ? null : editor.getModel()?.getWordAtPosition(position)?.word;
+      if (word) definitionRef.current?.(word);
+    };
+    editor.addAction({ id: "lightwell.goToDefinition", label: "Go to module", keybindings: [monaco.KeyCode.F12], run: goToDefinition });
+    editor.onMouseDown((event) => {
+      if (!(event.event.ctrlKey || event.event.metaKey) || event.target.position === null) return;
+      editor.setPosition(event.target.position);
+      goToDefinition();
+    });
     const targetLine = Math.min(Math.max(1, line), editor.getModel()?.getLineCount() ?? 1);
     const targetColumn = Math.max(1, column);
     editor.setPosition({ lineNumber: targetLine, column: targetColumn });
