@@ -13,6 +13,7 @@
 ### Fixed
 
 - Selecting a source file opens it in projects without a root Cargo.toml, such as Next.js workspaces (#162).
+- The update check uses rustls-webpki 0.103.16 and webpki-root-certs 1.0.10, which fix RUSTSEC-2026-0382 and RUSTSEC-2026-0383 (#164).
 
 ## 0.1.16 - 2026-10-20
 
