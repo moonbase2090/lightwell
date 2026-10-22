@@ -442,9 +442,9 @@ export default function EditorSettingsPanel({
             Lightwell keeps maps and notes on your machine. Read how we handle site traffic and how to report security issues:
           </p>
           <p className="settings-legal-links">
-            <a href="https://lightwellcli.com/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a>
+            <a href="https://getlightwell.app/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a>
             <span aria-hidden="true"> · </span>
-            <a href="https://lightwellcli.com/terms.html" target="_blank" rel="noopener noreferrer">Terms of use</a>
+            <a href="https://getlightwell.app/terms.html" target="_blank" rel="noopener noreferrer">Terms of use</a>
             <span aria-hidden="true"> · </span>
             <a href="https://github.com/moonbase2090/lightwell/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Security</a>
           </p>
