@@ -1448,15 +1448,15 @@ mod tests {
     }
 
     #[test]
-    fn a_repo_without_commits_reports_a_git_error_not_a_map_error() {
+    fn a_repo_without_commits_reports_an_invalid_commit_not_a_map_error() {
         let root = temporary_directory("empty repo diff");
         fs::create_dir_all(&root).unwrap();
         fs::write(root.join("package.json"), "{\n  \"name\": \"web\"\n}\n").unwrap();
         git(&root, &["init", "-q"]);
         let map = extract_cargo_map(&root, None).expect("a Node project should map");
-        if let Err(error) = commit_changes(&root, &map, "HEAD") {
-            assert!(!error.to_string().contains("map the workspace"), "{error}");
-        }
+        let error = commit_changes(&root, &map, "HEAD")
+            .expect_err("a repository without commits has no HEAD to diff");
+        assert!(matches!(error, DiffError::InvalidCommit(_)), "{error}");
         fs::remove_dir_all(root).unwrap();
     }
 }
