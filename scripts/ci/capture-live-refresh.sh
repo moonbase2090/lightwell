@@ -74,6 +74,8 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
       sleep 1
       import -window "$window_id" "$artifact_dir/after.png"
       changed_pixels="$(compare -metric AE "$artifact_dir/before.png" "$artifact_dir/after.png" null: 2>&1 || true)"
+      # ImageMagick 7 appends " (normalized)" to the AE count; keep the count.
+      changed_pixels="${changed_pixels%% *}"
       if [[ "$changed_pixels" =~ ^[0-9]+$ ]] && (( changed_pixels > 100 )); then
         break
       fi

@@ -1,0 +1,89 @@
+# Not required. Proves the Linux artifact and Playwright jobs on Ubuntu 26.04
+# before the ubuntu-24.04 pin in rookrunner.yml is lifted.
+name: Ubuntu 26.04 preview
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tauri-linux-artifact:
+    name: tauri-linux-artifact (ubuntu-26.04 preview)
+    runs-on: ubuntu-26.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Node
+        run: |
+          case "$(uname -m)" in
+            x86_64) node_arch=x64 ;;
+            aarch64|arm64) node_arch=arm64 ;;
+            *) echo "unsupported architecture" >&2; exit 2 ;;
+          esac
+          node_version=22.23.3
+          archive="node-v${node_version}-linux-${node_arch}.tar.gz"
+          curl -fsSL "https://nodejs.org/dist/v${node_version}/${archive}" -o "$RUNNER_TEMP/${archive}"
+          tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/node-v${node_version}-linux-${node_arch}/bin" >> "$GITHUB_PATH"
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs -o "$RUNNER_TEMP/rustup-init.sh"
+          sh "$RUNNER_TEMP/rustup-init.sh" -y --default-toolchain stable --profile minimal --no-modify-path
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+      - name: Install cargo-zigbuild and Zig
+        run: scripts/ci/setup-zigbuild.sh
+      - name: Install Tauri Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file imagemagick libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev pkg-config xvfb xdotool xclip
+      - run: npm ci
+      - name: Build the Linux package for the GLIBC 2.28 floor
+        env:
+          CARGO_ZIGBUILD_ZIG_PATH: zig
+        run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb --no-sign
+      - name: Capture the empty workspace screen from the built app
+        run: scripts/ci/capture-open-workspace.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-open-workspace.png"
+      - name: Capture the live map before and after a Rust source edit
+        run: scripts/ci/capture-live-refresh.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-live-refresh"
+      - name: Capture project note editing and stale marking from the built app
+        # Temporarily non-blocking pending a capture-script fix.
+        continue-on-error: true
+        run: scripts/ci/capture-project-notes.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-project-notes"
+      - name: Capture the source inspector and editor settings from the built app
+        # Temporarily non-blocking pending a capture-script fix.
+        continue-on-error: true
+        run: scripts/ci/capture-source-inspector.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-source-inspector"
+      - name: Exercise the theme picker in the built app
+        run: scripts/ci/capture-theme-picker.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-theme-picker" ""
+      - name: Check the package binary's GLIBC requirement
+        run: scripts/ci/check-deb-glibc.sh target/x86_64-unknown-linux-gnu/release/bundle/deb 2.28
+
+  playwright:
+    name: Playwright UI suite (ubuntu-26.04 preview)
+    runs-on: ubuntu-26.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install Node
+        run: |
+          case "$(uname -m)" in
+            x86_64) node_arch=x64 ;;
+            aarch64|arm64) node_arch=arm64 ;;
+            *) echo "unsupported architecture" >&2; exit 2 ;;
+          esac
+          node_version=22.23.3
+          archive="node-v${node_version}-linux-${node_arch}.tar.gz"
+          curl -fsSL "https://nodejs.org/dist/v${node_version}/${archive}" -o "$RUNNER_TEMP/${archive}"
+          tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/node-v${node_version}-linux-${node_arch}/bin" >> "$GITHUB_PATH"
+      - run: npm ci
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

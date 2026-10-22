@@ -131,6 +131,8 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     pixel_diff_count() {
       local raw_count rounded_count
       raw_count="$(compare -metric AE "$1" "$2" null: 2>&1 || true)"
+      # ImageMagick 7 appends " (normalized)" to the AE count; keep the count.
+      raw_count="${raw_count%% *}"
       if [[ "$raw_count" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
         printf -v rounded_count "%.0f" "$raw_count"
         printf "%s" "$rounded_count"

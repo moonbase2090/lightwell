@@ -99,6 +99,8 @@ capture "$before_app" before
 capture "$after_app" after
 
 changed_pixels="$(compare -metric AE "$artifact_dir/before.png" "$artifact_dir/after.png" null: 2>&1 || true)"
+# ImageMagick 7 appends " (normalized)" to the AE count; keep the count.
+changed_pixels="${changed_pixels%% *}"
 changed_pixels="${changed_pixels%%$'\n'*}"
 if [[ "$changed_pixels" =~ ^([0-9]+([.][0-9]+)?)([eE][+-]?[0-9]+)?$ ]]; then
   printf -v changed_pixels '%.0f' "$changed_pixels"

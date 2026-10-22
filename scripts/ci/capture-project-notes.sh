@@ -172,6 +172,8 @@ NODE
       import -window "$window_id" "$artifact_dir/notes-stale.png"
       convert "$artifact_dir/notes-stale.png" -crop "860x640+$dialog_left+$dialog_top" +repage "$artifact_dir/.notes-dialog-stale.png"
       pixel_metric="$(compare -metric AE "$artifact_dir/.notes-dialog-current.png" "$artifact_dir/.notes-dialog-stale.png" null: 2>&1 || true)"
+      # ImageMagick 7 appends " (normalized)" to the AE count; keep the count.
+      pixel_metric="${pixel_metric%% *}"
       if [[ "$pixel_metric" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
         printf -v changed_pixels "%.0f" "$pixel_metric"
       fi
@@ -220,6 +222,8 @@ NODE
       import -window "$window_id" "$artifact_dir/notes-removed.png"
       convert "$artifact_dir/notes-removed.png" -crop "860x640+$dialog_left+$dialog_top" +repage "$artifact_dir/.notes-dialog-removed.png"
       pixel_metric="$(compare -metric AE "$artifact_dir/.notes-dialog-stale.png" "$artifact_dir/.notes-dialog-removed.png" null: 2>&1 || true)"
+      # ImageMagick 7 appends " (normalized)" to the AE count; keep the count.
+      pixel_metric="${pixel_metric%% *}"
       if [[ "$pixel_metric" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
         printf -v removed_pixels "%.0f" "$pixel_metric"
       fi
