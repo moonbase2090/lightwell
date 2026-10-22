@@ -107,6 +107,8 @@ XDG_CONFIG_HOME="$config_home" EDITOR_LOG_PATH="$editor_log" xvfb-run -a --serve
     sleep 2
     import -window "$window_id" "$artifact_dir/editor-settings.png"
     settings_changed_pixels="$(compare -metric AE "$artifact_dir/source-inspector.png" "$artifact_dir/editor-settings.png" null: 2>&1 || true)"
+    # ImageMagick 7 appends " (normalized)" to the AE count; keep the count.
+    settings_changed_pixels="${settings_changed_pixels%% *}"
     if [[ "$settings_changed_pixels" =~ ^[0-9]+([.][0-9]+)?([eE][+-]?[0-9]+)?$ ]]; then
       printf -v settings_changed_pixel_count "%.0f" "$settings_changed_pixels"
     else
