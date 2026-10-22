@@ -1325,7 +1325,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       return;
     }
     setSelectedId(node.id);
-    if (mapSource.editor !== undefined) setInspectedBlockId(node.id);
+    if (mapSource.editor !== undefined) {
+      setInspectedDiffPath(null);
+      setInspectedBlockId(node.id);
+    }
     if (map === null) return;
     const ancestors: string[] = [];
     let cursor: DisplayBlock | undefined = node;
@@ -1927,7 +1930,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       onToggleWordWrap={toggleWordWrap}
       onGoToDefinition={(word) => {
         const target = resolveModuleDefinition(word, map.blockById.values(), inspectedBlockId);
-        if (target !== null) setInspectedBlockId(target.id);
+        if (target === null) return;
+        setInspectedDiffPath(null);
+        setInspectedBlockId(target.id);
       }}
       codeSize={textSize.code}
       {...(inspectedBlockId !== null && noteByBlockId.has(inspectedBlockId) ? {
