@@ -16,7 +16,7 @@ test("linux jobs run on native runners and call the existing scripts", () => {
   const jobs = ["checks", "linux-cli-x86_64", "linux-cli-aarch64", "tauri-linux-artifact"];
   for (const id of jobs) {
     const block = jobBlock(id);
-    const runner = id === "linux-cli-aarch64" ? "ubuntu-24\\.04-arm" : "ubuntu-latest";
+    const runner = id === "linux-cli-aarch64" ? "ubuntu-24\\.04-arm" : "ubuntu-24\\.04";
     assert.match(block, new RegExp(`\\n    runs-on: ${runner}\\n`));
     assert.match(block, /uses: actions\/checkout@v4\n/);
   }
