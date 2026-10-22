@@ -105,7 +105,7 @@ export const tauriMapSource: MapSource = {
     const selected = await open({
       directory: true,
       multiple: false,
-      title: "Open a Rust workspace",
+      title: "Open a project folder",
     });
     if (selected === null || Array.isArray(selected)) return null;
     const result = await invoke<unknown>("open_workspace", { path: selected });
