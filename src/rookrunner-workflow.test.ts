@@ -54,6 +54,9 @@ test("the companion keeps macOS jobs and floating actions out", () => {
     text,
     /if: always\(\) && github\.event_name == 'pull_request' && github\.event\.repository\.visibility == 'public'/,
   );
-  const uses = [...text.matchAll(/^ {2,}- uses: (.+)$/gm)].map((match) => match[1]);
-  assert.deepEqual([...new Set(uses)], ["actions/checkout@v4"]);
+  const uses = [...text.matchAll(/^ {2,}(?:- )?uses: (\S+)/gm)].map((match) => match[1]);
+  for (const action of uses) {
+    if (action === "actions/checkout@v4") continue;
+    assert.match(action, /@[0-9a-f]{40}$/, `Pin ${action} to a commit`);
+  }
 });
