@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Lightwell maps Rust workspaces and shows their crates, entry points, modules, Cargo features, dependency edges, and product notes in a React viewer and Tauri desktop app.
+Lightwell maps Rust workspaces, TypeScript, JavaScript, HTML and CSS projects (including React and Next.js), Python modules, Go packages, and C# and VB.NET projects. It shows crates, entry points, modules, Cargo features, dependency edges, and product notes in a React viewer and Tauri desktop app.
 
 Run `./scripts/install-hooks.sh` once per clone (or `scripts/install-hooks.ps1` on Windows) so staged `.rs` files are checked with `rustfmt` before each commit.
 
