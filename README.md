@@ -184,6 +184,39 @@ lightwell notes rm crate:lightwell-core
 
 Use a `blocks[].id` value from the extracted map. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
 
+For automation, add `--json` after the notes subcommand:
+
+| Command | JSON result on stdout |
+| --- | --- |
+| `notes list --json` | An array of objects with `blockId`, `text`, `sourceFingerprint`, and `stale`. An empty list is `[]`. |
+| `notes set --json <block-id> <text...>` | `{"blockId":"...","text":"..."}` after the note is saved. |
+| `notes rm --json <block-id>` | `{"blockId":"...","removed":true}` after the saved note is removed. |
+
+JSON results are a single value followed by a newline. Diagnostics go to stderr. Failed lookups, invalid arguments, and notes-storage errors do not print a result. Without `--json`, successful commands retain their human-readable output.
+
+Run `lightwell notes list --check` to fail when any saved note is stale. It still prints the complete list, with `--json` if requested, and writes a stale-note count to stderr. An empty list or a list of current notes exits successfully. Checking does not change the saved notes or their fingerprints.
+
+These exit codes apply to the notes commands:
+
+| Exit | Meaning |
+| --- | --- |
+| 0 | Success, including stale notes listed without `--check`. |
+| 1 | Extraction, storage, invalid notes data, or output failure. |
+| 2 | Invalid command arguments. |
+| 3 | `notes rm` found no saved note for that ID. |
+| 4 | `notes set` found no current block for that ID. |
+| 5 | `notes list --check` found at least one stale note. |
+
+Removing a saved note does not require its block to exist in the current map, so orphaned notes remain removable. A missing saved note is an error on stderr and exits with code 3.
+
+Options can appear before or after the positional arguments, after the subcommand. Use `--` to end option parsing when note text contains literal flags:
+
+```sh
+lightwell notes set --json crate:lightwell-core -- --json --check
+```
+
+This saves the text `--json --check`. Unknown or repeated options are usage errors; `--check` is only valid for `notes list`.
+
 ## Data flow
 
 ```text
