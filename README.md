@@ -93,7 +93,7 @@ Checked-in Scorecard preview:
 
 ## Privacy
 
-Maps, project notes, and editor settings stay on your machine. See [PRIVACY.md](PRIVACY.md).
+Maps and editor settings stay on your machine, and Lightwell never uploads project notes. Notes are stored in `.lightwell/notes.json` inside your project, so they are shared only if you commit and push that file yourself. See [PRIVACY.md](PRIVACY.md).
 
 ## Desktop shell
 

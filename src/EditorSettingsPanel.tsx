@@ -439,7 +439,7 @@ export default function EditorSettingsPanel({
 
           <h3 className="settings-section-title">About Lightwell</h3>
           <p className="settings-help">
-            Lightwell keeps maps and notes on your machine. Read how we handle site traffic and how to report security issues:
+            Lightwell keeps maps on your machine and never uploads your notes. Notes live in your project's <code>.lightwell/notes.json</code>, shared only if you commit and push that file. Read how we handle site traffic and how to report security issues:
           </p>
           <p className="settings-legal-links">
             <a href="https://getlightwell.app/privacy.html" target="_blank" rel="noopener noreferrer">Privacy policy</a>
