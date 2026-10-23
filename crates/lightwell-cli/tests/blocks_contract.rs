@@ -180,12 +180,16 @@ fn notes_set_file_unique_match_saves() {
 fn file_paths_with_parent_components_resolve_like_their_canonical_form() {
     let project = Project::new();
     let canonical_root = fs::canonicalize(&project.0).unwrap();
-    let absolute_with_parent = canonical_root
-        .join("src/../src/extra.rs")
-        .to_string_lossy()
-        .into_owned();
+    let separator = std::path::MAIN_SEPARATOR;
+    let mut absolute_with_parent = canonical_root.into_os_string();
+    absolute_with_parent.push(format!(
+        "{separator}src{separator}..{separator}src{separator}extra.rs"
+    ));
+    let absolute_with_parent = absolute_with_parent.to_string_lossy().into_owned();
     assert!(
-        absolute_with_parent.contains("src/../src/extra.rs"),
+        std::path::Path::new(&absolute_with_parent)
+            .components()
+            .any(|component| component == std::path::Component::ParentDir),
         "{absolute_with_parent}"
     );
 
