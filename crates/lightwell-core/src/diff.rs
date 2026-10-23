@@ -3,7 +3,7 @@
 //! File-backed blocks (crates, targets, Rust modules, Python and web modules)
 //! take the whole file's line counts. Python and TypeScript symbol blocks share
 //! their module's file. Each symbol owns the lines from its definition to the
-//! next top-level symbol, measured in the file as it was at the commit.
+//! next top-level symbol. Additions use the after file; removals use the before file.
 
 use crate::dotnet_source::{parse_csharp_source, parse_vb_source};
 use crate::extract::MapExtractionError;
@@ -46,8 +46,20 @@ pub struct FileChange {
 #[serde(rename_all = "camelCase")]
 pub struct BlockChange {
     pub block_id: String,
+    pub label: String,
+    pub source_path: Option<String>,
+    pub parent_id: Option<String>,
+    pub state: BlockChangeState,
     pub added: usize,
     pub removed: usize,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BlockChangeState {
+    Added,
+    Changed,
+    Removed,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -70,7 +82,7 @@ pub struct CommitChanges {
     pub commit: CommitSummary,
     /// Every changed file under the workspace root, mapped or not.
     pub files: Vec<FileChange>,
-    /// Blocks in the map with at least one changed line, in map order.
+    /// Changed blocks in after-map order, followed by removed blocks in before-map order.
     pub blocks: Vec<BlockChange>,
     /// Graph edges that were added, removed, or changed between the before and after maps.
     pub connections: Vec<ConnectionChange>,
@@ -155,37 +167,44 @@ pub fn commit_changes_for(
     base: Option<&str>,
 ) -> Result<CommitChanges, DiffError> {
     let head_summary = resolve_commit(root, head)?;
-    let project_name = Some(map.project.name.as_str());
-    let Some(base) = base.filter(|value| !value.is_empty()) else {
-        let (files, hunks) = single_commit_diff(root, &head_summary.id)?;
-        let blocks = attribute_changes(map, &files, &hunks, |path| {
-            git(root, &["show", &format!("{}:./{path}", head_summary.id)]).ok()
-        });
-        let connections = connection_changes_between(
-            root,
-            project_name,
-            parent_commit(root, &head_summary.id).as_deref(),
-            &head_summary.id,
-        )?;
-        return Ok(CommitChanges {
-            base_commit: None,
-            commit: head_summary,
-            files,
-            blocks,
-            connections,
-        });
+    let base_summary = base
+        .filter(|value| !value.is_empty())
+        .map(|base| resolve_commit(root, base))
+        .transpose()?;
+    if let Some(base) = &base_summary {
+        ensure_ancestor(root, &base.id, &head_summary.id)?;
+    }
+    let before_commit = base_summary
+        .as_ref()
+        .map(|base| base.id.clone())
+        .or_else(|| parent_commit(root, &head_summary.id));
+    let (files, hunks) = match &base_summary {
+        Some(base) => revision_diff(root, &format!("{}..{}", base.id, head_summary.id))?,
+        None => single_commit_diff(root, &head_summary.id)?,
     };
-    let base_summary = resolve_commit(root, base)?;
-    ensure_ancestor(root, &base_summary.id, &head_summary.id)?;
-    let revision = format!("{}..{}", base_summary.id, head_summary.id);
-    let (files, hunks) = revision_diff(root, &revision)?;
-    let blocks = attribute_changes(map, &files, &hunks, |path| {
-        git(root, &["show", &format!("{}:./{path}", head_summary.id)]).ok()
-    });
-    let connections =
-        connection_changes_between(root, project_name, Some(&base_summary.id), &head_summary.id)?;
+    let project_name = Some(map.project.name.as_str());
+    let after_map = extract_map_at_commit(root, &head_summary.id, project_name)?
+        .unwrap_or_else(|| empty_map_like(map));
+    let before_map = match &before_commit {
+        Some(commit) => extract_map_at_commit(root, commit, project_name)?,
+        None => None,
+    }
+    .unwrap_or_else(|| empty_map_like(map));
+    let blocks = attribute_changes(
+        &before_map,
+        &after_map,
+        &files,
+        &hunks,
+        |path| {
+            before_commit
+                .as_ref()
+                .and_then(|commit| git(root, &["show", &format!("{commit}:./{path}")]).ok())
+        },
+        |path| git(root, &["show", &format!("{}:./{path}", head_summary.id)]).ok(),
+    );
+    let connections = diff_connections(&before_map.connections, &after_map.connections);
     Ok(CommitChanges {
-        base_commit: Some(base_summary),
+        base_commit: base_summary,
         commit: head_summary,
         files,
         blocks,
@@ -278,27 +297,6 @@ fn parent_commit(root: &Path, commit: &str) -> Option<String> {
         .ok()
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())
-}
-
-fn connection_changes_between(
-    root: &Path,
-    project_name: Option<&str>,
-    before_commit: Option<&str>,
-    head_commit: &str,
-) -> Result<Vec<ConnectionChange>, DiffError> {
-    let head_map = extract_map_at_commit(root, head_commit, project_name)?;
-    let before_map = match before_commit {
-        Some(commit) => extract_map_at_commit(root, commit, project_name)?,
-        None => None,
-    };
-    let Some(head_map) = head_map else {
-        return Ok(Vec::new());
-    };
-    let before_map = before_map.unwrap_or_else(|| empty_map_like(&head_map));
-    Ok(diff_connections(
-        &before_map.connections,
-        &head_map.connections,
-    ))
 }
 
 fn empty_map_like(template: &FactMap) -> FactMap {
@@ -487,6 +485,8 @@ pub struct BlockDiffDocument {
     pub modified: String,
     /// Line in `modified` to reveal: the block's first changed line, else its start.
     pub line: usize,
+    /// When present, reveal this line in the original file for a removed block.
+    pub original_line: Option<usize>,
 }
 
 /// The before and after text of `block_id`'s file in `commit`.
@@ -508,143 +508,97 @@ pub fn block_diff_for(
     block_id: &str,
 ) -> Result<BlockDiffDocument, DiffError> {
     let head_summary = resolve_commit(root, head)?;
-    let block = map
+    let base_summary = base
+        .filter(|value| !value.is_empty())
+        .map(|base| resolve_commit(root, base))
+        .transpose()?;
+    if let Some(base) = &base_summary {
+        ensure_ancestor(root, &base.id, &head_summary.id)?;
+    }
+    let before_commit = base_summary
+        .as_ref()
+        .map(|base| base.id.clone())
+        .or_else(|| parent_commit(root, &head_summary.id));
+    let after_map = extract_map_at_commit(root, &head_summary.id, Some(&map.project.name))?
+        .unwrap_or_else(|| empty_map_like(map));
+    let after_block = after_map
         .blocks
         .iter()
-        .find(|block| block_base(block).id == block_id)
+        .find(|block| block_base(block).id == block_id);
+    let before_map = if after_block.is_none() {
+        match &before_commit {
+            Some(commit) => extract_map_at_commit(root, commit, Some(&map.project.name))?,
+            None => None,
+        }
+    } else {
+        None
+    };
+    let block = after_block
+        .or_else(|| {
+            before_map.as_ref().and_then(|map| {
+                map.blocks
+                    .iter()
+                    .find(|block| block_base(block).id == block_id)
+            })
+        })
         .ok_or_else(|| DiffError::BlockNotFound(block_id.to_owned()))?;
     let path = block_base(block)
         .source_path
         .as_deref()
-        .map(normalized)
         .ok_or_else(|| DiffError::BlockHasNoSource(block_id.to_owned()))?;
-
-    let (file, hunks) = match base.filter(|value| !value.is_empty()) {
-        None => {
-            let range = diff_tree_prefix();
-            let numstat = git(
-                root,
-                &[&range[..], &["--numstat", "-z", &head_summary.id]].concat(),
-            )?;
-            let file = parse_numstat(&numstat)
-                .into_iter()
-                .find(|file| file.path == path)
-                .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
-            let patch = git(
-                root,
-                &[
-                    &range[..],
-                    &[
-                        "-p",
-                        "-U0",
-                        "--no-color",
-                        "--no-ext-diff",
-                        &head_summary.id,
-                        "--",
-                        &path,
-                    ],
-                ]
-                .concat(),
-            )?;
-            (file, parse_hunks(&patch).remove(&path).unwrap_or_default())
-        }
-        Some(base) => {
-            let base_summary = resolve_commit(root, base)?;
-            ensure_ancestor(root, &base_summary.id, &head_summary.id)?;
-            let revision = format!("{}..{}", base_summary.id, head_summary.id);
-            let numstat = git(
-                root,
-                &[
-                    "diff",
-                    "-M",
-                    "--relative",
-                    "--numstat",
-                    "-z",
-                    &revision,
-                    "--",
-                    &path,
-                ],
-            )?;
-            let file = parse_numstat(&numstat)
-                .into_iter()
-                .find(|file| file.path == path)
-                .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
-            let patch = git(
-                root,
-                &[
-                    "diff",
-                    "-M",
-                    "--relative",
-                    "-p",
-                    "-U0",
-                    "--no-color",
-                    "--no-ext-diff",
-                    &revision,
-                    "--",
-                    &path,
-                ],
-            )?;
-            (file, parse_hunks(&patch).remove(&path).unwrap_or_default())
-        }
+    let mut document = path_diff_for(root, &head_summary.id, base, path)?;
+    let (_, hunks) = match &base_summary {
+        Some(base) => revision_diff(root, &format!("{}..{}", base.id, head_summary.id))?,
+        None => single_commit_diff(root, &head_summary.id)?,
     };
-
-    let modified =
-        git(root, &["show", &format!("{}:./{path}", head_summary.id)]).unwrap_or_default();
-    let original_path = file.old_path.clone().unwrap_or_else(|| path.clone());
-    let original = match base.filter(|value| !value.is_empty()) {
-        None => git(
-            root,
-            &["show", &format!("{}^:./{original_path}", head_summary.id)],
-        )
-        .unwrap_or_default(),
-        Some(base) => {
-            let base_summary = resolve_commit(root, base)?;
-            git(
-                root,
-                &["show", &format!("{}:./{original_path}", base_summary.id)],
-            )
-            .unwrap_or_default()
-        }
+    let source = if after_block.is_some() {
+        &document.modified
+    } else {
+        &document.original
     };
-
-    let first_change = hunks.iter().map(|hunk| hunk.new_start.max(1)).min();
+    let owning_map = if after_block.is_some() {
+        Some(&after_map)
+    } else {
+        before_map.as_ref()
+    };
     let parent_shares_file = block_base(block)
         .parent_id
-        .as_deref()
-        .and_then(|parent| {
-            map.blocks
+        .as_ref()
+        .and_then(|id| {
+            owning_map?
+                .blocks
                 .iter()
-                .find(|candidate| block_base(candidate).id == parent)
+                .find(|parent| block_base(parent).id == *id)
         })
-        .is_some_and(|parent| {
-            block_base(parent)
-                .source_path
-                .as_deref()
-                .map(normalized)
-                .as_deref()
-                == Some(path.as_str())
-        });
-    let line = if parent_shares_file {
-        match span_for_block(&symbol_spans(&path, &modified), block) {
-            Some(&(start, end)) => hunks
-                .iter()
-                .map(|hunk| hunk.new_start.max(1))
-                .find(|line| (start..=end).contains(line))
-                .unwrap_or(start),
-            None => first_change.unwrap_or(1),
-        }
+        .is_some_and(|parent| block_base(parent).source_path == block_base(block).source_path);
+    let spans = if parent_shares_file {
+        symbol_spans(path, source)
     } else {
-        first_change.unwrap_or(1)
+        HashMap::new()
     };
-
-    Ok(BlockDiffDocument {
-        commit: head_summary,
-        path,
-        original_path: file.old_path,
-        original,
-        modified,
-        line,
-    })
+    let line = match span_for_block(&spans, block) {
+        Some(&(start, end)) => hunks
+            .get(&document.path)
+            .into_iter()
+            .flatten()
+            .filter_map(|hunk| {
+                let (first, count) = if after_block.is_some() {
+                    (hunk.new_start, hunk.new_count)
+                } else {
+                    (hunk.old_start, hunk.old_count)
+                };
+                (count > 0 && first <= end && first + count > start).then_some(first.max(start))
+            })
+            .min()
+            .unwrap_or(start),
+        None => document.line,
+    };
+    if after_block.is_some() {
+        document.line = line;
+    } else {
+        document.original_line = Some(line);
+    }
+    Ok(document)
 }
 
 /// Before and after text for a repository path across a commit or range.
@@ -657,75 +611,20 @@ pub fn path_diff_for(
     let head_summary = resolve_commit(root, head)?;
     let path = normalized(path);
 
-    let (file, hunks) = match base.filter(|value| !value.is_empty()) {
-        None => {
-            let range = diff_tree_prefix();
-            let numstat = git(
-                root,
-                &[&range[..], &["--numstat", "-z", &head_summary.id]].concat(),
-            )?;
-            let file = parse_numstat(&numstat)
-                .into_iter()
-                .find(|file| file.path == path)
-                .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
-            let patch = git(
-                root,
-                &[
-                    &range[..],
-                    &[
-                        "-p",
-                        "-U0",
-                        "--no-color",
-                        "--no-ext-diff",
-                        &head_summary.id,
-                        "--",
-                        &path,
-                    ],
-                ]
-                .concat(),
-            )?;
-            (file, parse_hunks(&patch).remove(&path).unwrap_or_default())
-        }
+    let (files, mut hunks) = match base.filter(|value| !value.is_empty()) {
+        None => single_commit_diff(root, &head_summary.id)?,
         Some(base) => {
             let base_summary = resolve_commit(root, base)?;
             ensure_ancestor(root, &base_summary.id, &head_summary.id)?;
-            let revision = format!("{}..{}", base_summary.id, head_summary.id);
-            let numstat = git(
-                root,
-                &[
-                    "diff",
-                    "-M",
-                    "--relative",
-                    "--numstat",
-                    "-z",
-                    &revision,
-                    "--",
-                    &path,
-                ],
-            )?;
-            let file = parse_numstat(&numstat)
-                .into_iter()
-                .find(|file| file.path == path)
-                .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
-            let patch = git(
-                root,
-                &[
-                    "diff",
-                    "-M",
-                    "--relative",
-                    "-p",
-                    "-U0",
-                    "--no-color",
-                    "--no-ext-diff",
-                    &revision,
-                    "--",
-                    &path,
-                ],
-            )?;
-            (file, parse_hunks(&patch).remove(&path).unwrap_or_default())
+            revision_diff(root, &format!("{}..{}", base_summary.id, head_summary.id))?
         }
     };
-
+    let file = files
+        .into_iter()
+        .find(|file| file.path == path || file.old_path.as_deref() == Some(&path))
+        .ok_or_else(|| DiffError::FileUnchanged(path.clone()))?;
+    let path = file.path.clone();
+    let hunks = hunks.remove(&path).unwrap_or_default();
     let modified =
         git(root, &["show", &format!("{}:./{path}", head_summary.id)]).unwrap_or_default();
     let original_path = file.old_path.clone().unwrap_or_else(|| path.clone());
@@ -756,6 +655,11 @@ pub fn path_diff_for(
         path,
         original_path: file.old_path,
         original,
+        original_line: if modified.is_empty() {
+            hunks.iter().map(|hunk| hunk.old_start.max(1)).min()
+        } else {
+            None
+        },
         modified,
         line,
     })
@@ -852,6 +756,7 @@ fn parse_numstat(output: &str) -> Vec<FileChange> {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct Hunk {
+    old_start: usize,
     old_count: usize,
     new_start: usize,
     new_count: usize,
@@ -861,9 +766,18 @@ struct Hunk {
 fn parse_hunks(patch: &str) -> HashMap<String, Vec<Hunk>> {
     let mut hunks: HashMap<String, Vec<Hunk>> = HashMap::new();
     let mut current: Option<String> = None;
+    let mut old_path: Option<String> = None;
     for line in patch.lines() {
-        if let Some(path) = line.strip_prefix("+++ ") {
-            current = path.strip_prefix("b/").map(str::to_owned);
+        if line.starts_with("diff --git ") {
+            current = None;
+            old_path = None;
+        } else if let Some(path) = line.strip_prefix("--- ") {
+            old_path = path.strip_prefix("a/").map(str::to_owned);
+        } else if let Some(path) = line.strip_prefix("+++ ") {
+            current = path
+                .strip_prefix("b/")
+                .map(str::to_owned)
+                .or_else(|| old_path.clone());
         } else if let (Some(path), Some(header)) = (current.as_ref(), line.strip_prefix("@@ -")) {
             if let Some(hunk) = parse_hunk_header(header) {
                 hunks.entry(path.clone()).or_default().push(hunk);
@@ -883,9 +797,10 @@ fn parse_hunk_header(header: &str) -> Option<Hunk> {
             None => Some((range.parse().ok()?, 1)),
         }
     };
-    let (_, old_count) = count(old)?;
+    let (old_start, old_count) = count(old)?;
     let (new_start, new_count) = count(new)?;
     Some(Hunk {
+        old_start,
         old_count,
         new_start,
         new_count,
@@ -897,44 +812,110 @@ fn normalized(path: &str) -> String {
 }
 
 fn attribute_changes(
+    before: &FactMap,
+    after: &FactMap,
+    files: &[FileChange],
+    hunks: &HashMap<String, Vec<Hunk>>,
+    source_before: impl FnMut(&str) -> Option<String>,
+    source_after: impl FnMut(&str) -> Option<String>,
+) -> Vec<BlockChange> {
+    let removed = attribute_side(before, files, hunks, source_before, false);
+    let added = attribute_side(after, files, hunks, source_after, true);
+    let before_ids: HashMap<_, _> = before
+        .blocks
+        .iter()
+        .map(|block| (block_base(block).id.as_str(), block))
+        .collect();
+    let after_ids: HashMap<_, _> = after
+        .blocks
+        .iter()
+        .map(|block| (block_base(block).id.as_str(), block))
+        .collect();
+    let removed_by_id: HashMap<_, _> = removed
+        .iter()
+        .map(|(index, count)| (block_base(&before.blocks[*index]).id.as_str(), *count))
+        .collect();
+    let mut changes = Vec::new();
+    for (index, block) in after.blocks.iter().enumerate() {
+        let base = block_base(block);
+        let added = added.get(&index).copied().unwrap_or(0);
+        let removed = removed_by_id.get(base.id.as_str()).copied().unwrap_or(0);
+        if added + removed > 0 {
+            changes.push(BlockChange {
+                block_id: base.id.clone(),
+                label: base.label.clone(),
+                source_path: base.source_path.clone(),
+                parent_id: base.parent_id.clone(),
+                state: if before_ids.contains_key(base.id.as_str()) {
+                    BlockChangeState::Changed
+                } else {
+                    BlockChangeState::Added
+                },
+                added,
+                removed,
+            });
+        }
+    }
+    for (index, removed) in removed {
+        let base = block_base(&before.blocks[index]);
+        if !after_ids.contains_key(base.id.as_str()) {
+            changes.push(BlockChange {
+                block_id: base.id.clone(),
+                label: base.label.clone(),
+                source_path: base.source_path.clone(),
+                parent_id: base.parent_id.clone(),
+                state: BlockChangeState::Removed,
+                added: 0,
+                removed,
+            });
+        }
+    }
+    changes
+}
+
+/// Attribute one coordinate space only: added lines in the after file, or
+/// removed lines in the before file. Symbols never inherit deletion anchors.
+fn attribute_side(
     map: &FactMap,
     files: &[FileChange],
     hunks: &HashMap<String, Vec<Hunk>>,
     mut source_at_commit: impl FnMut(&str) -> Option<String>,
-) -> Vec<BlockChange> {
+    after: bool,
+) -> BTreeMap<usize, usize> {
     let by_id: HashMap<&str, &FactBlock> = map
         .blocks
         .iter()
         .map(|block| (block_base(block).id.as_str(), block))
         .collect();
     let path_of = |block: &FactBlock| block_base(block).source_path.as_deref().map(normalized);
-    let mut counts: BTreeMap<usize, (usize, usize)> = BTreeMap::new();
-
+    let mut counts = BTreeMap::new();
     for file in files {
-        let blocks: Vec<(usize, &FactBlock)> = map
+        let path = if after {
+            file.path.as_str()
+        } else {
+            file.old_path.as_deref().unwrap_or(&file.path)
+        };
+        let count = if after { file.added } else { file.removed };
+        if count == 0 {
+            continue;
+        }
+        let blocks: Vec<_> = map
             .blocks
             .iter()
             .enumerate()
-            .filter(|(_, block)| path_of(block).as_deref() == Some(file.path.as_str()))
+            .filter(|(_, block)| path_of(block).as_deref() == Some(path))
             .collect();
-        if blocks.is_empty() {
-            continue;
-        }
-        let is_symbol = |block: &FactBlock| {
-            block_base(block)
+        let mut symbols = Vec::new();
+        for (index, block) in blocks {
+            let is_symbol = block_base(block)
                 .parent_id
                 .as_deref()
                 .and_then(|parent| by_id.get(parent))
-                .is_some_and(|parent| path_of(parent) == path_of(block))
-        };
-        let mut symbols = Vec::new();
-        for (index, block) in &blocks {
-            if is_symbol(block) {
-                symbols.push((*index, *block));
-            } else if file.added + file.removed > 0 {
-                let entry = counts.entry(*index).or_default();
-                entry.0 += file.added;
-                entry.1 += file.removed;
+                .is_some_and(|parent| path_of(parent) == path_of(block));
+            if is_symbol {
+                symbols.push((index, block));
+            } else {
+                *counts.entry(index).or_default() += count;
             }
         }
         if symbols.is_empty() {
@@ -943,45 +924,31 @@ fn attribute_changes(
         let Some(file_hunks) = hunks.get(&file.path) else {
             continue;
         };
-        let Some(source) = source_at_commit(&file.path) else {
+        let Some(source) = source_at_commit(path) else {
             continue;
         };
-        let spans = symbol_spans(&file.path, &source);
+        let spans = symbol_spans(path, &source);
         for (index, block) in symbols {
             let Some(&(start, end)) = span_for_block(&spans, block) else {
                 continue;
             };
-            let (mut added, mut removed) = (0, 0);
-            for hunk in file_hunks {
-                let first = hunk.new_start;
-                let last = hunk.new_start + hunk.new_count;
-                added += (first.max(start)..last.min(end + 1)).len();
-                // A deletion sits after line new_start; count it where it was removed.
-                let anchor = if hunk.new_count == 0 {
-                    hunk.new_start + 1
-                } else {
-                    hunk.new_start
-                };
-                if (start..=end).contains(&anchor) {
-                    removed += hunk.old_count;
-                }
-            }
-            if added + removed > 0 {
-                let entry = counts.entry(index).or_default();
-                entry.0 += added;
-                entry.1 += removed;
+            let changed: usize = file_hunks
+                .iter()
+                .map(|hunk| {
+                    let (first, count) = if after {
+                        (hunk.new_start, hunk.new_count)
+                    } else {
+                        (hunk.old_start, hunk.old_count)
+                    };
+                    (first.max(start)..(first + count).min(end + 1)).len()
+                })
+                .sum();
+            if changed > 0 {
+                *counts.entry(index).or_default() += changed;
             }
         }
     }
-
     counts
-        .into_iter()
-        .map(|(index, (added, removed))| BlockChange {
-            block_id: block_base(&map.blocks[index]).id.clone(),
-            added,
-            removed,
-        })
-        .collect()
 }
 
 /// Line span of each top-level symbol: its definition line through the line
@@ -1102,6 +1069,154 @@ mod tests {
     }
 
     #[test]
+    fn replaced_symbols_keep_their_own_added_and_removed_lines() {
+        let root = temporary_directory("replaced-symbols");
+        fs::create_dir_all(root.join("src")).unwrap();
+        fs::create_dir_all(root.join("scripts")).unwrap();
+        fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"repro\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("src/lib.rs"), "").unwrap();
+        fs::write(
+            root.join("scripts/job.py"),
+            "def keep():\n    return 1\ndef retired():\n    return 3\n",
+        )
+        .unwrap();
+        git(&root, &["init", "-q"]);
+        git(&root, &["add", "."]);
+        git(&root, &["commit", "-q", "-m", "Initial"]);
+        fs::write(
+            root.join("scripts/job.py"),
+            "def keep():\n    return 1\ndef added():\n    return 4\n",
+        )
+        .unwrap();
+        git(&root, &["add", "."]);
+        git(&root, &["commit", "-q", "-m", "Swap"]);
+        let map = extract_cargo_map(&root, Some("repro")).unwrap();
+        for base in [None, Some("HEAD^")] {
+            let changes = commit_changes_for(&root, &map, "HEAD", base).unwrap();
+            let counts: Vec<_> = changes
+                .blocks
+                .iter()
+                .map(|block| (block.block_id.as_str(), block.added, block.removed))
+                .collect();
+            assert!(
+                counts.contains(&("module:python:scripts-job-added:def", 2, 0)),
+                "new symbol must not inherit removed lines: {counts:?}"
+            );
+            assert!(
+                counts.contains(&("module:python:scripts-job-retired:def", 0, 2)),
+                "deleted symbol must own its removed lines: {counts:?}"
+            );
+            assert!(!counts
+                .iter()
+                .any(|(id, _, _)| *id == "module:python:scripts-job-keep:def"));
+            assert_eq!(
+                changes
+                    .files
+                    .iter()
+                    .map(|file| (file.path.as_str(), file.added, file.removed))
+                    .collect::<Vec<_>>(),
+                [("scripts/job.py", 2, 2)]
+            );
+            assert!(changes.connections.iter().any(|edge| edge.target
+                == "module:python:scripts-job-retired:def"
+                && edge.state == "removed"));
+            let retired = changes
+                .blocks
+                .iter()
+                .find(|block| block.block_id == "module:python:scripts-job-retired:def")
+                .unwrap();
+            assert_eq!(retired.state, super::BlockChangeState::Removed);
+            assert_eq!(retired.label, "retired");
+            assert_eq!(retired.source_path.as_deref(), Some("scripts/job.py"));
+            assert_eq!(
+                retired.parent_id.as_deref(),
+                Some("module:python:scripts-job")
+            );
+            let document = block_diff_for(&root, &map, "HEAD", base, &retired.block_id).unwrap();
+            assert_eq!(
+                document.original,
+                "def keep():\n    return 1\ndef retired():\n    return 3\n"
+            );
+            assert_eq!(
+                document.modified,
+                "def keep():\n    return 1\ndef added():\n    return 4\n"
+            );
+            assert_eq!(document.original_line, Some(3));
+            let added = changes
+                .blocks
+                .iter()
+                .find(|block| block.block_id == "module:python:scripts-job-added:def")
+                .unwrap();
+            assert_eq!(added.state, super::BlockChangeState::Added);
+            let document = block_diff_for(&root, &map, "HEAD", base, &added.block_id).unwrap();
+            assert_eq!(document.original_line, None);
+            assert_eq!(document.line, 3);
+        }
+        fs::remove_file(root.join("scripts/job.py")).unwrap();
+        git(&root, &["add", "."]);
+        git(&root, &["commit", "-q", "-m", "Delete file"]);
+        let current_map = extract_cargo_map(&root, Some("repro")).unwrap();
+        let changes = commit_changes_for(&root, &current_map, "HEAD", None).unwrap();
+        let counts: Vec<_> = changes
+            .blocks
+            .iter()
+            .map(|block| {
+                (
+                    block.label.as_str(),
+                    block.added,
+                    block.removed,
+                    block.state,
+                )
+            })
+            .collect();
+        assert_eq!(
+            counts,
+            [
+                ("job", 0, 4, super::BlockChangeState::Removed),
+                ("keep", 0, 2, super::BlockChangeState::Removed),
+                ("added", 0, 2, super::BlockChangeState::Removed),
+            ]
+        );
+        let document = block_diff_for(
+            &root,
+            &current_map,
+            "HEAD",
+            None,
+            "module:python:scripts-job-added:def",
+        )
+        .unwrap();
+        assert_eq!(
+            document.original,
+            "def keep():\n    return 1\ndef added():\n    return 4\n"
+        );
+        assert_eq!(document.modified, "");
+        assert_eq!(document.original_line, Some(3));
+        let historical = commit_changes_for(&root, &current_map, "HEAD^", Some("HEAD^^")).unwrap();
+        assert!(historical
+            .blocks
+            .iter()
+            .any(|block| block.label == "added" && block.added == 2 && block.removed == 0));
+        let document = block_diff_for(
+            &root,
+            &current_map,
+            "HEAD^",
+            Some("HEAD^^"),
+            "module:python:scripts-job-retired:def",
+        )
+        .unwrap();
+        assert_eq!(document.original_line, Some(3));
+        assert_eq!(
+            document.modified,
+            "def keep():\n    return 1\ndef added():\n    return 4\n"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn connection_diff_reports_added_and_removed_edges() {
         use crate::facts::Connection;
         let before = vec![Connection::Contains {
@@ -1134,6 +1249,7 @@ mod tests {
         assert_eq!(
             parse_hunk_header("3,2 +4 @@ fn x"),
             Some(Hunk {
+                old_start: 3,
                 old_count: 2,
                 new_start: 4,
                 new_count: 1
@@ -1142,6 +1258,7 @@ mod tests {
         assert_eq!(
             parse_hunk_header("10 +9,0 @@"),
             Some(Hunk {
+                old_start: 10,
                 old_count: 1,
                 new_start: 9,
                 new_count: 0

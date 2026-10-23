@@ -67,7 +67,7 @@ export default function SourceInspectorPanel({
         <div className="source-inspector-title">
           <span className="inspector-kicker">{diff === undefined ? "READ-ONLY SOURCE" : diff.kind === "ready" ? `COMMIT ${diff.document.commit.shortId}` : "COMMIT DIFF"}</span>
           <h2>{title}</h2>
-          {inspection.kind === "ready" && <code title={inspection.document.path}>{inspection.document.path}</code>}
+          {diff?.kind === "ready" ? <code title={diff.document.path}>{diff.document.path}</code> : inspection.kind === "ready" && <code title={inspection.document.path}>{inspection.document.path}</code>}
         </div>
         <button className="icon-button inspector-close" type="button" aria-label="Close source inspector" onClick={onClose}>
           <X size={15} />
@@ -115,6 +115,7 @@ export default function SourceInspectorPanel({
               modified={diff.document.modified}
               path={diff.document.path}
               line={diff.document.line}
+              originalLine={diff.document.originalLine}
               theme={theme}
               fontSize={codeSize}
             />

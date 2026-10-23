@@ -1,6 +1,7 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import type { BlockDiffDocument, CommitChanges } from "../src/map-source.js";
 
 // ---------------------------------------------------------------------------
 // Console / pageerror gate
@@ -60,9 +61,12 @@ const CAPTURES_JSON = readFileSync(
   "utf8",
 );
 
-export async function gotoIpc(page: Page): Promise<void> {
+export async function gotoIpc(page: Page, overrides: {
+  readonly changes?: CommitChanges;
+  readonly diff?: BlockDiffDocument;
+} = {}): Promise<void> {
   await page.route("**/__lw-captures.json", (route) =>
-    route.fulfill({ contentType: "application/json", body: CAPTURES_JSON }),
+    route.fulfill({ contentType: "application/json", body: JSON.stringify({ ...JSON.parse(CAPTURES_JSON), ...overrides }) }),
   );
   await page.addInitScript(() => {
     const w = window as unknown as Record<string, unknown>;

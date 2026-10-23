@@ -11,13 +11,14 @@ export interface SourceDiffEditorProps {
   readonly path: string;
   /** Line in `modified` to reveal. */
   readonly line: number;
+  readonly originalLine: number | null;
   readonly theme: ResolvedTheme;
   /** Source text size in pixels. */
   readonly fontSize: number;
 }
 
 /** Read-only side-by-side diff of one file in a commit. */
-export default function SourceDiffEditor({ original, modified, path, line, theme, fontSize }: SourceDiffEditorProps) {
+export default function SourceDiffEditor({ original, modified, path, line, originalLine, theme, fontSize }: SourceDiffEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const themeRef = useRef(theme);
   themeRef.current = theme;
@@ -54,6 +55,9 @@ export default function SourceDiffEditor({ original, modified, path, line, theme
     const reveal = () => {
       const target = Math.min(Math.max(1, line), modifiedModel.getLineCount());
       editor.getModifiedEditor().revealLineInCenter(target);
+      if (originalLine !== null) {
+        editor.getOriginalEditor().revealLineInCenter(Math.min(Math.max(1, originalLine), originalModel.getLineCount()));
+      }
     };
     // The diff is computed asynchronously; reveal once it lands so the hidden
     // unchanged regions do not shift the target.
@@ -70,7 +74,7 @@ export default function SourceDiffEditor({ original, modified, path, line, theme
       originalModel.dispose();
       modifiedModel.dispose();
     };
-  }, [fontSize, line, modified, original, path]);
+  }, [fontSize, line, originalLine, modified, original, path]);
 
   useEffect(() => {
     configureMonaco();

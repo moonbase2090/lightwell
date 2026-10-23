@@ -346,7 +346,11 @@
    {
     "blockId": "app:web-sample:main",
     "added": 3,
-    "removed": 1
+    "removed": 1,
+    "label": "main",
+    "sourcePath": "crates/lightwell-core/fixtures/web-sample/src/main.mjs",
+    "parentId": "crate:web-sample",
+    "state": "changed"
    }
   ],
   "connections": []
@@ -362,7 +366,8 @@
   "originalPath": null,
   "original": "# Lightwell\n\nOld line.\n",
   "modified": "# Lightwell\n\nNew line.\n",
-  "line": 1
+  "line": 1,
+  "originalLine": null
  },
  "presets": [
   {
