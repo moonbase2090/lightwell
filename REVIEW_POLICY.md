@@ -95,3 +95,11 @@ These rules narrow when a fresh review is needed. They replace nothing above unl
 - **A SHIP carries over** a clean rebase or a label-only change, as long as the PR's own diff is unchanged. Compare the old and new tips with `git range-diff` or the patch-id (`git diff <base>...<tip> | git patch-id --stable`). If the diff changed at all, the PR needs a new review at the new tip.
 - **Leaf Windows fixes** merge on a code SHIP and green CI. Windows runtime proof for them is batched and recorded before each release instead of blocking each PR.
 - **Still need a full cross-family review at the exact tip**: security and red-team fixes, trunk PRs, CI and workflow changes, release PRs, and public-API changes. The reviewer is a different model family than the author, and the review names the tip SHA.
+
+## Local verification
+
+Every behavior-changing PR must include proof that the change was built and exercised in a clean local VM (a Tart macOS VM, or a clean VM of the relevant OS) and shown working: the commands run plus their output, or a screenshot.
+
+- Reviewers must not give SHIP without that proof.
+- Docs-only and CI-only PRs are exempt.
+- Only an explicit owner override waives this requirement.
