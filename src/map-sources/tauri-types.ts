@@ -11,6 +11,8 @@ import type {
   MapSourceDocument,
   MapSourceEntry,
   ProjectNoteView,
+  NotesGitStatus,
+  NoteCommitResult,
   ProjectNotesSnapshot,
   SourceFileDocument,
 } from "../map-source.js";
@@ -282,4 +284,27 @@ export function parseBlockDiffDocument(value: unknown): BlockDiffDocument {
     modified: value.modified,
     line: value.line,
   };
+}
+
+export function parseNotesGitStatus(value: unknown): NotesGitStatus {
+  if (isRecord(value)) {
+    if (value.kind === "notRepository" || value.kind === "missing" || value.kind === "ignored" || value.kind === "conflicted") {
+      return { kind: value.kind };
+    }
+    if (value.kind === "unavailable" && typeof value.message === "string") {
+      return { kind: "unavailable", message: value.message };
+    }
+    if (value.kind === "ready" && typeof value.revision === "string" && value.revision.length > 0 && typeof value.noteChanged === "boolean"
+      && (value.state === "clean" || value.state === "untracked" || value.state === "modified" || value.state === "staged" || value.state === "mixed")) {
+      return { kind: "ready", state: value.state, revision: value.revision, noteChanged: value.noteChanged };
+    }
+  }
+  throw new Error("The desktop app returned an invalid notes Git status.");
+}
+
+export function parseNoteCommitResult(value: unknown): NoteCommitResult {
+  if (!isRecord(value) || !(value.commitId === null || (typeof value.commitId === "string" && /^[0-9a-f]{40,64}$/.test(value.commitId)))) {
+    throw new Error("The desktop app returned an invalid note commit response.");
+  }
+  return { commitId: value.commitId, status: parseNotesGitStatus(value.status) };
 }

@@ -107,3 +107,46 @@ test.describe("project notes (ipc)", () => {
     await expect(page.getByText("Source changed")).toHaveCount(0);
   });
 });
+
+
+test.describe("notes Git sharing", () => {
+  test("saved note commits only by explicit action and retains saved text after failure", async ({ page }) => {
+    await gotoIpc(page);
+    await page.locator(".react-flow__node").first().click();
+    await page.keyboard.press("n");
+    await page.getByLabel("Project note text").fill("Shared architecture note");
+    await page.getByRole("button", { name: "Save note", exact: true }).click();
+    await expect(page.getByText("Saved in .lightwell/notes.json")).toBeVisible();
+    const commit = page.getByRole("button", { name: "Commit this note", exact: true });
+    await expect(commit).toBeEnabled();
+    expect(await page.evaluate(() => Reflect.get(window, "__LW_NOTE_COMMIT_INPUT__"))).toBeUndefined();
+    await page.getByLabel("Project note text").fill("Unsaved draft");
+    await expect(commit).toBeDisabled();
+    await page.getByLabel("Project note text").fill("Shared architecture note");
+    await page.evaluate(() => Reflect.set(window, "__LW_FAIL_NOTE_COMMIT__", true));
+    await commit.click();
+    await expect(page.getByLabel("Note Git sharing").getByRole("alert")).toContainText("Your note is saved. Signing failed.");
+    await expect(page.getByLabel("Project note text")).toHaveValue("Shared architecture note");
+    await page.evaluate(() => Reflect.set(window, "__LW_FAIL_NOTE_COMMIT__", false));
+    await commit.click();
+    await expect(page.getByLabel("Note Git sharing").getByRole("status")).toContainText("Note committed as 12345678.");
+    await expect(commit).toBeDisabled();
+    await page.screenshot({ path: test.info().outputPath("notes-git-committed.png") });
+    expect(await page.evaluate(() => Reflect.get(window, "__LW_NOTE_COMMIT_INPUT__"))).toMatchObject({ text: "Shared architecture note", sourceFingerprint: "capture", revision: "saved-revision" });
+    await expect(page.getByText("This note matches the latest commit.", { exact: false })).toBeVisible();
+  });
+
+  for (const state of ["notRepository", "ignored", "conflicted"] as const) {
+    test(`saved notes explain ${state} without offering a commit`, async ({ page }) => {
+      await gotoIpc(page);
+      await page.evaluate((kind) => Reflect.set(window, "__LW_NOTES_GIT_STATE__", kind), state);
+      await page.locator(".react-flow__node").first().click();
+      await page.keyboard.press("n");
+      await page.getByLabel("Project note text").fill("Saved local note");
+      await page.getByRole("button", { name: "Save note", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Commit this note", exact: true })).toBeDisabled();
+      await expect(page.getByLabel("Note Git sharing")).toContainText(state === "notRepository" ? "Initialize Git" : state === "ignored" ? "Change your Git ignore rules" : "Resolve the notes merge conflict");
+      await expect(page.getByLabel("Project note text")).toHaveValue("Saved local note");
+    });
+  }
+});

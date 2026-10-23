@@ -954,3 +954,9 @@ button.node-note-badge:hover, button.node-note-badge:focus-visible { background:
 .node-diff .diff-removed { color: #f08f8f; }
 .node-diff-inside { opacity: .75; }
 .source-diff-editor { height: 100%; }
+
+.notes-git-panel { border-top: 1px solid #2d3b49; padding-top: 8px; font-size: calc(11px * var(--lw-ui-scale, 1)); line-height: 1.45; color: #a5b4c6; }
+.notes-git-panel p { margin: 0 0 6px; }
+.notes-git-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.project-note-editor { overflow-y: auto; }
+.project-note-textarea { min-height: 100px; }

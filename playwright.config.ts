@@ -14,6 +14,7 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
   webServer: {
+    env: { VITE_ENABLE_NOTE_GIT: "true" },
     command: "npm run build && npm run preview -- --port 4173 --strictPort",
     url: "http://localhost:4173",
     reuseExistingServer: false,

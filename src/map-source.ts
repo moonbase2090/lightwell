@@ -26,7 +26,23 @@ export interface ProjectNoteInput {
   readonly text: string;
 }
 
+export type NotesGitStatus =
+  | { readonly kind: "notRepository" | "missing" | "ignored" | "conflicted" }
+  | { readonly kind: "unavailable"; readonly message: string }
+  | { readonly kind: "ready"; readonly state: "clean" | "untracked" | "modified" | "staged" | "mixed"; readonly revision: string; readonly noteChanged: boolean };
+
+export interface NoteCommitResult {
+  readonly commitId: string | null;
+  readonly status: NotesGitStatus;
+}
+
+export interface ProjectNotesGitSource {
+  status(input: Omit<ProjectNoteInput, "text">): Promise<NotesGitStatus>;
+  commit(input: ProjectNoteInput & { readonly revision: string; readonly sourceFingerprint: string }): Promise<NoteCommitResult>;
+}
+
 export interface ProjectNotesSource {
+  readonly git?: ProjectNotesGitSource;
   add(input: ProjectNoteInput): Promise<ProjectNotesSnapshot>;
   edit(input: ProjectNoteInput): Promise<ProjectNotesSnapshot>;
   remove(input: Omit<ProjectNoteInput, "text">): Promise<ProjectNotesSnapshot>;

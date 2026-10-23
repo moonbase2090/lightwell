@@ -7,6 +7,7 @@ A developer adds, edits, and removes a project note on a block in the desktop ap
 - `notes-create` — Save writes `.lightwell/notes.json` for the selected module.
 - `notes-edit` — a second save replaces the note text.
 - `notes-stale` — editing the module source marks the open note stale without rewriting it.
+- `notes-git-sharing` — an opt-in build shows Git state and commits only the selected saved note.
 - `notes-remove` — Remove deletes that note from the file and updates the dialog.
 
 ## How to get to it (user POV)
@@ -66,3 +67,16 @@ CI runs this inside `tauri-linux-artifact` and uploads `lightwell-project-notes-
 - Ctrl+K focuses the search input. Search opens the source inspector; close it so the details panel shows **Add note** for the selected block. Escape only clears the query (`setSearch("")` in `handleSearchKey`).
 - In `ProjectNotesDialog`, tab order with a saved note is Close, New, the note row, the textarea, Remove, Save. One Tab from Save wraps to Close. The capture clicks Remove instead of tabbing.
 - Screenshot crops assume the 860×640 dialog. A different dialog size invalidates both the clicks and the stale/removal pixel compare.
+
+
+## Optional Git sharing drive
+
+Build the desktop app with `VITE_ENABLE_NOTE_GIT=true`. The control is absent by default. Open a supported project inside a Git repository with a configured Git author. Save two notes, stage an unrelated file, and edit a second unrelated file without staging it.
+
+1. Select one saved note. Confirm the notes file Git state appears and **Commit this note** is enabled. Saving alone must not create a commit.
+2. Edit the textarea without saving. The commit button must become disabled. Save the change, then choose **Commit this note**.
+3. Confirm a commit id appears and that selected note matches the latest commit. Use `git show HEAD:.lightwell/notes.json` to confirm only the selected note changed. The second note must remain as it was in HEAD. Confirm the unrelated staged and working files retain their changes and are absent from the new commit.
+4. Cause a Git signing or hook failure in a disposable repository, save another change, and retry the commit action. The dialog must report that the note is saved and show the Git error. Fix the configuration and retry successfully.
+5. Open a non-Git project or ignore the untracked notes file. Save a note and confirm actionable status text with the commit button disabled.
+
+Browser IPC coverage for the button, dirty editor, failure/retry, and unavailable states is `npm run test:e2e -- e2e/notes.spec.ts`. The Playwright server enables the build flag. Real repository/index preservation is covered by `cargo test -p lightwell-core --lib --locked notes::git` and the desktop drive above. The Linux capture's default build keeps the Git panel hidden, preserving its existing click coordinates and tab order.
