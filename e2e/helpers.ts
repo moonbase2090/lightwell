@@ -77,9 +77,10 @@ export async function gotoIpc(page: Page): Promise<void> {
     };
     const snapshot = () => ({ kind: "ready", notes: [...notesState.notes] });
     const committedNotes = new Map<string, string>();
+    let notesRevision = 0;
     const gitStatus = (blockId: string) => {
       if (typeof w.__LW_NOTES_GIT_STATE__ === "string") return { kind: w.__LW_NOTES_GIT_STATE__ };
-      return { kind: "ready", state: "modified", revision: "saved-revision", noteChanged: committedNotes.get(blockId) !== notesState.notes.find((note) => note.blockId === blockId)?.text };
+      return { kind: "ready", state: "modified", revision: `saved-revision-${notesRevision}`, noteChanged: committedNotes.get(blockId) !== notesState.notes.find((note) => note.blockId === blockId)?.text };
     };
 
     async function handle(cmd: string, args: Record<string, unknown>): Promise<unknown> {
@@ -122,6 +123,7 @@ export async function gotoIpc(page: Page): Promise<void> {
           return caps.presets;
         case "add_workspace_note":
         case "edit_workspace_note": {
+          notesRevision += 1;
           const blockId = String(args.blockId);
           const text = String(args.text ?? "");
           const existing = notesState.notes.find((n) => n.blockId === blockId);
@@ -133,6 +135,7 @@ export async function gotoIpc(page: Page): Promise<void> {
           return gitStatus(String(args.blockId));
         case "commit_workspace_note": {
           if (w.__LW_FAIL_NOTE_COMMIT__) throw new Error("Signing failed. Configure Git signing and retry.");
+          if (args.revision !== `saved-revision-${notesRevision}`) throw new Error("Notes changed since the last refresh.");
           const blockId = String(args.blockId);
           committedNotes.set(blockId, String(args.text));
           w.__LW_NOTE_COMMIT_INPUT__ = args;

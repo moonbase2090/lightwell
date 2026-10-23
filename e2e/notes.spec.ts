@@ -119,6 +119,10 @@ test.describe("notes Git sharing", () => {
     await expect(page.getByText("Saved in .lightwell/notes.json")).toBeVisible();
     const commit = page.getByRole("button", { name: "Commit this note", exact: true });
     await expect(commit).toBeEnabled();
+    // A no-op save can still rewrite notes serialization and change its Git token.
+    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(page.getByText("Saved in .lightwell/notes.json")).toBeVisible();
+    await expect(commit).toBeEnabled();
     expect(await page.evaluate(() => Reflect.get(window, "__LW_NOTE_COMMIT_INPUT__"))).toBeUndefined();
     await page.getByLabel("Project note text").fill("Unsaved draft");
     await expect(commit).toBeDisabled();
@@ -132,7 +136,7 @@ test.describe("notes Git sharing", () => {
     await expect(page.getByLabel("Note Git sharing").getByRole("status")).toContainText("Note committed as 12345678.");
     await expect(commit).toBeDisabled();
     await page.screenshot({ path: test.info().outputPath("notes-git-committed.png") });
-    expect(await page.evaluate(() => Reflect.get(window, "__LW_NOTE_COMMIT_INPUT__"))).toMatchObject({ text: "Shared architecture note", sourceFingerprint: "capture", revision: "saved-revision" });
+    expect(await page.evaluate(() => Reflect.get(window, "__LW_NOTE_COMMIT_INPUT__"))).toMatchObject({ text: "Shared architecture note", sourceFingerprint: "capture", revision: "saved-revision-2" });
     await expect(page.getByText("This note matches the latest commit.", { exact: false })).toBeVisible();
   });
 

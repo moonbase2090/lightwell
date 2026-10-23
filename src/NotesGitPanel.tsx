@@ -41,7 +41,7 @@ export default function NotesGitPanel({ source, workspaceId, note, disabled, onB
       if (active) setStatus({ kind: "unavailable", message: errorMessage(cause) });
     });
     return () => { active = false; };
-  }, [source, workspaceId, note.blockId, note.text, note.sourceFingerprint, refresh]);
+  }, [source, workspaceId, note, refresh]);
 
   const commit = async () => {
     if (disabled || busy || status?.kind !== "ready" || !status.noteChanged) return;
