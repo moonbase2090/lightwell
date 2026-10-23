@@ -1,3 +1,9 @@
+mod git;
+pub use git::{
+    commit_project_note, project_note_git_status, NoteCommitResult, NotesGitFileState,
+    NotesGitStatus,
+};
+
 use crate::extract::{block_base, discover_project_workspace, map_workspace};
 use crate::{FactMap, MapExtractionError};
 use fs2::FileExt;

@@ -7,6 +7,8 @@ import {
   parseMapSourceEntries,
   parseMapSourceEntry,
   parseProjectNotesSnapshot,
+  parseNotesGitStatus,
+  parseNoteCommitResult,
   parseSourceFileDocument,
   parseWorkspaceMapUpdate,
 } from "./map-sources/tauri-types.js";
@@ -60,4 +62,18 @@ test("Tauri map, project notes, and editor IPC responses pass boundary checks", 
   assert.throws(() => parseSourceFileDocument({ path: "src/lib.rs", content: "", line: 0, column: 1 }), /invalid source file/);
   assert.throws(() => parseEditorSettings({ commandTemplate: 3 }), /invalid editor settings/);
   assert.throws(() => parseEditorTemplatePresets([{}]), /invalid editor preset/);
+});
+
+
+test("notes Git IPC validates states and commit receipts", () => {
+  assert.deepEqual(parseNotesGitStatus({ kind: "ready", state: "mixed", revision: "abc", noteChanged: true }), {
+    kind: "ready", state: "mixed", revision: "abc", noteChanged: true,
+  });
+  assert.deepEqual(parseNotesGitStatus({ kind: "ignored" }), { kind: "ignored" });
+  assert.deepEqual(parseNotesGitStatus({ kind: "unavailable", message: "Install Git" }), { kind: "unavailable", message: "Install Git" });
+  assert.deepEqual(parseNoteCommitResult({ commitId: null, status: { kind: "missing" } }), { commitId: null, status: { kind: "missing" } });
+  for (const value of [{ kind: "ready", state: "unknown", revision: "abc", noteChanged: true }, { kind: "ready", state: "clean", revision: "", noteChanged: true }, { kind: "ready", state: "clean", revision: "abc", noteChanged: "false" }, { kind: "unavailable" }, { kind: "unknown" }]) {
+    assert.throws(() => parseNotesGitStatus(value), /invalid notes Git status/);
+  }
+  assert.throws(() => parseNoteCommitResult({ commitId: "invalid", status: { kind: "missing" } }), /invalid note commit response/);
 });

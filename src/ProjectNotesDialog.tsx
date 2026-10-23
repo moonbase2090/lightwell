@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CircleAlert, FileText, MapPin, Plus, Save, Trash2, X } from "lucide-react";
 import type { ResolvedMap } from "./model.js";
 import type { ProjectNoteView, ProjectNotesSnapshot, ProjectNotesSource } from "./map-source.js";
+import NotesGitPanel from "./NotesGitPanel.js";
 
 type NoteEditor =
   | { readonly kind: "new"; readonly blockId: string; readonly text: string }
@@ -65,6 +66,7 @@ export default function ProjectNotesDialog({
     return initial.kind === "new" ? { ...initial, text: initialText } : initial;
   });
   const [saving, setSaving] = useState(false);
+  const [committing, setCommitting] = useState(false);
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
   const dialogRef = useRef<HTMLElement | null>(null);
@@ -103,10 +105,12 @@ export default function ProjectNotesDialog({
   const editorBlock = map.blockById.get(editor.blockId);
   const canSave = snapshot.kind === "ready"
     && !saving
+    && !committing
     && editor.blockId.length > 0
     && editor.text.trim().length > 0;
 
   const chooseEditor = (next: NoteEditor) => {
+    if (committing) return;
     if (isDirty && !window.confirm("Discard unsaved note changes?")) return;
     setEditor(next);
     setError("");
@@ -145,7 +149,7 @@ export default function ProjectNotesDialog({
   }, [handleSave]);
 
   const handleRemove = async () => {
-    if (editor.kind !== "saved" || saving) return;
+    if (editor.kind !== "saved" || saving || committing) return;
     setSaving(true);
     setError("");
     setSavedMessage("");
@@ -249,15 +253,18 @@ export default function ProjectNotesDialog({
               aria-label="Project note text"
               placeholder="Write a note about this block…"
               value={editor.text}
-              disabled={snapshot.kind === "error" || editor.blockId.length === 0 || saving}
+              disabled={snapshot.kind === "error" || editor.blockId.length === 0 || saving || committing}
               onChange={(event) => { setEditor({ ...editor, text: event.currentTarget.value }); setSavedMessage(""); }}
             />
+            {source.git !== undefined && selectedNote !== undefined && editor.kind === "saved" && (
+              <NotesGitPanel key={selectedNote.blockId} source={source.git} workspaceId={workspaceId} note={selectedNote} disabled={saving || isDirty} onBusy={setCommitting} />
+            )}
             <div className="project-note-footer">
               <div className="project-note-feedback" aria-live="polite">
                 {error.length > 0 ? <span className="project-notes-error" role="alert">{error}</span> : savedMessage}
               </div>
               {editor.kind === "saved" && (
-                <button className="notes-remove-button" type="button" onClick={handleRemove} disabled={saving || snapshot.kind === "error"}>
+                <button className="notes-remove-button" type="button" onClick={handleRemove} disabled={saving || committing || snapshot.kind === "error"}>
                   <Trash2 size={13} /> Remove
                 </button>
               )}

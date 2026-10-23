@@ -309,6 +309,27 @@ pub fn remove_workspace_note(
         .map_err(|error| error.to_string())
 }
 
+#[tauri::command(async)]
+pub fn project_notes_git_status(
+    path: String,
+    block_id: String,
+) -> Result<lightwell_core::NotesGitStatus, String> {
+    let root = workspace_root(&path)?;
+    Ok(lightwell_core::project_note_git_status(&root, &block_id))
+}
+
+#[tauri::command(async)]
+pub fn commit_workspace_note(
+    path: String,
+    block_id: String,
+    revision: String,
+    text: String,
+    source_fingerprint: String,
+) -> Result<lightwell_core::NoteCommitResult, String> {
+    let root = workspace_root(&path)?;
+    lightwell_core::commit_project_note(&root, &block_id, &revision, &text, &source_fingerprint)
+}
+
 fn start_workspace_watcher(
     app: &AppHandle,
     watchers: &WorkspaceWatchers,

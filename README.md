@@ -113,6 +113,8 @@ VITE_ENABLE_PROJECT_NOTES=false npm run tauri:build
 
 Right-click a block (or press Shift+F10), use **Add note** in the details panel, press **N**, or click **Notes** to add, edit, or remove notes for map blocks. The dialog reads and writes the opened project's `.lightwell/notes.json` file. It marks stale notes and keeps them until you remove them.
 
+Build with `VITE_ENABLE_NOTE_GIT=true npm run tauri:build` to enable the experimental Git sharing controls. They are off by default. After saving a note in this build, its Git status appears below the editor. Choose **Commit this note** to commit that saved note for Git sharing. The action uses your Git identity and signing configuration. Finish any merge, rebase, cherry-pick, revert, or bisect first, and resolve all conflicts. Repositories with active commit or reference hooks require a manual Git commit; the app leaves those hooks intact and does not run or bypass them. It leaves other notes, staged files, and working changes intact and never pushes. Refresh the status after external Git changes. Ignored notes require an explicit ignore-rule change before they can be committed. If a commit fails, the saved note remains on disk.
+
 ## Rust CLI
 
 With `lightwell` installed from `crates/lightwell-cli`, you can refresh a checked-in preview from a sibling checkout. Extract a map with:
