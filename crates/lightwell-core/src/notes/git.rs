@@ -4,7 +4,7 @@ use super::{
 use crate::metadata::without_console_window;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -50,8 +50,8 @@ pub struct NoteCommitResult {
 }
 
 struct Repository {
-    root: PathBuf,
-    relative: PathBuf,
+    git_root: PathBuf,
+    relative: OsString,
 }
 
 impl Repository {
@@ -65,7 +65,9 @@ impl Repository {
         ] {
             command.env_remove(key);
         }
-        command.args(["--literal-pathspecs", "-C"]).arg(&self.root);
+        command
+            .args(["--literal-pathspecs", "-C"])
+            .arg(&self.git_root);
         command.env("GIT_OPTIONAL_LOCKS", "0");
         if let Some(index) = index {
             command.env("GIT_INDEX_FILE", index);
@@ -214,19 +216,19 @@ fn repository(store: &ProjectNotesStore) -> Result<Option<Repository>, String> {
         .and_then(Path::parent)
         .ok_or("Invalid notes path")?;
     let probe = Repository {
-        root: parent.to_owned(),
-        relative: PathBuf::new(),
+        git_root: parent.to_owned(),
+        relative: OsString::new(),
     };
-    let root = match probe.simple(&["rev-parse", "--show-toplevel"]) {
+    let git_root = match probe.simple(&["rev-parse", "--show-toplevel"]) {
         Ok(bytes) => PathBuf::from(
             String::from_utf8(bytes)
                 .map_err(|e| e.to_string())?
-                .trim_end(),
+                .trim_end_matches(['\r', '\n']),
         ),
         Err(message) if message.contains("not a git repository") => return Ok(None),
         Err(message) => return Err(message),
     };
-    let root = root.canonicalize().map_err(|e| e.to_string())?;
+    let canonical_root = git_root.canonicalize().map_err(|e| e.to_string())?;
     let path = parent
         .canonicalize()
         .map_err(|e| e.to_string())?
@@ -242,10 +244,21 @@ fn repository(store: &ProjectNotesStore) -> Result<Option<Repository>, String> {
         );
     }
     let relative = path
-        .strip_prefix(&root)
-        .map_err(|_| "Notes are outside the Git repository")?
-        .to_owned();
-    Ok(Some(Repository { root, relative }))
+        .strip_prefix(&canonical_root)
+        .map_err(|_| "Notes are outside the Git repository")?;
+    let relative = git_relative_path(relative);
+    Ok(Some(Repository { git_root, relative }))
+}
+
+fn git_relative_path(path: &Path) -> OsString {
+    let mut relative = OsString::new();
+    for component in path.components() {
+        if !relative.is_empty() {
+            relative.push("/");
+        }
+        relative.push(component.as_os_str());
+    }
+    relative
 }
 
 fn git_path(repo: &Repository, name: &str) -> Result<PathBuf, String> {
@@ -258,7 +271,7 @@ fn git_path(repo: &Repository, name: &str) -> Result<PathBuf, String> {
     Ok(if path.is_absolute() {
         path
     } else {
-        repo.root.join(path)
+        repo.git_root.join(path)
     })
 }
 
@@ -478,7 +491,7 @@ fn commit_locked(
     let index = if index.is_absolute() {
         index
     } else {
-        repo.root.join(index)
+        repo.git_root.join(index)
     };
     let lock = index.with_file_name("index.lock");
     OpenOptions::new()
@@ -1084,5 +1097,41 @@ mod tests {
             );
             assert_eq!(files_under(&f.root), before);
         }
+    }
+    #[test]
+    fn git_paths_keep_spaces_and_native_components() {
+        let original = Fixture::new(true);
+        let moved = original.root.with_file_name(format!(
+            "{}{}",
+            original.root.file_name().unwrap().to_string_lossy(),
+            if cfg!(unix) { " fixture " } else { " fixture" }
+        ));
+        fs::rename(&original.root, &moved).unwrap();
+        let f = Fixture { root: moved };
+        let component = if cfg!(unix) {
+            r"nested\literal project"
+        } else {
+            "nested project"
+        };
+        let nested = f.root.join(component);
+        fs::create_dir(&nested).unwrap();
+        ProjectNotesStore::new(&nested)
+            .set("first", "space path note", "fingerprint")
+            .unwrap();
+        assert!(matches!(
+            project_note_git_status(&nested, "first"),
+            NotesGitStatus::Ready {
+                state: NotesGitFileState::Untracked,
+                note_changed: true,
+                ..
+            }
+        ));
+        let token = revision(&ProjectNotesStore::new(&nested).path).unwrap();
+        commit_project_note(&nested, "first", &token, "space path note", "fingerprint").unwrap();
+        let document: NotesDocument = serde_json::from_str(
+            &f.git(&["show", &format!("HEAD:{component}/.lightwell/notes.json")]),
+        )
+        .unwrap();
+        assert_eq!(document.notes["first"].text, "space path note");
     }
 }
