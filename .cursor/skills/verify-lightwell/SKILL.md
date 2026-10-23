@@ -46,6 +46,7 @@ Read `.cursor/skills/verify-lightwell/features/README.md` and the feature file f
 Harness summary:
 
 - **CLI:** `target/debug/lightwell` (after build) or `cargo run -p lightwell-cli --locked --` with `extract`, `--name`, and `-o`.
+- **CLI project notes:** run `scripts/smoke-project-notes.sh target/debug/lightwell` after building the CLI. It saves notes in a temporary Git repository and checks ignored lock/temp files, unstaged trackable notes, preserved root ignore rules, and idempotent saves, then exercises stale detection and removal.
 - **Browser:** HTTP against the preview URL; built `dist/` must exist (`npm run build`).
 - **Desktop project notes (Linux only):** `scripts/ci/capture-project-notes.sh` with a built Tauri binary. See `features/project-notes-capture.md` for Xvfb, xdotool, ImageMagick, and the fixed layout. Skip it when those are missing; do not substitute the browser preview.
 
@@ -54,6 +55,7 @@ Harness summary:
 Store proof under `/tmp/lightwell-verify-$RUN_ID/proof/` (create the directory). Keep:
 
 - CLI: command line, exit code, path to the written facts JSON, and the `CLI smoke passed` line from `scripts/verify/cli-extract-proof.sh`.
+- CLI project notes: command line, exit code, and the `Project notes smoke passed` line from `scripts/smoke-project-notes.sh`.
 - Browser: preview URL, `curl` response code, and a note that `dist/index.html` contains `Lightwell` (from `scripts/verify/browser-preview-proof.sh`).
 - Project notes, when the Linux desktop prerequisites are present: capture command, exit code, the `created, edited, retained as stale, and removed` line, and `notes-current.png`, `notes-stale.png`, and `notes-removed.png`.
 

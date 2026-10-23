@@ -1,3 +1,9 @@
+mod git;
+pub use git::{
+    commit_project_note, project_note_git_status, NoteCommitResult, NotesGitFileState,
+    NotesGitStatus,
+};
+
 use crate::extract::{block_base, discover_project_workspace, map_workspace};
 use crate::{FactMap, MapExtractionError};
 use fs2::FileExt;
@@ -159,12 +165,36 @@ impl ProjectNotesStore {
             })?;
         let _lock = ExclusiveLock(lock_file);
 
+        Self::ensure_artifact_ignores(parent)?;
+
         let mut document = self.read_document()?;
         let changed = update_document(&mut document)?;
         if changed {
             self.write_document(&document)?;
         }
         Ok(changed)
+    }
+
+    fn ensure_artifact_ignores(parent: &Path) -> Result<(), NotesError> {
+        let path = parent.join(".gitignore");
+        let result = (|| -> io::Result<()> {
+            let contents = match fs::read(&path) {
+                Ok(contents) => contents,
+                Err(source) if source.kind() == io::ErrorKind::NotFound => Vec::new(),
+                Err(source) => return Err(source),
+            };
+            let rules = b"notes.lock\n*.tmp\n";
+            if contents == rules || contents.ends_with(b"\nnotes.lock\n*.tmp\n") {
+                return Ok(());
+            }
+
+            let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
+            if !contents.is_empty() && !contents.ends_with(b"\n") {
+                file.write_all(b"\n")?;
+            }
+            file.write_all(rules)
+        })();
+        result.map_err(|source| NotesError::Io { path, source })
     }
 
     fn read_document(&self) -> Result<NotesDocument, NotesError> {
@@ -391,13 +421,14 @@ impl From<MapExtractionError> for NotesError {
 #[cfg(test)]
 mod tests {
     use super::{
-        list_project_notes, remove_project_note, set_project_note, update_project_note_text,
-        NotesError, ProjectNotesStore,
+        list_project_notes, remove_project_note, set_project_note, set_project_note_for_map,
+        update_project_note_text, NotesError, ProjectNotesStore,
     };
     use crate::extract::{block_base, extract_cargo_map};
     use crate::facts::{BlockBase, CrateBlock, FactBlock, FactGroup, FactMap, MapStats, Project};
     use std::fs;
     use std::path::PathBuf;
+    use std::process::Command;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static NEXT_TEMP_DIR_ID: AtomicU64 = AtomicU64::new(0);
@@ -482,6 +513,88 @@ mod tests {
     }
 
     #[test]
+    fn saves_ignore_lock_and_temp_files_without_hiding_or_staging_notes() {
+        for existing_rules in [
+            None,
+            Some("user-cache/\n"),
+            Some("notes.lock\r\n!notes.lock\r\n!*.tmp"),
+            Some("#notes.lock\n*.tmp\n"),
+        ] {
+            let project = TempProject::new();
+            let git = |args: &[&str]| {
+                let output = Command::new("git")
+                    .current_dir(&project.0)
+                    .args(["-c", "core.excludesFile="])
+                    .args(args)
+                    .output()
+                    .expect("Git should run for the temporary repository");
+                assert!(
+                    output.status.success(),
+                    "{}",
+                    String::from_utf8_lossy(&output.stderr)
+                );
+                String::from_utf8(output.stdout)
+                    .unwrap()
+                    .replace("\r\n", "\n")
+            };
+            git(&["init", "-q"]);
+            fs::write(project.0.join(".gitignore"), "user-cache/\n").unwrap();
+            let ignore_path = project.0.join(".lightwell/.gitignore");
+            if let Some(rules) = existing_rules {
+                fs::create_dir(project.0.join(".lightwell")).unwrap();
+                fs::write(&ignore_path, rules).unwrap();
+            }
+
+            let current_map = map("fingerprint");
+            let notes = set_project_note_for_map(
+                &project.0,
+                &current_map,
+                "crate:core",
+                "Remember this crate",
+            )
+            .unwrap();
+            assert_eq!(notes[0].text, "Remember this crate");
+            let first_rules = fs::read(&ignore_path).unwrap();
+            if let Some(rules) = existing_rules {
+                assert!(
+                    first_rules.starts_with(rules.as_bytes()),
+                    "User rules must survive byte for byte"
+                );
+            }
+            let notes =
+                set_project_note_for_map(&project.0, &current_map, "crate:core", "Updated note")
+                    .unwrap();
+            assert_eq!(notes[0].text, "Updated note");
+            assert_eq!(fs::read(&ignore_path).unwrap(), first_rules);
+            assert_eq!(
+                fs::read_to_string(project.0.join(".gitignore")).unwrap(),
+                "user-cache/\n"
+            );
+
+            fs::write(
+                project.0.join(".lightwell/.notes-123-0.tmp"),
+                "interrupted save",
+            )
+            .unwrap();
+            fs::write(project.0.join(".lightwell/leftover.tmp"), "temporary data").unwrap();
+            assert_eq!(
+                git(&[
+                    "check-ignore",
+                    ".lightwell/notes.lock",
+                    ".lightwell/.notes-123-0.tmp",
+                    ".lightwell/leftover.tmp"
+                ]),
+                ".lightwell/notes.lock\n.lightwell/.notes-123-0.tmp\n.lightwell/leftover.tmp\n"
+            );
+            assert_eq!(
+                git(&["status", "--porcelain", "--untracked-files=all"]),
+                "?? .gitignore\n?? .lightwell/.gitignore\n?? .lightwell/notes.json\n"
+            );
+            assert_eq!(git(&["ls-files", "--stage"]), "");
+        }
+    }
+
+    #[test]
     fn removing_a_note_is_explicit_and_does_not_remove_other_notes() {
         let project = TempProject::new();
         let store = ProjectNotesStore::new(&project.0);
@@ -525,6 +638,10 @@ mod tests {
             .unwrap();
         assert_eq!(notes.len(), 2);
         assert!(notes.iter().all(|note| note.stale));
+        assert_eq!(
+            fs::read_to_string(project.0.join(".lightwell/.gitignore")).unwrap(),
+            "notes.lock\n*.tmp\n"
+        );
     }
 
     #[test]

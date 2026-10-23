@@ -93,7 +93,7 @@ Checked-in Scorecard preview:
 
 ## Privacy
 
-Maps, project notes, and editor settings stay on your machine. See [PRIVACY.md](PRIVACY.md).
+Maps and editor settings stay on your machine, and Lightwell never uploads project notes. Notes are stored in `.lightwell/notes.json` inside your project, so they are shared only if you commit and push that file yourself. See [PRIVACY.md](PRIVACY.md).
 
 ## Desktop shell
 
@@ -112,6 +112,8 @@ VITE_ENABLE_PROJECT_NOTES=false npm run tauri:build
 ```
 
 Right-click a block (or press Shift+F10), use **Add note** in the details panel, press **N**, or click **Notes** to add, edit, or remove notes for map blocks. The dialog reads and writes the opened project's `.lightwell/notes.json` file. It marks stale notes and keeps them until you remove them.
+
+Build with `VITE_ENABLE_NOTE_GIT=true npm run tauri:build` to enable the experimental Git sharing controls. They are off by default. After saving a note in this build, its Git status appears below the editor. Choose **Commit this note** to commit that saved note for Git sharing. The action uses your Git identity and signing configuration. Finish any merge, rebase, cherry-pick, revert, or bisect first, and resolve all conflicts. Repositories with active commit or reference hooks require a manual Git commit; the app leaves those hooks intact and does not run or bypass them. It leaves other notes, staged files, and working changes intact and never pushes. Refresh the status after external Git changes. Ignored notes require an explicit ignore-rule change before they can be committed. If a commit fails, the saved note remains on disk.
 
 ## Rust CLI
 
@@ -183,6 +185,39 @@ lightwell notes rm crate:lightwell-core
 ```
 
 Use a `blocks[].id` value from the extracted map. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
+
+For automation, add `--json` after the notes subcommand:
+
+| Command | JSON result on stdout |
+| --- | --- |
+| `notes list --json` | An array of objects with `blockId`, `text`, `sourceFingerprint`, and `stale`. An empty list is `[]`. |
+| `notes set --json <block-id> <text...>` | `{"blockId":"...","text":"..."}` after the note is saved. |
+| `notes rm --json <block-id>` | `{"blockId":"...","removed":true}` after the saved note is removed. |
+
+JSON results are a single value followed by a newline. Diagnostics go to stderr. Failed lookups, invalid arguments, and notes-storage errors do not print a result. Without `--json`, successful commands retain their human-readable output.
+
+Run `lightwell notes list --check` to fail when any saved note is stale. It still prints the complete list, with `--json` if requested, and writes a stale-note count to stderr. An empty list or a list of current notes exits successfully. Checking does not change the saved notes or their fingerprints.
+
+These exit codes apply to the notes commands:
+
+| Exit | Meaning |
+| --- | --- |
+| 0 | Success, including stale notes listed without `--check`. |
+| 1 | Extraction, storage, invalid notes data, or output failure. |
+| 2 | Invalid command arguments. |
+| 3 | `notes rm` found no saved note for that ID. |
+| 4 | `notes set` found no current block for that ID. |
+| 5 | `notes list --check` found at least one stale note. |
+
+Removing a saved note does not require its block to exist in the current map, so orphaned notes remain removable. A missing saved note is an error on stderr and exits with code 3.
+
+Options can appear before or after the positional arguments, after the subcommand. Use `--` to end option parsing when note text contains literal flags:
+
+```sh
+lightwell notes set --json crate:lightwell-core -- --json --check
+```
+
+This saves the text `--json --check`. Unknown or repeated options are usage errors; `--check` is only valid for `notes list`.
 
 ## Data flow
 

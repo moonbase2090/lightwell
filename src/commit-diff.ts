@@ -24,13 +24,13 @@ export function rollUpChanges(
     result.set(block.blockId, { added: block.added, removed: block.removed, direct: true });
   }
   for (const block of changes.blocks) {
-    let ancestor = parentOf(block.blockId);
-    while (ancestor !== null && ancestor !== undefined && !direct.has(ancestor)) {
+    let ancestor = block.parentId;
+    while (ancestor !== null && !direct.has(ancestor)) {
       const entry = result.get(ancestor) ?? { added: 0, removed: 0, direct: false };
       entry.added += block.added;
       entry.removed += block.removed;
       result.set(ancestor, entry);
-      ancestor = parentOf(ancestor);
+      ancestor = parentOf(ancestor) ?? null;
     }
   }
   return result;

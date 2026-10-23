@@ -1015,6 +1015,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       });
     return () => { cancelled = true; };
   }, [diffBaseCommitId, diffCommitId, history, inspectedBlockId, inspectedChangedDirectly, inspectedDiffPath, mapKey]);
+  const inspectedChange = commitDiff.kind === "ready"
+    ? commitDiff.changes.blocks.find((block) => block.blockId === inspectedBlockId)
+    : undefined;
+  const inspectingHistoricalBlock = inspectedChange?.state === "removed"
+    || (inspectedBlockId !== null && map !== null && !map.blockById.has(inspectedBlockId));
   const projectNotes = loadedMap.kind === "ready" && loadedMap.id === mapKey
     ? loadedMap.projectNotes
     : emptyProjectNotes;
@@ -1226,6 +1231,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const navigateCommitDiffEntry = useCallback((entry: CommitDiffEntry) => {
     if (map === null || commitDiff.kind !== "ready") return;
     if (entry.kind === "block") {
+      if (entry.state === "removed" || !map.blockById.has(entry.blockId)) {
+        setSelectedId(entry.blockId);
+        setInspectedDiffPath(null);
+        setInspectedBlockId(entry.blockId);
+        setEditorActionError("");
+        return;
+      }
       const block = map.blockById.get(entry.blockId);
       if (block === undefined) return;
       openBlockInspector(block);
@@ -1367,7 +1379,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
   useEffect(() => {
     const editor = mapSource.editor;
-    if (inspectedBlockId === null || mapKey === null || editor === undefined) {
+    if (inspectedBlockId === null || mapKey === null || editor === undefined || inspectingHistoricalBlock) {
       setInspection({ kind: "loading" });
       return;
     }
@@ -1382,7 +1394,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setInspection({ kind: "error", message: describeError(error, "Could not load this source file.") });
       });
     return () => { cancelled = true; };
-  }, [inspectedBlockId, mapKey, mapRefreshVersion, mapSource.editor]);
+  }, [inspectedBlockId, inspectingHistoricalBlock, mapKey, mapRefreshVersion, mapSource.editor]);
 
   const handleOpenInEditor = useCallback(async () => {
     const editor = mapSource.editor;
@@ -1624,7 +1636,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     />
   ) : null;
   const selectedNoteAction = notesAvailable && !selected.virtual ? noteButtonLabel(notedBlockIds.has(selected.id)) : undefined;
-  const inspectedNoteAction = notesAvailable && inspectedBlockId !== null ? noteButtonLabel(notedBlockIds.has(inspectedBlockId)) : undefined;
+  const inspectedNoteAction = notesAvailable && inspectedBlockId !== null && !inspectingHistoricalBlock ? noteButtonLabel(notedBlockIds.has(inspectedBlockId)) : undefined;
 
   const verticalFiles = mapView === "files" && orientation === "vertical" && fileTree !== null && fileRoot !== undefined;
   const selectedTreeNode = mapView === "files" && fileTree !== null ? fileTree.nodeById.get(selectedId) : undefined;
@@ -1875,7 +1887,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <CommitDiffSummary
             summary={(() => {
               const direct = commitDiff.changes.blocks.length;
-              const mappedPaths = new Set([...map.blockById.values()].flatMap((block) => block.sourcePath === null ? [] : [block.sourcePath.replaceAll("\\", "/")]));
+              const mappedPaths = new Set([...map.blockById.values(), ...commitDiff.changes.blocks].flatMap((block) => block.sourcePath === null ? [] : [block.sourcePath.replaceAll("\\", "/")]));
               const outside = unmappedFiles(commitDiff.changes, mappedPaths).length;
               const base = commitDiff.changes.baseCommit;
               const connectionCount = commitDiff.changes.connections.length;
@@ -1899,6 +1911,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             onFocusIndexChange={setCommitDiffFocusIndex}
             onNavigate={navigateCommitDiffEntry}
             onClear={() => {
+              if (inspectingHistoricalBlock) {
+                setInspectedBlockId(null);
+                setBlockDiff(null);
+              }
               setSelectedCommitThrough("");
               setSelectedCommitSince("");
               setCommitDiffExpanded(false);
@@ -1914,7 +1930,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const inspectorOpen = mapSource.editor !== undefined && (inspectedBlockId !== null || inspectedDiffPath !== null);
   const sidePanel = inspectorOpen ? (
     <SourceInspectorPanel
-      title={inspectedDiffPath ?? (inspectedBlockId === null ? "Source file" : map.blockById.get(inspectedBlockId)?.label ?? "Source file")}
+      title={inspectedDiffPath ?? (inspectedBlockId === null ? "Source file" : inspectedChange?.label ?? map.blockById.get(inspectedBlockId)?.label ?? "Source file")}
       inspection={inspectedBlockId === null ? { kind: "loading" } : inspection}
       theme={theme}
       openingEditor={openingEditor}

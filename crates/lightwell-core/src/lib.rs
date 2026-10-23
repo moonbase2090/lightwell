@@ -17,7 +17,8 @@ mod watch;
 pub use diff::{
     block_diff, block_diff_for, commit_changes, commit_changes_for,
     filter_commits_that_are_ancestors, path_diff_for, recent_commits, BlockChange,
-    BlockDiffDocument, CommitChanges, CommitSummary, ConnectionChange, DiffError, FileChange,
+    BlockChangeState, BlockDiffDocument, CommitChanges, CommitSummary, ConnectionChange, DiffError,
+    FileChange,
 };
 pub use editor::{
     open_block, open_target, resolve_block_target, resolve_block_target_in_map, EditorError,
@@ -37,8 +38,9 @@ pub use metadata::{
     RustModule,
 };
 pub use notes::{
-    list_project_notes, project_notes_for_map, remove_project_note, set_project_note,
-    set_project_note_for_map, update_project_note_text, NotesError, ProjectNoteView,
+    commit_project_note, list_project_notes, project_note_git_status, project_notes_for_map,
+    remove_project_note, set_project_note, set_project_note_for_map, update_project_note_text,
+    NoteCommitResult, NotesError, NotesGitFileState, NotesGitStatus, ProjectNoteView,
 };
 
 pub use watch::{MapWatchError, MapWatcher};

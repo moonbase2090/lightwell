@@ -7,6 +7,8 @@ export type CommitDiffEntry =
     readonly kind: "block";
     readonly blockId: string;
     readonly label: string;
+    readonly sourcePath: string | null;
+    readonly state: CommitChanges["blocks"][number]["state"];
     readonly added: number;
     readonly removed: number;
   }
@@ -29,7 +31,9 @@ export function commitDiffEntries(
       return {
         kind: "block",
         blockId: block.blockId,
-        label: display?.label ?? block.blockId,
+        label: block.label,
+        sourcePath: block.sourcePath ?? display?.sourcePath ?? null,
+        state: block.state,
         added: block.added,
         removed: block.removed,
       };
@@ -41,7 +45,7 @@ export function commitDiffEntries(
     });
 
   const mappedPaths = new Set(
-    [...blockById.values()].flatMap((block) => (
+    [...blockById.values(), ...changes.blocks].flatMap((block) => (
       block.sourcePath === null ? [] : [block.sourcePath.replaceAll("\\", "/")]
     )),
   );

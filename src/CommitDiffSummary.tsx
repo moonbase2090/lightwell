@@ -110,7 +110,7 @@ export default function CommitDiffSummary({
                       onNavigate(entry);
                     }}
                   >
-                    <span className="commit-diff-item-kind">{entry.kind === "block" ? "Block" : "File"}</span>
+                    <span className="commit-diff-item-kind">{entry.kind === "block" ? (entry.state === "removed" ? "Removed block" : entry.state === "added" ? "Added block" : "Block") : "File"}</span>
                     <span className="commit-diff-item-label">{label}</span>
                     <span className="commit-diff-item-counts">{counts}</span>
                   </button>

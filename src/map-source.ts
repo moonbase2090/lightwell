@@ -26,7 +26,23 @@ export interface ProjectNoteInput {
   readonly text: string;
 }
 
+export type NotesGitStatus =
+  | { readonly kind: "notRepository" | "missing" | "ignored" | "conflicted" }
+  | { readonly kind: "unavailable"; readonly message: string }
+  | { readonly kind: "ready"; readonly state: "clean" | "untracked" | "modified" | "staged" | "mixed"; readonly revision: string; readonly noteChanged: boolean };
+
+export interface NoteCommitResult {
+  readonly commitId: string | null;
+  readonly status: NotesGitStatus;
+}
+
+export interface ProjectNotesGitSource {
+  status(input: Omit<ProjectNoteInput, "text">): Promise<NotesGitStatus>;
+  commit(input: ProjectNoteInput & { readonly revision: string; readonly sourceFingerprint: string }): Promise<NoteCommitResult>;
+}
+
 export interface ProjectNotesSource {
+  readonly git?: ProjectNotesGitSource;
   add(input: ProjectNoteInput): Promise<ProjectNotesSnapshot>;
   edit(input: ProjectNoteInput): Promise<ProjectNotesSnapshot>;
   remove(input: Omit<ProjectNoteInput, "text">): Promise<ProjectNotesSnapshot>;
@@ -74,6 +90,10 @@ export interface CommitFileChange {
 
 export interface CommitBlockChange {
   readonly blockId: string;
+  readonly label: string;
+  readonly sourcePath: string | null;
+  readonly parentId: string | null;
+  readonly state: "added" | "changed" | "removed";
   readonly added: number;
   readonly removed: number;
 }
@@ -108,6 +128,8 @@ export interface BlockDiffDocument {
   readonly modified: string;
   /** Line in `modified` to reveal. */
   readonly line: number;
+  /** Reveal the original side for a deleted block. */
+  readonly originalLine: number | null;
 }
 
 /** Git history for the commit diff view. */

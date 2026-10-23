@@ -12,11 +12,24 @@ import {
   parseMapSourceEntries,
   parseMapSourceEntry,
   parseProjectNotesSnapshot,
+  parseNotesGitStatus,
+  parseNoteCommitResult,
   parseSourceFileDocument,
   parseWorkspaceMapUpdate,
 } from "./tauri-types.js";
 
 const projectNotesApi: ProjectNotesSource = {
+  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTE_GIT) === "true" ? { git: {
+    status(input) {
+      return invoke<unknown>("project_notes_git_status", { path: input.workspaceId, blockId: input.blockId }).then(parseNotesGitStatus);
+    },
+    commit(input) {
+      return invoke<unknown>("commit_workspace_note", {
+        path: input.workspaceId, blockId: input.blockId, revision: input.revision,
+        text: input.text, sourceFingerprint: input.sourceFingerprint,
+      }).then(parseNoteCommitResult);
+    },
+  } } : {}),
   add(input: ProjectNoteInput) {
     return invoke<unknown>("add_workspace_note", {
       path: input.workspaceId,

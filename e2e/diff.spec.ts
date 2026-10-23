@@ -1,5 +1,40 @@
 import { test, expect, gotoIpc } from "./helpers.js";
 
+test("deleted symbol opens its historical diff without a current-map block", async ({ page }) => {
+  const commit = { id: "swap", shortId: "swap", summary: "Swap", timestamp: 1 };
+  await gotoIpc(page, {
+    changes: {
+      baseCommit: null, commit,
+      files: [{ path: "scripts/job.py", oldPath: null, added: 2, removed: 2, binary: false }],
+      blocks: [
+        { blockId: "module:python:scripts-job-added:def", label: "added", sourcePath: "scripts/job.py", parentId: "module:python:scripts-job", state: "added", added: 2, removed: 0 },
+        { blockId: "module:python:scripts-job-retired:def", label: "retired", sourcePath: "scripts/job.py", parentId: "module:python:scripts-job", state: "removed", added: 0, removed: 2 },
+      ],
+      connections: [],
+    },
+    diff: {
+      commit, path: "scripts/job.py", originalPath: null,
+      original: "def keep():\n    return 1\ndef retired():\n    return 3\n",
+      modified: "def keep():\n    return 1\ndef added():\n    return 4\n",
+      line: 3, originalLine: 3,
+    },
+  });
+  await page.getByLabel("Show changes through this commit").selectOption({ index: 1 });
+  await page.getByRole("button", { name: "Expand change list" }).click();
+  await expect(page.getByRole("button", { name: "Added block added +2 −0" })).toBeVisible();
+  await page.getByRole("button", { name: "Removed block retired +0 −2" }).click();
+  const inspector = page.getByLabel("Source inspector for retired");
+  await expect(inspector).toBeVisible();
+  await expect(inspector.getByText("COMMIT swap", { exact: true })).toBeVisible();
+  await expect(inspector.locator("code")).toHaveText("scripts/job.py");
+  await expect(inspector.getByRole("button", { name: "Open in editor" })).toBeDisabled();
+  await expect(inspector.getByLabel("Changes to scripts/job.py")).toBeVisible();
+  await expect(inspector.locator(".view-lines").filter({ hasText: "def retired():" }).first()).toBeVisible();
+  await expect(inspector.locator(".view-lines").filter({ hasText: "def added():" }).first()).toBeVisible();
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(inspector).toBeHidden();
+});
+
 test.describe("commit diff (ipc)", () => {
   test.beforeEach(async ({ page }) => gotoIpc(page));
 

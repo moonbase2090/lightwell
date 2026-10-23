@@ -11,6 +11,8 @@ import type {
   MapSourceDocument,
   MapSourceEntry,
   ProjectNoteView,
+  NotesGitStatus,
+  NoteCommitResult,
   ProjectNotesSnapshot,
   SourceFileDocument,
 } from "../map-source.js";
@@ -249,10 +251,14 @@ export function parseCommitChanges(value: unknown): CommitChanges {
     return { path: file.path, oldPath: typeof file.oldPath === "string" ? file.oldPath : null, added: file.added, removed: file.removed, binary: file.binary };
   });
   const blocks = value.blocks.map((block: unknown): CommitBlockChange => {
-    if (!isRecord(block) || typeof block.blockId !== "string" || !isCount(block.added) || !isCount(block.removed)) {
+    if (!isRecord(block) || typeof block.blockId !== "string" || !isCount(block.added) || !isCount(block.removed)
+      || typeof block.label !== "string"
+      || !(block.sourcePath === null || typeof block.sourcePath === "string")
+      || !(block.parentId === null || typeof block.parentId === "string")
+      || !(block.state === "added" || block.state === "changed" || block.state === "removed")) {
       throw new Error("The desktop app returned an invalid changed block.");
     }
-    return { blockId: block.blockId, added: block.added, removed: block.removed };
+    return { blockId: block.blockId, label: block.label, sourcePath: block.sourcePath, parentId: block.parentId, state: block.state, added: block.added, removed: block.removed };
   });
   const connections = value.connections.map(parseConnectionChange);
   const baseCommit = value.baseCommit === null || value.baseCommit === undefined
@@ -271,6 +277,7 @@ export function parseBlockDiffDocument(value: unknown): BlockDiffDocument {
     || typeof value.line !== "number"
     || !Number.isInteger(value.line)
     || value.line < 1
+    || !(value.originalLine === null || (typeof value.originalLine === "number" && Number.isInteger(value.originalLine) && value.originalLine >= 1))
   ) {
     throw new Error("The desktop app returned an invalid commit diff.");
   }
@@ -281,5 +288,29 @@ export function parseBlockDiffDocument(value: unknown): BlockDiffDocument {
     original: value.original,
     modified: value.modified,
     line: value.line,
+    originalLine: value.originalLine,
   };
+}
+
+export function parseNotesGitStatus(value: unknown): NotesGitStatus {
+  if (isRecord(value)) {
+    if (value.kind === "notRepository" || value.kind === "missing" || value.kind === "ignored" || value.kind === "conflicted") {
+      return { kind: value.kind };
+    }
+    if (value.kind === "unavailable" && typeof value.message === "string") {
+      return { kind: "unavailable", message: value.message };
+    }
+    if (value.kind === "ready" && typeof value.revision === "string" && value.revision.length > 0 && typeof value.noteChanged === "boolean"
+      && (value.state === "clean" || value.state === "untracked" || value.state === "modified" || value.state === "staged" || value.state === "mixed")) {
+      return { kind: "ready", state: value.state, revision: value.revision, noteChanged: value.noteChanged };
+    }
+  }
+  throw new Error("The desktop app returned an invalid notes Git status.");
+}
+
+export function parseNoteCommitResult(value: unknown): NoteCommitResult {
+  if (!isRecord(value) || !(value.commitId === null || (typeof value.commitId === "string" && /^[0-9a-f]{40,64}$/.test(value.commitId)))) {
+    throw new Error("The desktop app returned an invalid note commit response.");
+  }
+  return { commitId: value.commitId, status: parseNotesGitStatus(value.status) };
 }
