@@ -247,6 +247,95 @@ fn repository(store: &ProjectNotesStore) -> Result<Option<Repository>, String> {
     Ok(Some(Repository { root, relative }))
 }
 
+fn git_path(repo: &Repository, name: &str) -> Result<PathBuf, String> {
+    let output = repo.simple(&["rev-parse", "--git-path", name])?;
+    let path = PathBuf::from(
+        String::from_utf8(output)
+            .map_err(|e| e.to_string())?
+            .trim_end_matches(['\r', '\n']),
+    );
+    Ok(if path.is_absolute() {
+        path
+    } else {
+        repo.root.join(path)
+    })
+}
+
+fn active_hook(path: &Path) -> Result<bool, String> {
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) =>
+        {
+            return Ok(false)
+        }
+        Err(error) => {
+            return Err(format!(
+                "Could not inspect Git hooks: {error}. Please commit manually with Git."
+            ))
+        }
+    };
+    if !metadata.is_file() {
+        return Ok(false);
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        Ok(metadata.permissions().mode() & 0o111 != 0)
+    }
+    #[cfg(not(unix))]
+    {
+        Ok(true)
+    }
+}
+
+fn require_supported_state(repo: &Repository) -> Result<(), String> {
+    for state in [
+        "MERGE_HEAD",
+        "MERGE_MSG",
+        "SQUASH_MSG",
+        "CHERRY_PICK_HEAD",
+        "REVERT_HEAD",
+        "REBASE_HEAD",
+        "rebase-merge",
+        "rebase-apply",
+        "sequencer",
+        "BISECT_START",
+    ] {
+        if git_path(repo, state)?
+            .try_exists()
+            .map_err(|e| e.to_string())?
+        {
+            return Err("Finish or abort the current Git merge, rebase, cherry-pick, revert, or bisect before committing a note. Your saved note is unchanged.".into());
+        }
+    }
+    if !repo.simple(&["ls-files", "--unmerged", "-z"])?.is_empty() {
+        return Err("Resolve all Git merge conflicts before committing a note. Your saved note is unchanged.".into());
+    }
+    let hooks = git_path(repo, "hooks").map_err(|error| {
+        format!("Could not inspect Git hooks: {error}. Please commit manually with Git.")
+    })?;
+    for hook in [
+        "pre-commit",
+        "prepare-commit-msg",
+        "commit-msg",
+        "post-commit",
+        "reference-transaction",
+        "post-index-change",
+        "pre-auto-gc",
+    ] {
+        if active_hook(&hooks.join(hook))?
+            || (cfg!(windows) && active_hook(&hooks.join(format!("{hook}.exe")))?)
+        {
+            return Err(format!("Git hook {hook} is active. To preserve selected-note-only commit scope, please commit manually with Git. No hook was run or bypassed, and your note remains saved."));
+        }
+    }
+    Ok(())
+}
+
 fn revision(path: &Path) -> Result<String, String> {
     Ok(format!(
         "{:x}",
@@ -327,8 +416,9 @@ pub fn commit_project_note(
 ) -> Result<NoteCommitResult, String> {
     let store = ProjectNotesStore::new(root);
     // Validate the storage boundary before opening the notes lock.
-    repository(&store)?
+    let repo = repository(&store)?
         .ok_or("This project is not in a Git repository. Initialize Git to share notes.")?;
+    require_supported_state(&repo)?;
     let mut outcome = Err("Save this note before committing it.".to_owned());
     store
         .update(false, |document| {
@@ -401,6 +491,7 @@ fn commit_locked(
         path: lock.clone(),
         directory: false,
     };
+    require_supported_state(&repo)?;
     let (head_document, head_mode) = repo.document(None)?;
     if head_document.notes.get(block_id) == Some(selected) {
         return Ok(NoteCommitResult {
@@ -797,5 +888,200 @@ mod tests {
                 .contains("symlink")
         );
         assert!(!outside.root.join("notes.lock").exists());
+    }
+    fn files_under(root: &Path) -> std::collections::BTreeMap<PathBuf, Option<Vec<u8>>> {
+        fn visit(
+            root: &Path,
+            path: &Path,
+            files: &mut std::collections::BTreeMap<PathBuf, Option<Vec<u8>>>,
+        ) {
+            for entry in fs::read_dir(path).unwrap() {
+                let path = entry.unwrap().path();
+                let relative = path.strip_prefix(root).unwrap().to_owned();
+                if path.is_dir() {
+                    files.insert(relative, None);
+                    visit(root, &path, files);
+                } else {
+                    files.insert(relative, Some(fs::read(path).unwrap()));
+                }
+            }
+        }
+        let mut files = std::collections::BTreeMap::new();
+        visit(root, root, &mut files);
+        files
+    }
+
+    fn reject_without_changes(f: &Fixture) -> String {
+        let before = files_under(&f.root);
+        let error = f.commit("first", "selected").unwrap_err();
+        assert_eq!(
+            files_under(&f.root),
+            before,
+            "rejection changed repository or working files"
+        );
+        error
+    }
+
+    fn committed_fixture() -> Fixture {
+        let f = Fixture::new(true);
+        f.save("first", "base");
+        fs::write(f.root.join("unrelated.txt"), "base\n").unwrap();
+        f.git(&["add", "."]);
+        f.git(&["commit", "-qm", "Base"]);
+        f
+    }
+
+    #[test]
+    fn pending_merge_is_rejected_without_consuming_incoming_changes() {
+        let f = committed_fixture();
+        f.git(&["checkout", "-qb", "other"]);
+        fs::write(f.root.join("incoming.txt"), "incoming branch\n").unwrap();
+        f.git(&["add", "incoming.txt"]);
+        f.git(&["commit", "-qm", "Incoming"]);
+        f.git(&["checkout", "-q", "-"]);
+        fs::write(f.root.join("ours.txt"), "current branch\n").unwrap();
+        f.git(&["add", "ours.txt"]);
+        f.git(&["commit", "-qm", "Current"]);
+        f.git(&["merge", "--no-commit", "other"]);
+        f.save("first", "selected");
+        assert!(reject_without_changes(&f).contains("Finish or abort"));
+        assert_eq!(f.git(&["show", ":incoming.txt"]), "incoming branch\n");
+    }
+
+    #[test]
+    fn unrelated_unmerged_index_is_rejected_even_without_operation_marker() {
+        for remove_marker in [false, true] {
+            let f = committed_fixture();
+            f.git(&["checkout", "-qb", "other"]);
+            fs::write(f.root.join("unrelated.txt"), "other\n").unwrap();
+            f.git(&["commit", "-qam", "Other"]);
+            f.git(&["checkout", "-q", "-"]);
+            fs::write(f.root.join("unrelated.txt"), "ours\n").unwrap();
+            f.git(&["commit", "-qam", "Ours"]);
+            let output = Command::new("git")
+                .arg("-C")
+                .arg(&f.root)
+                .args(["merge", "other"])
+                .output()
+                .unwrap();
+            assert!(!output.status.success());
+            if remove_marker {
+                for name in ["MERGE_HEAD", "AUTO_MERGE"] {
+                    let _ = fs::remove_file(f.root.join(".git").join(name));
+                }
+            }
+            f.save("first", "selected");
+            assert!(!reject_without_changes(&f).is_empty());
+            assert!(f.git(&["ls-files", "--unmerged"]).contains("unrelated.txt"));
+        }
+    }
+
+    #[test]
+    fn sequencer_and_rebase_states_are_rejected_without_changes() {
+        for state in [
+            "MERGE_MSG",
+            "SQUASH_MSG",
+            "CHERRY_PICK_HEAD",
+            "REVERT_HEAD",
+            "REBASE_HEAD",
+            "rebase-merge",
+            "rebase-apply",
+            "sequencer",
+            "BISECT_START",
+        ] {
+            let f = committed_fixture();
+            f.save("first", "selected");
+            let path = f.root.join(".git").join(state);
+            if state.starts_with("rebase-") || state == "sequencer" {
+                fs::create_dir(path).unwrap();
+            } else {
+                fs::write(path, f.git(&["rev-parse", "HEAD"])).unwrap();
+            }
+            assert!(
+                reject_without_changes(&f).contains("Finish or abort"),
+                "{state}"
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn configured_commit_hooks_fail_closed_without_execution_or_file_changes() {
+        use std::os::unix::fs::PermissionsExt;
+        for hook in [
+            "pre-commit",
+            "prepare-commit-msg",
+            "commit-msg",
+            "post-commit",
+            "reference-transaction",
+            "post-index-change",
+            "pre-auto-gc",
+        ] {
+            let f = committed_fixture();
+            f.save("first", "selected");
+            fs::create_dir(f.root.join("hooks")).unwrap();
+            let path = f.root.join("hooks").join(hook);
+            fs::write(
+                &path,
+                "#!/bin/sh\nprintf 'hook mutation\\n' > unrelated.txt\ngit add unrelated.txt\n",
+            )
+            .unwrap();
+            fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
+            f.git(&["config", "core.hooksPath", "hooks"]);
+            assert!(
+                reject_without_changes(&f).contains("commit manually"),
+                "{hook}"
+            );
+            assert_eq!(
+                fs::read_to_string(f.root.join("unrelated.txt")).unwrap(),
+                "base\n"
+            );
+        }
+    }
+    #[test]
+    #[cfg(unix)]
+    fn effective_hook_paths_with_spaces_are_checked_in_linked_worktrees() {
+        use std::os::unix::fs::PermissionsExt;
+        for absolute in [false, true] {
+            let f = committed_fixture();
+            let linked = f.root.join("linked");
+            f.git(&[
+                "worktree",
+                "add",
+                "-qb",
+                "linked-notes",
+                linked.to_str().unwrap(),
+            ]);
+            let hooks = linked.join("hooks with spaces");
+            fs::create_dir(&hooks).unwrap();
+            let hook = hooks.join("pre-commit");
+            fs::write(
+                &hook,
+                "#!/bin/sh\nprintf 'hook mutation\\n' > unrelated.txt\ngit add unrelated.txt\n",
+            )
+            .unwrap();
+            fs::set_permissions(hook, fs::Permissions::from_mode(0o755)).unwrap();
+            f.git(&[
+                "config",
+                "core.hooksPath",
+                if absolute {
+                    hooks.to_str().unwrap()
+                } else {
+                    "hooks with spaces"
+                },
+            ]);
+            ProjectNotesStore::new(&linked)
+                .set("first", "selected", "fingerprint")
+                .unwrap();
+            fs::remove_file(linked.join(".lightwell/notes.lock")).unwrap();
+            let token = revision(&ProjectNotesStore::new(&linked).path).unwrap();
+            let before = files_under(&f.root);
+            assert!(
+                commit_project_note(&linked, "first", &token, "selected", "fingerprint")
+                    .unwrap_err()
+                    .contains("commit manually")
+            );
+            assert_eq!(files_under(&f.root), before);
+        }
     }
 }
