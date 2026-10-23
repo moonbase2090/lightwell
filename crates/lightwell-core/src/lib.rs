@@ -17,7 +17,8 @@ mod watch;
 pub use diff::{
     block_diff, block_diff_for, commit_changes, commit_changes_for,
     filter_commits_that_are_ancestors, path_diff_for, recent_commits, BlockChange,
-    BlockDiffDocument, CommitChanges, CommitSummary, ConnectionChange, DiffError, FileChange,
+    BlockChangeState, BlockDiffDocument, CommitChanges, CommitSummary, ConnectionChange, DiffError,
+    FileChange,
 };
 pub use editor::{
     open_block, open_target, resolve_block_target, resolve_block_target_in_map, EditorError,

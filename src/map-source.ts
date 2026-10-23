@@ -74,6 +74,10 @@ export interface CommitFileChange {
 
 export interface CommitBlockChange {
   readonly blockId: string;
+  readonly label: string;
+  readonly sourcePath: string | null;
+  readonly parentId: string | null;
+  readonly state: "added" | "changed" | "removed";
   readonly added: number;
   readonly removed: number;
 }
@@ -108,6 +112,8 @@ export interface BlockDiffDocument {
   readonly modified: string;
   /** Line in `modified` to reveal. */
   readonly line: number;
+  /** Reveal the original side for a deleted block. */
+  readonly originalLine: number | null;
 }
 
 /** Git history for the commit diff view. */

@@ -180,13 +180,14 @@ const changes = {
   commit: commits[0],
   baseCommit: null,
   files: [{ path: "README.md", oldPath: null, added: 3, removed: 1, binary: false }],
-  blocks: [{ blockId: built[0].appId, added: 3, removed: 1 }],
+  blocks: [{ blockId: built[0].appId, label: "main", sourcePath: built[0].sources[built[0].appId].path, parentId: built[0].doc.facts.blocks.find((block) => block.id === built[0].appId).parentId, state: "changed", added: 3, removed: 1 }],
   connections: [],
 };
 const diff = {
   commit: commits[0],
   path: "README.md",
   originalPath: null,
+  originalLine: null,
   original: "# Lightwell\n\nOld line.\n",
   modified: "# Lightwell\n\nNew line.\n",
   line: 1,

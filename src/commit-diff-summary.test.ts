@@ -3,6 +3,7 @@ import test from "node:test";
 import { commitDiffEntries, wrapCommitDiffIndex } from "./commit-diff-summary.js";
 import type { CommitChanges } from "./map-source.js";
 import type { DisplayBlock } from "./model.js";
+import { parseCommitChanges } from "./map-sources/tauri-types.js";
 
 const commit: CommitChanges["commit"] = {
   id: "c1",
@@ -38,8 +39,8 @@ test("commitDiffEntries lists direct blocks then unmapped files", () => {
     baseCommit: null,
     commit,
     blocks: [
-      { blockId: "b:zebra", added: 1, removed: 0 },
-      { blockId: "b:alpha", added: 2, removed: 3 },
+      { blockId: "b:zebra", label: "zebra", sourcePath: "src/zebra.rs", parentId: "crate:core", state: "added", added: 1, removed: 0 },
+      { blockId: "b:alpha", label: "alpha", sourcePath: "src/alpha.rs", parentId: "crate:core", state: "changed", added: 2, removed: 3 },
     ],
     files: [
       { path: "README.md", oldPath: null, added: 4, removed: 0, binary: false },
@@ -73,4 +74,17 @@ test("wrapCommitDiffIndex cycles within list length", () => {
   assert.equal(wrapCommitDiffIndex(-1, 3), 2);
   assert.equal(wrapCommitDiffIndex(3, 3), 0);
   assert.equal(wrapCommitDiffIndex(0, 0), 0);
+});
+
+test("deleted blocks retain their name, path and state without a current map entry", () => {
+  const changes = parseCommitChanges({
+    baseCommit: null,
+    commit,
+    files: [{ path: "scripts/job.py", oldPath: null, added: 2, removed: 2, binary: false }],
+    blocks: [{ blockId: "module:python:scripts-job-retired:def", label: "retired", sourcePath: "scripts/job.py", parentId: "job", state: "removed", added: 0, removed: 2 }],
+    connections: [],
+  });
+  assert.deepEqual(commitDiffEntries(changes, new Map()), [{
+    kind: "block", blockId: "module:python:scripts-job-retired:def", label: "retired", sourcePath: "scripts/job.py", state: "removed", added: 0, removed: 2,
+  }]);
 });

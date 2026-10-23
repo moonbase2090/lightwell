@@ -28,7 +28,7 @@ const changes = (
 });
 
 test("ancestors light up with the counts of the blocks inside them", () => {
-  const diff = rollUpChanges(changes([{ blockId: "other", added: 4, removed: 1 }]), parentOf);
+  const diff = rollUpChanges(changes([{ blockId: "other", label: "other", sourcePath: "src/other.rs", parentId: "crate", state: "changed", added: 4, removed: 1 }]), parentOf);
   assert.deepEqual(diff.get("other"), { added: 4, removed: 1, direct: true });
   assert.deepEqual(diff.get("crate"), { added: 4, removed: 1, direct: false });
   assert.deepEqual(diff.get("workspace"), { added: 4, removed: 1, direct: false });
@@ -37,8 +37,8 @@ test("ancestors light up with the counts of the blocks inside them", () => {
 
 test("a module and its symbols sharing one file are counted once above the module", () => {
   const diff = rollUpChanges(changes([
-    { blockId: "module", added: 2, removed: 1 },
-    { blockId: "merge", added: 2, removed: 1 },
+    { blockId: "module", label: "job", sourcePath: "job.py", parentId: "crate", state: "changed", added: 2, removed: 1 },
+    { blockId: "merge", label: "merge", sourcePath: "job.py", parentId: "module", state: "changed", added: 2, removed: 1 },
   ]), parentOf);
   assert.deepEqual(diff.get("module"), { added: 2, removed: 1, direct: true });
   assert.deepEqual(diff.get("crate"), { added: 2, removed: 1, direct: false });
@@ -66,7 +66,7 @@ test("commit changes from the desktop app are validated", () => {
     baseCommit: null,
     commit: { id: "abc", shortId: "abc", summary: "x", timestamp: 1 },
     files: [{ path: "a.py", oldPath: null, added: 1, removed: 0, binary: false }],
-    blocks: [{ blockId: "module:a", added: 1, removed: 0 }],
+    blocks: [{ blockId: "module:a", label: "a", sourcePath: "a.py", parentId: null, state: "added", added: 1, removed: 0 }],
     connections: [{ id: "contains:a->b", source: "a", target: "b", kind: "contains", state: "added" }],
   };
   assert.equal(parseCommitChanges(valid).blocks[0]?.blockId, "module:a");
@@ -79,6 +79,9 @@ test("commit changes from the desktop app are validated", () => {
   );
   assert.throws(() => parseCommitChanges({ ...valid, blocks: [{ blockId: "x", added: -1, removed: 0 }] }));
   assert.throws(() => parseCommitChanges({ ...valid, commit: { id: "abc" } }));
+  assert.throws(() => parseCommitChanges({ ...valid, blocks: [{ ...valid.blocks[0], state: "unknown" }] }));
+  assert.throws(() => parseCommitChanges({ ...valid, blocks: [{ ...valid.blocks[0], sourcePath: 42 }] }));
+  assert.throws(() => parseCommitChanges({ ...valid, blocks: [{ ...valid.blocks[0], label: undefined }] }));
 });
 
 test("block diffs from the desktop app are validated", () => {
@@ -89,10 +92,25 @@ test("block diffs from the desktop app are validated", () => {
     original: "def merge():\n    return 2\n",
     modified: "def merge():\n    total = 2\n    return total\n",
     line: 2,
+    originalLine: null,
   };
   const parsed = parseBlockDiffDocument(valid);
   assert.equal(parsed.line, 2);
   assert.equal(parsed.originalPath, null);
   assert.throws(() => parseBlockDiffDocument({ ...valid, line: 0 }));
   assert.throws(() => parseBlockDiffDocument({ ...valid, modified: undefined }));
+  assert.equal(parseBlockDiffDocument({ ...valid, originalLine: 3 }).originalLine, 3);
+  assert.throws(() => parseBlockDiffDocument({ ...valid, originalLine: 0 }));
+});
+
+test("a deleted symbol rolls up through its historical parent without a live block", () => {
+  const diff = rollUpChanges(changes([
+    { blockId: "retired", label: "retired", sourcePath: "job.py", parentId: "module", state: "removed", added: 0, removed: 2 },
+  ]), parentOf);
+  assert.deepEqual([...diff], [
+    ["retired", { added: 0, removed: 2, direct: true }],
+    ["module", { added: 0, removed: 2, direct: false }],
+    ["crate", { added: 0, removed: 2, direct: false }],
+    ["workspace", { added: 0, removed: 2, direct: false }],
+  ]);
 });
