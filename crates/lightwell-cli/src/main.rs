@@ -1,29 +1,41 @@
 use lightwell_core::{
-    extract_cargo_map, list_project_notes, open_block, remove_project_note, set_project_note,
-    EditorSettings, MapWatchError, MapWatcher, NotesError,
+    discover_project_workspace, extract_cargo_map, list_project_notes, open_block,
+    remove_project_note, set_project_note, BlockBase, EditorSettings, FactBlock, FactMap,
+    MapWatchError, MapWatcher, NotesError,
 };
 use std::env;
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell notes list [--json] [--check]\n  lightwell notes set [--json] <block-id> <text...>\n  lightwell notes rm [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
+const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [--json] [--check]\n  lightwell notes set [--json] <block-id> <text...>\n  lightwell notes set --file <path> [--json] <text...>\n  lightwell notes rm [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
 
 enum Invocation {
     Help,
     Extract(ExtractOptions),
+    Blocks(BlocksOptions),
     Notes(NotesOptions),
     Open(OpenOptions),
     Watch(WatchOptions),
 }
 
+struct BlocksOptions {
+    json: bool,
+    file: Option<String>,
+}
+
 enum NotesCommand {
     List { check: bool },
-    Set { block_id: String, text: String },
+    Set { target: SetTarget, text: String },
     Remove { block_id: String },
+}
+
+enum SetTarget {
+    BlockId(String),
+    File(String),
 }
 
 enum NotesOutput {
@@ -68,6 +80,13 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Ok(Invocation::Blocks(options)) => match run_blocks_command(options) {
+            Ok(exit) => exit,
+            Err(error) => {
+                eprintln!("lightwell: {error}");
+                ExitCode::FAILURE
+            }
+        },
         Ok(Invocation::Notes(options)) => match run_notes_command(options) {
             Ok(exit) => exit,
             Err(error) => {
@@ -106,6 +125,9 @@ fn parse_invocation(mut arguments: impl Iterator<Item = OsString>) -> Result<Inv
     };
     if is_help(&command) {
         return Ok(Invocation::Help);
+    }
+    if command == OsStr::new("blocks") {
+        return parse_blocks_command(arguments);
     }
     if command == OsStr::new("notes") {
         return parse_notes_command(arguments);
@@ -175,9 +197,10 @@ fn parse_notes_command(
 
     let mut json = false;
     let mut check = false;
+    let mut file: Option<String> = None;
     let mut parse_options = true;
     let mut positional = Vec::new();
-    for argument in arguments {
+    while let Some(argument) = arguments.next() {
         if parse_options && argument == OsStr::new("--") {
             parse_options = false;
         } else if parse_options && argument == OsStr::new("--json") {
@@ -190,6 +213,19 @@ fn parse_notes_command(
                 return Err("the --check option may appear only once".to_owned());
             }
             check = true;
+        } else if parse_options && argument == OsStr::new("--file") {
+            if file.is_some() {
+                return Err("the --file option may appear only once".to_owned());
+            }
+            let value = arguments
+                .next()
+                .ok_or_else(|| "the --file option requires a path".to_owned())?
+                .into_string()
+                .map_err(|_| "the --file path must use UTF-8".to_owned())?;
+            if value.is_empty() {
+                return Err("the --file option requires a path".to_owned());
+            }
+            file = Some(value);
         } else if parse_options
             && (argument == OsStr::new("--help") || argument == OsStr::new("-h"))
         {
@@ -203,6 +239,9 @@ fn parse_notes_command(
     if check && subcommand != OsStr::new("list") {
         return Err("--check is only available for `lightwell notes list`".to_owned());
     }
+    if file.is_some() && subcommand != OsStr::new("set") {
+        return Err("--file is only available for `lightwell notes set`".to_owned());
+    }
     let mut arguments = positional.into_iter();
     let command = if subcommand == OsStr::new("list") {
         if arguments.next().is_some() {
@@ -210,7 +249,10 @@ fn parse_notes_command(
         }
         NotesCommand::List { check }
     } else if subcommand == OsStr::new("set") {
-        let block_id = required_utf8(&mut arguments, "a block ID")?;
+        let target = match file {
+            Some(path) => SetTarget::File(path),
+            None => SetTarget::BlockId(required_utf8(&mut arguments, "a block ID")?),
+        };
         let text = arguments
             .map(|part| {
                 part.into_string()
@@ -221,7 +263,7 @@ fn parse_notes_command(
         if text.is_empty() {
             return Err("`lightwell notes set` requires note text".to_owned());
         }
-        NotesCommand::Set { block_id, text }
+        NotesCommand::Set { target, text }
     } else if subcommand == OsStr::new("rm") {
         let block_id = required_utf8(&mut arguments, "a block ID")?;
         if arguments.next().is_some() {
@@ -285,8 +327,48 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                 return Ok(ExitCode::from(5));
             }
         }
-        NotesCommand::Set { block_id, text } => {
-            set_project_note(repository, &block_id, &text)?;
+        NotesCommand::Set { target, text } => {
+            let block_id = match target {
+                SetTarget::BlockId(block_id) => block_id,
+                SetTarget::File(path) => {
+                    let (root, map) = current_workspace_map(&repository)?;
+                    match resolve_file_block(&root, &map, &path) {
+                        FileResolution::Unique(block_id) => block_id,
+                        FileResolution::None => {
+                            eprintln!("lightwell: No block for file `{path}`.");
+                            for candidate in suggested_paths(&map, &path) {
+                                eprintln!("lightwell: Did you mean `{candidate}`?");
+                            }
+                            return Ok(ExitCode::from(4));
+                        }
+                        FileResolution::Ambiguous(matches) => {
+                            eprintln!(
+                                "lightwell: File `{path}` matches {} blocks. Choose a block ID:",
+                                matches.len()
+                            );
+                            for candidate in matches {
+                                eprintln!("lightwell:   `{candidate}`");
+                            }
+                            return Ok(ExitCode::from(2));
+                        }
+                    }
+                }
+            };
+            match set_project_note(&repository, &block_id, &text) {
+                Ok(()) => {}
+                Err(error) => {
+                    if let NotesError::BlockNotFound(_) = error {
+                        eprintln!("lightwell: {error}");
+                        if let Ok((_, map)) = current_workspace_map(&repository) {
+                            for candidate in suggested_blocks(&map, &block_id) {
+                                eprintln!("lightwell: Did you mean `{candidate}`?");
+                            }
+                        }
+                        return Ok(ExitCode::from(4));
+                    }
+                    return Err(error.into());
+                }
+            }
             match options.output {
                 NotesOutput::Human => {
                     println!("Saved note for `{block_id}` in `.lightwell/notes.json`.");
@@ -320,6 +402,243 @@ fn write_notes_json(value: serde_json::Value) -> Result<(), Box<dyn Error>> {
     output.write_all(b"\n")?;
     output.flush()?;
     Ok(())
+}
+
+fn parse_blocks_command(
+    mut arguments: impl Iterator<Item = OsString>,
+) -> Result<Invocation, String> {
+    let mut json = false;
+    let mut file: Option<String> = None;
+    while let Some(argument) = arguments.next() {
+        if is_help(&argument) {
+            return Ok(Invocation::Help);
+        }
+        if argument == OsStr::new("--json") {
+            if json {
+                return Err("the --json option may appear only once".to_owned());
+            }
+            json = true;
+        } else if argument == OsStr::new("--file") {
+            if file.is_some() {
+                return Err("the --file option may appear only once".to_owned());
+            }
+            let value = arguments
+                .next()
+                .ok_or_else(|| "the --file option requires a path".to_owned())?
+                .into_string()
+                .map_err(|_| "the --file path must use UTF-8".to_owned())?;
+            if value.is_empty() {
+                return Err("the --file option requires a path".to_owned());
+            }
+            file = Some(value);
+        } else if argument.to_string_lossy().starts_with('-') {
+            return Err(format!("unknown option `{}`", argument.to_string_lossy()));
+        } else {
+            return Err(format!(
+                "unexpected argument `{}`",
+                argument.to_string_lossy()
+            ));
+        }
+    }
+    Ok(Invocation::Blocks(BlocksOptions { json, file }))
+}
+
+fn run_blocks_command(options: BlocksOptions) -> Result<ExitCode, Box<dyn Error>> {
+    let repository = env::current_dir()?;
+    let (root, map) = current_workspace_map(&repository)?;
+    let wanted = options
+        .file
+        .as_deref()
+        .map(|path| normalized_workspace_path(&root, path));
+    let blocks = block_views(&map)
+        .into_iter()
+        .filter(|block| {
+            wanted.as_deref().is_none_or(|path| {
+                block
+                    .source_path
+                    .as_deref()
+                    .is_some_and(|source| normalized_source_path(source) == path)
+            })
+        })
+        .collect::<Vec<_>>();
+    if options.json {
+        let values = blocks
+            .iter()
+            .map(|block| {
+                serde_json::json!({
+                    "blockId": block.id,
+                    "label": block.label,
+                    "kind": block.kind,
+                    "sourcePath": block.source_path,
+                    "parentId": block.parent_id,
+                })
+            })
+            .collect::<Vec<_>>();
+        write_notes_json(serde_json::Value::Array(values))?;
+    } else {
+        for block in blocks {
+            println!(
+                "{}\t{}\t{}\t{}",
+                block.id,
+                block.label,
+                block.kind,
+                block.source_path.as_deref().unwrap_or("-")
+            );
+        }
+    }
+    Ok(ExitCode::SUCCESS)
+}
+
+fn current_workspace_map(repository: &Path) -> Result<(PathBuf, FactMap), Box<dyn Error>> {
+    let root = discover_project_workspace(repository)?.root;
+    let map = extract_cargo_map(repository, None)?;
+    Ok((root, map))
+}
+
+struct BlockView {
+    id: String,
+    label: String,
+    kind: &'static str,
+    source_path: Option<String>,
+    parent_id: Option<String>,
+}
+
+fn block_views(map: &FactMap) -> Vec<BlockView> {
+    map.blocks
+        .iter()
+        .map(|block| {
+            let (kind, base) = block_kind_and_base(block);
+            BlockView {
+                id: base.id.clone(),
+                label: base.label.clone(),
+                kind,
+                source_path: base.source_path.clone(),
+                parent_id: base.parent_id.clone(),
+            }
+        })
+        .collect()
+}
+
+fn block_kind_and_base(block: &FactBlock) -> (&'static str, &BlockBase) {
+    match block {
+        FactBlock::Workspace(block) => ("workspace", &block.base),
+        FactBlock::Crate(block) => ("crate", &block.base),
+        FactBlock::App(block) => ("app", &block.base),
+        FactBlock::Module(block) => ("module", &block.base),
+        FactBlock::CargoFeature(block) => ("cargo_feature", &block.base),
+    }
+}
+
+enum FileResolution {
+    Unique(String),
+    None,
+    Ambiguous(Vec<String>),
+}
+
+fn resolve_file_block(root: &Path, map: &FactMap, file: &str) -> FileResolution {
+    let wanted = normalized_workspace_path(root, file);
+    let matches = block_views(map)
+        .into_iter()
+        .filter(|block| {
+            block
+                .source_path
+                .as_deref()
+                .is_some_and(|source| normalized_source_path(source) == wanted)
+        })
+        .map(|block| block.id)
+        .collect::<Vec<_>>();
+    match matches.len() {
+        0 => FileResolution::None,
+        1 => FileResolution::Unique(matches.into_iter().next().unwrap()),
+        _ => FileResolution::Ambiguous(matches),
+    }
+}
+
+fn normalized_workspace_path(root: &Path, file: &str) -> String {
+    let path = Path::new(file);
+    let relative = path
+        .strip_prefix(root)
+        .map(|path| path.to_string_lossy().into_owned())
+        .or_else(|_| {
+            let canonical_root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+            let canonical_file = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+            canonical_file
+                .strip_prefix(&canonical_root)
+                .map(|path| path.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|_| file.to_owned());
+    normalized_source_path(&relative)
+}
+
+fn normalized_source_path(path: &str) -> String {
+    path.replace('\\', "/").trim_start_matches("./").to_owned()
+}
+
+fn suggested_blocks(map: &FactMap, query: &str) -> Vec<String> {
+    let query = query.to_ascii_lowercase();
+    let mut suggested: Vec<String> = Vec::new();
+    for tier in 0..3 {
+        let mut in_tier = block_views(map)
+            .into_iter()
+            .filter(|block| {
+                let id = block.id.to_ascii_lowercase();
+                let label = block.label.to_ascii_lowercase();
+                match tier {
+                    0 => id == query || label == query,
+                    1 => id.contains(&query) || label.contains(&query),
+                    _ => {
+                        edit_distance(&label, &query) <= 2
+                            || id
+                                .rsplit("::")
+                                .next()
+                                .is_some_and(|tail| edit_distance(tail, &query) <= 2)
+                    }
+                }
+            })
+            .map(|block| block.id)
+            .filter(|id| !suggested.contains(id))
+            .collect::<Vec<_>>();
+        in_tier.sort();
+        suggested.extend(in_tier);
+        if suggested.len() >= 3 {
+            break;
+        }
+    }
+    suggested.truncate(3);
+    suggested
+}
+
+fn suggested_paths(map: &FactMap, file: &str) -> Vec<String> {
+    let wanted = normalized_source_path(file);
+    let wanted_name = wanted.rsplit('/').next().unwrap_or(&wanted);
+    let mut paths = block_views(map)
+        .into_iter()
+        .filter_map(|block| block.source_path)
+        .map(|source| normalized_source_path(&source))
+        .filter(|source| {
+            source.rsplit('/').next() == Some(wanted_name)
+                || source.ends_with(&format!("/{wanted}"))
+        })
+        .collect::<Vec<_>>();
+    paths.sort();
+    paths.dedup();
+    paths.truncate(3);
+    paths
+}
+
+fn edit_distance(left: &str, right: &str) -> usize {
+    let left: Vec<char> = left.chars().collect();
+    let right: Vec<char> = right.chars().collect();
+    let mut previous: Vec<usize> = (0..=right.len()).collect();
+    for (i, left_char) in left.iter().enumerate() {
+        let mut current = vec![i + 1];
+        for (j, right_char) in right.iter().enumerate() {
+            let substitution = previous[j] + usize::from(left_char != right_char);
+            current.push(substitution.min(previous[j + 1] + 1).min(current[j] + 1));
+        }
+        previous = current;
+    }
+    previous[right.len()]
 }
 
 fn parse_open(mut arguments: impl Iterator<Item = OsString>) -> Result<Invocation, String> {
