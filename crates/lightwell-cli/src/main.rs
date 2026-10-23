@@ -1,6 +1,6 @@
 use lightwell_core::{
     extract_cargo_map, list_project_notes, open_block, remove_project_note, set_project_note,
-    EditorSettings, MapWatchError, MapWatcher,
+    EditorSettings, MapWatchError, MapWatcher, NotesError,
 };
 use std::env;
 use std::error::Error;
@@ -10,20 +10,30 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell notes list\n  lightwell notes set <block-id> <text...>\n  lightwell notes rm <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
+const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell notes list [--json] [--check]\n  lightwell notes set [--json] <block-id> <text...>\n  lightwell notes rm [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
 
 enum Invocation {
     Help,
     Extract(ExtractOptions),
-    Notes(NotesCommand),
+    Notes(NotesOptions),
     Open(OpenOptions),
     Watch(WatchOptions),
 }
 
 enum NotesCommand {
-    List,
+    List { check: bool },
     Set { block_id: String, text: String },
     Remove { block_id: String },
+}
+
+enum NotesOutput {
+    Human,
+    Json,
+}
+
+struct NotesOptions {
+    command: NotesCommand,
+    output: NotesOutput,
 }
 
 struct ExtractOptions {
@@ -58,11 +68,15 @@ fn main() -> ExitCode {
                 ExitCode::FAILURE
             }
         },
-        Ok(Invocation::Notes(command)) => match run_notes_command(command) {
-            Ok(()) => ExitCode::SUCCESS,
+        Ok(Invocation::Notes(options)) => match run_notes_command(options) {
+            Ok(exit) => exit,
             Err(error) => {
                 eprintln!("lightwell: {error}");
-                ExitCode::FAILURE
+                match error.downcast_ref::<NotesError>() {
+                    Some(NotesError::NoteNotFound(_)) => ExitCode::from(3),
+                    Some(NotesError::BlockNotFound(_)) => ExitCode::from(4),
+                    _ => ExitCode::FAILURE,
+                }
             }
         },
         Ok(Invocation::Open(options)) => match open_block_in_editor(options) {
@@ -159,11 +173,42 @@ fn parse_notes_command(
         return Ok(Invocation::Help);
     }
 
+    let mut json = false;
+    let mut check = false;
+    let mut parse_options = true;
+    let mut positional = Vec::new();
+    for argument in arguments {
+        if parse_options && argument == OsStr::new("--") {
+            parse_options = false;
+        } else if parse_options && argument == OsStr::new("--json") {
+            if json {
+                return Err("the --json option may appear only once".to_owned());
+            }
+            json = true;
+        } else if parse_options && argument == OsStr::new("--check") {
+            if check {
+                return Err("the --check option may appear only once".to_owned());
+            }
+            check = true;
+        } else if parse_options
+            && (argument == OsStr::new("--help") || argument == OsStr::new("-h"))
+        {
+            return Ok(Invocation::Help);
+        } else if parse_options && argument.to_string_lossy().starts_with('-') {
+            return Err(format!("unknown option `{}`", argument.to_string_lossy()));
+        } else {
+            positional.push(argument);
+        }
+    }
+    if check && subcommand != OsStr::new("list") {
+        return Err("--check is only available for `lightwell notes list`".to_owned());
+    }
+    let mut arguments = positional.into_iter();
     let command = if subcommand == OsStr::new("list") {
         if arguments.next().is_some() {
             return Err("`lightwell notes list` takes no arguments".to_owned());
         }
-        NotesCommand::List
+        NotesCommand::List { check }
     } else if subcommand == OsStr::new("set") {
         let block_id = required_utf8(&mut arguments, "a block ID")?;
         let text = arguments
@@ -190,7 +235,14 @@ fn parse_notes_command(
         ));
     };
 
-    Ok(Invocation::Notes(command))
+    Ok(Invocation::Notes(NotesOptions {
+        command,
+        output: if json {
+            NotesOutput::Json
+        } else {
+            NotesOutput::Human
+        },
+    }))
 }
 
 fn required_utf8(
@@ -204,37 +256,69 @@ fn required_utf8(
         .map_err(|_| format!("{description} must use UTF-8"))
 }
 
-fn run_notes_command(command: NotesCommand) -> Result<(), Box<dyn Error>> {
+fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> {
     let repository = env::current_dir()?;
-    match command {
-        NotesCommand::List => {
+    match options.command {
+        NotesCommand::List { check } => {
             let notes = list_project_notes(repository)?;
-            if notes.is_empty() {
-                println!(
-                    "No project notes. Save one with `lightwell notes set <block-id> <text...>`."
-                );
-                return Ok(());
+            let stale_count = notes.iter().filter(|note| note.stale).count();
+            match options.output {
+                NotesOutput::Json => write_notes_json(serde_json::to_value(&notes)?)?,
+                NotesOutput::Human => {
+                    if notes.is_empty() {
+                        println!(
+                            "No project notes. Save one with `lightwell notes set <block-id> <text...>`."
+                        );
+                    }
+                    for note in notes {
+                        let status = if note.stale { "stale" } else { "current" };
+                        println!(
+                            "[{status}] {} (source fingerprint {}): {}",
+                            note.block_id, note.source_fingerprint, note.text
+                        );
+                    }
+                }
             }
-            for note in notes {
-                let status = if note.stale { "stale" } else { "current" };
-                println!(
-                    "[{status}] {} (source fingerprint {}): {}",
-                    note.block_id, note.source_fingerprint, note.text
-                );
+            if check && stale_count > 0 {
+                let noun = if stale_count == 1 { "note" } else { "notes" };
+                eprintln!("lightwell: {stale_count} stale project {noun} found.");
+                return Ok(ExitCode::from(5));
             }
         }
         NotesCommand::Set { block_id, text } => {
             set_project_note(repository, &block_id, &text)?;
-            println!("Saved note for `{block_id}` in `.lightwell/notes.json`.");
+            match options.output {
+                NotesOutput::Human => {
+                    println!("Saved note for `{block_id}` in `.lightwell/notes.json`.");
+                }
+                NotesOutput::Json => write_notes_json(serde_json::json!({
+                    "blockId": block_id,
+                    "text": text,
+                }))?,
+            }
         }
         NotesCommand::Remove { block_id } => {
-            if remove_project_note(repository, &block_id)? {
-                println!("Removed note for `{block_id}`.");
-            } else {
-                println!("No saved note for `{block_id}`.");
+            if !remove_project_note(repository, &block_id)? {
+                return Err(NotesError::NoteNotFound(block_id).into());
+            }
+            match options.output {
+                NotesOutput::Human => println!("Removed note for `{block_id}`."),
+                NotesOutput::Json => write_notes_json(serde_json::json!({
+                    "blockId": block_id,
+                    "removed": true,
+                }))?,
             }
         }
     }
+    Ok(ExitCode::SUCCESS)
+}
+
+fn write_notes_json(value: serde_json::Value) -> Result<(), Box<dyn Error>> {
+    let stdout = std::io::stdout();
+    let mut output = BufWriter::new(stdout.lock());
+    serde_json::to_writer(&mut output, &value)?;
+    output.write_all(b"\n")?;
+    output.flush()?;
     Ok(())
 }
 
