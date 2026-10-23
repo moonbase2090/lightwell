@@ -599,6 +599,8 @@ mod tests {
                 fixture.git(&["config", "user.email", "notes@example.invalid"]);
                 fixture.git(&["config", "commit.gpgsign", "false"]);
                 fixture.git(&["config", "core.hooksPath", "/dev/null"]);
+                fixture.git(&["config", "maintenance.auto", "false"]);
+                fixture.git(&["config", "gc.auto", "0"]);
             }
             fixture
         }
