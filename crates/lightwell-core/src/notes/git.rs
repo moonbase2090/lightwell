@@ -226,6 +226,7 @@ fn repository(store: &ProjectNotesStore) -> Result<Option<Repository>, String> {
         Err(message) if message.contains("not a git repository") => return Ok(None),
         Err(message) => return Err(message),
     };
+    let root = root.canonicalize().map_err(|e| e.to_string())?;
     let path = parent
         .canonicalize()
         .map_err(|e| e.to_string())?
