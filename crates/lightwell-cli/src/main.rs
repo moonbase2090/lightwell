@@ -556,18 +556,60 @@ fn resolve_file_block(root: &Path, map: &FactMap, file: &str) -> FileResolution 
 
 fn normalized_workspace_path(root: &Path, file: &str) -> String {
     let path = Path::new(file);
-    let relative = path
-        .strip_prefix(root)
-        .map(|path| path.to_string_lossy().into_owned())
-        .or_else(|_| {
-            let canonical_root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
-            let canonical_file = fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
-            canonical_file
-                .strip_prefix(&canonical_root)
-                .map(|path| path.to_string_lossy().into_owned())
-        })
-        .unwrap_or_else(|_| file.to_owned());
-    normalized_source_path(&relative)
+    if let (Ok(canonical_root), Ok(canonical_file)) =
+        (fs::canonicalize(root), fs::canonicalize(path))
+    {
+        if let Ok(relative) = canonical_file.strip_prefix(&canonical_root) {
+            return normalized_source_path(&relative.to_string_lossy());
+        }
+    }
+    let joined = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        root.join(path)
+    };
+    let normalized = normalize_path_components(&joined);
+    let canonical_root = fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf());
+    for base in [
+        normalize_path_components(&canonical_root),
+        normalize_path_components(root),
+    ] {
+        if let Ok(relative) = normalized.strip_prefix(&base) {
+            return normalized_source_path(&relative.to_string_lossy());
+        }
+    }
+    if path.is_absolute() {
+        normalized_source_path(file)
+    } else {
+        normalized_source_path(&normalize_path_components(path).to_string_lossy())
+    }
+}
+
+fn normalize_path_components(path: &Path) -> PathBuf {
+    use std::ffi::OsString;
+    use std::path::Component;
+    let mut prefix = PathBuf::new();
+    let mut parts: Vec<OsString> = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix_component) => prefix.push(prefix_component.as_os_str()),
+            Component::RootDir => prefix.push(std::path::MAIN_SEPARATOR.to_string()),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if parts.last().is_some_and(|part| part != "..") {
+                    parts.pop();
+                } else if !path.is_absolute() {
+                    parts.push(OsString::from(".."));
+                }
+            }
+            Component::Normal(part) => parts.push(part.to_os_string()),
+        }
+    }
+    let mut normalized = prefix;
+    for part in parts {
+        normalized.push(part);
+    }
+    normalized
 }
 
 fn normalized_source_path(path: &str) -> String {

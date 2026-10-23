@@ -177,6 +177,48 @@ fn notes_set_file_unique_match_saves() {
 }
 
 #[test]
+fn file_paths_with_parent_components_resolve_like_their_canonical_form() {
+    let project = Project::new();
+    let canonical_root = fs::canonicalize(&project.0).unwrap();
+    let absolute_with_parent = canonical_root
+        .join("src/../src/extra.rs")
+        .to_string_lossy()
+        .into_owned();
+    assert!(
+        absolute_with_parent.contains("src/../src/extra.rs"),
+        "{absolute_with_parent}"
+    );
+
+    let filtered = project.json(&["blocks", "--json", "--file", &absolute_with_parent]);
+    let ids: Vec<&str> = filtered
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry["blockId"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, [EXTRA_BLOCK]);
+
+    assert_eq!(
+        project.json(&[
+            "notes",
+            "set",
+            "--json",
+            "--file",
+            &absolute_with_parent,
+            "Parent path note",
+        ]),
+        json!({"blockId": EXTRA_BLOCK, "text": "Parent path note"})
+    );
+    let saved: Value =
+        serde_json::from_slice(&fs::read(project.0.join(".lightwell/notes.json")).unwrap())
+            .unwrap();
+    assert_eq!(saved["notes"][EXTRA_BLOCK]["text"], "Parent path note");
+
+    let relative_filtered = project.json(&["blocks", "--json", "--file", "src/../src/extra.rs"]);
+    assert_eq!(relative_filtered, filtered);
+}
+
+#[test]
 fn notes_set_file_ambiguous_match_saves_nothing() {
     let project = Project::new();
     let stderr = project.error(
