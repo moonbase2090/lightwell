@@ -28,15 +28,20 @@ impl Project {
     }
 
     fn run(&self, arguments: &[&str], exit: i32) -> Output {
+        self.run_in(&self.0, arguments, exit)
+    }
+
+    fn run_in(&self, cwd: &std::path::Path, arguments: &[&str], exit: i32) -> Output {
         let output = Command::new(env!("CARGO_BIN_EXE_lightwell"))
-            .current_dir(&self.0)
+            .current_dir(cwd)
             .args(arguments)
             .output()
             .unwrap();
         assert_eq!(
             output.status.code(),
             Some(exit),
-            "arguments: {arguments:?}\nstdout: {}\nstderr: {}",
+            "cwd: {}\narguments: {arguments:?}\nstdout: {}\nstderr: {}",
+            cwd.display(),
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
@@ -45,6 +50,13 @@ impl Project {
 
     fn json(&self, arguments: &[&str]) -> Value {
         let output = self.run(arguments, 0);
+        assert!(output.stderr.is_empty(), "{:?}", output.stderr);
+        assert!(output.stdout.ends_with(b"\n"));
+        serde_json::from_slice(&output.stdout).expect("stdout must contain exactly one JSON value")
+    }
+
+    fn json_in(&self, cwd: &std::path::Path, arguments: &[&str]) -> Value {
+        let output = self.run_in(cwd, arguments, 0);
         assert!(output.stderr.is_empty(), "{:?}", output.stderr);
         assert!(output.stdout.ends_with(b"\n"));
         serde_json::from_slice(&output.stdout).expect("stdout must contain exactly one JSON value")
@@ -203,6 +215,7 @@ fn orphaned_saved_notes_are_stale_but_can_still_be_removed() {
 #[test]
 fn option_terminator_preserves_literal_flag_text_and_invalid_usage_does_not_write() {
     let project = Project::new();
+    let repo = project.0.to_string_lossy().into_owned();
     for arguments in [
         vec!["notes", "list", "--json", "--json"],
         vec!["notes", "list", "--check", "--check"],
@@ -212,6 +225,18 @@ fn option_terminator_preserves_literal_flag_text_and_invalid_usage_does_not_writ
         vec!["notes", "rm", BLOCK, "extra", "--json"],
         vec!["notes", "set", BLOCK, "text", "--check"],
         vec!["notes", "set", BLOCK, "--json"],
+        vec!["notes", "list", "-C"],
+        vec!["notes", "list", "--repo"],
+        vec!["notes", "-C"],
+        vec!["notes", "list", "-C", repo.as_str(), "-C", repo.as_str()],
+        vec![
+            "notes",
+            "list",
+            "--repo",
+            repo.as_str(),
+            "-C",
+            repo.as_str(),
+        ],
     ] {
         project.error(&arguments, 2, "lightwell:");
         assert!(!project.0.join(".lightwell/notes.json").exists());
@@ -224,6 +249,73 @@ fn option_terminator_preserves_literal_flag_text_and_invalid_usage_does_not_writ
         project.json(&["notes", "list", "--json"])[0]["text"],
         "--json --check"
     );
+}
+
+#[test]
+fn repo_flag_targets_another_workspace_from_a_foreign_cwd() {
+    let project = Project::new();
+    let text = "Note saved through -C";
+    project.json(&["notes", "set", "--json", BLOCK, text]);
+
+    let foreign = std::env::temp_dir().join(format!(
+        "lightwell-cli-notes-foreign-{}-{}",
+        std::process::id(),
+        NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)
+    ));
+    fs::create_dir(&foreign).unwrap();
+    let _cleanup = ForeignDir(foreign.clone());
+    let repo = project.0.to_string_lossy();
+
+    assert_eq!(
+        project.json_in(&foreign, &["notes", "list", "-C", repo.as_ref(), "--json"],)[0]["text"],
+        text
+    );
+    assert_eq!(
+        project.json_in(
+            &foreign,
+            &["notes", "--repo", repo.as_ref(), "list", "--json"],
+        )[0]["text"],
+        text
+    );
+
+    let updated = "Updated from foreign cwd";
+    assert_eq!(
+        project.json_in(
+            &foreign,
+            &[
+                "notes",
+                "set",
+                "--repo",
+                repo.as_ref(),
+                "--json",
+                BLOCK,
+                updated,
+            ],
+        ),
+        json!({"blockId": BLOCK, "text": updated})
+    );
+    assert!(!foreign.join(".lightwell").exists());
+    assert_eq!(
+        project.json(&["notes", "list", "--json"])[0]["text"],
+        updated
+    );
+
+    assert_eq!(
+        project.json_in(
+            &foreign,
+            &["notes", "rm", BLOCK, "-C", repo.as_ref(), "--json"],
+        ),
+        json!({"blockId": BLOCK, "removed": true})
+    );
+    assert_eq!(project.json(&["notes", "list", "--json"]), json!([]));
+}
+
+struct ForeignDir(PathBuf);
+
+impl Drop for ForeignDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
 }
 
 #[test]

@@ -11,7 +11,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [--json] [--check]\n  lightwell notes set [--json] <block-id> <text...>\n  lightwell notes set --file <path> [--json] <text...>\n  lightwell notes rm [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
+const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check]\n  lightwell notes set [-C|--repo <path>] [--json] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--json] <text...>\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
 
 enum Invocation {
     Help,
@@ -46,6 +46,7 @@ enum NotesOutput {
 struct NotesOptions {
     command: NotesCommand,
     output: NotesOutput,
+    repository_path: Option<PathBuf>,
 }
 
 struct ExtractOptions {
@@ -188,12 +189,27 @@ fn parse_invocation(mut arguments: impl Iterator<Item = OsString>) -> Result<Inv
 fn parse_notes_command(
     mut arguments: impl Iterator<Item = OsString>,
 ) -> Result<Invocation, String> {
-    let Some(subcommand) = arguments.next() else {
-        return Err("a notes command is required".to_owned());
+    let mut repository_path: Option<PathBuf> = None;
+    let subcommand = loop {
+        let Some(argument) = arguments.next() else {
+            return Err("a notes command is required".to_owned());
+        };
+        if is_help(&argument) {
+            return Ok(Invocation::Help);
+        }
+        if argument == OsStr::new("-C") || argument == OsStr::new("--repo") {
+            repository_path = Some(take_repository_option(
+                &mut arguments,
+                &argument,
+                repository_path.is_some(),
+            )?);
+            continue;
+        }
+        if argument.to_string_lossy().starts_with('-') {
+            return Err(format!("unknown option `{}`", argument.to_string_lossy()));
+        }
+        break argument;
     };
-    if is_help(&subcommand) {
-        return Ok(Invocation::Help);
-    }
 
     let mut json = false;
     let mut check = false;
@@ -203,6 +219,14 @@ fn parse_notes_command(
     while let Some(argument) = arguments.next() {
         if parse_options && argument == OsStr::new("--") {
             parse_options = false;
+        } else if parse_options
+            && (argument == OsStr::new("-C") || argument == OsStr::new("--repo"))
+        {
+            repository_path = Some(take_repository_option(
+                &mut arguments,
+                &argument,
+                repository_path.is_some(),
+            )?);
         } else if parse_options && argument == OsStr::new("--json") {
             if json {
                 return Err("the --json option may appear only once".to_owned());
@@ -284,7 +308,28 @@ fn parse_notes_command(
         } else {
             NotesOutput::Human
         },
+        repository_path,
     }))
+}
+
+fn take_repository_option(
+    arguments: &mut impl Iterator<Item = OsString>,
+    flag: &OsStr,
+    already_set: bool,
+) -> Result<PathBuf, String> {
+    if already_set {
+        return Err("the -C/--repo option may appear only once".to_owned());
+    }
+    let value = arguments
+        .next()
+        .ok_or_else(|| format!("the {} option requires a path", flag.to_string_lossy()))?;
+    if value.is_empty() {
+        return Err(format!(
+            "the {} option requires a path",
+            flag.to_string_lossy()
+        ));
+    }
+    Ok(PathBuf::from(value))
 }
 
 fn required_utf8(
@@ -299,7 +344,10 @@ fn required_utf8(
 }
 
 fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> {
-    let repository = env::current_dir()?;
+    let repository = match options.repository_path {
+        Some(path) => path,
+        None => env::current_dir()?,
+    };
     match options.command {
         NotesCommand::List { check } => {
             let notes = list_project_notes(repository)?;

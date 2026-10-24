@@ -175,12 +175,13 @@ When a block's fingerprint no longer matches its note, the viewer marks it as ch
 
 ## Project notes
 
-Save project notes from the workspace root. Lightwell creates `.lightwell/notes.json` on the first save and stores each note by stable block ID with the source fingerprint it describes.
+Save project notes from the workspace root, or pass `-C`/`--repo <path>` to target another repository without changing the shell directory. Lightwell creates `.lightwell/notes.json` on the first save and stores each note by stable block ID with the source fingerprint it describes.
 
 ```sh
 lightwell extract . -o /tmp/lightwell-map.json
 lightwell notes set crate:lightwell-core "Review output serialization"
 lightwell notes list
+lightwell notes list -C /path/to/other/workspace --json
 lightwell notes rm crate:lightwell-core
 ```
 
@@ -211,7 +212,7 @@ These exit codes apply to the notes commands; `lightwell blocks` uses 0, 1 (extr
 
 Removing a saved note does not require its block to exist in the current map, so orphaned notes remain removable. A missing saved note is an error on stderr and exits with code 3.
 
-Options can appear before or after the positional arguments, after the subcommand. Use `--` to end option parsing when note text contains literal flags:
+`-C`/`--repo` may appear before the notes subcommand (`lightwell notes -C <path> list`) or with the other options after it. Other options can appear before or after the positional arguments, after the subcommand. Use `--` to end option parsing when note text contains literal flags:
 
 ```sh
 lightwell notes set --json crate:lightwell-core -- --json --check
