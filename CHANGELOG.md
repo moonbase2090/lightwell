@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.18 - 2026-10-23
+
+### Added
+
+- Project-notes CLI commands accept `--json`, with documented exit codes and `notes list --check` for stale-note checks (#179).
+- Experimental Git controls show a saved note's status and can commit that note without pushing or changing unrelated staged files. Enable them with `VITE_ENABLE_NOTE_GIT=true` when building; they are off by default (#180).
+
+### Changed
+
+- Privacy and settings copy explains that Lightwell does not upload project notes, and that sharing the file through Git requires both committing and pushing it (#182).
+
+### Fixed
+
+- Commit diffs work in projects whose workspace folder is below the repository root or has no root Cargo.toml, such as Next.js workspaces. Diffs no longer fail with "Could not map the workspace" (#173).
+- The source inspector shows the selected block after a changed-file diff was open. Selecting a block from search or with go-to-definition no longer keeps showing the earlier file (#174).
+- Commit diffs attribute removed lines to the deleted symbol instead of the replacement symbol, including changes viewed across a commit range (#177).
+- Saving project notes maintains `.lightwell/.gitignore` entries for lock and temporary files while keeping `notes.json` trackable and preserving existing user rules (#178).
+
 ## 0.1.17 - 2026-10-22
 
 ### Added

@@ -3,7 +3,7 @@ members = ["crates/lightwell-app", "crates/lightwell-core", "crates/lightwell-cl
 resolver = "2"
 
 [workspace.package]
-version = "0.1.17"
+version = "0.1.18"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/moonbase2090/lightwell"
@@ -25,6 +25,7 @@ tauri-build = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-process = "2.4.0"
 tauri-plugin-updater = "2.14.0"
+tempfile = "3.27"
 toml = "0.8"
 
 # crates.io has yanked every zip release except 9.0.3 and 9.0.4.

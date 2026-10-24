@@ -6,25 +6,25 @@ Lightwell maps Rust workspaces, TypeScript, JavaScript, HTML and CSS projects (i
 
 ## Install
 
-Lightwell v0.1.17 is available for macOS (Apple Silicon and Intel), Linux x86_64 and ARM64, and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [getlightwell.app](https://getlightwell.app/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
+Lightwell v0.1.18 is available for macOS (Apple Silicon and Intel), Linux x86_64 and ARM64, and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [getlightwell.app](https://getlightwell.app/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
 
 ### macOS
 
-Download [`Lightwell_0.1.17_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.17/Lightwell_0.1.17_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.17_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.17/Lightwell_0.1.17_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
+Download [`Lightwell_0.1.18_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.18/Lightwell_0.1.18_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.18_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.18/Lightwell_0.1.18_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
 
 ### Linux
 
-Download [`Lightwell_0.1.17_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.17/Lightwell_0.1.17_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
+Download [`Lightwell_0.1.18_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.18/Lightwell_0.1.18_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
 
 ```sh
-sudo apt install ./Lightwell_0.1.17_amd64.deb
+sudo apt install ./Lightwell_0.1.18_amd64.deb
 ```
 
-Other x86_64 distributions can use [`Lightwell_0.1.17_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.17/Lightwell_0.1.17_amd64.AppImage), [`Lightwell_0.1.17_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.17/Lightwell_0.1.17_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.17_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.17/Lightwell_0.1.17_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.17_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.17/Lightwell_0.1.17_linux_aarch64.tar.gz) carries the command line tool.
+Other x86_64 distributions can use [`Lightwell_0.1.18_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.18/Lightwell_0.1.18_amd64.AppImage), [`Lightwell_0.1.18_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.18/Lightwell_0.1.18_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.18_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.18/Lightwell_0.1.18_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.18_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.18/Lightwell_0.1.18_linux_aarch64.tar.gz) carries the command line tool.
 
 ### Windows
 
-Download [`Lightwell_0.1.17_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.17/Lightwell_0.1.17_x64.msi) (x64) and run it to install Lightwell.
+Download [`Lightwell_0.1.18_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.18/Lightwell_0.1.18_x64.msi) (x64) and run it to install Lightwell.
 
 ### Updates
 

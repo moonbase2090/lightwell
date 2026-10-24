@@ -16,9 +16,8 @@ use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -319,7 +318,13 @@ fn extract_map_at_commit(
 ) -> Result<Option<FactMap>, DiffError> {
     let prefix = git(root, &["rev-parse", "--show-prefix"])?;
     let prefix = prefix.trim().trim_end_matches('/');
-    let worktree = temporary_worktree_path("map");
+    let temporary = tempfile::Builder::new()
+        .prefix("lightwell-map-")
+        .tempdir()
+        .map_err(|error| {
+            DiffError::MapExtraction(format!("Could not reserve a temporary worktree: {error}"))
+        })?;
+    let worktree = temporary.path().join("worktree");
     let worktree_arg = path_for_git(&worktree);
     git(
         root,
@@ -338,20 +343,11 @@ fn extract_map_at_commit(
         Ok(None)
     };
     let _ = git(root, &["worktree", "remove", "--force", &worktree_arg]);
-    let _ = std::fs::remove_dir_all(&worktree);
     map
 }
 
 fn map_extraction_message(error: &MapExtractionError) -> String {
     error.to_string()
-}
-
-fn temporary_worktree_path(label: &str) -> PathBuf {
-    let unique = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    std::env::temp_dir().join(format!("lightwell-{label}-{}-{unique}", std::process::id()))
 }
 
 fn path_for_git(path: &Path) -> String {
@@ -1332,6 +1328,94 @@ mod tests {
         );
         assert_eq!(spans.get("plan"), Some(&(3, 6)));
         assert_eq!(spans.get("merge"), Some(&(7, 8)));
+    }
+
+    #[test]
+    fn concurrent_commit_maps_keep_repository_contents_and_clean_up_their_worktrees() {
+        let fixtures = tempfile::tempdir().unwrap();
+        let roots = [fixtures.path().join("alpha"), fixtures.path().join("beta")];
+        for (root, module) in roots.iter().zip(["alpha", "beta"]) {
+            fs::create_dir_all(root.join("src")).unwrap();
+            fs::write(
+                root.join("Cargo.toml"),
+                r#"[package]
+name = "parallel-fixture"
+version = "0.1.0"
+edition = "2021"
+"#,
+            )
+            .unwrap();
+            fs::write(root.join("src/lib.rs"), format!("pub mod {module};\n")).unwrap();
+            fs::write(root.join(format!("src/{module}.rs")), "pub fn owned() {}\n").unwrap();
+            git(root, &["init", "-q"]);
+            git(root, &["add", "."]);
+            git(root, &["commit", "-q", "-m", "Initial"]);
+        }
+        let barrier = std::sync::Barrier::new(2);
+        let changes = std::thread::scope(|scope| {
+            let handles: Vec<_> = roots
+                .iter()
+                .map(|root| {
+                    let barrier = &barrier;
+                    scope.spawn(move || {
+                        let map = extract_cargo_map(root, None).unwrap();
+                        barrier.wait();
+                        commit_changes(root, &map, "HEAD").unwrap()
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| handle.join().unwrap())
+                .collect::<Vec<_>>()
+        });
+        for ((root, changes), (owned, other, expected_files)) in roots.iter().zip(changes).zip([
+            (
+                "alpha",
+                "beta",
+                ["Cargo.toml", "src/alpha.rs", "src/lib.rs"],
+            ),
+            ("beta", "alpha", ["Cargo.toml", "src/beta.rs", "src/lib.rs"]),
+        ]) {
+            assert_eq!(changes.commit.summary, "Initial");
+            let mut files = changes
+                .files
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect::<Vec<_>>();
+            files.sort_unstable();
+            assert_eq!(files, expected_files);
+            let modules = changes
+                .blocks
+                .iter()
+                .map(|block| block.label.as_str())
+                .collect::<Vec<_>>();
+            assert!(
+                modules.contains(&owned),
+                "{owned} should remain in its own map: {modules:?}"
+            );
+            assert!(
+                !modules.contains(&other),
+                "{other} belongs to the other repository: {modules:?}"
+            );
+            assert_eq!(
+                fs::read_to_string(root.join("src/lib.rs")).unwrap(),
+                format!("pub mod {owned};\n")
+            );
+            let worktrees = super::git(root, &["worktree", "list", "--porcelain"]).unwrap();
+            assert_eq!(
+                worktrees
+                    .lines()
+                    .filter(|line| line.starts_with("worktree "))
+                    .count(),
+                1,
+                "temporary worktrees must be removed: {worktrees}"
+            );
+            let registrations = root.join(".git/worktrees");
+            assert!(
+                !registrations.exists() || fs::read_dir(registrations).unwrap().next().is_none()
+            );
+        }
     }
 
     #[test]
