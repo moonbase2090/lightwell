@@ -201,6 +201,70 @@ fn check_reports_changed_source_without_mutating_or_suppressing_notes() {
 }
 
 #[test]
+fn review_re_fingerprints_a_stale_note_and_rm_stale_requires_yes() {
+    let project = Project::new();
+    project.json(&["notes", "set", BLOCK, "Still accurate", "--json"]);
+    let old_fingerprint = project.json(&["notes", "list", "--json"])[0]["sourceFingerprint"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    fs::write(
+        project.0.join("src/lib.rs"),
+        "pub fn before() -> u8 { 1 }\npub fn after() -> u8 { 2 }\n",
+    )
+    .unwrap();
+    assert_eq!(project.json(&["notes", "list", "--json"])[0]["stale"], true);
+
+    project.error(
+        &["notes", "rm-stale", "--json"],
+        2,
+        "requires `--yes` to delete stale notes",
+    );
+    assert_eq!(project.json(&["notes", "list", "--json"])[0]["stale"], true);
+
+    let reviewed = project.json(&["notes", "review", BLOCK, "--json"]);
+    assert_eq!(reviewed["blockId"], BLOCK);
+    assert_eq!(reviewed["reviewed"], true);
+    assert_eq!(reviewed["stale"], false);
+    assert_ne!(reviewed["sourceFingerprint"], old_fingerprint);
+    assert_eq!(
+        project.json(&["notes", "list", "--json"])[0]["stale"],
+        false
+    );
+
+    let notes_path = project.0.join(".lightwell/notes.json");
+    let mut document: Value = serde_json::from_slice(&fs::read(&notes_path).unwrap()).unwrap();
+    document["notes"]["crate:gone"] = json!({
+        "text": "orphan",
+        "sourceFingerprint": "deadbeef"
+    });
+    fs::write(
+        &notes_path,
+        format!("{}\n", serde_json::to_string_pretty(&document).unwrap()),
+    )
+    .unwrap();
+    let listed = project.json(&["notes", "list", "--json"]);
+    assert_eq!(listed.as_array().unwrap().len(), 2);
+    assert_eq!(
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|note| note["stale"] == true)
+            .count(),
+        1
+    );
+
+    let removed = project.json(&["notes", "rm-stale", "--yes", "--json"]);
+    assert_eq!(removed["removed"], 1);
+    let remaining = removed["notes"].as_array().unwrap();
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0]["blockId"], BLOCK);
+    assert_eq!(remaining[0]["stale"], false);
+    assert_eq!(remaining[0]["text"], "Still accurate");
+}
+
+#[test]
 fn orphaned_saved_notes_are_stale_but_can_still_be_removed() {
     let project = Project::new();
     fs::write(project.0.join("src/lib.rs"), "pub mod extra;\n").unwrap();
@@ -235,6 +299,9 @@ fn option_terminator_preserves_literal_flag_text_and_invalid_usage_does_not_writ
         vec!["notes", "list", "unexpected"],
         vec!["notes", "rm", BLOCK, "--check"],
         vec!["notes", "rm", BLOCK, "extra", "--json"],
+        vec!["notes", "rm-stale"],
+        vec!["notes", "rm-stale", "--yes", "extra"],
+        vec!["notes", "review"],
         vec!["notes", "set", BLOCK, "text", "--check"],
         vec!["notes", "set", BLOCK, "--json"],
         vec!["notes", "list", "-C"],

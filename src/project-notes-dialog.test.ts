@@ -10,6 +10,8 @@ const source: ProjectNotesSource = {
   add: () => Promise.reject(new Error("unused")),
   edit: () => Promise.reject(new Error("unused")),
   remove: () => Promise.reject(new Error("unused")),
+  markReviewed: () => Promise.reject(new Error("unused")),
+  removeStale: () => Promise.reject(new Error("unused")),
 };
 
 function mapWith(blocks: readonly { readonly id: string; readonly label: string }[]): ResolvedMap {
@@ -61,7 +63,31 @@ test("project notes lists current notes before stale ones and names their state"
   assert.match(html, /<strong>alpha<\/strong>/);
   assert.match(html, />Save changes</);
   assert.match(html, /class="notes-remove-button"/);
+  assert.match(html, /class="notes-bulk-remove-button"[^>]*>[\s\S]*Delete stale \(2\)/);
   assert.equal(html.includes("NEW NOTE FOR"), false);
+  assert.equal(html.includes("Mark reviewed"), false);
+});
+
+test("project notes offers Mark reviewed for a stale note whose block still exists", () => {
+  const html = renderNotes({
+    kind: "ready",
+    notes: [{ blockId: "crate:moved", text: "still good", sourceFingerprint: "old", stale: true }],
+  }, "crate:moved", [{ id: "crate:moved", label: "moved" }]);
+
+  assert.match(html, /class="notes-review-button"[^>]*>[\s\S]*Mark reviewed/);
+  assert.match(html, /Mark reviewed if the note still matches/);
+  assert.match(html, /class="notes-bulk-remove-button"[^>]*>[\s\S]*Delete stale \(1\)/);
+});
+
+test("project notes does not offer Mark reviewed for an orphaned stale note", () => {
+  const html = renderNotes({
+    kind: "ready",
+    notes: [{ blockId: "missing", text: "orphaned", sourceFingerprint: "c", stale: true }],
+  }, "missing");
+
+  assert.equal(html.includes("notes-review-button"), false);
+  assert.match(html, /This note is kept until you remove it/);
+  assert.match(html, /class="notes-bulk-remove-button"/);
 });
 
 test("project notes opens a blank editor for the selected block", () => {

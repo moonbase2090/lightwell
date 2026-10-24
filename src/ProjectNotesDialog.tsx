@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CircleAlert, FileText, MapPin, Plus, Save, Trash2, X } from "lucide-react";
+import { CheckCheck, CircleAlert, FileText, MapPin, Plus, Save, Trash2, X } from "lucide-react";
 import type { ResolvedMap } from "./model.js";
 import type { ProjectNoteView, ProjectNotesSnapshot, ProjectNotesSource } from "./map-source.js";
 import NotesGitPanel from "./NotesGitPanel.js";
@@ -103,6 +103,12 @@ export default function ProjectNotesDialog({
     ? editor.text.length > 0
     : selectedNote === undefined || selectedNote.text !== editor.text;
   const editorBlock = map.blockById.get(editor.blockId);
+  const staleCount = notes.filter((note) => note.stale).length;
+  const showMarkReviewed = selectedNote?.stale === true
+    && editorBlock !== undefined
+    && editor.kind === "saved"
+    && snapshot.kind === "ready";
+  const canMarkReviewed = showMarkReviewed && !saving && !committing && !isDirty;
   const canSave = snapshot.kind === "ready"
     && !saving
     && !committing
@@ -165,6 +171,45 @@ export default function ProjectNotesDialog({
     }
   };
 
+  const handleMarkReviewed = async () => {
+    if (!canMarkReviewed || selectedNote === undefined) return;
+    setSaving(true);
+    setError("");
+    setSavedMessage("");
+    try {
+      const updated = await source.markReviewed({ workspaceId, blockId: selectedNote.blockId });
+      onSnapshot(updated);
+      setSavedMessage("Marked reviewed — fingerprint updated");
+    } catch (cause: unknown) {
+      setError(noteErrorMessage(cause, "Could not mark this note as reviewed."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveStale = async () => {
+    if (staleCount === 0 || saving || committing || snapshot.kind !== "ready") return;
+    const noun = staleCount === 1 ? "stale note" : "stale notes";
+    if (!window.confirm(`Delete ${staleCount} ${noun}? Current notes are kept.`)) return;
+    setSaving(true);
+    setError("");
+    setSavedMessage("");
+    try {
+      const updated = await source.removeStale({ workspaceId });
+      onSnapshot(updated);
+      const remaining = updated.kind === "ready" ? updated.notes : [];
+      setEditor(noteEditorForBlock(
+        remaining.some((note) => note.blockId === editor.blockId) ? editor.blockId : (currentBlockId ?? ""),
+        remaining,
+      ));
+      setSavedMessage(staleCount === 1 ? "Deleted 1 stale note" : `Deleted ${staleCount} stale notes`);
+    } catch (cause: unknown) {
+      setError(noteErrorMessage(cause, "Could not delete stale project notes."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleNewNote = () => {
     if (currentBlockId === null) return;
     const existing = notes.find((note) => note.blockId === currentBlockId);
@@ -193,9 +238,21 @@ export default function ProjectNotesDialog({
           <aside className="project-notes-list-panel">
             <div className="project-notes-list-heading">
               <span>WORKSPACE NOTES</span>
-              <button className="notes-new-button" type="button" onClick={handleNewNote} disabled={currentBlockId === null || snapshot.kind === "error"}>
-                <Plus size={13} /> New
-              </button>
+              <div className="project-notes-list-actions">
+                {staleCount > 0 && (
+                  <button
+                    className="notes-bulk-remove-button"
+                    type="button"
+                    onClick={() => { void handleRemoveStale(); }}
+                    disabled={saving || committing || snapshot.kind === "error"}
+                  >
+                    <Trash2 size={13} /> Delete stale ({staleCount})
+                  </button>
+                )}
+                <button className="notes-new-button" type="button" onClick={handleNewNote} disabled={currentBlockId === null || snapshot.kind === "error"}>
+                  <Plus size={13} /> New
+                </button>
+              </div>
             </div>
             <div className="project-notes-list" aria-label="Saved project notes">
               {snapshot.kind === "error" ? (
@@ -241,7 +298,10 @@ export default function ProjectNotesDialog({
               {editorBlock?.sourcePath !== undefined && editorBlock.sourcePath !== null && <code className="project-note-path">{editorBlock.sourcePath}</code>}
               {selectedNote?.stale === true && (
                 <span className="project-note-stale-detail">
-                  <CircleAlert size={12} /> {noteStatus(selectedNote, map)}. This note is kept until you remove it.
+                  <CircleAlert size={12} /> {noteStatus(selectedNote, map)}.
+                  {editorBlock !== undefined
+                    ? " Mark reviewed if the note still matches, or remove it."
+                    : " This note is kept until you remove it."}
                 </span>
               )}
             </div>
@@ -266,6 +326,11 @@ export default function ProjectNotesDialog({
               {editor.kind === "saved" && (
                 <button className="notes-remove-button" type="button" onClick={handleRemove} disabled={saving || committing || snapshot.kind === "error"}>
                   <Trash2 size={13} /> Remove
+                </button>
+              )}
+              {showMarkReviewed && (
+                <button className="notes-review-button" type="button" onClick={() => { void handleMarkReviewed(); }} disabled={!canMarkReviewed}>
+                  <CheckCheck size={13} /> Mark reviewed
                 </button>
               )}
               <button className="notes-save-button" type="button" onClick={handleSave} disabled={!canSave}>

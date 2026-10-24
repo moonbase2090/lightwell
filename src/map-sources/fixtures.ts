@@ -32,23 +32,23 @@ const PREVIEW_NOTE_AUTHOR = "preview";
 const PREVIEW_NOTE_UPDATED_AT = "2026-10-25T03:00:00Z";
 
 export function createMemoryNotesSource(): ProjectNotesSource {
-  const notesByWorkspace = new Map<string, Map<string, string>>();
+  const notesByWorkspace = new Map<string, Map<string, { text: string; sourceFingerprint: string; stale: boolean }>>();
   const snapshot = (workspaceId: string): ProjectNotesSnapshot => ({
     kind: "ready",
-    notes: [...(notesByWorkspace.get(workspaceId) ?? new Map<string, string>())]
-      .map(([blockId, text]) => ({
+    notes: [...(notesByWorkspace.get(workspaceId) ?? new Map())]
+      .map(([blockId, note]) => ({
         blockId,
-        text,
-        sourceFingerprint: "preview",
+        text: note.text,
+        sourceFingerprint: note.sourceFingerprint,
+        stale: note.stale,
         author: PREVIEW_NOTE_AUTHOR,
         updatedAt: PREVIEW_NOTE_UPDATED_AT,
-        stale: false,
       })),
   });
   const notesFor = (workspaceId: string) => {
     const existing = notesByWorkspace.get(workspaceId);
     if (existing !== undefined) return existing;
-    const created = new Map<string, string>();
+    const created = new Map<string, { text: string; sourceFingerprint: string; stale: boolean }>();
     notesByWorkspace.set(workspaceId, created);
     return created;
   };
@@ -56,17 +56,32 @@ export function createMemoryNotesSource(): ProjectNotesSource {
     async add({ workspaceId, blockId, text }) {
       const notes = notesFor(workspaceId);
       if (notes.has(blockId)) throw new Error("This block already has a note.");
-      notes.set(blockId, text);
+      notes.set(blockId, { text, sourceFingerprint: "preview", stale: false });
       return snapshot(workspaceId);
     },
     async edit({ workspaceId, blockId, text }) {
       const notes = notesFor(workspaceId);
-      if (!notes.has(blockId)) throw new Error("This block has no note to edit.");
-      notes.set(blockId, text);
+      const existing = notes.get(blockId);
+      if (existing === undefined) throw new Error("This block has no note to edit.");
+      notes.set(blockId, { ...existing, text });
       return snapshot(workspaceId);
     },
     async remove({ workspaceId, blockId }) {
       notesFor(workspaceId).delete(blockId);
+      return snapshot(workspaceId);
+    },
+    async markReviewed({ workspaceId, blockId }) {
+      const notes = notesFor(workspaceId);
+      const existing = notes.get(blockId);
+      if (existing === undefined) throw new Error("This block has no note to review.");
+      notes.set(blockId, { ...existing, sourceFingerprint: "preview", stale: false });
+      return snapshot(workspaceId);
+    },
+    async removeStale({ workspaceId }) {
+      const notes = notesFor(workspaceId);
+      for (const [blockId, note] of [...notes]) {
+        if (note.stale) notes.delete(blockId);
+      }
       return snapshot(workspaceId);
     },
   };

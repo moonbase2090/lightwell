@@ -1,11 +1,11 @@
 use lightwell_core::{
     block_diff_for, commit_changes_for, discover_project_workspace, extract_cargo_map,
-    filter_commits_that_are_ancestors, open_target, path_diff_for, project_notes_for_map,
-    recent_commits, remove_project_note, resolve_block_target, resolve_block_target_in_map,
-    set_project_note_for_map, update_project_note_text, BlockDiffDocument, CommitChanges,
-    CommitSummary, EditorError, EditorSettings, EditorTarget, EditorTemplatePreset, FactMap,
-    MapExtractionError, MapWatchError, MapWatcher, NotesError, ProjectNoteView,
-    EDITOR_TEMPLATE_PRESETS,
+    filter_commits_that_are_ancestors, mark_project_note_reviewed, open_target, path_diff_for,
+    project_notes_for_map, recent_commits, remove_project_note, remove_stale_project_notes,
+    resolve_block_target, resolve_block_target_in_map, set_project_note_for_map,
+    update_project_note_text, BlockDiffDocument, CommitChanges, CommitSummary, EditorError,
+    EditorSettings, EditorTarget, EditorTemplatePreset, FactMap, MapExtractionError, MapWatchError,
+    MapWatcher, NotesError, ProjectNoteView, EDITOR_TEMPLATE_PRESETS,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -316,6 +316,31 @@ pub fn remove_workspace_note(
     remove_project_note(&root, &block_id).map_err(|error| error.to_string())?;
     project_notes_for_map(&root, &facts)
         .map(|notes| ProjectNotesState::Ready { notes })
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command(async)]
+pub fn mark_workspace_note_reviewed(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+    block_id: String,
+) -> Result<ProjectNotesState, String> {
+    let root = workspace_root(&path)?;
+    let facts = watchers.current_map(&root)?;
+    mark_project_note_reviewed(&root, &facts, &block_id)
+        .map(|notes| ProjectNotesState::Ready { notes })
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command(async)]
+pub fn remove_stale_workspace_notes(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+) -> Result<ProjectNotesState, String> {
+    let root = workspace_root(&path)?;
+    let facts = watchers.current_map(&root)?;
+    remove_stale_project_notes(&root, &facts)
+        .map(|(_removed, notes)| ProjectNotesState::Ready { notes })
         .map_err(|error| error.to_string())
 }
 

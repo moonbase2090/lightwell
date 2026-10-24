@@ -18,6 +18,8 @@ fn main() {
             workspace::add_workspace_note,
             workspace::edit_workspace_note,
             workspace::remove_workspace_note,
+            workspace::mark_workspace_note_reviewed,
+            workspace::remove_stale_workspace_notes,
             workspace::project_notes_git_status,
             workspace::commit_workspace_note,
             workspace::inspect_block,

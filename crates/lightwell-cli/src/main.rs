@@ -1,7 +1,8 @@
 use lightwell_core::{
-    discover_project_workspace, extract_cargo_map, list_project_notes, open_block,
-    remove_project_note, set_project_note, BlockBase, EditorSettings, FactBlock, FactMap,
-    MapWatchError, MapWatcher, NotesError,
+    discover_project_workspace, extract_cargo_map, list_project_notes, mark_project_note_reviewed,
+    open_block, project_notes_for_map, remove_project_note, remove_stale_project_notes,
+    set_project_note, BlockBase, EditorSettings, FactBlock, FactMap, MapWatchError, MapWatcher,
+    NotesError,
 };
 use std::env;
 use std::error::Error;
@@ -11,7 +12,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check]\n  lightwell notes set [-C|--repo <path>] [--json] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--json] <text...>\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
+const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check]\n  lightwell notes set [-C|--repo <path>] [--json] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--json] <text...>\n  lightwell notes review [-C|--repo <path>] [--json] <block-id>\n  lightwell notes rm-stale [-C|--repo <path>] --yes [--json]\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
 
 enum Invocation {
     Help,
@@ -30,7 +31,9 @@ struct BlocksOptions {
 enum NotesCommand {
     List { check: bool },
     Set { target: SetTarget, text: String },
+    Review { block_id: String },
     Remove { block_id: String },
+    RemoveStale,
 }
 
 enum SetTarget {
@@ -213,6 +216,7 @@ fn parse_notes_command(
 
     let mut json = false;
     let mut check = false;
+    let mut yes = false;
     let mut file: Option<String> = None;
     let mut parse_options = true;
     let mut positional = Vec::new();
@@ -237,6 +241,11 @@ fn parse_notes_command(
                 return Err("the --check option may appear only once".to_owned());
             }
             check = true;
+        } else if parse_options && argument == OsStr::new("--yes") {
+            if yes {
+                return Err("the --yes option may appear only once".to_owned());
+            }
+            yes = true;
         } else if parse_options && argument == OsStr::new("--file") {
             if file.is_some() {
                 return Err("the --file option may appear only once".to_owned());
@@ -263,6 +272,9 @@ fn parse_notes_command(
     if check && subcommand != OsStr::new("list") {
         return Err("--check is only available for `lightwell notes list`".to_owned());
     }
+    if yes && subcommand != OsStr::new("rm-stale") {
+        return Err("--yes is only available for `lightwell notes rm-stale`".to_owned());
+    }
     if file.is_some() && subcommand != OsStr::new("set") {
         return Err("--file is only available for `lightwell notes set`".to_owned());
     }
@@ -288,12 +300,28 @@ fn parse_notes_command(
             return Err("`lightwell notes set` requires note text".to_owned());
         }
         NotesCommand::Set { target, text }
+    } else if subcommand == OsStr::new("review") {
+        let block_id = required_utf8(&mut arguments, "a block ID")?;
+        if arguments.next().is_some() {
+            return Err("`lightwell notes review` takes one block ID".to_owned());
+        }
+        NotesCommand::Review { block_id }
     } else if subcommand == OsStr::new("rm") {
         let block_id = required_utf8(&mut arguments, "a block ID")?;
         if arguments.next().is_some() {
             return Err("`lightwell notes rm` takes one block ID".to_owned());
         }
         NotesCommand::Remove { block_id }
+    } else if subcommand == OsStr::new("rm-stale") {
+        if arguments.next().is_some() {
+            return Err("`lightwell notes rm-stale` takes no block ID arguments".to_owned());
+        }
+        if !yes {
+            return Err(
+                "`lightwell notes rm-stale` requires `--yes` to delete stale notes".to_owned(),
+            );
+        }
+        NotesCommand::RemoveStale
     } else {
         return Err(format!(
             "unknown notes command `{}`",
@@ -437,6 +465,36 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                 }
             }
         }
+        NotesCommand::Review { block_id } => {
+            let (root, map) = current_workspace_map(&repository)?;
+            match mark_project_note_reviewed(&root, &map, &block_id) {
+                Ok(notes) => {
+                    let note = notes
+                        .iter()
+                        .find(|note| note.block_id == block_id)
+                        .ok_or_else(|| NotesError::NoteNotFound(block_id.clone()))?;
+                    match options.output {
+                        NotesOutput::Human => println!(
+                            "Marked `{block_id}` reviewed (fingerprint {}).",
+                            note.source_fingerprint
+                        ),
+                        NotesOutput::Json => write_notes_json(serde_json::json!({
+                            "blockId": block_id,
+                            "sourceFingerprint": note.source_fingerprint,
+                            "stale": note.stale,
+                            "reviewed": true,
+                        }))?,
+                    }
+                }
+                Err(error) => {
+                    if let NotesError::BlockNotFound(_) = error {
+                        eprintln!("lightwell: {error}");
+                        return Ok(ExitCode::from(4));
+                    }
+                    return Err(error.into());
+                }
+            }
+        }
         NotesCommand::Remove { block_id } => {
             if !remove_project_note(repository, &block_id)? {
                 return Err(NotesError::NoteNotFound(block_id).into());
@@ -446,6 +504,25 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                 NotesOutput::Json => write_notes_json(serde_json::json!({
                     "blockId": block_id,
                     "removed": true,
+                }))?,
+            }
+        }
+        NotesCommand::RemoveStale => {
+            let (root, map) = current_workspace_map(&repository)?;
+            let before = project_notes_for_map(&root, &map)?;
+            let stale_before = before.iter().filter(|note| note.stale).count();
+            let (removed, notes) = remove_stale_project_notes(&root, &map)?;
+            match options.output {
+                NotesOutput::Human => {
+                    let noun = if removed == 1 { "note" } else { "notes" };
+                    println!("Removed {removed} stale project {noun}.");
+                    if removed == 0 && stale_before == 0 {
+                        println!("No stale notes to remove.");
+                    }
+                }
+                NotesOutput::Json => write_notes_json(serde_json::json!({
+                    "removed": removed,
+                    "notes": notes,
                 }))?,
             }
         }
