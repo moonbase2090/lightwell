@@ -16,7 +16,8 @@ use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -342,8 +343,54 @@ fn extract_map_at_commit(
     } else {
         Ok(None)
     };
-    let _ = git(root, &["worktree", "remove", "--force", &worktree_arg]);
+    // Preserve the map result even when cleanup hits a locked or otherwise stuck
+    // worktree; never leave a stale admin registration behind.
+    cleanup_temporary_commit_worktree(root, &worktree, temporary);
     map
+}
+
+/// Removes a temporary commit-map worktree. On a successful `git worktree remove`,
+/// the reserved parent directory is deleted by `temporary`'s Drop. When remove
+/// fails (for example a locked worktree), deletes only this worktree's checkout
+/// and its matching admin registration under the caller's repository, then prunes.
+fn cleanup_temporary_commit_worktree(root: &Path, worktree: &Path, temporary: tempfile::TempDir) {
+    let worktree_arg = path_for_git(worktree);
+    if git(root, &["worktree", "remove", "--force", &worktree_arg]).is_ok() {
+        return;
+    }
+    let owned_admins = owned_worktree_admin_dirs(root, worktree);
+    let _ = fs::remove_dir_all(worktree);
+    for admin in owned_admins {
+        let _ = fs::remove_dir_all(&admin);
+    }
+    let _ = git(root, &["worktree", "prune"]);
+    drop(temporary);
+}
+
+fn owned_worktree_admin_dirs(root: &Path, worktree: &Path) -> Vec<PathBuf> {
+    let admin_root = root.join(".git/worktrees");
+    let Ok(entries) = fs::read_dir(&admin_root) else {
+        return Vec::new();
+    };
+    let expected_git_file = worktree.join(".git");
+    entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|admin| {
+            let Ok(contents) = fs::read_to_string(admin.join("gitdir")) else {
+                return false;
+            };
+            let pointed = PathBuf::from(contents.trim());
+            paths_refer_to_same_location(&pointed, &expected_git_file)
+        })
+        .collect()
+}
+
+fn paths_refer_to_same_location(left: &Path, right: &Path) -> bool {
+    if let (Ok(left), Ok(right)) = (left.canonicalize(), right.canonicalize()) {
+        return left == right;
+    }
+    path_for_git(left) == path_for_git(right)
 }
 
 fn map_extraction_message(error: &MapExtractionError) -> String {
@@ -1416,6 +1463,95 @@ edition = "2021"
                 !registrations.exists() || fs::read_dir(registrations).unwrap().next().is_none()
             );
         }
+    }
+
+    #[test]
+    fn failed_worktree_remove_clears_only_owned_stale_registration() {
+        let fixtures = tempfile::tempdir().unwrap();
+        let root = fixtures.path().join("repo");
+        let other = fixtures.path().join("other");
+        for repo in [&root, &other] {
+            fs::create_dir_all(repo.join("src")).unwrap();
+            fs::write(
+                repo.join("Cargo.toml"),
+                r#"[package]
+name = "worktree-cleanup"
+version = "0.1.0"
+edition = "2021"
+"#,
+            )
+            .unwrap();
+            fs::write(repo.join("src/lib.rs"), "pub fn ready() {}\n").unwrap();
+            git(repo, &["init", "-q"]);
+            git(repo, &["add", "."]);
+            git(repo, &["commit", "-q", "-m", "Initial"]);
+        }
+
+        let foreign_worktree = fixtures.path().join("foreign-worktree");
+        let foreign_arg = foreign_worktree.to_string_lossy().into_owned();
+        git(
+            &other,
+            &["worktree", "add", "--detach", &foreign_arg, "HEAD"],
+        );
+        git(&other, &["worktree", "lock", &foreign_arg]);
+
+        let temporary = tempfile::Builder::new()
+            .prefix("lightwell-map-")
+            .tempdir()
+            .unwrap();
+        let worktree = temporary.path().join("worktree");
+        let worktree_arg = worktree.to_string_lossy().into_owned();
+        git(
+            &root,
+            &["worktree", "add", "--detach", &worktree_arg, "HEAD"],
+        );
+        git(&root, &["worktree", "lock", &worktree_arg]);
+        assert!(
+            super::git(&root, &["worktree", "remove", "--force", &worktree_arg]).is_err(),
+            "locked worktree must reproduce the ignored-remove failure"
+        );
+        assert!(
+            !super::owned_worktree_admin_dirs(&root, &worktree).is_empty(),
+            "locked worktree should still have an admin registration"
+        );
+
+        // Caller result is independent of cleanup: an already-computed map stays
+        // usable even when worktree remove fails.
+        let map = extract_cargo_map(&root, None).unwrap();
+        assert!(!map.blocks.is_empty());
+        super::cleanup_temporary_commit_worktree(&root, &worktree, temporary);
+        assert!(
+            !map.blocks.is_empty(),
+            "cleanup must not disturb caller result"
+        );
+        assert!(
+            !worktree.exists(),
+            "failed remove must still delete the temporary checkout"
+        );
+        let worktrees = super::git(&root, &["worktree", "list", "--porcelain"]).unwrap();
+        assert_eq!(
+            worktrees
+                .lines()
+                .filter(|line| line.starts_with("worktree "))
+                .count(),
+            1,
+            "owned temporary registration must be gone: {worktrees}"
+        );
+        let registrations = root.join(".git/worktrees");
+        assert!(
+            !registrations.exists() || fs::read_dir(&registrations).unwrap().next().is_none(),
+            "no stale admin registration should remain under the caller repo"
+        );
+
+        let foreign = super::git(&other, &["worktree", "list", "--porcelain"]).unwrap();
+        assert!(
+            foreign.contains("foreign-worktree"),
+            "cleanup must not touch another repository's worktree: {foreign}"
+        );
+        assert!(
+            foreign_worktree.exists(),
+            "foreign worktree checkout must remain"
+        );
     }
 
     #[test]
