@@ -10,6 +10,10 @@ export function projectNotesEnabled(value: string | undefined): boolean {
 /**
  * Mark reviewed and bulk delete of stale notes stay off unless the build sets
  * VITE_ENABLE_NOTES_STALE_ACTIONS to the exact string "true".
+ *
+ * Call sites compare `import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS` to
+ * `"true"` directly so the bundler can drop the branch (same pattern as
+ * `VITE_ENABLE_NOTE_GIT`). This helper documents and unit-tests the predicate.
  */
 export function notesStaleActionsEnabled(value: string | undefined): boolean {
   return value === "true";

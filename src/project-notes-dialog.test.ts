@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ProjectNotesSnapshot, ProjectNotesSource } from "./map-source.js";
 import type { ResolvedMap } from "./model.js";
-import ProjectNotesDialog from "./ProjectNotesDialog.js";
+import ProjectNotesDialog, { shouldResetEditorAfterStaleRemoval } from "./ProjectNotesDialog.js";
 
 const source: ProjectNotesSource = {
   add: () => Promise.reject(new Error("unused")),
@@ -77,6 +77,26 @@ test("project notes offers Mark reviewed for a stale note whose block still exis
   assert.match(html, /class="notes-review-button"[^>]*>[\s\S]*Mark reviewed/);
   assert.match(html, /Mark reviewed if the note still matches/);
   assert.match(html, /class="notes-bulk-remove-button"[^>]*>[\s\S]*Delete stale \(1\)/);
+});
+
+test("Delete stale keeps a new-note draft and only resets a removed saved note", () => {
+  const remaining = new Set(["crate:current"]);
+  assert.equal(
+    shouldResetEditorAfterStaleRemoval({ kind: "new", blockId: "crate:current", text: "draft" }, remaining),
+    false,
+  );
+  assert.equal(
+    shouldResetEditorAfterStaleRemoval({ kind: "new", blockId: "crate:other", text: "draft" }, new Set()),
+    false,
+  );
+  assert.equal(
+    shouldResetEditorAfterStaleRemoval({ kind: "saved", blockId: "crate:current", text: "kept" }, remaining),
+    false,
+  );
+  assert.equal(
+    shouldResetEditorAfterStaleRemoval({ kind: "saved", blockId: "crate:gone", text: "stale" }, remaining),
+    true,
+  );
 });
 
 test("project notes hides stale actions when the source omits them", () => {

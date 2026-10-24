@@ -46,6 +46,14 @@ function noteErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** True when Delete stale removed the open saved note and the editor must leave it. */
+export function shouldResetEditorAfterStaleRemoval(
+  editor: NoteEditor,
+  remainingBlockIds: ReadonlySet<string>,
+): boolean {
+  return editor.kind === "saved" && !remainingBlockIds.has(editor.blockId);
+}
+
 export default function ProjectNotesDialog({
   workspaceId,
   source,
@@ -207,8 +215,9 @@ export default function ProjectNotesDialog({
       const updated = await source.removeStale({ workspaceId });
       onSnapshot(updated);
       const remaining = updated.kind === "ready" ? updated.notes : [];
-      // Keep the editor draft when the open note survives (current notes are not deleted).
-      if (!remaining.some((note) => note.blockId === editor.blockId)) {
+      const remainingIds = new Set(remaining.map((note) => note.blockId));
+      // Keep new-note and surviving saved-note drafts; only leave a deleted stale note.
+      if (shouldResetEditorAfterStaleRemoval(editor, remainingIds)) {
         setEditor(noteEditorForBlock(currentBlockId ?? "", remaining));
       }
       setSavedMessage(staleCount === 1 ? "Deleted 1 stale note" : `Deleted ${staleCount} stale notes`);
