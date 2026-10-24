@@ -184,7 +184,7 @@ lightwell notes list
 lightwell notes rm crate:lightwell-core
 ```
 
-Use a `blocks[].id` value from the extracted map. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
+Use a `blocks[].id` value from the extracted map. `lightwell blocks` lists the current workspace's blocks with their IDs, labels, kinds, and source paths (`--json` for machine-readable output, `--file <path>` to list only the blocks from one source file), so no separate extract step is needed to find an ID. `notes set --file <path> <text...>` saves a note on the one block whose source path matches exactly; when several blocks share that file (for example a module and its symbols) it lists the candidate block IDs and saves nothing, and when none match it suggests similar paths. An unknown block ID in `notes set` also prints did-you-mean block IDs on stderr. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
 
 For automation, add `--json` after the notes subcommand:
 
@@ -198,15 +198,15 @@ JSON results are a single value followed by a newline. Diagnostics go to stderr.
 
 Run `lightwell notes list --check` to fail when any saved note is stale. It still prints the complete list, with `--json` if requested, and writes a stale-note count to stderr. An empty list or a list of current notes exits successfully. Checking does not change the saved notes or their fingerprints.
 
-These exit codes apply to the notes commands:
+These exit codes apply to the notes commands; `lightwell blocks` uses 0, 1 (extraction or output failure), and 2:
 
 | Exit | Meaning |
 | --- | --- |
 | 0 | Success, including stale notes listed without `--check`. |
 | 1 | Extraction, storage, invalid notes data, or output failure. |
-| 2 | Invalid command arguments. |
+| 2 | Invalid or ambiguous command arguments, including a `--file` path that matches several blocks. |
 | 3 | `notes rm` found no saved note for that ID. |
-| 4 | `notes set` found no current block for that ID. |
+| 4 | `notes set` found no current block for that ID, or no block for a `--file` path. |
 | 5 | `notes list --check` found at least one stale note. |
 
 Removing a saved note does not require its block to exist in the current map, so orphaned notes remain removable. A missing saved note is an error on stderr and exits with code 3.
