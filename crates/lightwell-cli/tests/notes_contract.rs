@@ -244,3 +244,54 @@ fn corrupt_storage_reports_errors_on_stderr_without_success_json() {
         );
     }
 }
+
+fn git(root: &std::path::Path, args: &[&str]) -> Output {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(root)
+        .args([
+            "-c",
+            "user.name=Lightwell Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+        ])
+        .args(args)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "git {args:?} failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    output
+}
+
+#[test]
+fn notes_set_leaves_notes_unstaged_so_documented_git_add_is_required() {
+    let project = Project::new();
+    git(&project.0, &["init", "-q"]);
+    project.json(&["notes", "set", "--json", BLOCK, "Agent note"]);
+
+    let before = String::from_utf8(git(&project.0, &["status", "--porcelain"]).stdout).unwrap();
+    assert!(
+        before
+            .lines()
+            .any(|line| line == "?? .lightwell/notes.json"),
+        "notes set must leave notes.json untracked so agents still need git add: {before:?}"
+    );
+    assert!(
+        !before
+            .lines()
+            .any(|line| { line.starts_with('A') && line.contains(".lightwell/notes.json") }),
+        "notes set must not stage notes.json: {before:?}"
+    );
+
+    git(&project.0, &["add", ".lightwell/notes.json"]);
+    let after = String::from_utf8(git(&project.0, &["status", "--porcelain"]).stdout).unwrap();
+    assert!(
+        after.lines().any(|line| line == "A  .lightwell/notes.json"),
+        "documented `git add .lightwell/notes.json` must stage the saved notes file: {after:?}"
+    );
+}
