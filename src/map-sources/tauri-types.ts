@@ -6,6 +6,7 @@ import type {
   ConnectionChangeState,
   CommitFileChange,
   CommitSummary,
+  ResolvedCommitRange,
   EditorSettings,
   EditorTemplatePreset,
   MapSourceDocument,
@@ -202,6 +203,21 @@ function parseCommitSummary(value: unknown): CommitSummary {
 export function parseCommitSummaries(value: unknown): readonly CommitSummary[] {
   if (!Array.isArray(value)) throw new Error("The desktop app returned an invalid commit list.");
   return value.map(parseCommitSummary);
+}
+
+export function parseResolvedCommitRange(value: unknown): ResolvedCommitRange {
+  if (!isRecord(value) || !isCount(value.commitCount)
+    || !(value.releaseTag === null || typeof value.releaseTag === "string")
+    || !("baseCommit" in value)) {
+    throw new Error("The desktop app returned an invalid commit range.");
+  }
+  const commit = parseCommitSummary(value.commit);
+  const baseCommit = value.baseCommit === null ? null : parseCommitSummary(value.baseCommit);
+  if ((baseCommit === null && value.commitCount !== 1)
+    || (value.commitCount === 0 && (value.releaseTag === null || baseCommit?.id !== commit.id))) {
+    throw new Error("The desktop app returned an inconsistent commit range.");
+  }
+  return { commit, baseCommit, commitCount: value.commitCount, releaseTag: value.releaseTag };
 }
 
 function parseConnectionChangeState(value: unknown): ConnectionChangeState {

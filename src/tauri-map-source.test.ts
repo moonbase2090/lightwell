@@ -11,6 +11,7 @@ import {
   parseNoteCommitResult,
   parseSourceFileDocument,
   parseWorkspaceMapUpdate,
+  parseResolvedCommitRange,
 } from "./map-sources/tauri-types.js";
 
 const entry = { id: "/projects/lightwell", label: "Lightwell" };
@@ -76,4 +77,19 @@ test("notes Git IPC validates states and commit receipts", () => {
     assert.throws(() => parseNotesGitStatus(value), /invalid notes Git status/);
   }
   assert.throws(() => parseNoteCommitResult({ commitId: "invalid", status: { kind: "missing" } }), /invalid note commit response/);
+});
+
+test("range IPC preserves exact count and endpoints and rejects impossible empty ranges", () => {
+  const commit = { id: "new", shortId: "new", summary: "Newer", timestamp: 2 };
+  const baseCommit = { id: "old", shortId: "old", summary: "Older", timestamp: 1 };
+  assert.deepEqual(parseResolvedCommitRange({ commit, baseCommit, commitCount: 7, releaseTag: "v1.0.0" }), {
+    commit, baseCommit, commitCount: 7, releaseTag: "v1.0.0",
+  });
+  for (const bad of [
+    { commit, baseCommit, commitCount: -1, releaseTag: null },
+    { commit, baseCommit, commitCount: "7", releaseTag: null },
+    { commit, baseCommit: null, commitCount: 7, releaseTag: null },
+    { commit, baseCommit, commitCount: 0, releaseTag: "v1.0.0" },
+    { commit, baseCommit: commit, commitCount: 0, releaseTag: null },
+  ]) assert.throws(() => parseResolvedCommitRange(bad), /commit range/);
 });
