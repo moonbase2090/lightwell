@@ -1,12 +1,14 @@
 use lightwell_core::{
     block_diff_for, commit_changes_for, discover_project_workspace, extract_cargo_map,
-    filter_commits_that_are_ancestors, mark_project_note_reviewed, open_target, path_diff_for,
-    project_notes_for_map, recent_commits, remove_project_note, remove_stale_project_notes,
-    resolve_block_target, resolve_block_target_in_map, set_project_note_for_map,
-    update_project_note_text, BlockDiffDocument, CommitChanges, CommitSummary, EditorError,
-    EditorSettings, EditorTarget, EditorTemplatePreset, FactMap, MapExtractionError, MapWatchError,
-    MapWatcher, NotesError, ProjectNoteView, EDITOR_TEMPLATE_PRESETS,
+    filter_commits_that_are_ancestors, open_target, path_diff_for, project_notes_for_map,
+    recent_commits, remove_project_note, resolve_block_target, resolve_block_target_in_map,
+    set_project_note_for_map, update_project_note_text, BlockDiffDocument, CommitChanges,
+    CommitSummary, EditorError, EditorSettings, EditorTarget, EditorTemplatePreset, FactMap,
+    MapExtractionError, MapWatchError, MapWatcher, NotesError, ProjectNoteView,
+    EDITOR_TEMPLATE_PRESETS,
 };
+#[cfg(lightwell_notes_stale_actions)]
+use lightwell_core::{mark_project_note_reviewed, remove_stale_project_notes};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -319,6 +321,7 @@ pub fn remove_workspace_note(
         .map_err(|error| error.to_string())
 }
 
+#[cfg(lightwell_notes_stale_actions)]
 #[tauri::command(async)]
 pub fn mark_workspace_note_reviewed(
     watchers: State<'_, WorkspaceWatchers>,
@@ -332,6 +335,7 @@ pub fn mark_workspace_note_reviewed(
         .map_err(|error| error.to_string())
 }
 
+#[cfg(lightwell_notes_stale_actions)]
 #[tauri::command(async)]
 pub fn remove_stale_workspace_notes(
     watchers: State<'_, WorkspaceWatchers>,
