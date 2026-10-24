@@ -32,11 +32,17 @@ impl Project {
     }
 
     fn run_in(&self, cwd: &std::path::Path, arguments: &[&str], exit: i32) -> Output {
-        let output = Command::new(env!("CARGO_BIN_EXE_lightwell"))
-            .current_dir(cwd)
-            .args(arguments)
-            .output()
-            .unwrap();
+        let enable_stale = arguments
+            .iter()
+            .any(|argument| *argument == "review" || *argument == "rm-stale");
+        let mut command = Command::new(env!("CARGO_BIN_EXE_lightwell"));
+        command.current_dir(cwd).args(arguments);
+        if enable_stale {
+            command.env("LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS", "true");
+        } else {
+            command.env_remove("LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS");
+        }
+        let output = command.output().unwrap();
         assert_eq!(
             output.status.code(),
             Some(exit),
@@ -219,6 +225,19 @@ fn review_re_fingerprints_a_stale_note_and_rm_stale_requires_yes() {
         &["notes", "rm-stale", "--json"],
         2,
         "requires `--yes` to delete stale notes",
+    );
+    let gated = Command::new(env!("CARGO_BIN_EXE_lightwell"))
+        .current_dir(&project.0)
+        .args(["notes", "review", BLOCK, "--json"])
+        .env_remove("LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS")
+        .output()
+        .unwrap();
+    assert_eq!(gated.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&gated.stderr)
+            .contains("LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=true"),
+        "{}",
+        String::from_utf8_lossy(&gated.stderr)
     );
     assert_eq!(project.json(&["notes", "list", "--json"])[0]["stale"], true);
 

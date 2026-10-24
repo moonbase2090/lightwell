@@ -70,20 +70,22 @@ export function createMemoryNotesSource(): ProjectNotesSource {
       notesFor(workspaceId).delete(blockId);
       return snapshot(workspaceId);
     },
-    async markReviewed({ workspaceId, blockId }) {
-      const notes = notesFor(workspaceId);
-      const existing = notes.get(blockId);
-      if (existing === undefined) throw new Error("This block has no note to review.");
-      notes.set(blockId, { ...existing, sourceFingerprint: "preview", stale: false });
-      return snapshot(workspaceId);
-    },
-    async removeStale({ workspaceId }) {
-      const notes = notesFor(workspaceId);
-      for (const [blockId, note] of [...notes]) {
-        if (note.stale) notes.delete(blockId);
-      }
-      return snapshot(workspaceId);
-    },
+    ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS) === "true" ? {
+      async markReviewed({ workspaceId, blockId }: { workspaceId: string; blockId: string }) {
+        const notes = notesFor(workspaceId);
+        const existing = notes.get(blockId);
+        if (existing === undefined) throw new Error("This block has no note to review.");
+        notes.set(blockId, { ...existing, sourceFingerprint: "preview", stale: false });
+        return snapshot(workspaceId);
+      },
+      async removeStale({ workspaceId }: { workspaceId: string }) {
+        const notes = notesFor(workspaceId);
+        for (const [blockId, note] of [...notes]) {
+          if (note.stale) notes.delete(blockId);
+        }
+        return snapshot(workspaceId);
+      },
+    } : {}),
   };
 }
 

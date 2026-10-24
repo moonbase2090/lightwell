@@ -79,6 +79,29 @@ test("project notes offers Mark reviewed for a stale note whose block still exis
   assert.match(html, /class="notes-bulk-remove-button"[^>]*>[\s\S]*Delete stale \(1\)/);
 });
 
+test("project notes hides stale actions when the source omits them", () => {
+  const gated: ProjectNotesSource = {
+    add: () => Promise.reject(new Error("unused")),
+    edit: () => Promise.reject(new Error("unused")),
+    remove: () => Promise.reject(new Error("unused")),
+  };
+  const html = renderToStaticMarkup(createElement(ProjectNotesDialog, {
+    workspaceId: "workspace-1",
+    source: gated,
+    snapshot: {
+      kind: "ready",
+      notes: [{ blockId: "crate:moved", text: "still good", sourceFingerprint: "old", stale: true }],
+    },
+    map: mapWith([{ id: "crate:moved", label: "moved" }]),
+    currentBlockId: "crate:moved",
+    onSnapshot: () => undefined,
+    onClose: () => undefined,
+  }));
+  assert.equal(html.includes("notes-review-button"), false);
+  assert.equal(html.includes("notes-bulk-remove-button"), false);
+  assert.match(html, /This note is kept until you remove it/);
+});
+
 test("project notes does not offer Mark reviewed for an orphaned stale note", () => {
   const html = renderNotes({
     kind: "ready",

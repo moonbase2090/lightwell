@@ -104,7 +104,9 @@ export default function ProjectNotesDialog({
     : selectedNote === undefined || selectedNote.text !== editor.text;
   const editorBlock = map.blockById.get(editor.blockId);
   const staleCount = notes.filter((note) => note.stale).length;
-  const showMarkReviewed = selectedNote?.stale === true
+  const staleActionsEnabled = source.markReviewed !== undefined && source.removeStale !== undefined;
+  const showMarkReviewed = staleActionsEnabled
+    && selectedNote?.stale === true
     && editorBlock !== undefined
     && editor.kind === "saved"
     && snapshot.kind === "ready";
@@ -172,7 +174,7 @@ export default function ProjectNotesDialog({
   };
 
   const handleMarkReviewed = async () => {
-    if (!canMarkReviewed || selectedNote === undefined) return;
+    if (!canMarkReviewed || selectedNote === undefined || source.markReviewed === undefined) return;
     setSaving(true);
     setError("");
     setSavedMessage("");
@@ -188,9 +190,16 @@ export default function ProjectNotesDialog({
   };
 
   const handleRemoveStale = async () => {
-    if (staleCount === 0 || saving || committing || snapshot.kind !== "ready") return;
+    if (staleCount === 0 || saving || committing || snapshot.kind !== "ready" || source.removeStale === undefined) {
+      return;
+    }
     const noun = staleCount === 1 ? "stale note" : "stale notes";
-    if (!window.confirm(`Delete ${staleCount} ${noun}? Current notes are kept.`)) return;
+    const selectedWillGo = selectedNote?.stale === true && editor.kind === "saved";
+    if (isDirty && selectedWillGo) {
+      if (!window.confirm(`Delete ${staleCount} ${noun} and discard unsaved edits to the selected note?`)) return;
+    } else if (!window.confirm(`Delete ${staleCount} ${noun}? Current notes are kept.`)) {
+      return;
+    }
     setSaving(true);
     setError("");
     setSavedMessage("");
@@ -198,10 +207,10 @@ export default function ProjectNotesDialog({
       const updated = await source.removeStale({ workspaceId });
       onSnapshot(updated);
       const remaining = updated.kind === "ready" ? updated.notes : [];
-      setEditor(noteEditorForBlock(
-        remaining.some((note) => note.blockId === editor.blockId) ? editor.blockId : (currentBlockId ?? ""),
-        remaining,
-      ));
+      // Keep the editor draft when the open note survives (current notes are not deleted).
+      if (!remaining.some((note) => note.blockId === editor.blockId)) {
+        setEditor(noteEditorForBlock(currentBlockId ?? "", remaining));
+      }
       setSavedMessage(staleCount === 1 ? "Deleted 1 stale note" : `Deleted ${staleCount} stale notes`);
     } catch (cause: unknown) {
       setError(noteErrorMessage(cause, "Could not delete stale project notes."));
@@ -239,7 +248,7 @@ export default function ProjectNotesDialog({
             <div className="project-notes-list-heading">
               <span>WORKSPACE NOTES</span>
               <div className="project-notes-list-actions">
-                {staleCount > 0 && (
+                {staleActionsEnabled && staleCount > 0 && (
                   <button
                     className="notes-bulk-remove-button"
                     type="button"
@@ -299,7 +308,7 @@ export default function ProjectNotesDialog({
               {selectedNote?.stale === true && (
                 <span className="project-note-stale-detail">
                   <CircleAlert size={12} /> {noteStatus(selectedNote, map)}.
-                  {editorBlock !== undefined
+                  {staleActionsEnabled && editorBlock !== undefined
                     ? " Mark reviewed if the note still matches, or remove it."
                     : " This note is kept until you remove it."}
                 </span>

@@ -51,17 +51,19 @@ const projectNotesApi: ProjectNotesSource = {
       blockId: input.blockId,
     }).then(parseProjectNotesSnapshot);
   },
-  markReviewed(input: Omit<ProjectNoteInput, "text">) {
-    return invoke<unknown>("mark_workspace_note_reviewed", {
-      path: input.workspaceId,
-      blockId: input.blockId,
-    }).then(parseProjectNotesSnapshot);
-  },
-  removeStale(input: { readonly workspaceId: string }) {
-    return invoke<unknown>("remove_stale_workspace_notes", {
-      path: input.workspaceId,
-    }).then(parseProjectNotesSnapshot);
-  },
+  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS) === "true" ? {
+    markReviewed(input: Omit<ProjectNoteInput, "text">) {
+      return invoke<unknown>("mark_workspace_note_reviewed", {
+        path: input.workspaceId,
+        blockId: input.blockId,
+      }).then(parseProjectNotesSnapshot);
+    },
+    removeStale(input: { readonly workspaceId: string }) {
+      return invoke<unknown>("remove_stale_workspace_notes", {
+        path: input.workspaceId,
+      }).then(parseProjectNotesSnapshot);
+    },
+  } : {}),
 };
 
 const historyApi: MapHistorySource = {

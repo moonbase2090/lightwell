@@ -14,6 +14,8 @@ use std::process::ExitCode;
 
 const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check]\n  lightwell notes set [-C|--repo <path>] [--json] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--json] <text...>\n  lightwell notes review [-C|--repo <path>] [--json] <block-id>\n  lightwell notes rm-stale [-C|--repo <path>] --yes [--json]\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
 
+const NOTES_STALE_ACTIONS_ENV: &str = "LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS";
+
 enum Invocation {
     Help,
     Extract(ExtractOptions),
@@ -466,6 +468,7 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
             }
         }
         NotesCommand::Review { block_id } => {
+            require_notes_stale_actions()?;
             let (root, map) = current_workspace_map(&repository)?;
             match mark_project_note_reviewed(&root, &map, &block_id) {
                 Ok(notes) => {
@@ -508,6 +511,7 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
             }
         }
         NotesCommand::RemoveStale => {
+            require_notes_stale_actions()?;
             let (root, map) = current_workspace_map(&repository)?;
             let before = project_notes_for_map(&root, &map)?;
             let stale_before = before.iter().filter(|note| note.stale).count();
@@ -528,6 +532,16 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
         }
     }
     Ok(ExitCode::SUCCESS)
+}
+
+fn require_notes_stale_actions() -> Result<(), Box<dyn Error>> {
+    match env::var(NOTES_STALE_ACTIONS_ENV) {
+        Ok(value) if value == "true" => Ok(()),
+        _ => Err(format!(
+            "`notes review` and `notes rm-stale` require {NOTES_STALE_ACTIONS_ENV}=true (off by default)."
+        )
+        .into()),
+    }
 }
 
 fn write_notes_json(value: serde_json::Value) -> Result<(), Box<dyn Error>> {

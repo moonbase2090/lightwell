@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { commitDiffEnabled, projectNotesEnabled } from "./feature-flags.js";
+import { commitDiffEnabled, notesStaleActionsEnabled, projectNotesEnabled } from "./feature-flags.js";
 
 test("project notes are on when the build sets no flag", () => {
   assert.equal(projectNotesEnabled(undefined), true);
@@ -21,6 +21,23 @@ test("notes call sites compare the env string so the bundler can drop the branch
   for (const source of [fixtures, tauri]) {
     assert.match(source, /import\.meta\.env\.VITE_ENABLE_PROJECT_NOTES\) === "false"/);
     assert.equal(source.includes("projectNotesEnabled"), false);
+  }
+});
+
+test("notes stale actions stay off unless VITE_ENABLE_NOTES_STALE_ACTIONS=true", () => {
+  assert.equal(notesStaleActionsEnabled(undefined), false);
+  assert.equal(notesStaleActionsEnabled(""), false);
+  assert.equal(notesStaleActionsEnabled("false"), false);
+  assert.equal(notesStaleActionsEnabled("TRUE"), false);
+  assert.equal(notesStaleActionsEnabled("true"), true);
+});
+
+test("stale-action call sites compare the env string so the bundler can drop the branch", () => {
+  const fixtures = readFileSync(new URL("./map-sources/fixtures.ts", import.meta.url), "utf8");
+  const tauri = readFileSync(new URL("./map-sources/tauri.ts", import.meta.url), "utf8");
+  for (const source of [fixtures, tauri]) {
+    assert.match(source, /import\.meta\.env\.VITE_ENABLE_NOTES_STALE_ACTIONS\) === "true"/);
+    assert.equal(source.includes("notesStaleActionsEnabled"), false);
   }
 });
 
