@@ -5,9 +5,21 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { extractCargoMap } from "./extract/cargo.js";
-import { discoverCppTargets, cppFactBlocks, parseCppSource } from "./extract/cpp-modules.js";
+import { cppIdEncode, discoverCppTargets, cppFactBlocks, parseCppSource } from "./extract/cpp-modules.js";
 
 const fixtureRoot = fileURLToPath(new URL("../crates/lightwell-core/fixtures/cpp-sample/", import.meta.url));
+
+test("cppIdEncode keeps Foo and foo distinct and encodes punctuation", () => {
+  assert.equal(cppIdEncode("Foo"), "Foo");
+  assert.equal(cppIdEncode("foo"), "foo");
+  assert.notEqual(cppIdEncode("Foo"), cppIdEncode("foo"));
+  assert.equal(cppIdEncode("lib-a"), "lib_2d_a");
+  assert.equal(cppIdEncode("lib_a"), "lib_5f_a");
+  assert.notEqual(cppIdEncode("lib-a"), cppIdEncode("lib_a"));
+  const cases = ["Foo", "foo", "lib-a", "lib_a", "demo/main", "demo/Main"];
+  const encoded = cases.map(cppIdEncode);
+  assert.equal(new Set(encoded).size, cases.length);
+});
 
 test("parseCppSource lists includes and top-level class/struct/function symbols", () => {
   const source = `

@@ -738,15 +738,15 @@ function normalizeKey(filePath: string): string {
 }
 
 function cppTargetBlockId(name: string): string {
-  return `module:cpp:${slug(name)}`;
+  return `module:cpp:${cppIdEncode(name)}`;
 }
 
 function cppFileBlockId(modulePath: string): string {
-  return `module:cpp:${slug(modulePath)}`;
+  return `module:cpp:${cppIdEncode(modulePath)}`;
 }
 
 function cppSymbolBlockId(modulePath: string, kind: string): string {
-  return `module:cpp:${slug(modulePath)}:${slug(kind)}`;
+  return `module:cpp:${cppIdEncode(modulePath)}:${cppIdEncode(kind)}`;
 }
 
 function containsConnection(source: string, target: string): FactConnection {
@@ -757,8 +757,14 @@ function connectionId(kind: "contains" | "depends_on", source: string, target: s
   return `${kind}:${source}->${target}`;
 }
 
-function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+/** Injective id fragment matching Rust `cpp_id_encode`. */
+export function cppIdEncode(value: string): string {
+  let out = "";
+  for (const character of value) {
+    if (/[A-Za-z0-9]/.test(character)) out += character;
+    else out += `_${character.codePointAt(0)!.toString(16)}_`;
+  }
+  return out;
 }
 
 function hashFile(filePath: string): string {

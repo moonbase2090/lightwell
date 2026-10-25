@@ -2335,15 +2335,33 @@ fn strip_source_extension(relative: &str) -> String {
 }
 
 fn cpp_target_block_id(name: &str) -> String {
-    format!("module:cpp:{}", slug(name))
+    format!("module:cpp:{}", cpp_id_encode(name))
 }
 
 fn cpp_file_block_id(module_path: &str) -> String {
-    format!("module:cpp:{}", slug(module_path))
+    format!("module:cpp:{}", cpp_id_encode(module_path))
 }
 
 fn cpp_symbol_block_id(module_path: &str, kind: &str) -> String {
-    format!("module:cpp:{}:{}", slug(module_path), slug(kind))
+    format!(
+        "module:cpp:{}:{}",
+        cpp_id_encode(module_path),
+        cpp_id_encode(kind)
+    )
+}
+
+/// Injective id fragment for C/C++ blocks. Preserves ASCII case and encodes
+/// non-alphanumeric characters so `Foo`/`foo` and `lib-a`/`lib_a` do not collide.
+pub(crate) fn cpp_id_encode(value: &str) -> String {
+    let mut out = String::new();
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            out.push(character);
+        } else {
+            out.push_str(&format!("_{:x}_", character as u32));
+        }
+    }
+    out
 }
 
 fn append_python_blocks(

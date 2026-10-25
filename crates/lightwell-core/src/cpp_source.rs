@@ -740,11 +740,27 @@ fn is_identifier(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{discover_cpp_targets, parse_cpp_source, CppSymbolKind, CppTargetKind};
-    use crate::extract::extract_cargo_map;
+    use crate::extract::{cpp_id_encode, extract_cargo_map};
     use crate::facts::{Connection, FactBlock};
     use std::fs;
     use std::path::{Path, PathBuf};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn cpp_id_encode_is_injective_for_case_and_punctuation() {
+        assert_eq!(cpp_id_encode("Foo"), "Foo");
+        assert_eq!(cpp_id_encode("foo"), "foo");
+        assert_ne!(cpp_id_encode("Foo"), cpp_id_encode("foo"));
+        assert_eq!(cpp_id_encode("lib-a"), "lib_2d_a");
+        assert_eq!(cpp_id_encode("lib_a"), "lib_5f_a");
+        assert_ne!(cpp_id_encode("lib-a"), cpp_id_encode("lib_a"));
+        let cases = ["Foo", "foo", "lib-a", "lib_a", "demo/main", "demo/Main"];
+        let mut encoded: Vec<_> = cases.iter().map(|value| cpp_id_encode(value)).collect();
+        let before = encoded.len();
+        encoded.sort();
+        encoded.dedup();
+        assert_eq!(encoded.len(), before, "encode cases must stay injective");
+    }
 
     fn fixture_root() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/cpp-sample")
