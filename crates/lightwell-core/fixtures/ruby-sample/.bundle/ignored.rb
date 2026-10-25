@@ -1,0 +1,2 @@
+class IgnoredBundle
+end

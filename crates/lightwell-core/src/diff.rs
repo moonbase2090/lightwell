@@ -10,7 +10,9 @@ use crate::extract::MapExtractionError;
 use crate::extract::{block_base, extract_cargo_map, project_manifest};
 use crate::facts::{Connection, DependencyScope, FactBlock, FactMap, MapStats};
 use crate::go_source::parse_go_source;
+use crate::php_source::parse_php_source;
 use crate::python_source::parse_python_source;
+use crate::ruby_source::parse_ruby_source;
 use crate::typescript_source::parse_typescript_source;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
@@ -959,6 +961,18 @@ fn symbol_spans(path: &str, source: &str) -> HashMap<String, (usize, usize)> {
             .collect()
     } else if lower.ends_with(".go") {
         parse_go_source(source)
+            .1
+            .into_iter()
+            .map(|symbol| (symbol.line, symbol.name))
+            .collect()
+    } else if lower.ends_with(".php") {
+        parse_php_source(source)
+            .2
+            .into_iter()
+            .map(|symbol| (symbol.line, symbol.name))
+            .collect()
+    } else if lower.ends_with(".rb") {
+        parse_ruby_source(source)
             .1
             .into_iter()
             .map(|symbol| (symbol.line, symbol.name))

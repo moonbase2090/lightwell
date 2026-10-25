@@ -10,7 +10,11 @@ use crate::metadata::{
     discover_cargo_workspace, CargoDependencyKind, CargoDiscoveryError, CargoPackage,
     CargoWorkspace, RustModule,
 };
+use crate::php_source::{discover_php_packages, PhpFile, PhpPackage, PhpSymbol};
 use crate::python_source::{discover_python_modules, PythonModule, PythonSymbol};
+use crate::ruby_source::{
+    discover_ruby_packages, resolve_ruby_require, RubyFile, RubyPackage, RubySymbol,
+};
 use crate::typescript_source::{discover_typescript_modules, TypeScriptModule, TypeScriptSymbol};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -59,6 +63,8 @@ const PROJECT_MANIFESTS: &[&str] = &[
     "Cargo.toml",
     "go.mod",
     "go.work",
+    "composer.json",
+    "Gemfile",
     "package.json",
     "tsconfig.json",
     "jsconfig.json",
@@ -101,9 +107,9 @@ pub fn extract_cargo_map(
 }
 
 /// Find the Cargo workspace for `repository_path`, or an empty one when the
-/// folder is a Node, TypeScript, JavaScript, or .NET project without a root
-/// `Cargo.toml`. The initial map and live refresh both use this, so a project
-/// that opens also refreshes.
+/// folder is a Node, TypeScript, JavaScript, Go, PHP, Ruby, or .NET project
+/// without a root `Cargo.toml`. The initial map and live refresh both use this,
+/// so a project that opens also refreshes.
 pub fn discover_project_workspace(
     repository_path: impl AsRef<Path>,
 ) -> Result<CargoWorkspace, MapExtractionError> {
@@ -180,6 +186,8 @@ pub(crate) fn map_workspace(
         }
         Err(error) => return Err(error.into()),
     };
+    let php_packages = discover_php_packages(&root_path)?;
+    let ruby_packages = discover_ruby_packages(&root_path)?;
     let typescript_modules = discover_typescript_modules(&root_path)?;
     let dotnet = discover_dotnet(&root_path)?;
     let mut workspace_inputs: Vec<_> = crate_fingerprints
@@ -210,6 +218,34 @@ pub(crate) fn map_workspace(
             if let Ok(fingerprint) = fingerprints.file(&file.path) {
                 workspace_inputs.push(format!(
                     "go:{}:{}:{fingerprint}",
+                    package.import_path,
+                    file.path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("file")
+                ));
+            }
+        }
+    }
+    for package in &php_packages {
+        for file in &package.files {
+            if let Ok(fingerprint) = fingerprints.file(&file.path) {
+                workspace_inputs.push(format!(
+                    "php:{}:{}:{fingerprint}",
+                    package.import_path,
+                    file.path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("file")
+                ));
+            }
+        }
+    }
+    for package in &ruby_packages {
+        for file in &package.files {
+            if let Ok(fingerprint) = fingerprints.file(&file.path) {
+                workspace_inputs.push(format!(
+                    "ruby:{}:{}:{fingerprint}",
                     package.import_path,
                     file.path
                         .file_name()
@@ -265,6 +301,22 @@ pub(crate) fn map_workspace(
     )?;
     append_go_blocks(
         &go_packages,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
+    append_php_blocks(
+        &php_packages,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
+    append_ruby_blocks(
+        &ruby_packages,
         &root_path,
         &project_id,
         &mut fingerprints,
@@ -1624,6 +1676,410 @@ fn go_file_block_id(module_path: &str, test: bool) -> String {
 
 fn go_symbol_block_id(module_path: &str, kind: &str) -> String {
     format!("module:go:{}:{}", slug(module_path), slug(kind))
+}
+
+fn append_php_blocks(
+    packages: &[PhpPackage],
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let mut symbol_ids: HashMap<String, String> = HashMap::new();
+    let mut namespace_ids: HashMap<String, String> = HashMap::new();
+    for package in packages {
+        let package_id = php_package_block_id(&package.import_path);
+        if !package.namespace.is_empty() {
+            namespace_ids.insert(package.namespace.clone(), package_id.clone());
+        }
+        let relative_dir = relative_path(root_path, &package.directory);
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: package_id.clone(),
+                label: package.name.clone(),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: package
+                    .files
+                    .first()
+                    .map(|file| relative_path(root_path, &file.path)),
+                fingerprint: content_fingerprint(
+                    package.files.iter().map(|file| file.path.as_path()),
+                    fingerprints,
+                )?,
+            },
+            package_name: package.composer_name.clone(),
+            module_path: package.import_path.clone(),
+            declared_by_path: relative_dir,
+            cfg_attributes: package
+                .files
+                .iter()
+                .flat_map(|file| file.imports.iter().map(|import| import.statement.clone()))
+                .collect(),
+            unresolved: !package.files.is_empty()
+                && package.files.iter().all(|file| file.unreadable),
+            language: "php".to_owned(),
+        }));
+        connections.push(contains_connection(workspace_id, &package_id));
+        for file in &package.files {
+            append_php_file(
+                &package_id,
+                package,
+                file,
+                root_path,
+                fingerprints,
+                blocks,
+                connections,
+                &mut symbol_ids,
+            )?;
+        }
+    }
+    append_php_import_edges(packages, &symbol_ids, &namespace_ids, connections);
+    Ok(())
+}
+
+fn append_php_file(
+    package_id: &str,
+    package: &PhpPackage,
+    file: &PhpFile,
+    root_path: &Path,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+    symbol_ids: &mut HashMap<String, String>,
+) -> Result<(), MapExtractionError> {
+    let stem = file
+        .path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("file");
+    let module_path = format!("{}/{stem}", package.import_path);
+    let id = php_file_block_id(&module_path);
+    let relative = relative_path(root_path, &file.path);
+    let fingerprint = fingerprints.file(&file.path)?;
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: stem.to_owned(),
+            parent_id: Some(package_id.to_owned()),
+            children: Vec::new(),
+            source_path: Some(relative.clone()),
+            fingerprint: fingerprint.clone(),
+        },
+        package_name: package.composer_name.clone(),
+        module_path: module_path.clone(),
+        declared_by_path: relative.clone(),
+        cfg_attributes: file
+            .imports
+            .iter()
+            .map(|import| import.statement.clone())
+            .collect(),
+        unresolved: file.unreadable,
+        language: "php".to_owned(),
+    }));
+    connections.push(contains_connection(package_id, &id));
+    for symbol in &file.symbols {
+        let symbol_module = format!("{module_path}.{}", symbol.name);
+        let symbol_id = php_symbol_block_id(&symbol_module, symbol.outline_label());
+        let qualified = if package.namespace.is_empty() {
+            symbol.name.clone()
+        } else {
+            format!("{}\\{}", package.namespace, symbol.name)
+        };
+        symbol_ids.insert(qualified, symbol_id.clone());
+        append_php_symbol(
+            &id,
+            package,
+            symbol,
+            &symbol_module,
+            &relative,
+            &fingerprint,
+            blocks,
+            connections,
+        );
+    }
+    Ok(())
+}
+
+fn append_php_symbol(
+    parent_id: &str,
+    package: &PhpPackage,
+    symbol: &PhpSymbol,
+    module_path: &str,
+    relative: &str,
+    fingerprint: &str,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) {
+    let id = php_symbol_block_id(module_path, symbol.outline_label());
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: symbol.name.clone(),
+            parent_id: Some(parent_id.to_owned()),
+            children: Vec::new(),
+            source_path: Some(relative.to_owned()),
+            fingerprint: fingerprint.to_owned(),
+        },
+        package_name: package.composer_name.clone(),
+        module_path: module_path.to_owned(),
+        declared_by_path: relative.to_owned(),
+        cfg_attributes: vec![symbol.outline_label().to_owned()],
+        unresolved: false,
+        language: "php".to_owned(),
+    }));
+    connections.push(contains_connection(parent_id, &id));
+}
+
+fn append_php_import_edges(
+    packages: &[PhpPackage],
+    symbol_ids: &HashMap<String, String>,
+    namespace_ids: &HashMap<String, String>,
+    connections: &mut Vec<Connection>,
+) {
+    let mut edges = HashSet::new();
+    for package in packages {
+        let package_id = php_package_block_id(&package.import_path);
+        for file in &package.files {
+            if file.unreadable {
+                continue;
+            }
+            let stem = file
+                .path
+                .file_stem()
+                .and_then(|name| name.to_str())
+                .unwrap_or("file");
+            let file_id = php_file_block_id(&format!("{}/{stem}", package.import_path));
+            for import in &file.imports {
+                if let Some(target) = symbol_ids.get(&import.qualified) {
+                    if target != &file_id {
+                        push_depends(connections, &mut edges, &file_id, target);
+                    }
+                }
+                if let Some((parent, _)) = import.qualified.rsplit_once('\\') {
+                    if let Some(target) = namespace_ids.get(parent) {
+                        if target != &package_id {
+                            push_depends(connections, &mut edges, &package_id, target);
+                        }
+                    }
+                }
+                if let Some(target) = namespace_ids.get(&import.qualified) {
+                    if target != &package_id {
+                        push_depends(connections, &mut edges, &package_id, target);
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn append_ruby_blocks(
+    packages: &[RubyPackage],
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let mut file_ids: HashMap<PathBuf, String> = HashMap::new();
+    for package in packages {
+        let package_id = ruby_package_block_id(&package.import_path);
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: package_id.clone(),
+                label: package.name.clone(),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: package
+                    .files
+                    .first()
+                    .map(|file| relative_path(root_path, &file.path)),
+                fingerprint: content_fingerprint(
+                    package.files.iter().map(|file| file.path.as_path()),
+                    fingerprints,
+                )?,
+            },
+            package_name: package.gem_name.clone(),
+            module_path: package.import_path.clone(),
+            declared_by_path: relative_path(root_path, &package.directory),
+            cfg_attributes: package
+                .files
+                .iter()
+                .flat_map(|file| file.imports.iter().map(|import| import.statement.clone()))
+                .collect(),
+            unresolved: !package.files.is_empty()
+                && package.files.iter().all(|file| file.unreadable),
+            language: "ruby".to_owned(),
+        }));
+        connections.push(contains_connection(workspace_id, &package_id));
+        for file in &package.files {
+            let file_id = append_ruby_file(
+                &package_id,
+                package,
+                file,
+                root_path,
+                fingerprints,
+                blocks,
+                connections,
+            )?;
+            if let Ok(canonical) = file.path.canonicalize() {
+                file_ids.insert(canonical, file_id);
+            }
+        }
+    }
+    append_ruby_require_edges(packages, root_path, &file_ids, connections);
+    Ok(())
+}
+
+fn append_ruby_file(
+    package_id: &str,
+    package: &RubyPackage,
+    file: &RubyFile,
+    root_path: &Path,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<String, MapExtractionError> {
+    let module_path = format!("{}/{}", package.import_path, file.module_suffix);
+    let id = ruby_file_block_id(&module_path);
+    let relative = relative_path(root_path, &file.path);
+    let fingerprint = fingerprints.file(&file.path)?;
+    let label = file
+        .module_suffix
+        .rsplit('/')
+        .next()
+        .unwrap_or(&file.module_suffix)
+        .to_owned();
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label,
+            parent_id: Some(package_id.to_owned()),
+            children: Vec::new(),
+            source_path: Some(relative.clone()),
+            fingerprint: fingerprint.clone(),
+        },
+        package_name: package.gem_name.clone(),
+        module_path: module_path.clone(),
+        declared_by_path: relative.clone(),
+        cfg_attributes: file
+            .imports
+            .iter()
+            .map(|import| import.statement.clone())
+            .collect(),
+        unresolved: file.unreadable,
+        language: "ruby".to_owned(),
+    }));
+    connections.push(contains_connection(package_id, &id));
+    for symbol in &file.symbols {
+        append_ruby_symbol(
+            &id,
+            package,
+            symbol,
+            &format!("{module_path}.{}", symbol.name),
+            &relative,
+            &fingerprint,
+            blocks,
+            connections,
+        );
+    }
+    Ok(id)
+}
+
+fn append_ruby_symbol(
+    parent_id: &str,
+    package: &RubyPackage,
+    symbol: &RubySymbol,
+    module_path: &str,
+    relative: &str,
+    fingerprint: &str,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) {
+    let id = ruby_symbol_block_id(module_path, symbol.outline_label());
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: symbol.name.clone(),
+            parent_id: Some(parent_id.to_owned()),
+            children: Vec::new(),
+            source_path: Some(relative.to_owned()),
+            fingerprint: fingerprint.to_owned(),
+        },
+        package_name: package.gem_name.clone(),
+        module_path: module_path.to_owned(),
+        declared_by_path: relative.to_owned(),
+        cfg_attributes: vec![symbol.outline_label().to_owned()],
+        unresolved: false,
+        language: "ruby".to_owned(),
+    }));
+    connections.push(contains_connection(parent_id, &id));
+}
+
+fn append_ruby_require_edges(
+    packages: &[RubyPackage],
+    root_path: &Path,
+    file_ids: &HashMap<PathBuf, String>,
+    connections: &mut Vec<Connection>,
+) {
+    let mut edges = HashSet::new();
+    for package in packages {
+        for file in &package.files {
+            if file.unreadable {
+                continue;
+            }
+            let module_path = format!("{}/{}", package.import_path, file.module_suffix);
+            let file_id = ruby_file_block_id(&module_path);
+            for import in &file.imports {
+                let Some(resolved) = resolve_ruby_require(root_path, &file.path, import) else {
+                    continue;
+                };
+                let Some(target) = file_ids.get(&resolved) else {
+                    continue;
+                };
+                if target != &file_id {
+                    push_depends(connections, &mut edges, &file_id, target);
+                }
+            }
+        }
+    }
+}
+
+fn content_fingerprint<'a>(
+    paths: impl Iterator<Item = &'a Path>,
+    fingerprints: &mut FileFingerprints,
+) -> Result<String, MapExtractionError> {
+    let mut parts = Vec::new();
+    for path in paths {
+        parts.push(fingerprints.file(path)?);
+    }
+    parts.sort();
+    Ok(hash_text(&parts.join("\n")))
+}
+
+fn php_package_block_id(import_path: &str) -> String {
+    format!("module:php:{}", slug(import_path))
+}
+
+fn php_file_block_id(module_path: &str) -> String {
+    format!("module:php:{}", slug(module_path))
+}
+
+fn php_symbol_block_id(module_path: &str, kind: &str) -> String {
+    format!("module:php:{}:{}", slug(module_path), slug(kind))
+}
+
+fn ruby_package_block_id(import_path: &str) -> String {
+    format!("module:ruby:{}", slug(import_path))
+}
+
+fn ruby_file_block_id(module_path: &str) -> String {
+    format!("module:ruby:{}", slug(module_path))
+}
+
+fn ruby_symbol_block_id(module_path: &str, kind: &str) -> String {
+    format!("module:ruby:{}:{}", slug(module_path), slug(kind))
 }
 
 fn append_python_blocks(

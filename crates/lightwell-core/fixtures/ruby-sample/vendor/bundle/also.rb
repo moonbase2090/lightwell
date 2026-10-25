@@ -1,0 +1,2 @@
+class Bundled
+end

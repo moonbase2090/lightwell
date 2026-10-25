@@ -205,7 +205,7 @@ export function explorerRows(
 
 export type ExplorerBadge = "FILE" | "MOD" | "FN" | "TYPE" | "CONST" | "APP" | "FEAT";
 
-/** Short kind badge for an explorer row. Symbol kinds come from Python, web, Go, and .NET outline blocks. */
+/** Short kind badge for an explorer row. Symbol kinds come from Python, web, Go, PHP, Ruby, and .NET outline blocks. */
 export function explorerBadge(source: {
   readonly folder: boolean;
   readonly blockType?: FactBlockType;
@@ -225,6 +225,8 @@ export function explorerBadge(source: {
     || source.language === "csharp"
     || source.language === "vb"
     || source.language === "go"
+    || source.language === "php"
+    || source.language === "ruby"
   ) {
     if (kind === "def" || kind === "async def" || kind === "function" || kind === "func" || kind === "method") {
       return "FN";
@@ -237,6 +239,7 @@ export function explorerBadge(source: {
       || kind === "struct"
       || kind === "record"
       || kind === "enum"
+      || kind === "trait"
       || kind === "module"
     ) return "TYPE";
     if (kind === "const") return "CONST";
