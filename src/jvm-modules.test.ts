@@ -30,13 +30,21 @@ test("parseJvmSource keeps imports after non-ASCII comments and skips commented 
     kotlin.symbols.map((symbol) => [symbol.name, symbol.kind]),
     [["identity", "fun"], ["extension", "fun"], ["Holder", "object"]],
   );
+
+  const nested = parseJvmSource("object Outer {\n    fun nested() {}\n    class Inner\n}\nfun top() {}\n", "kotlin");
+  assert.deepEqual(
+    nested.symbols.map((symbol) => [symbol.name, symbol.kind]),
+    [["Outer", "object"], ["top", "fun"]],
+  );
+  assert.equal(nested.symbols.some((symbol) => symbol.name === "nested"), false);
+  assert.equal(nested.symbols.some((symbol) => symbol.name === "Inner"), false);
 });
 
 test("jvm fixture lists modules, packages, imports, and symbols", () => {
   const workspace = discoverJvm(fixtureRoot);
   assert.deepEqual(
     workspace.modules.map((module) => [module.name, module.kind]),
-    [["app", "gradle"], ["lib", "maven"]],
+    [["app", "gradle"], ["foo-bar", "gradle"], ["foo_bar", "gradle"], ["lib", "maven"]],
   );
   const app = workspace.packages.find((pkg) => pkg.name === "com.example.app");
   assert.equal(app?.moduleName, "app");
@@ -52,7 +60,8 @@ test("jvm fixture lists modules, packages, imports, and symbols", () => {
   assert.equal(greeter?.language, "kotlin");
   assert.equal(greeter?.test, false);
   assert.ok(greeter?.symbols.some((symbol) => symbol.name === "Greeter" && symbol.kind === "object" && symbol.line === 8));
-  assert.ok(greeter?.symbols.some((symbol) => symbol.name === "hello" && symbol.kind === "fun" && symbol.line === 9));
+  assert.ok(greeter?.symbols.some((symbol) => symbol.name === "hello" && symbol.kind === "fun" && symbol.line === 12));
+  assert.equal(greeter?.symbols.some((symbol) => symbol.name === "nested"), false);
   assert.equal(greeter?.symbols.some((symbol) => symbol.name === "hidden"), false);
   assert.equal(app?.files.find((file) => file.path.endsWith("AppTest.java"))?.test, true);
   assert.equal(app?.files.find((file) => file.path.endsWith("Helper.java"))?.test, true);
@@ -69,17 +78,24 @@ test("jvm fixture lists modules, packages, imports, and symbols", () => {
 test("jvm fixture extracts modules, files, symbols, and import edges", () => {
   const workspace = discoverJvm(fixtureRoot);
   const facts = jvmFactBlocks({ workspace, rootPath: fixtureRoot, workspaceId: "workspace:jvm-sample" });
-  const appFile = "module:jvm:app-src-main-java-com-example-app-app-java";
+  const appFile = "module:jvm:app_2f_src_2f_main_2f_java_2f_com_2f_example_2f_app_2f_app_2e_java";
   assert.ok(facts.blocks.some((block) => block.id === "module:jvm:app" && block.language === "jvm" && block.cfgAttributes[0] === "gradle"));
   assert.ok(facts.blocks.some((block) => block.id === "module:jvm:lib" && block.cfgAttributes[0] === "maven"));
-  assert.ok(facts.blocks.some((block) => block.id === "module:jvm:app:com-example-app" && block.modulePath === "com.example.app"));
+  assert.ok(facts.blocks.some((block) => block.id === "module:jvm:foo_2d_bar"));
+  assert.ok(facts.blocks.some((block) => block.id === "module:jvm:foo_5f_bar"));
+  assert.notEqual(
+    facts.blocks.find((block) => block.modulePath === "foo-bar")?.id,
+    facts.blocks.find((block) => block.modulePath === "foo_bar")?.id,
+  );
+  assert.ok(facts.blocks.some((block) => block.id === "module:jvm:app:com_2e_example_2e_app" && block.modulePath === "com.example.app"));
   assert.ok(facts.blocks.some((block) => block.id === appFile && block.language === "java" && block.modulePath === "com.example.app/App"));
   assert.ok(facts.blocks.some((block) => block.id === `${appFile}:app:class` && block.cfgAttributes[0] === "class"));
-  assert.ok(facts.blocks.some((block) => block.id.endsWith("greeter-kt:hello:fun") && block.language === "kotlin"));
-  assert.ok(facts.blocks.some((block) => block.id.endsWith("apptest-java:test")));
-  assert.ok(facts.blocks.some((block) => block.id.endsWith("helper-java:test")));
+  assert.ok(facts.blocks.some((block) => block.id.endsWith("greeter_2e_kt:hello:fun") && block.language === "kotlin"));
+  assert.equal(facts.blocks.some((block) => block.label === "nested"), false);
+  assert.ok(facts.blocks.some((block) => block.id.endsWith("apptest_2e_java:test")));
+  assert.ok(facts.blocks.some((block) => block.id.endsWith("helper_2e_java:test")));
   const appEdges = facts.connections.filter((edge) => edge.kind === "depends_on" && edge.source === appFile);
-  assert.deepEqual(appEdges.map((edge) => edge.target), ["module:jvm:lib:com-example-lib"]);
+  assert.deepEqual(appEdges.map((edge) => edge.target), ["module:jvm:lib:com_2e_example_2e_lib"]);
   assert.equal(facts.blocks.some((block) => block.label === "Skipped"), false);
 
   const map = extractCargoMap({ repositoryPath: fixtureRoot, projectName: "JVM Sample" });
@@ -126,9 +142,9 @@ test("jvm import edges use the longest package prefix", () => {
         .filter((edge) => edge.kind === "depends_on" && edge.source === source?.id)
         .map((edge) => edge.target);
     };
-    assert.deepEqual(targetOf("App"), ["module:jvm:prefix:com-example-lib"]);
-    assert.deepEqual(targetOf("Wild"), ["module:jvm:prefix:com-example-lib"]);
-    assert.deepEqual(targetOf("Other"), ["module:jvm:prefix:com-example"]);
+    assert.deepEqual(targetOf("App"), ["module:jvm:prefix:com_2e_example_2e_lib"]);
+    assert.deepEqual(targetOf("Wild"), ["module:jvm:prefix:com_2e_example_2e_lib"]);
+    assert.deepEqual(targetOf("Other"), ["module:jvm:prefix:com_2e_example"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

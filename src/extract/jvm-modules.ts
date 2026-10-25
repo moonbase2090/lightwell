@@ -84,8 +84,13 @@ export function discoverJvm(repositoryPath: string): JvmWorkspace {
     }];
   }
   modules = disambiguateNames(root, modules).sort((left, right) =>
-    left.name.localeCompare(right.name) || left.path.localeCompare(right.path));
+    strcmp(left.name, right.name) || strcmp(left.path, right.path));
   return { modules, packages: groupSources(root, modules, found.sources) };
+}
+
+/** Byte-order compare matching Rust `Ord` for strings (not locale). */
+function strcmp(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 export function parseJvmSource(source: string, language: JvmLanguage): {
@@ -136,7 +141,7 @@ export function jvmFactBlocks(args: {
   const moduleIds = new Map<string, string>();
   for (const module of args.workspace.modules) {
     const key = jvmModuleKey(args.rootPath, module);
-    const id = `module:jvm:${slug(key)}`;
+    const id = `module:jvm:${jvmIdEncode(key)}`;
     const marker = moduleMarker(module);
     const declared = marker === null ? key : toSlash(path.relative(args.rootPath, marker));
     blocks.push({
@@ -245,7 +250,7 @@ function appendFile(
   });
   connections.push(containsConnection(packageId, id));
   for (const symbol of file.symbols) {
-    const symbolId = `module:jvm:${slug(relative)}:${slug(symbol.name)}:${slug(symbol.kind)}`;
+    const symbolId = `module:jvm:${jvmIdEncode(relative)}:${jvmIdEncode(symbol.name)}:${jvmIdEncode(symbol.kind)}`;
     blocks.push({
       id: symbolId,
       label: symbol.name,
@@ -516,13 +521,25 @@ function jvmModuleKey(root: string, module: JvmModule): string {
 }
 
 function packageBlockId(moduleKey: string, packageName: string): string {
-  const packageSlug = packageName.length === 0 ? "default" : slug(packageName);
-  return moduleKey.length === 0 ? `module:jvm:pkg:${packageSlug}` : `module:jvm:${slug(moduleKey)}:${packageSlug}`;
+  const packageSlug = packageName.length === 0 ? "default" : jvmIdEncode(packageName);
+  return moduleKey.length === 0
+    ? `module:jvm:pkg:${packageSlug}`
+    : `module:jvm:${jvmIdEncode(moduleKey)}:${packageSlug}`;
 }
 
 function fileBlockId(relative: string, test: boolean): string {
-  const id = `module:jvm:${slug(relative)}`;
+  const id = `module:jvm:${jvmIdEncode(relative)}`;
   return test ? `${id}:test` : id;
+}
+
+/** Injective path/name encoding for JVM block ids (`foo-bar` ≠ `foo_bar`). */
+export function jvmIdEncode(value: string): string {
+  let out = "";
+  for (const character of value) {
+    if (/^[A-Za-z0-9]$/.test(character)) out += character.toLowerCase();
+    else out += `_${character.codePointAt(0)!.toString(16)}_`;
+  }
+  return out;
 }
 
 function importPackageMatches(importPath: string, packages: readonly JvmPackage[]): JvmPackage[] {
@@ -694,11 +711,52 @@ function parseImports(source: string): JvmImport[] {
 function parseSymbols(source: string, language: JvmLanguage): JvmSymbol[] {
   const symbols: JvmSymbol[] = [];
   const lines = source.split("\n");
+  let depth = 0;
   for (let index = 0; index < lines.length; index += 1) {
-    const symbol = parseSymbolLine(lines[index] ?? "", index + 1, language);
-    if (symbol !== null) symbols.push(symbol);
+    const line = lines[index] ?? "";
+    if (depth === 0) {
+      const symbol = parseSymbolLine(line, index + 1, language);
+      if (symbol !== null) symbols.push(symbol);
+    }
+    depth = adjustBraceDepth(depth, line);
   }
   return symbols;
+}
+
+function adjustBraceDepth(depth: number, line: string): number {
+  const chars = [...line];
+  let index = 0;
+  let next = depth;
+  while (index < chars.length) {
+    if (chars[index] === '"' && chars[index + 1] === '"' && chars[index + 2] === '"') {
+      index += 3;
+      while (index + 2 < chars.length && !(chars[index] === '"' && chars[index + 1] === '"' && chars[index + 2] === '"')) {
+        index += 1;
+      }
+      index = Math.min(index + 3, chars.length);
+      continue;
+    }
+    if (chars[index] === '"' || chars[index] === "'") {
+      const quote = chars[index];
+      index += 1;
+      while (index < chars.length) {
+        if (chars[index] === "\\" && index + 1 < chars.length) {
+          index += 2;
+          continue;
+        }
+        if (chars[index] === quote) {
+          index += 1;
+          break;
+        }
+        index += 1;
+      }
+      continue;
+    }
+    if (chars[index] === "{") next += 1;
+    else if (chars[index] === "}") next = Math.max(0, next - 1);
+    index += 1;
+  }
+  return next;
 }
 
 function parseSymbolLine(line: string, lineNo: number, language: JvmLanguage): JvmSymbol | null {
@@ -1000,15 +1058,6 @@ function containsConnection(source: string, target: string): FactConnection {
 
 function connectionId(kind: "contains" | "depends_on", source: string, target: string): string {
   return `${kind}:${source}->${target}`;
-}
-
-function slug(value: string): string {
-  let out = "";
-  for (const character of value) {
-    if (/^[\p{L}\p{N}]$/u.test(character)) out += character.toLowerCase();
-    else if (out.length > 0 && !out.endsWith("-")) out += "-";
-  }
-  return out.replace(/-+$/g, "");
 }
 
 function hashFile(filePath: string): string {
