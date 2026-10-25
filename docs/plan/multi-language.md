@@ -15,7 +15,7 @@ Lightwell is adding source languages beyond Rust workspace manifests. TypeScript
 - **PHP** (`.php` when `composer.json` is present): namespaces, `use` imports, classes, interfaces, traits, enums, and top-level functions. Laravel projects (`artisan`, `app/Http`, or an Illuminate package) map `app/Models` and `app/Http/Controllers` onto `App\Models` and `App\Http\Controllers`. `vendor/` is skipped.
 - **Ruby** (`.rb` when a `Gemfile` is present): modules, classes, `require` / `require_relative`, and top-level methods. Rails projects (`config/application.rb`, `bin/rails`, or a Rails gem) map `app/models` and `app/controllers` as model and controller units. `vendor/`, `tmp/`, and `log/` are skipped.
 - **C# and VB.NET** (one .NET pack, on by default): solutions and projects, namespaces, types, methods, project references, and resolved type names. `bin/` and `obj/` are skipped.
-- **Java and Kotlin** (one JVM pack, on by default): Maven and Gradle modules, packages, classes, and imports. `.java`, `.kt`, and `.kts`. `build/`, `.gradle/`, `target/`, and `out/` are skipped.
+- **Java and Kotlin** (one JVM pack, on by default): Maven and Gradle modules, packages, classes, and imports. `.java`, `.kt`, and `.kts`. `build/`, `.gradle/`, `target/`, `out/`, and `testdata/` are skipped.
 - **C/C++** (`.c`, `.cc`, `.cpp`, `.cxx`, `.h`, `.hh`, `.hpp`, `.hxx` when a root `CMakeLists.txt` is present): CMake targets, quoted includes, and top-level class/struct/function symbols.
 
 Vue, Svelte, Astro, Angular, other meta-frameworks, and bundler/monorepo orchestrator graphs ship **after v0.1.4** in follow-up PRs.
