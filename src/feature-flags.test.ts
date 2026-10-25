@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { commitDiffEnabled, notesStaleActionsEnabled, projectNotesEnabled } from "./feature-flags.js";
+import { commitDiffEnabled, mapPopoutEnabled, notesStaleActionsEnabled, projectNotesEnabled } from "./feature-flags.js";
 
 test("project notes are on when the build sets no flag", () => {
   assert.equal(projectNotesEnabled(undefined), true);

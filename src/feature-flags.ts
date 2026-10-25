@@ -27,3 +27,12 @@ export function notesStaleActionsEnabled(value: string | undefined): boolean {
 export function commitDiffEnabled(value: string | undefined): boolean {
   return value !== "false";
 }
+
+/**
+ * The map pop-out window is off unless the build sets VITE_ENABLE_MAP_POPOUT
+ * to the exact string "true". Call sites compare `import.meta.env.VITE_ENABLE_MAP_POPOUT`
+ * to "true" directly so the bundler can drop the pop-out branch.
+ */
+export function mapPopoutEnabled(value: string | undefined): boolean {
+  return value === "true";
+}
