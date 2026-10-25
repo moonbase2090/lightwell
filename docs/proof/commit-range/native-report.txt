@@ -1,7 +1,7 @@
-LW-40 native interaction proof row70 — exact aefcba14603be8a02f246447a3deb91b36029c19
+Native interaction proof — exact aefcba14603be8a02f246447a3deb91b36029c19
 START 2026-10-24T21:17:46.682+00:00
 DONE 2026-10-24T21:39:54.756+00:00
-VM lightwell-commit-range-retry (macOS 26.6.2)
+Clean Tart macOS guest (26.6.2).
 
 Fresh-source guest build: core ranges 3 PASS; native unsigned Lightwell.app built/launched.
 Guest source SHA256 matched host Git objects for CommitRangePicker.tsx, ranges.rs, App.tsx, Cargo.lock (see hash-verify.txt).
@@ -15,7 +15,5 @@ Observed native UI (full-frame VNC captures with .vnc.json provenance):
 - Short history Since release: honest notice No reachable version tag; choose Last commit or Custom
 - Keyboard [ ] exercised after custom range (banner remained with 3-commit summary)
 - Native window remained 1024x678 (Tauri minWidth 960; AppleScript resize timed out without Accessibility; edge-drag did not stick). Browser narrow 920 already covered separately.
-
-No PR/publish: owner UX approval still required.
 
 Captures: native-after-launch.png, native-current.png, native-desktop-custom-open.png, native-desktop-custom3-live.png, native-desktop-custom3.png, native-desktop-keyboard.png, native-desktop-last1.png, native-desktop-last5.png, native-desktop-release.png, native-from-menu.png, native-from-open.png, native-narrow960.png, native-proj-probe-a.png, native-proj-probe-b.png, native-proj-probe-c.png, native-proj-probe-d.png, native-project-menu.png, native-project-open.png, native-short-last5.png, native-short-loaded.png, native-short-release.png
