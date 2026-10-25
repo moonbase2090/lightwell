@@ -874,7 +874,12 @@ mod tests {
         let project = TempProject::new();
         let store = ProjectNotesStore::new(&project.0);
         store
-            .set("crate:core", "Still accurate", "old-fingerprint")
+            .set(
+                &project.0,
+                "crate:core",
+                "Still accurate",
+                "old-fingerprint",
+            )
             .unwrap();
         let current_map = map("new-fingerprint");
         let before = store.list_for_map(&current_map).unwrap();
@@ -892,7 +897,7 @@ mod tests {
         let project = TempProject::new();
         let store = ProjectNotesStore::new(&project.0);
         store
-            .set("crate:gone", "Orphaned", "old-fingerprint")
+            .set(&project.0, "crate:gone", "Orphaned", "old-fingerprint")
             .unwrap();
         let empty_map = FactMap::schema_v1(
             Project {
@@ -920,13 +925,23 @@ mod tests {
         let project = TempProject::new();
         let store = ProjectNotesStore::new(&project.0);
         store
-            .set("crate:core", "Current text", "current-fingerprint")
+            .set(
+                &project.0,
+                "crate:core",
+                "Current text",
+                "current-fingerprint",
+            )
             .unwrap();
         store
-            .set("crate:old", "Stale text", "old-fingerprint")
+            .set(&project.0, "crate:old", "Stale text", "old-fingerprint")
             .unwrap();
         store
-            .set("crate:gone", "Orphaned text", "gone-fingerprint")
+            .set(
+                &project.0,
+                "crate:gone",
+                "Orphaned text",
+                "gone-fingerprint",
+            )
             .unwrap();
         let current_map = FactMap::schema_v1(
             Project {
