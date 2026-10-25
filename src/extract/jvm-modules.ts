@@ -532,11 +532,11 @@ function fileBlockId(relative: string, test: boolean): string {
   return test ? `${id}:test` : id;
 }
 
-/** Injective path/name encoding for JVM block ids (`foo-bar` ≠ `foo_bar`). */
+/** Injective path/name encoding for JVM block ids (`foo-bar` ≠ `foo_bar`, `Foo` ≠ `foo`). */
 export function jvmIdEncode(value: string): string {
   let out = "";
   for (const character of value) {
-    if (/^[A-Za-z0-9]$/.test(character)) out += character.toLowerCase();
+    if (/^[A-Za-z0-9]$/.test(character)) out += character;
     else out += `_${character.codePointAt(0)!.toString(16)}_`;
   }
   return out;

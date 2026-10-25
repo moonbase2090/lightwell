@@ -1,0 +1,7 @@
+# Distinct JVM block-id inputs that must stay distinct after jvm_id_encode.
+# Foo/foo cannot both exist as sibling dirs on case-insensitive filesystems;
+# encode coverage and the case-sensitive temp-dir test use this pair.
+Foo
+foo
+foo-bar
+foo_bar

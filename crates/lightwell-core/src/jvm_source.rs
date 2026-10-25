@@ -1239,7 +1239,7 @@ fn strip_jvm_comments(source: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{discover_jvm, parse_jvm_source, JvmLanguage, JvmModuleKind, JvmSymbolKind};
-    use crate::extract::extract_cargo_map;
+    use crate::extract::{extract_cargo_map, jvm_id_encode};
     use crate::facts::{Connection, FactBlock};
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1338,6 +1338,80 @@ mod tests {
         );
         assert!(symbols.iter().all(|symbol| symbol.name != "nested"));
         assert!(symbols.iter().all(|symbol| symbol.name != "Inner"));
+    }
+
+    #[test]
+    fn jvm_id_encode_preserves_ascii_case() {
+        assert_eq!(jvm_id_encode("Foo"), "Foo");
+        assert_eq!(jvm_id_encode("foo"), "foo");
+        assert_ne!(jvm_id_encode("Foo"), jvm_id_encode("foo"));
+        assert_eq!(jvm_id_encode("foo-bar"), "foo_2d_bar");
+        assert_eq!(jvm_id_encode("foo_bar"), "foo_5f_bar");
+        let cases = fs::read_to_string(fixture_root().join("id-encode-cases.txt"))
+            .expect("id-encode-cases fixture");
+        let values: Vec<&str> = cases
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .collect();
+        assert!(values.contains(&"Foo") && values.contains(&"foo"));
+        let mut encoded = values
+            .iter()
+            .map(|value| jvm_id_encode(value))
+            .collect::<Vec<_>>();
+        let before = encoded.len();
+        encoded.sort();
+        encoded.dedup();
+        assert_eq!(
+            encoded.len(),
+            before,
+            "fixture encode cases must stay injective"
+        );
+    }
+
+    #[test]
+    fn jvm_case_distinct_modules_keep_distinct_block_ids() {
+        let root = TempDir::new("case-ids");
+        if !filesystem_case_sensitive(&root.0) {
+            // Case-insensitive hosts cannot check out Foo and foo as siblings; encode
+            // coverage above still proves the collision pair stays distinct.
+            return;
+        }
+        fs::write(
+            root.0.join("settings.gradle.kts"),
+            "include(\":Foo\", \":foo\")\n",
+        )
+        .expect("settings");
+        for name in ["Foo", "foo"] {
+            let module = root.0.join(name);
+            fs::create_dir_all(module.join("src/main/java/com/example")).expect("module");
+            fs::write(module.join("build.gradle.kts"), "plugins { java }\n").expect("gradle");
+            fs::write(
+                module.join("src/main/java/com/example/Item.java"),
+                "package com.example;\npublic class Item {}\n",
+            )
+            .expect("java");
+        }
+        let map = extract_cargo_map(&root.0, Some("Case")).expect("extract");
+        let upper = module_block(&map.blocks, "jvm", "Foo").expect("Foo");
+        let lower = module_block(&map.blocks, "jvm", "foo").expect("foo");
+        assert_eq!(upper.base.id, "module:jvm:Foo");
+        assert_eq!(lower.base.id, "module:jvm:foo");
+        assert_ne!(upper.base.id, lower.base.id);
+    }
+
+    fn filesystem_case_sensitive(root: &Path) -> bool {
+        let probe = root.join("_case_probe_UPPER");
+        let folded = root.join("_case_probe_upper");
+        let _ = fs::remove_dir_all(&probe);
+        let _ = fs::remove_dir_all(&folded);
+        if fs::create_dir_all(&probe).is_err() {
+            return false;
+        }
+        let sensitive = fs::create_dir(&folded).is_ok();
+        let _ = fs::remove_dir_all(&probe);
+        let _ = fs::remove_dir_all(&folded);
+        sensitive
     }
 
     #[test]
@@ -1464,7 +1538,7 @@ mod tests {
         assert_eq!(lib_package.base.id, "module:jvm:lib:com_2e_example_2e_lib");
         let app_file = module_block(&map.blocks, "java", "com.example.app/App").expect("App file");
         let app_file_id =
-            "module:jvm:app_2f_src_2f_main_2f_java_2f_com_2f_example_2f_app_2f_app_2e_java";
+            "module:jvm:app_2f_src_2f_main_2f_java_2f_com_2f_example_2f_app_2f_App_2e_java";
         assert_eq!(app_file.base.id, app_file_id);
         assert_eq!(
             app_file.base.parent_id.as_deref(),
@@ -1473,12 +1547,12 @@ mod tests {
         let app_class =
             module_block(&map.blocks, "java", "com.example.app.App").expect("App class");
         assert_eq!(app_class.cfg_attributes, ["class"]);
-        assert_eq!(app_class.base.id, format!("{app_file_id}:app:class"));
+        assert_eq!(app_class.base.id, format!("{app_file_id}:App:class"));
         let hello = module_block(&map.blocks, "kotlin", "com.example.app.hello").expect("hello");
         assert_eq!(hello.cfg_attributes, ["fun"]);
         assert_eq!(
             hello.base.id,
-            "module:jvm:app_2f_src_2f_main_2f_kotlin_2f_com_2f_example_2f_app_2f_greeter_2e_kt:hello:fun"
+            "module:jvm:app_2f_src_2f_main_2f_kotlin_2f_com_2f_example_2f_app_2f_Greeter_2e_kt:hello:fun"
         );
         let greeter =
             module_block(&map.blocks, "kotlin", "com.example.app.Greeter").expect("Greeter");
@@ -1493,7 +1567,7 @@ mod tests {
         assert_eq!(under.base.id, "module:jvm:foo_5f_bar");
         assert_ne!(hyphen.base.id, under.base.id);
         let app_test = map.blocks.iter().find_map(|block| match block {
-            FactBlock::Module(module) if module.base.id.ends_with("apptest_2e_java:test") => {
+            FactBlock::Module(module) if module.base.id.ends_with("AppTest_2e_java:test") => {
                 Some(module)
             }
             _ => None,
@@ -1503,7 +1577,7 @@ mod tests {
             "AppTest.java should be a test file block"
         );
         let helper = map.blocks.iter().find_map(|block| match block {
-            FactBlock::Module(module) if module.base.id.ends_with("helper_2e_java:test") => {
+            FactBlock::Module(module) if module.base.id.ends_with("Helper_2e_java:test") => {
                 Some(module)
             }
             _ => None,
