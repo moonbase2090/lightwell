@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -75,4 +76,48 @@ test("Package.swift alone opens a workspace without Cargo.toml", () => {
   const map = extractCargoMap({ repositoryPath: fixtureRoot, projectName: "Swift Sample" });
   assert.ok(map.blocks.some((block) => block.type === "module" && block.language === "swift"));
   assert.equal(map.project.name, "Swift Sample");
+});
+
+test("swift workspace fingerprint matches Rust swift:target:basename:hash format", () => {
+  const targets = discoverSwiftTargets(fixtureRoot);
+  assert.ok(targets.length > 0);
+  const expectedInputs = targets
+    .flatMap((target) =>
+      target.files.map((file) => {
+        const hash = createHash("sha256").update(readFileSync(file.path)).digest("hex");
+        return `swift:${target.name}:${path.basename(file.path)}:${hash}`;
+      }),
+    )
+    .sort()
+    .join("\n");
+  const expected = createHash("sha256").update(expectedInputs).digest("hex");
+  const map = extractCargoMap({ repositoryPath: fixtureRoot, projectName: "Swift Sample" });
+  const workspace = map.blocks.find((block) => block.type === "workspace");
+  assert.equal(workspace?.fingerprint, expected);
+  assert.match(expectedInputs, /swift:Greeting:Greeter\.swift:[0-9a-f]{64}/);
+  assert.match(expectedInputs, /swift:Demo:main\.swift:[0-9a-f]{64}/);
+});
+
+test("xcodeproj without Package.swift discovers targets and files", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "lightwell-swift-xcode-"));
+  try {
+    mkdirSync(path.join(root, "DemoApp.xcodeproj"));
+    mkdirSync(path.join(root, "App"), { recursive: true });
+    writeFileSync(path.join(root, "App", "Content.swift"), "import Foundation\npublic struct Content {}\n");
+    const targets = discoverSwiftTargets(root);
+    assert.equal(targets.length, 1);
+    assert.equal(targets[0]?.name, "App");
+    assert.equal(targets[0]?.packageName, "DemoApp");
+    assert.ok(targets[0]?.files.some((file) => path.basename(file.path) === "Content.swift"));
+    assert.ok(
+      targets[0]?.files.some((file) =>
+        file.symbols.some((symbol) => symbol.name === "Content" && symbol.kind === "struct"),
+      ),
+    );
+    const map = extractCargoMap({ repositoryPath: root, projectName: "Xcode Demo" });
+    assert.ok(map.blocks.some((block) => block.type === "module" && block.language === "swift" && block.modulePath === "DemoApp/App"));
+    assert.ok(map.blocks.some((block) => block.type === "module" && block.language === "swift" && block.modulePath?.includes("Content")));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

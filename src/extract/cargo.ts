@@ -474,7 +474,7 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
     ...jvmFingerprintInputs(rootPath, jvm),
     ...configInfra.files.map((file) => `config-infra:${file.path}:${hashFile(path.join(rootPath, file.path))}`),
     ...swiftTargets.flatMap((target) =>
-      target.files.map((file) => `swift:${target.name}:${hashFile(file.path)}`),
+      target.files.map((file) => `swift:${target.name}:${path.basename(file.path)}:${hashFile(file.path)}`),
     ),
   ].sort().join("\n"));
   const workspaceIndex = blocks.findIndex((block) => block.id === projectId);
@@ -619,7 +619,7 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
     ...jvmFingerprintInputs(rootPath, jvm),
     ...configInfra.files.map((file) => `config-infra:${file.path}:${hashFile(path.join(rootPath, file.path))}`),
     ...swiftTargets.flatMap((target) =>
-      target.files.map((file) => `swift:${target.name}:${hashFile(file.path)}`),
+      target.files.map((file) => `swift:${target.name}:${path.basename(file.path)}:${hashFile(file.path)}`),
     ),
   ].sort().join("\n"));
   const blocks: FactBlock[] = [{

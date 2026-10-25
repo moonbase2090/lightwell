@@ -855,6 +855,39 @@ mod tests {
     }
 
     #[test]
+    fn xcodeproj_without_package_swift_discovers_targets_and_files() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0);
+        let root = std::env::temp_dir().join(format!(
+            "lightwell-swift-xcode-{}-{unique}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("DemoApp.xcodeproj")).expect("xcodeproj");
+        std::fs::create_dir_all(root.join("App")).expect("App");
+        std::fs::write(
+            root.join("App/Content.swift"),
+            "import Foundation\npublic struct Content {}\n",
+        )
+        .expect("Content.swift");
+        let targets = discover_swift_targets(&root).expect("xcode discover");
+        let _ = std::fs::remove_dir_all(&root);
+        assert_eq!(targets.len(), 1);
+        assert_eq!(targets[0].name, "App");
+        assert_eq!(targets[0].package_name, "DemoApp");
+        assert!(targets[0].files.iter().any(|file| {
+            file.path.file_name().and_then(|name| name.to_str()) == Some("Content.swift")
+        }));
+        assert!(targets[0].files.iter().any(|file| {
+            file.symbols
+                .iter()
+                .any(|symbol| symbol.name == "Content" && symbol.kind == SwiftSymbolKind::Struct)
+        }));
+    }
+
+    #[test]
     fn swift_modules_merge_into_workspace_maps() {
         let root = fixture_root();
         let map = extract_cargo_map(&root, Some("Swift Sample")).expect("extract");
