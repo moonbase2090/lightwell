@@ -18,11 +18,13 @@ function errorMessage(cause: unknown): string {
   return "Git could not commit this note. Check Git configuration and retry.";
 }
 
-export default function NotesGitPanel({ source, workspaceId, note, disabled, onBusy }: {
+export default function NotesGitPanel({ source, workspaceId, note, disabled, onBusy, refreshToken = 0, disabledReason }: {
   readonly source: ProjectNotesGitSource;
   readonly workspaceId: string;
   readonly note: ProjectNoteView;
   readonly disabled: boolean;
+  readonly disabledReason?: string;
+  readonly refreshToken?: number;
   readonly onBusy: (busy: boolean) => void;
 }) {
   const [status, setStatus] = useState<NotesGitStatus | null>(null);
@@ -41,7 +43,7 @@ export default function NotesGitPanel({ source, workspaceId, note, disabled, onB
       if (active) setStatus({ kind: "unavailable", message: errorMessage(cause) });
     });
     return () => { active = false; };
-  }, [source, workspaceId, note, refresh]);
+  }, [source, workspaceId, note, refresh, refreshToken]);
 
   const commit = async () => {
     if (disabled || busy || status?.kind !== "ready" || !status.noteChanged) return;
@@ -64,7 +66,7 @@ export default function NotesGitPanel({ source, workspaceId, note, disabled, onB
   return <div className="notes-git-panel" aria-label="Note Git sharing">
     <p aria-live="polite">{status === null ? "Checking notes Git status…" : statusText(status)}</p>
     <p>Commit only this saved note to share it through Git. Other notes stay as they are. Nothing is pushed.</p>
-    {disabled && !busy && <p>Save your changes before committing this note.</p>}
+    {disabled && !busy && <p>{disabledReason ?? "Save your changes before committing this note."}</p>}
     {feedback.length > 0 && <p role="status">{feedback}</p>}
     {error.length > 0 && <p className="project-notes-error" role="alert">{error}</p>}
     <div className="notes-git-actions">

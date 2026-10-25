@@ -36,3 +36,13 @@ export function commitDiffEnabled(value: string | undefined): boolean {
 export function mapPopoutEnabled(value: string | undefined): boolean {
   return value === "true";
 }
+
+/**
+ * Per-note revision checks are off unless the build sets VITE_ENABLE_NOTES_CAS
+ * to the exact string "true". Call sites compare
+ * `import.meta.env.VITE_ENABLE_NOTES_CAS === "true"` directly so the bundler
+ * can drop the compare-and-swap branch.
+ */
+export function notesCasEnabled(value: string | undefined): boolean {
+  return value === "true";
+}

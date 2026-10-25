@@ -1,12 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCheck, CircleAlert, FileText, MapPin, Plus, Save, Trash2, X } from "lucide-react";
 import type { ResolvedMap } from "./model.js";
-import type { ProjectNoteView, ProjectNotesSnapshot, ProjectNotesSource } from "./map-source.js";
+import type { NoteRevisionConflict, ProjectNoteInput, ProjectNoteView, ProjectNotesSnapshot, ProjectNotesSource } from "./map-source.js";
 import NotesGitPanel from "./NotesGitPanel.js";
+import { noteRevisionMap, planNotesReload, readNoteRevisionConflict } from "./notes-reload.js";
 
-type NoteEditor =
-  | { readonly kind: "new"; readonly blockId: string; readonly text: string }
-  | { readonly kind: "saved"; readonly blockId: string; readonly text: string };
+type NoteEditor = {
+  readonly kind: "new" | "saved";
+  readonly blockId: string;
+  readonly text: string;
+  readonly loadedText: string;
+  readonly loadedRevision: string | null;
+};
+
+function notesCompareAndSwap(): boolean {
+  return typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true";
+}
 
 interface ProjectNotesDialogProps {
   readonly workspaceId: string;
@@ -22,11 +31,11 @@ interface ProjectNotesDialogProps {
   readonly onShowOnMap?: (blockId: string) => void;
 }
 
-function noteEditorForBlock(blockId: string, notes: readonly ProjectNoteView[]): NoteEditor {
+function noteEditorForBlock(blockId: string, notes: readonly ProjectNoteView[], initialText = ""): NoteEditor {
   const note = notes.find((item) => item.blockId === blockId);
   return note === undefined
-    ? { kind: "new", blockId, text: "" }
-    : { kind: "saved", blockId, text: note.text };
+    ? { kind: "new", blockId, text: initialText, loadedText: "", loadedRevision: null }
+    : { kind: "saved", blockId, text: note.text, loadedText: note.text, loadedRevision: note.revision ?? null };
 }
 
 function noteLabel(note: ProjectNoteView, map: ResolvedMap): string {
@@ -69,16 +78,63 @@ export default function ProjectNotesDialog({
     ? [...snapshot.notes].sort((left, right) => Number(left.stale) - Number(right.stale)
       || left.blockId.localeCompare(right.blockId))
     : [], [snapshot]);
-  const [editor, setEditor] = useState<NoteEditor>(() => {
-    const initial = noteEditorForBlock(currentBlockId ?? "", notes);
-    return initial.kind === "new" ? { ...initial, text: initialText } : initial;
-  });
+  const notesCas = notesCompareAndSwap();
+  const [editor, setEditor] = useState<NoteEditor>(() => noteEditorForBlock(currentBlockId ?? "", notes, initialText));
   const [saving, setSaving] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const [diskBanner, setDiskBanner] = useState("");
+  const [diskNotice, setDiskNotice] = useState("");
+  const [conflict, setConflict] = useState<NoteRevisionConflict | null>(null);
+  const [gitRefresh, setGitRefresh] = useState(0);
   const dialogRef = useRef<HTMLElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
+  const snapshotSeen = useRef(snapshot);
+  const savingCount = useRef(0);
+  const pendingSnapshot = useRef<ProjectNotesSnapshot | null>(null);
+  const lastAppliedRef = useRef<Map<string, string> | null>(
+    snapshot.kind === "ready" ? noteRevisionMap(snapshot.notes) : null,
+  );
+
+  const applyExternal = (next: ProjectNotesSnapshot) => {
+    if (!notesCas || next.kind !== "ready") return;
+    const plan = planNotesReload(editorRef.current, next.notes, lastAppliedRef.current);
+    snapshotSeen.current = next;
+    if (plan.kind === "ignore") return;
+    lastAppliedRef.current = noteRevisionMap(next.notes);
+    setGitRefresh((value) => value + 1);
+    if (plan.kind === "pin") {
+      setDiskBanner("Notes changed on disk.");
+      return;
+    }
+    setDiskBanner("");
+    setConflict(null);
+    const adopted: NoteEditor = {
+      kind: plan.editorKind,
+      blockId: plan.blockId,
+      text: plan.text,
+      loadedText: plan.loadedText,
+      loadedRevision: plan.loadedRevision,
+    };
+    editorRef.current = adopted;
+    setEditor(adopted);
+    setSavedMessage("");
+    setError("");
+    setDiskNotice(plan.notice ?? "");
+  };
+
+  useEffect(() => {
+    if (!notesCas) return;
+    if (snapshot === snapshotSeen.current) return;
+    if (savingCount.current > 0) {
+      pendingSnapshot.current = snapshot;
+      return;
+    }
+    applyExternal(snapshot);
+  }, [snapshot, notesCas]);
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -107,9 +163,11 @@ export default function ProjectNotesDialog({
   }, [onClose, editor.blockId, editor.kind]);
 
   const selectedNote = notes.find((note) => note.blockId === editor.blockId);
-  const isDirty = editor.kind === "new"
-    ? editor.text.length > 0
-    : selectedNote === undefined || selectedNote.text !== editor.text;
+  const isDirty = notesCas
+    ? (editor.kind === "new" ? editor.text.length > 0 : editor.text !== editor.loadedText)
+    : editor.kind === "new"
+      ? editor.text.length > 0
+      : selectedNote === undefined || selectedNote.text !== editor.text;
   const editorBlock = map.blockById.get(editor.blockId);
   const staleCount = notes.filter((note) => note.stale).length;
   const staleActionsEnabled = source.markReviewed !== undefined && source.removeStale !== undefined;
@@ -128,29 +186,113 @@ export default function ProjectNotesDialog({
   const chooseEditor = (next: NoteEditor) => {
     if (committing) return;
     if (isDirty && !window.confirm("Discard unsaved note changes?")) return;
+    editorRef.current = next;
     setEditor(next);
     setError("");
     setSavedMessage("");
+    setDiskBanner("");
+    setDiskNotice("");
+    setConflict(null);
   };
 
-  const handleSave = async () => {
+  const finishSave = (updated: ProjectNotesSnapshot, draft: string) => {
+    onSnapshot(updated);
+    const saved = updated.kind === "ready" ? updated.notes.find((note) => note.blockId === editor.blockId) : undefined;
+    const next: NoteEditor = {
+      kind: "saved",
+      blockId: editor.blockId,
+      text: draft,
+      loadedText: saved?.text ?? draft,
+      loadedRevision: saved?.revision ?? null,
+    };
+    if (notesCas && updated.kind === "ready") {
+      lastAppliedRef.current = noteRevisionMap(updated.notes);
+      snapshotSeen.current = updated;
+    }
+    editorRef.current = next;
+    setEditor(next);
+    setConflict(null);
+    setDiskBanner("");
+    setDiskNotice("");
+    setSavedMessage("Saved in .lightwell/notes.json");
+  };
+
+  const writeNote = async (input: ProjectNoteInput, useAdd: boolean) => {
     if (!canSave) return;
     setSaving(true);
     setError("");
     setSavedMessage("");
+    savingCount.current += 1;
     try {
-      const input = { workspaceId, blockId: editor.blockId, text: editor.text };
-      const updated = editor.kind === "new"
-        ? await source.add(input)
-        : await source.edit(input);
-      onSnapshot(updated);
-      setEditor({ kind: "saved", blockId: editor.blockId, text: editor.text });
-      setSavedMessage("Saved in .lightwell/notes.json");
+      const updated = useAdd ? await source.add(input) : await source.edit(input);
+      finishSave(updated, input.text);
     } catch (cause: unknown) {
-      setError(noteErrorMessage(cause, "Could not save this project note."));
+      const found = notesCas ? readNoteRevisionConflict(cause) : null;
+      if (found !== null) {
+        setConflict(found);
+        setError("");
+      } else {
+        setError(noteErrorMessage(cause, "Could not save this project note."));
+      }
     } finally {
+      savingCount.current -= 1;
+      const pending = pendingSnapshot.current;
+      pendingSnapshot.current = null;
+      if (notesCas && pending !== null && savingCount.current === 0) applyExternal(pending);
       setSaving(false);
     }
+  };
+
+  const handleSave = async () => {
+    const input: ProjectNoteInput = {
+      workspaceId,
+      blockId: editor.blockId,
+      text: editor.text,
+      ...(notesCas ? {
+        expectedRevision: editor.kind === "saved" ? editor.loadedRevision : null,
+        expectation: editor.kind === "saved" ? "matchesRevision" as const : "absent" as const,
+      } : {}),
+    };
+    await writeNote(input, editor.kind === "new");
+  };
+
+  const overwriteConflict = async () => {
+    if (conflict === null) return;
+    const present = conflict.current.kind === "present";
+    await writeNote({
+      workspaceId,
+      blockId: editor.blockId,
+      text: editor.text,
+      expectedRevision: present ? conflict.current.revision : null,
+      expectation: present ? "matchesRevision" : "absent",
+    }, !present);
+  };
+
+  const discardToDisk = () => {
+    if (snapshot.kind !== "ready") return;
+    const note = snapshot.notes.find((item) => item.blockId === editor.blockId);
+    setConflict(null);
+    setDiskBanner("");
+    setError("");
+    setSavedMessage("");
+    if (note === undefined) {
+      const next: NoteEditor = { kind: "new", blockId: editor.blockId, text: "", loadedText: "", loadedRevision: null };
+      editorRef.current = next;
+      setEditor(next);
+      setDiskNotice("This note was removed on disk.");
+    } else {
+      const next: NoteEditor = {
+        kind: "saved",
+        blockId: note.blockId,
+        text: note.text,
+        loadedText: note.text,
+        loadedRevision: note.revision ?? null,
+      };
+      editorRef.current = next;
+      setEditor(next);
+      setDiskNotice("");
+    }
+    lastAppliedRef.current = noteRevisionMap(snapshot.notes);
   };
 
   useEffect(() => {
@@ -172,7 +314,16 @@ export default function ProjectNotesDialog({
     try {
       const updated = await source.remove({ workspaceId, blockId: editor.blockId });
       onSnapshot(updated);
-      setEditor(noteEditorForBlock(currentBlockId ?? "", updated.kind === "ready" ? updated.notes : []));
+      if (notesCas && updated.kind === "ready") {
+        lastAppliedRef.current = noteRevisionMap(updated.notes);
+        snapshotSeen.current = updated;
+      }
+      const next = noteEditorForBlock(currentBlockId ?? "", updated.kind === "ready" ? updated.notes : []);
+      editorRef.current = next;
+      setEditor(next);
+      setConflict(null);
+      setDiskBanner("");
+      setDiskNotice("");
       setSavedMessage("Note removed");
     } catch (cause: unknown) {
       setError(noteErrorMessage(cause, "Could not remove this project note."));
@@ -230,10 +381,7 @@ export default function ProjectNotesDialog({
 
   const handleNewNote = () => {
     if (currentBlockId === null) return;
-    const existing = notes.find((note) => note.blockId === currentBlockId);
-    chooseEditor(existing === undefined
-      ? { kind: "new", blockId: currentBlockId, text: "" }
-      : { kind: "saved", blockId: existing.blockId, text: existing.text });
+    chooseEditor(noteEditorForBlock(currentBlockId, notes));
   };
 
   return (
@@ -291,7 +439,7 @@ export default function ProjectNotesDialog({
                   className={`project-note-row${note.blockId === editor.blockId ? " selected" : ""}`}
                   key={note.blockId}
                   type="button"
-                  onClick={() => chooseEditor({ kind: "saved", blockId: note.blockId, text: note.text })}
+                  onClick={() => chooseEditor(noteEditorForBlock(note.blockId, notes))}
                 >
                   <span className="project-note-row-title">{noteLabel(note, map)}</span>
                   <span className="project-note-row-preview">{note.text.replaceAll("\n", " ")}</span>
@@ -325,6 +473,29 @@ export default function ProjectNotesDialog({
             </div>
 
             {snapshot.kind === "error" && <div className="project-notes-error" role="alert">{snapshot.message}</div>}
+            {notesCas && diskBanner.length > 0 && (
+              <div className="notes-disk-banner" role="status">
+                <p>{diskBanner} Your draft is unchanged.</p>
+                <div className="notes-disk-banner-actions">
+                  <button className="notes-new-button" type="button" onClick={discardToDisk}>Reload</button>
+                  <button className="notes-new-button" type="button" onClick={() => setDiskBanner("")}>Dismiss</button>
+                </div>
+              </div>
+            )}
+            {notesCas && diskNotice.length > 0 && <p className="project-note-feedback" role="status">{diskNotice}</p>}
+            {notesCas && conflict !== null && (
+              <div className="notes-conflict" role="alert">
+                <p>This note changed on disk. Your draft is still here.</p>
+                {conflict.current.kind === "deleted"
+                  ? <p>The saved note was removed.</p>
+                  : <p className="notes-conflict-disk">{conflict.current.text}</p>}
+                <div className="notes-disk-banner-actions">
+                  <button className="notes-save-button" type="button" onClick={() => void overwriteConflict()} disabled={saving || committing}>Overwrite</button>
+                  <button className="notes-new-button" type="button" onClick={discardToDisk} disabled={saving || committing}>Reload</button>
+                  <button className="notes-new-button" type="button" onClick={() => setConflict(null)} disabled={saving || committing}>Cancel</button>
+                </div>
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               className="project-note-textarea"
@@ -335,7 +506,16 @@ export default function ProjectNotesDialog({
               onChange={(event) => { setEditor({ ...editor, text: event.currentTarget.value }); setSavedMessage(""); }}
             />
             {source.git !== undefined && selectedNote !== undefined && editor.kind === "saved" && (
-              <NotesGitPanel key={selectedNote.blockId} source={source.git} workspaceId={workspaceId} note={selectedNote} disabled={saving || isDirty} onBusy={setCommitting} />
+              <NotesGitPanel
+                key={selectedNote.blockId}
+                source={source.git}
+                workspaceId={workspaceId}
+                note={selectedNote}
+                disabled={saving || isDirty || (notesCas && (diskBanner.length > 0 || (selectedNote.revision ?? null) !== editor.loadedRevision))}
+                disabledReason={notesCas && (selectedNote.revision ?? null) !== editor.loadedRevision ? "Notes changed on disk. Reload this note before committing it." : undefined}
+                refreshToken={gitRefresh}
+                onBusy={setCommitting}
+              />
             )}
             <div className="project-note-footer">
               <div className="project-note-feedback" aria-live="polite">

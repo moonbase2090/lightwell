@@ -968,11 +968,19 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
           const watchMap = mapSource.watchMap;
           if (watchMap !== undefined) {
+            const onNotes = typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true"
+              ? (snapshot: ProjectNotesSnapshot) => {
+                  if (cancelled) return;
+                  setLoadedMap((current) => current.kind === "ready" && current.id === mapKey
+                    ? { ...current, projectNotes: snapshot }
+                    : current);
+                }
+              : undefined;
             void watchMap.call(mapSource, mapKey, acceptUpdate, (error) => {
               if (!cancelled) {
                 setWorkspaceError(`Live refresh failed: ${describeError(error, "The workspace watcher stopped.")}`);
               }
-            }).then((cleanup) => {
+            }, onNotes).then((cleanup) => {
               if (cancelled) cleanup();
               else unwatch = cleanup;
             }).catch((error: unknown) => {
