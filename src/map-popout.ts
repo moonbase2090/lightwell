@@ -1,5 +1,6 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export const MAP_POPOUT_LABEL = "map-popout";
@@ -123,6 +124,11 @@ export async function openMapPopoutWindow(workspaceId: string): Promise<void> {
 }
 
 export async function closeMapPopoutWindow(): Promise<void> {
+  const current = getCurrentWindow();
+  if (current.label === MAP_POPOUT_LABEL) {
+    await current.close();
+    return;
+  }
   const existing = await WebviewWindow.getByLabel(MAP_POPOUT_LABEL);
   if (existing !== null) await existing.close();
 }

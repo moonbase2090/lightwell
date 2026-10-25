@@ -2097,7 +2097,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             {projectNotes.kind === "ready" && projectNotes.notes.length > 0 && <span>{projectNotes.notes.length}</span>}
           </button>
         )}
-        {import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri() && !isMapPopoutSearch(window.location.search) && (
+        {import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri() && mapKey !== null && !isMapPopoutSearch(window.location.search) && (
           <button
             className="map-popout-button"
             type="button"
