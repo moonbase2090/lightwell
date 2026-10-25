@@ -358,8 +358,8 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                     }
                 }
             };
-            match set_project_note(&repository, &block_id, &text) {
-                Ok(()) => {}
+            let note = match set_project_note(&repository, &block_id, &text) {
+                Ok(note) => note,
                 Err(error) => {
                     if let NotesError::BlockNotFound(_) = error {
                         eprintln!("lightwell: {error}");
@@ -372,17 +372,14 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                     }
                     return Err(error.into());
                 }
-            }
+            };
             match options.output {
                 NotesOutput::Human => {
                     println!("Saved note for `{block_id}` in `.lightwell/notes.json`.");
                 }
                 NotesOutput::Json => {
-                    let notes = list_project_notes(&repository)?;
-                    let note = notes
-                        .iter()
-                        .find(|note| note.block_id == block_id)
-                        .ok_or_else(|| NotesError::NoteNotFound(block_id.clone()))?;
+                    // Use the note returned from the write's extraction — do not
+                    // re-extract via list_project_notes for JSON metadata.
                     write_notes_json(serde_json::json!({
                         "blockId": note.block_id,
                         "text": note.text,

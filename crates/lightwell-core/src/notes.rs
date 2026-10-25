@@ -335,9 +335,13 @@ pub fn set_project_note(
     repository_path: impl AsRef<Path>,
     block_id: &str,
     text: &str,
-) -> Result<(), NotesError> {
+) -> Result<ProjectNoteView, NotesError> {
     let (root, map) = workspace_map(repository_path)?;
-    set_project_note_for_map(&root, &map, block_id, text).map(|_| ())
+    let notes = set_project_note_for_map(&root, &map, block_id, text)?;
+    notes
+        .into_iter()
+        .find(|note| note.block_id == block_id)
+        .ok_or_else(|| NotesError::NoteNotFound(block_id.to_owned()))
 }
 
 pub fn set_project_note_for_map(
@@ -386,19 +390,49 @@ fn workspace_map(repository_path: impl AsRef<Path>) -> Result<(PathBuf, FactMap)
 }
 
 fn resolve_note_author(project_root: &Path) -> String {
-    let Ok(repo) = git2::Repository::discover(project_root) else {
+    // Deliberate provenance: only the project's Git identity, via the same
+    // `git` CLI path notes already use for commits — not libgit2 and not an
+    // invented OS username. Outside a work tree, do not read global config.
+    if !git_is_inside_work_tree(project_root) {
         return DEFAULT_NOTE_AUTHOR.to_owned();
+    }
+    let name = git_config_value(project_root, "user.name");
+    let email = git_config_value(project_root, "user.email");
+    match (name.as_deref(), email.as_deref()) {
+        (None, None) => DEFAULT_NOTE_AUTHOR.to_owned(),
+        (Some(name), None) => name.to_owned(),
+        (None, Some(email)) => format!("<{email}>"),
+        (Some(name), Some(email)) => format!("{name} <{email}>"),
+    }
+}
+
+fn git_is_inside_work_tree(project_root: &Path) -> bool {
+    let Ok(output) = std::process::Command::new("git")
+        .args(["-C"])
+        .arg(project_root)
+        .args(["rev-parse", "--is-inside-work-tree"])
+        .output()
+    else {
+        return false;
     };
-    let Ok(signature) = repo.signature() else {
-        return DEFAULT_NOTE_AUTHOR.to_owned();
-    };
-    let name = signature.name().unwrap_or("").trim();
-    let email = signature.email().unwrap_or("").trim();
-    match (name.is_empty(), email.is_empty()) {
-        (true, true) => DEFAULT_NOTE_AUTHOR.to_owned(),
-        (false, true) => name.to_owned(),
-        (true, false) => format!("<{email}>"),
-        (false, false) => format!("{name} <{email}>"),
+    output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true"
+}
+
+fn git_config_value(project_root: &Path, key: &str) -> Option<String> {
+    let output = std::process::Command::new("git")
+        .args(["-C"])
+        .arg(project_root)
+        .args(["config", "--get", key])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let value = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
     }
 }
 
