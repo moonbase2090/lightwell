@@ -530,7 +530,15 @@ fn confined_jvm_path(path: &Path, root: &Path) -> Option<PathBuf> {
 fn skipped_directory(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
-        "build" | ".gradle" | "target" | "node_modules" | "vendor" | ".git" | "dist" | "out"
+        "build"
+            | ".gradle"
+            | "target"
+            | "node_modules"
+            | "vendor"
+            | "testdata"
+            | ".git"
+            | "dist"
+            | "out"
     )
 }
 
@@ -1741,20 +1749,28 @@ mod tests {
             "target",
             "node_modules",
             "vendor",
+            "testdata",
             "dist",
             "out",
             ".gradle",
             ".git",
         ] {
             let dir = root.0.join(name);
-            fs::create_dir_all(&dir).expect("skipped dir");
+            fs::create_dir_all(dir.join("src/main/java")).expect("skipped dir");
             fs::write(
-                dir.join("Hidden.java"),
+                dir.join("pom.xml"),
+                format!("<project><artifactId>{name}</artifactId></project>\n"),
+            )
+            .expect("skipped pom");
+            fs::write(
+                dir.join("src/main/java/Hidden.java"),
                 format!("public class Hidden{name} {{}}\n"),
             )
             .expect("hidden");
         }
         let workspace = discover_jvm(&root.0).expect("discover");
+        assert_eq!(workspace.modules.len(), 1);
+        assert_eq!(workspace.modules[0].name, "skip");
         let names: Vec<_> = workspace
             .packages
             .iter()

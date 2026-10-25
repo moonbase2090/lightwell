@@ -250,11 +250,14 @@ test("jvm discovery skips generated directories and keeps invalid UTF-8 files", 
     mkdirSync(path.join(root, "src/main/java/com/example"), { recursive: true });
     writeFileSync(path.join(root, "src/main/java/com/example/Kept.java"), "package com.example;\npublic class Kept {}\n");
     writeFileSync(path.join(root, "src/main/java/Broken.java"), Buffer.from([0xff, 0xfe, 0x00]));
-    for (const name of ["build", "target", "node_modules", "vendor", "dist", "out", ".gradle", ".git"]) {
-      mkdirSync(path.join(root, name));
-      writeFileSync(path.join(root, name, "Hidden.java"), `public class Hidden${name.replaceAll(".", "")} {}\n`);
+    for (const name of ["build", "target", "node_modules", "vendor", "testdata", "dist", "out", ".gradle", ".git"]) {
+      mkdirSync(path.join(root, name, "src/main/java"), { recursive: true });
+      writeFileSync(path.join(root, name, "pom.xml"), `<project><artifactId>${name}</artifactId></project>\n`);
+      writeFileSync(path.join(root, name, "src/main/java/Hidden.java"), `public class Hidden${name.replaceAll(".", "")} {}\n`);
     }
     const workspace = discoverJvm(root);
+    assert.equal(workspace.modules.length, 1);
+    assert.equal(workspace.modules[0]?.name, "skip");
     const names = workspace.packages.flatMap((pkg) => pkg.files.flatMap((file) => file.symbols.map((symbol) => symbol.name)));
     assert.deepEqual(names, ["Kept"]);
     const broken = workspace.packages.flatMap((pkg) => pkg.files).find((file) => file.path.endsWith("Broken.java"));

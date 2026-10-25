@@ -52,6 +52,7 @@ const skippedDirectories = new Set([
   "target",
   "node_modules",
   "vendor",
+  "testdata",
   ".git",
   "dist",
   "out",

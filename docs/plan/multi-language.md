@@ -13,7 +13,7 @@ Lightwell is adding source languages beyond Rust workspace manifests. TypeScript
 - **Python** (existing pack)
 - **Go** (`.go` packages when `go.mod` is present)
 - **C# and VB.NET** (one .NET pack, on by default): solutions and projects, namespaces, types, methods, project references, and resolved type names. `bin/` and `obj/` are skipped.
-- **Java and Kotlin** (one JVM pack, on by default): Maven and Gradle modules, packages, classes, and imports. `.java`, `.kt`, and `.kts`. `build/`, `.gradle/`, `target/`, and `out/` are skipped.
+- **Java and Kotlin** (one JVM pack, on by default): Maven and Gradle modules, packages, classes, and imports. `.java`, `.kt`, and `.kts`. `build/`, `.gradle/`, `target/`, `out/`, and `testdata/` are skipped.
 
 Vue, Svelte, Astro, Angular, other meta-frameworks, and bundler/monorepo orchestrator graphs ship **after v0.1.4** in follow-up PRs.
 
