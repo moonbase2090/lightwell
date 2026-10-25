@@ -28,7 +28,7 @@
       }
     ],
     "security": {
-      "capabilities": ["default"]
+      "capabilities": ["default", "map-popout"]
     }
   },
   "bundle": {
