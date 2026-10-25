@@ -19,7 +19,7 @@ test("deleted symbol opens its historical diff without a current-map block", asy
       line: 3, originalLine: 3,
     },
   });
-  await page.getByLabel("Show changes through this commit").selectOption({ index: 1 });
+  await page.getByLabel("Show changes", { exact: true }).selectOption("lastCommit");
   await page.getByRole("button", { name: "Expand change list" }).click();
   await expect(page.getByRole("button", { name: "Added block added +2 −0" })).toBeVisible();
   await page.getByRole("button", { name: "Removed block retired +0 −2" }).click();
@@ -39,21 +39,23 @@ test.describe("commit diff (ipc)", () => {
   test.beforeEach(async ({ page }) => gotoIpc(page));
 
   async function pickThrough(page: import("@playwright/test").Page) {
-    const select = page.getByLabel("Show changes through this commit");
+    const select = page.getByLabel("Show changes", { exact: true });
     await expect(select).toBeVisible();
     const options = await select.locator("option").count();
     expect(options).toBeGreaterThan(1);
-    await select.selectOption({ index: 1 });
+    await select.selectOption("lastCommit");
   }
 
-  test("DIFF-01: Through commit selector lists commits", async ({ page }) => {
+  test("DIFF-01: Show changes selector offers presets", async ({ page }) => {
     await pickThrough(page);
-    await expect(page.getByLabel("Show changes through this commit")).not.toHaveValue("");
+    await expect(page.getByLabel("Show changes", { exact: true })).toHaveValue("lastCommit");
   });
 
-  test("DIFF-02: Since selector appears after a Through pick", async ({ page }) => {
+  test("DIFF-02: Custom presents older From before newer To", async ({ page }) => {
     await pickThrough(page);
-    await expect(page.getByLabel("Start the range after this commit")).toBeVisible();
+    await page.getByLabel("Show changes", { exact: true }).selectOption("custom");
+    await expect(page.getByLabel("From (older commit, excluded)")).toBeVisible();
+    await expect(page.getByLabel("To (newer commit, included)")).toBeVisible();
   });
 
   test("DIFF-03: Reading commit state resolves", async ({ page }) => {
@@ -93,7 +95,7 @@ test.describe("commit diff (ipc)", () => {
     // Two captured entries: the changed block, then the outside-map file.
     const position = page.locator(".commit-diff-position");
     await expect(position).toHaveText("1 / 2");
-    // Drop focus from the Through/Since selects first: the bracket handler
+    // Drop focus from the range selects first: the bracket handler
     // ignores keys typed inside inputs and selects, and clicking the banner
     // to blur can land on its wrapped controls in narrow viewports.
     await page.evaluate(() => {

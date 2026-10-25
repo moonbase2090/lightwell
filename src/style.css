@@ -921,11 +921,17 @@ button.node-note-badge:hover, button.node-note-badge:focus-visible { background:
 .settings-shortcut-action:disabled { opacity: .45; cursor: default; }
 
 /* Commit diff view (opt out with VITE_ENABLE_COMMIT_DIFF=false). */
-.commit-picker { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; margin-right: 8px; font-size: calc(12px * var(--lw-ui-scale, 1)); }
-.commit-picker label { display: inline-flex; align-items: center; gap: 4px; }
-.commit-picker-label { opacity: .75; font-size: calc(11px * var(--lw-ui-scale, 1)); }
-.commit-picker select { max-width: 220px; padding: 4px 6px; border: 1px solid rgba(140,170,220,.3); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+.commit-picker { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid rgba(140,170,220,.2); font-size: calc(12px * var(--lw-ui-scale, 1)); }
+.commit-picker label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.commit-picker-label { font-weight: 600; }
+.commit-picker select { max-width: 240px; min-width: 0; padding: 4px 6px; border: 1px solid rgba(140,170,220,.3); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .commit-picker option { color: #0c1a30; }
+.commit-custom-range { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; flex-basis: 100%; }
+.commit-custom-range label { flex-direction: column; align-items: stretch; }
+.commit-custom-range select { width: 100%; max-width: 100%; }
+.commit-range-help, .commit-range-notice { color: var(--muted); font-size: calc(11px * var(--lw-ui-scale, 1)); }
+.commit-range-help, .commit-custom-range [role="status"] { grid-column: 1 / -1; }
+.commit-range-notice { flex-basis: 100%; overflow-wrap: anywhere; }
 .commit-diff-banner { display: flex; flex-direction: column; gap: 8px; padding: 6px 14px; font-size: calc(12px * var(--lw-ui-scale, 1)); border-bottom: 1px solid rgba(140,170,220,.2); background: rgba(95,210,170,.08); }
 .commit-diff-banner-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%; }
 .commit-diff-banner code { font-size: calc(11px * var(--lw-ui-scale, 1)); color: #8fe3c5; }

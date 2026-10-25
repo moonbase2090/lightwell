@@ -6,6 +6,7 @@ import {
   parseBlockDiffDocument,
   parseCommitChanges,
   parseCommitSummaries,
+  parseResolvedCommitRange,
   parseEditorSettings,
   parseEditorTemplatePresets,
   parseMapSourceDocument,
@@ -53,6 +54,9 @@ const projectNotesApi: ProjectNotesSource = {
 };
 
 const historyApi: MapHistorySource = {
+  resolveRange(workspaceId, through, preset) {
+    return invoke<unknown>("workspace_commit_range", { path: workspaceId, through, preset }).then(parseResolvedCommitRange);
+  },
   listCommits(workspaceId) {
     return invoke<unknown>("recent_workspace_commits", { path: workspaceId }).then(parseCommitSummaries);
   },

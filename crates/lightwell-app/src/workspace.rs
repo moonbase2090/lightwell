@@ -123,6 +123,16 @@ pub fn workspace_since_commits(
 }
 
 #[tauri::command(async)]
+pub fn workspace_commit_range(
+    path: String,
+    through: String,
+    preset: lightwell_core::CommitRangePreset,
+) -> Result<lightwell_core::ResolvedCommitRange, String> {
+    let root = workspace_root(&path)?;
+    lightwell_core::resolve_commit_range(&root, &through, preset)
+}
+
+#[tauri::command(async)]
 pub fn workspace_commit_changes(
     watchers: State<'_, WorkspaceWatchers>,
     path: String,

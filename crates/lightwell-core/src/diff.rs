@@ -5,6 +5,9 @@
 //! their module's file. Each symbol owns the lines from its definition to the
 //! next top-level symbol. Additions use the after file; removals use the before file.
 
+mod ranges;
+pub use ranges::{resolve_commit_range, CommitRangePreset, ResolvedCommitRange};
+
 use crate::dotnet_source::{parse_csharp_source, parse_vb_source};
 use crate::extract::MapExtractionError;
 use crate::extract::{block_base, extract_cargo_map, project_manifest};

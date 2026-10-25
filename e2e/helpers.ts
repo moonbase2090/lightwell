@@ -1,7 +1,7 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { BlockDiffDocument, CommitChanges } from "../src/map-source.js";
+import type { BlockDiffDocument, CommitChanges, CommitSummary, ResolvedCommitRange } from "../src/map-source.js";
 
 // ---------------------------------------------------------------------------
 // Console / pageerror gate
@@ -63,6 +63,8 @@ const CAPTURES_JSON = readFileSync(
 
 export async function gotoIpc(page: Page, overrides: {
   readonly changes?: CommitChanges;
+  readonly commits?: readonly CommitSummary[];
+  readonly ranges?: Readonly<Record<string, ResolvedCommitRange | string>>;
   readonly diff?: BlockDiffDocument;
 } = {}): Promise<void> {
   await page.route("**/__lw-captures.json", (route) =>
@@ -92,7 +94,8 @@ export async function gotoIpc(page: Page, overrides: {
         workspaces: { id: string; label: string }[];
         maps: Record<string, unknown>;
         sources: Record<string, unknown>;
-        commits: unknown[];
+        commits: { id: string }[];
+        ranges?: Record<string, unknown>;
         changes: unknown;
         diff: unknown;
         presets: unknown[];
@@ -151,9 +154,25 @@ export async function gotoIpc(page: Page, overrides: {
           return snapshot();
         }
         case "recent_workspace_commits":
-        case "workspace_since_commits":
           return caps.commits;
+        case "workspace_since_commits":
+          return caps.commits.filter((commit) => commit.id !== args.through);
+        case "workspace_commit_range": {
+          w.__LW_RANGE_INPUT__ = args;
+          if (typeof args.preset !== "object" || args.preset === null || !("kind" in args.preset)) {
+            throw new Error("Invalid captured range request");
+          }
+          const kind = args.preset.kind;
+          if (typeof kind !== "string") throw new Error("Invalid captured range request");
+          const response = caps.ranges?.[kind];
+          if (typeof response === "string") throw new Error(response);
+          if (response) return response;
+          if (typeof caps.changes !== "object" || caps.changes === null || !("commit" in caps.changes)) throw new Error("Missing captured commit");
+          const changes = caps.changes;
+          return { commit: changes.commit, baseCommit: null, commitCount: 1, releaseTag: null };
+        }
         case "workspace_commit_changes":
+          w.__LW_RANGE_DIFF_INPUT__ = args;
           return caps.changes;
         case "workspace_block_diff":
         case "workspace_path_diff":

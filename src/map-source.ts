@@ -132,8 +132,20 @@ export interface BlockDiffDocument {
   readonly originalLine: number | null;
 }
 
+export type CommitRangePreset =
+  | { readonly kind: "lastCommit" | "lastFive" | "sinceRelease" }
+  | { readonly kind: "custom"; readonly from: string | null };
+
+export interface ResolvedCommitRange {
+  readonly commit: CommitSummary;
+  readonly baseCommit: CommitSummary | null;
+  readonly commitCount: number;
+  readonly releaseTag: string | null;
+}
+
 /** Git history for the commit diff view. */
 export interface MapHistorySource {
+  resolveRange(workspaceId: string, through: string, preset: CommitRangePreset): Promise<ResolvedCommitRange>;
   listCommits(workspaceId: string): Promise<readonly CommitSummary[]>;
   listSinceCommits(workspaceId: string, throughCommitId: string): Promise<readonly CommitSummary[]>;
   commitChanges(workspaceId: string, commitId: string, baseCommitId?: string | null): Promise<CommitChanges>;

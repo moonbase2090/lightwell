@@ -116,8 +116,8 @@ The commit picker lights up the blocks one commit, or a range of commits, change
 
 | ID | Control or state | Where it lives | Expected behavior | Coverage |
 | --- | --- | --- | --- | --- |
-| DIFF-01 | Through commit selector | Map toolbar in `App`, shown when history exists and commits were found | Lists recent commits as "short-id summary" under a "Through" label, starting from "No commit". Picking one loads everything that commit changed. Clearing it also clears the Since choice (DIFF-02). No history or no commits hides the whole picker. | ipc |
-| DIFF-02 | Since commit selector | Map toolbar in `App`, shown after a Through pick | Lists the commits before the Through commit under a "Since" label. "This commit only" diffs the single commit; picking a commit diffs everything after it through the Through commit. If the picked commit leaves the list, the choice resets to "This commit only". Changing either selector resets the change list to collapsed, "Only changed" off, and focus at the first entry. | ipc |
+| DIFF-01 | Show changes presets | Dedicated row below the map toolbar in `CommitRangePicker` | Off clears the diff. Last commit, Last 5 commits and Since last release resolve explicit Git endpoints and exact commit counts, ending at the newest listed project commit. Missing tags, unsupported short/merge history and read failures show explanations. A release at the endpoint shows an empty range. Uncommitted changes are not offered. | ipc, app |
+| DIFF-02 | Custom commit range | Expanded range row in `CommitRangePicker` | From (older) precedes To (newer). Changes exclude From and include To. From lists strict ancestors in recent history; Before To shows one commit. Choosing a new To resets From to one commit. Summary counts come from Git, not picker length. Changing the selection resets change-list expansion, Only changed, and entry focus. | ipc, app |
 | DIFF-03 | Reading commit state | Banner under the map toolbar in `App` | While the diff loads, the banner reads "Reading commit…". | ipc |
 | DIFF-04 | Commit error state | Banner under the map toolbar in `App` | A failed read shows the error in the banner with a Clear button that clears both commit selectors. | ipc |
 | DIFF-05 | Diff summary banner | `CommitDiffSummary` under the map toolbar | Names the commit, or "base…through" for a range, then counts changed blocks, changed connections when any, and files outside the map when any. Changed blocks on the map and in the tree gain "+n −n" badges (MAP-07, TREE-09), ancestors of a changed block show the rolled-up count, and unchanged blocks dim. Connection edges restyle as added, changed, or removed. | ipc |
@@ -293,8 +293,8 @@ Playwright test titles mapped to the feature IDs they prove. APP-10 is not cover
 | EDIT-08 | EDIT-08: editor launch succeeds with the mock | ipc |
 | EDIT-09 | EDIT-09: word wrap item is in the source-line menu | ipc |
 | EDIT-10 | EDIT-10: Alt+Z toggles word wrap in the editor | ipc |
-| DIFF-01 | DIFF-01: Through commit selector lists commits | ipc |
-| DIFF-02 | DIFF-02: Since selector appears after a Through pick | ipc |
+| DIFF-01 | DIFF-01: Show changes selector offers presets | ipc |
+| DIFF-02 | DIFF-02: Custom presents older From before newer To | ipc |
 | DIFF-03 | DIFF-03: Reading commit state resolves | ipc |
 | DIFF-04 | DIFF-04: no commit error on captured history | ipc |
 | DIFF-05 | DIFF-05: diff summary banner names the commit | ipc |
