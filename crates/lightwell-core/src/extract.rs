@@ -1,3 +1,4 @@
+use crate::cpp_source::{discover_cpp_targets, CppFile, CppSymbol, CppTarget};
 use crate::dotnet_source::{
     discover_dotnet, DotnetFile, DotnetImport, DotnetSymbolKind, DotnetWorkspace,
 };
@@ -68,6 +69,7 @@ const PROJECT_MANIFESTS: &[&str] = &[
     "package.json",
     "tsconfig.json",
     "jsconfig.json",
+    "CMakeLists.txt",
 ];
 
 /// The manifest that shows `root` is a project Lightwell can open.
@@ -190,6 +192,7 @@ pub(crate) fn map_workspace(
     let ruby_packages = discover_ruby_packages(&root_path)?;
     let typescript_modules = discover_typescript_modules(&root_path)?;
     let dotnet = discover_dotnet(&root_path)?;
+    let cpp_targets = discover_cpp_targets(&root_path)?;
     let mut workspace_inputs: Vec<_> = crate_fingerprints
         .into_iter()
         .map(|(name, fingerprint)| format!("{name}:{fingerprint}"))
@@ -247,6 +250,20 @@ pub(crate) fn map_workspace(
                 workspace_inputs.push(format!(
                     "ruby:{}:{}:{fingerprint}",
                     package.import_path,
+                    file.path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("file")
+                ));
+            }
+        }
+    }
+    for target in &cpp_targets {
+        for file in &target.files {
+            if let Ok(fingerprint) = fingerprints.file(&file.path) {
+                workspace_inputs.push(format!(
+                    "cpp:{}:{}:{fingerprint}",
+                    target.name,
                     file.path
                         .file_name()
                         .and_then(|name| name.to_str())
@@ -317,6 +334,14 @@ pub(crate) fn map_workspace(
     )?;
     append_ruby_blocks(
         &ruby_packages,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
+    append_cpp_blocks(
+        &cpp_targets,
         &root_path,
         &project_id,
         &mut fingerprints,
@@ -2101,6 +2126,224 @@ pub(crate) fn language_id_encode(value: &str) -> String {
         }
     }
     out
+}
+
+fn append_cpp_blocks(
+    targets: &[CppTarget],
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let mut file_ids: HashMap<PathBuf, String> = HashMap::new();
+    for target in targets {
+        let target_id = cpp_target_block_id(&target.name);
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: target_id.clone(),
+                label: target.name.clone(),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: Some(relative_path(root_path, &target.directory)),
+                fingerprint: cpp_target_fingerprint(target, fingerprints)?,
+            },
+            package_name: target.name.clone(),
+            module_path: target.name.clone(),
+            declared_by_path: relative_path(root_path, &target.directory),
+            cfg_attributes: vec![target.kind.outline_label().to_owned()],
+            unresolved: target.files.iter().all(|file| file.unreadable),
+            language: "cpp".to_owned(),
+        }));
+        connections.push(contains_connection(workspace_id, &target_id));
+        for file in &target.files {
+            let file_id = append_cpp_file(
+                &target_id,
+                target,
+                file,
+                root_path,
+                fingerprints,
+                blocks,
+                connections,
+            )?;
+            file_ids.insert(normalize_path(&file.path), file_id);
+        }
+    }
+    append_cpp_include_connections(targets, root_path, &file_ids, connections);
+    Ok(())
+}
+
+fn cpp_target_fingerprint(
+    target: &CppTarget,
+    fingerprints: &mut FileFingerprints,
+) -> Result<String, MapExtractionError> {
+    let mut parts = Vec::new();
+    for file in &target.files {
+        parts.push(fingerprints.file(&file.path)?);
+    }
+    parts.sort();
+    Ok(hash_text(&parts.join("\n")))
+}
+
+fn append_cpp_file(
+    target_id: &str,
+    target: &CppTarget,
+    file: &CppFile,
+    root_path: &Path,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<String, MapExtractionError> {
+    let relative = relative_path(root_path, &file.path);
+    let without_ext = strip_source_extension(&relative);
+    let module_path = format!("{}/{}", target.name, without_ext);
+    let id = cpp_file_block_id(&module_path);
+    let fingerprint = fingerprints.file(&file.path)?;
+    let label = Path::new(&relative)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("file")
+        .to_owned();
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label,
+            parent_id: Some(target_id.to_owned()),
+            children: Vec::new(),
+            source_path: Some(relative.clone()),
+            fingerprint: fingerprint.clone(),
+        },
+        package_name: target.name.clone(),
+        module_path: module_path.clone(),
+        declared_by_path: relative,
+        cfg_attributes: file
+            .includes
+            .iter()
+            .map(|include| include.statement())
+            .collect(),
+        unresolved: file.unreadable,
+        language: "cpp".to_owned(),
+    }));
+    connections.push(contains_connection(target_id, &id));
+    for symbol in &file.symbols {
+        append_cpp_symbol(
+            &id,
+            target,
+            &module_path,
+            symbol,
+            &fingerprint,
+            blocks,
+            connections,
+        );
+    }
+    Ok(id)
+}
+
+fn append_cpp_symbol(
+    parent_id: &str,
+    target: &CppTarget,
+    file_module_path: &str,
+    symbol: &CppSymbol,
+    fingerprint: &str,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) {
+    let module_path = format!("{}.{}", file_module_path, symbol.name);
+    let id = cpp_symbol_block_id(&module_path, symbol.outline_label());
+    let relative = blocks.iter().find_map(|block| match block {
+        FactBlock::Module(parent) if parent.base.id == parent_id => parent.base.source_path.clone(),
+        _ => None,
+    });
+    let declared = relative.clone().unwrap_or_default();
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: symbol.name.clone(),
+            parent_id: Some(parent_id.to_owned()),
+            children: Vec::new(),
+            source_path: relative,
+            fingerprint: fingerprint.to_owned(),
+        },
+        package_name: target.name.clone(),
+        module_path,
+        declared_by_path: declared,
+        cfg_attributes: vec![symbol.outline_label().to_owned()],
+        unresolved: false,
+        language: "cpp".to_owned(),
+    }));
+    connections.push(contains_connection(parent_id, &id));
+}
+
+fn append_cpp_include_connections(
+    targets: &[CppTarget],
+    root_path: &Path,
+    file_ids: &HashMap<PathBuf, String>,
+    connections: &mut Vec<Connection>,
+) {
+    let mut edges = HashSet::new();
+    for target in targets {
+        for file in &target.files {
+            if file.unreadable {
+                continue;
+            }
+            let Some(source_id) = file_ids.get(&normalize_path(&file.path)) else {
+                continue;
+            };
+            let parent = file.path.parent().unwrap_or(root_path);
+            for include in &file.includes {
+                if include.system {
+                    continue;
+                }
+                let candidates = [
+                    normalize_path(&parent.join(&include.path)),
+                    normalize_path(&root_path.join(&include.path)),
+                ];
+                for candidate in candidates {
+                    if let Some(target_id) = file_ids.get(&candidate) {
+                        if target_id != source_id {
+                            let id = connection_id("depends_on", source_id, target_id);
+                            if edges.insert(id.clone()) {
+                                connections.push(Connection::DependsOn {
+                                    id,
+                                    source: source_id.clone(),
+                                    target: target_id.clone(),
+                                    dependency_scope: DependencyScope::Normal,
+                                });
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn strip_source_extension(relative: &str) -> String {
+    let path = Path::new(relative);
+    match path.extension().and_then(|ext| ext.to_str()) {
+        Some(ext)
+            if matches!(
+                ext.to_ascii_lowercase().as_str(),
+                "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hpp" | "hxx"
+            ) =>
+        {
+            path.with_extension("").to_string_lossy().replace('\\', "/")
+        }
+        _ => relative.replace('\\', "/"),
+    }
+}
+
+fn cpp_target_block_id(name: &str) -> String {
+    format!("module:cpp:{}", slug(name))
+}
+
+fn cpp_file_block_id(module_path: &str) -> String {
+    format!("module:cpp:{}", slug(module_path))
+}
+
+fn cpp_symbol_block_id(module_path: &str, kind: &str) -> String {
+    format!("module:cpp:{}:{}", slug(module_path), slug(kind))
 }
 
 fn append_python_blocks(
