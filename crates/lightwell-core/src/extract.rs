@@ -31,7 +31,7 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt::{Display, Formatter};
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 
 #[derive(Debug)]
@@ -148,6 +148,18 @@ pub fn extract_cargo_map(
     map_workspace(discover_project_workspace(repository_path)?, project_name)
 }
 
+/// Discover the project and extract its map once.
+///
+/// Notes commands use this so one invocation does not discover and extract separately.
+pub fn extract_project_map(
+    repository_path: impl AsRef<Path>,
+) -> Result<(PathBuf, FactMap), MapExtractionError> {
+    let workspace = discover_project_workspace(repository_path)?;
+    let root = workspace.root.clone();
+    let map = map_workspace(workspace, None)?;
+    Ok((root, map))
+}
+
 /// Find the Cargo workspace for `repository_path`, or an empty one when the
 /// folder is a Node, TypeScript, JavaScript, Go, PHP, Ruby, Swift, or .NET project
 /// without a root `Cargo.toml`. The initial map and live refresh both use this,
@@ -181,6 +193,7 @@ pub(crate) fn map_workspace(
     workspace: CargoWorkspace,
     project_name: Option<&str>,
 ) -> Result<FactMap, MapExtractionError> {
+    record_full_extract(&workspace.root);
     let root_path = workspace.root.clone();
     let project_label = project_name
         .map(str::to_owned)
@@ -3071,6 +3084,28 @@ fn slug(value: &str) -> String {
 
 fn hash_text(text: &str) -> String {
     format!("{:x}", Sha256::digest(text.as_bytes()))
+}
+
+/// Append one line when `LIGHTWELL_EXTRACT_TRACE` is a file path.
+/// Notes and extract tests use this to count full workspace extractions.
+/// Unset, the function does nothing.
+fn record_full_extract(root: &Path) {
+    let Ok(trace) = std::env::var("LIGHTWELL_EXTRACT_TRACE") else {
+        return;
+    };
+    if trace.is_empty() {
+        return;
+    }
+    let path = PathBuf::from(trace);
+    let mut file = match std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+    {
+        Ok(file) => file,
+        Err(_) => return,
+    };
+    let _ = writeln!(file, "extract {}", root.display());
 }
 
 #[derive(Default)]

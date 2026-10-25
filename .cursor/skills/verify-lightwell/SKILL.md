@@ -46,7 +46,7 @@ Read `.cursor/skills/verify-lightwell/features/README.md` and the feature file f
 Harness summary:
 
 - **CLI:** `target/debug/lightwell` (after build) or `cargo run -p lightwell-cli --locked --` with `extract`, `--name`, and `-o`.
-- **CLI project notes:** run `scripts/smoke-project-notes.sh target/debug/lightwell` after building the CLI. It saves notes in a temporary Git repository and checks ignored lock/temp files, unstaged trackable notes, preserved root ignore rules, and idempotent saves, then exercises stale detection and removal.
+- **CLI project notes:** run `scripts/smoke-project-notes.sh target/debug/lightwell` after building the CLI. It saves notes in a temporary Git repository and checks ignored lock/temp files, unstaged trackable notes, preserved root ignore rules, and idempotent saves, then exercises stale detection and removal. `notes list` and `notes set` accept optional `--map <facts.json>` to reuse a facts file from `lightwell extract` instead of extracting. Without `--map`, each command extracts the workspace once. Contract coverage is `cargo test -p lightwell-cli --locked --test notes_map_reuse`.
 - **Commit-diff concurrency:** follow `features/commit-map-concurrency.md` when changing commit-map extraction or temporary worktree ownership.
 - **Browser:** HTTP against the preview URL; built `dist/` must exist (`npm run build`).
 - **Desktop project notes (Linux only):** `scripts/ci/capture-project-notes.sh` with a built Tauri binary. See `features/project-notes-capture.md` for Xvfb, xdotool, ImageMagick, and the fixed layout. Skip it when those are missing; do not substitute the browser preview.
