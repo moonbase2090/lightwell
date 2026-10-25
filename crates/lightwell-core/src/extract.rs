@@ -23,6 +23,7 @@ use crate::python_source::{discover_python_modules, PythonModule, PythonSymbol};
 use crate::ruby_source::{
     discover_ruby_packages, resolve_ruby_require, RubyFile, RubyPackage, RubySymbol,
 };
+use crate::swift_source::{discover_swift_targets, SwiftFile, SwiftSymbol, SwiftTarget};
 use crate::typescript_source::{discover_typescript_modules, TypeScriptModule, TypeScriptSymbol};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -78,6 +79,7 @@ const PROJECT_MANIFESTS: &[&str] = &[
     "build.gradle.kts",
     "settings.gradle",
     "settings.gradle.kts",
+    "Package.swift",
     "package.json",
     "tsconfig.json",
     "jsconfig.json",
@@ -138,7 +140,7 @@ pub fn extract_cargo_map(
 }
 
 /// Find the Cargo workspace for `repository_path`, or an empty one when the
-/// folder is a Node, TypeScript, JavaScript, Go, PHP, Ruby, or .NET project
+/// folder is a Node, TypeScript, JavaScript, Go, PHP, Ruby, Swift, or .NET project
 /// without a root `Cargo.toml`. The initial map and live refresh both use this,
 /// so a project that opens also refreshes.
 pub fn discover_project_workspace(
@@ -224,6 +226,7 @@ pub(crate) fn map_workspace(
     let jvm = discover_jvm(&root_path)?;
     let cpp_targets = discover_cpp_targets(&root_path)?;
     let config_infra = discover_config_infra(&root_path)?;
+    let swift_targets = discover_swift_targets(&root_path)?;
     let mut workspace_inputs: Vec<_> = crate_fingerprints
         .into_iter()
         .map(|(name, fingerprint)| format!("{name}:{fingerprint}"))
@@ -336,6 +339,20 @@ pub(crate) fn map_workspace(
             ));
         }
     }
+    for target in &swift_targets {
+        for file in &target.files {
+            if let Ok(fingerprint) = fingerprints.file(&file.path) {
+                workspace_inputs.push(format!(
+                    "swift:{}:{}:{fingerprint}",
+                    target.name,
+                    file.path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("file")
+                ));
+            }
+        }
+    }
     workspace_inputs.sort();
     let workspace_fingerprint = hash_text(&workspace_inputs.join("\n"));
     blocks.insert(
@@ -422,6 +439,14 @@ pub(crate) fn map_workspace(
     )?;
     append_config_infra_blocks(
         &config_infra,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
+    append_swift_blocks(
+        &swift_targets,
         &root_path,
         &project_id,
         &mut fingerprints,
@@ -3198,4 +3223,187 @@ mod tests {
         fs::remove_dir_all(root).expect("react fixture should be removed");
         fs::remove_dir_all(empty).expect("empty fixture should be removed");
     }
+}
+fn append_swift_blocks(
+    targets: &[SwiftTarget],
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let target_ids: HashMap<String, String> = targets
+        .iter()
+        .map(|target| (target.name.clone(), swift_target_block_id(&target.name)))
+        .collect();
+    for target in targets {
+        let target_id = target_ids[&target.name].clone();
+        let module_path = format!("{}/{}", target.package_name, target.name);
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: target_id.clone(),
+                label: target.name.clone(),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: target
+                    .files
+                    .first()
+                    .map(|file| relative_path(root_path, &file.path)),
+                fingerprint: swift_target_fingerprint(target, fingerprints)?,
+            },
+            package_name: target.package_name.clone(),
+            module_path: module_path.clone(),
+            declared_by_path: relative_path(root_path, &target.directory),
+            cfg_attributes: target
+                .files
+                .iter()
+                .flat_map(|file| file.imports.iter().map(|import| import.statement.clone()))
+                .collect(),
+            unresolved: !target.files.is_empty() && target.files.iter().all(|file| file.unreadable),
+            language: "swift".to_owned(),
+        }));
+        connections.push(contains_connection(workspace_id, &target_id));
+        for file in &target.files {
+            append_swift_file(
+                &target_id,
+                target,
+                file,
+                root_path,
+                fingerprints,
+                blocks,
+                connections,
+            )?;
+        }
+        let mut import_edges = HashSet::new();
+        for file in &target.files {
+            for import in &file.imports {
+                if let Some(dest) = target_ids.get(&import.module) {
+                    if dest != &target_id {
+                        let id = connection_id("depends_on", &target_id, dest);
+                        if import_edges.insert(id.clone()) {
+                            connections.push(Connection::DependsOn {
+                                id,
+                                source: target_id.clone(),
+                                target: dest.clone(),
+                                dependency_scope: DependencyScope::Normal,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn swift_target_fingerprint(
+    target: &SwiftTarget,
+    fingerprints: &mut FileFingerprints,
+) -> Result<String, MapExtractionError> {
+    let mut parts = Vec::new();
+    for file in &target.files {
+        parts.push(fingerprints.file(&file.path)?);
+    }
+    parts.sort();
+    Ok(hash_text(&parts.join("\n")))
+}
+
+fn append_swift_file(
+    target_id: &str,
+    target: &SwiftTarget,
+    file: &SwiftFile,
+    root_path: &Path,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let stem = file
+        .path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("file");
+    let module_path = format!("{}/{}/{}", target.package_name, target.name, stem);
+    let id = swift_file_block_id(&module_path);
+    let relative = relative_path(root_path, &file.path);
+    let fingerprint = fingerprints.file(&file.path)?;
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: stem.to_owned(),
+            parent_id: Some(target_id.to_owned()),
+            children: Vec::new(),
+            source_path: Some(relative.clone()),
+            fingerprint: fingerprint.clone(),
+        },
+        package_name: target.package_name.clone(),
+        module_path: module_path.clone(),
+        declared_by_path: relative,
+        cfg_attributes: file
+            .imports
+            .iter()
+            .map(|import| import.statement.clone())
+            .collect(),
+        unresolved: file.unreadable,
+        language: "swift".to_owned(),
+    }));
+    connections.push(contains_connection(target_id, &id));
+    for symbol in &file.symbols {
+        append_swift_symbol(&id, target, file, symbol, &fingerprint, blocks, connections);
+    }
+    Ok(())
+}
+
+fn append_swift_symbol(
+    parent_id: &str,
+    target: &SwiftTarget,
+    file: &SwiftFile,
+    symbol: &SwiftSymbol,
+    fingerprint: &str,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) {
+    let stem = file
+        .path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("file");
+    let module_path = format!(
+        "{}/{}/{}.{}",
+        target.package_name, target.name, stem, symbol.name
+    );
+    let id = swift_symbol_block_id(&module_path, symbol.outline_label());
+    let relative = blocks.iter().find_map(|block| match block {
+        FactBlock::Module(parent) if parent.base.id == parent_id => parent.base.source_path.clone(),
+        _ => None,
+    });
+    let declared = relative.clone().unwrap_or_default();
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: symbol.name.clone(),
+            parent_id: Some(parent_id.to_owned()),
+            children: Vec::new(),
+            source_path: relative,
+            fingerprint: fingerprint.to_owned(),
+        },
+        package_name: target.package_name.clone(),
+        module_path,
+        declared_by_path: declared,
+        cfg_attributes: vec![symbol.outline_label().to_owned()],
+        unresolved: false,
+        language: "swift".to_owned(),
+    }));
+    connections.push(contains_connection(parent_id, &id));
+}
+
+fn swift_target_block_id(name: &str) -> String {
+    format!("module:swift:{}", slug(name))
+}
+
+fn swift_file_block_id(module_path: &str) -> String {
+    format!("module:swift:{}", slug(module_path))
+}
+
+fn swift_symbol_block_id(module_path: &str, kind: &str) -> String {
+    format!("module:swift:{}:{}", slug(module_path), slug(kind))
 }

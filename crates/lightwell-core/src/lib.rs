@@ -16,6 +16,7 @@ mod php_source;
 mod python_source;
 mod ruby_source;
 mod rust_source;
+mod swift_source;
 mod typescript_source;
 mod watch;
 

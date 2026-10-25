@@ -77,6 +77,11 @@ test("registry maps YAML, Terraform and Dockerfile paths", () => {
   assert.equal(monacoLanguageIdForPath(String.raw`C:\repo\infra\Dockerfile.dev`), "dockerfile");
 });
 
+test("registry maps Swift sources", () => {
+  assert.equal(sourceLanguageIdForPath("Sources/App/main.swift"), "swift");
+  assert.equal(monacoLanguageIdForPath("Sources/App/main.swift"), "swift");
+});
+
 test("registry maps web extensions without .ts swallowing .tsx", () => {
   assert.equal(sourceLanguageIdForPath("src/App.tsx"), "web");
   assert.equal(sourceLanguageIdForPath("src/cli.ts"), "web");
@@ -143,6 +148,11 @@ test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(languagePackForPath("Greeter.kt")?.id, "jvm");
   assert.equal(languagePackForPath("script.kts")?.id, "jvm");
   assert.equal(typeof jvm?.registerHighlighter, "function");
+  const swift = languagePackForPath("Sources/App/main.swift");
+  assert.equal(swift?.id, "swift");
+  assert.equal(swift?.extractor?.kind, "swift-module");
+  assert.equal(swift?.fixtures?.root, "crates/lightwell-core/fixtures/swift-sample");
+  assert.equal(typeof swift?.registerHighlighter, "function");
   const cpp = languagePackForPath("main.cpp");
   assert.equal(cpp?.id, "cpp");
   assert.equal(cpp?.extractor?.kind, "cpp-module");

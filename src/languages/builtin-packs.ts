@@ -8,6 +8,7 @@ import { JVM_LANGUAGE_PACK } from "./packs/jvm.js";
 import { PYTHON_LANGUAGE_PACK } from "./packs/python.js";
 import { RUBY_LANGUAGE_PACK } from "./packs/ruby.js";
 import { RUST_LANGUAGE_PACK } from "./packs/rust.js";
+import { SWIFT_LANGUAGE_PACK } from "./packs/swift.js";
 import { TOML_LANGUAGE_PACK } from "./packs/toml.js";
 import { WEB_LANGUAGE_PACK } from "./packs/web.js";
 
@@ -25,6 +26,7 @@ export const BUILTIN_LANGUAGE_PACKS: readonly LanguagePack[] = [
   PHP_LANGUAGE_PACK,
   RUBY_LANGUAGE_PACK,
   JVM_LANGUAGE_PACK,
+  SWIFT_LANGUAGE_PACK,
   CPP_LANGUAGE_PACK,
   CONFIG_INFRA_LANGUAGE_PACK,
 ];
