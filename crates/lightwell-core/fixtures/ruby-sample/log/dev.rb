@@ -1,0 +1,2 @@
+class DevLog
+end

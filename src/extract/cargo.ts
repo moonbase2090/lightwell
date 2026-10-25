@@ -15,7 +15,9 @@ import type {
 } from "../model.js";
 import { discoverDotnet, dotnetFactBlocks } from "./dotnet-modules.js";
 import { discoverGoPackages, goFactBlocks } from "./go-modules.js";
+import { discoverPhpPackages, phpFactBlocks } from "./php-modules.js";
 import { discoverPythonModules, pythonFactBlocks } from "./python-modules.js";
+import { discoverRubyPackages, rubyFactBlocks } from "./ruby-modules.js";
 import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
 import { discoverWebModules, webFactBlocks } from "./web-modules.js";
 
@@ -414,6 +416,14 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   const goFacts = goFactBlocks({ packages: goPackages, rootPath, workspaceId: projectId });
   blocks.push(...goFacts.blocks);
   connections.push(...goFacts.connections);
+  const phpPackages = discoverPhpPackages(rootPath);
+  const phpFacts = phpFactBlocks({ packages: phpPackages, rootPath, workspaceId: projectId });
+  blocks.push(...phpFacts.blocks);
+  connections.push(...phpFacts.connections);
+  const rubyPackages = discoverRubyPackages(rootPath);
+  const rubyFacts = rubyFactBlocks({ packages: rubyPackages, rootPath, workspaceId: projectId });
+  blocks.push(...rubyFacts.blocks);
+  connections.push(...rubyFacts.connections);
   const finalWorkspaceFingerprint = hashText([
     ...packages.map((pkg) => {
       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
@@ -425,6 +435,12 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
     ...dotnet.files.map((file) => `dotnet:${relativePath(rootPath, file.path)}:${hashFile(file.path)}`),
     ...goPackages.flatMap((pkg) =>
       pkg.files.map((file) => `go:${pkg.importPath}:${hashFile(file.path)}`),
+    ),
+    ...phpPackages.flatMap((pkg) =>
+      pkg.files.map((file) => `php:${pkg.importPath}:${path.basename(file.path)}:${hashFile(file.path)}`),
+    ),
+    ...rubyPackages.flatMap((pkg) =>
+      pkg.files.map((file) => `ruby:${pkg.importPath}:${path.basename(file.path)}:${hashFile(file.path)}`),
     ),
   ].sort().join("\n"));
   const workspaceIndex = blocks.findIndex((block) => block.id === projectId);
@@ -470,7 +486,7 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   };
 }
 
-const namedProjectMarkers = ["go.mod", "go.work", "package.json", "tsconfig.json", "jsconfig.json"];
+const namedProjectMarkers = ["go.mod", "go.work", "composer.json", "Gemfile", "package.json", "tsconfig.json", "jsconfig.json"];
 
 function nonCargoProjectMarker(root: string): string | null {
   for (const name of namedProjectMarkers) {
@@ -512,6 +528,10 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
   const dotnetFacts = dotnetFactBlocks({ workspace: dotnet, rootPath, workspaceId: projectId });
   const goPackages = discoverGoPackages(rootPath);
   const goFacts = goFactBlocks({ packages: goPackages, rootPath, workspaceId: projectId });
+  const phpPackages = discoverPhpPackages(rootPath);
+  const phpFacts = phpFactBlocks({ packages: phpPackages, rootPath, workspaceId: projectId });
+  const rubyPackages = discoverRubyPackages(rootPath);
+  const rubyFacts = rubyFactBlocks({ packages: rubyPackages, rootPath, workspaceId: projectId });
   const fingerprint = hashText([
     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
     ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
@@ -519,6 +539,12 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
     ...dotnet.files.map((file) => `dotnet:${relativePath(rootPath, file.path)}:${hashFile(file.path)}`),
     ...goPackages.flatMap((pkg) =>
       pkg.files.map((file) => `go:${pkg.importPath}:${hashFile(file.path)}`),
+    ),
+    ...phpPackages.flatMap((pkg) =>
+      pkg.files.map((file) => `php:${pkg.importPath}:${path.basename(file.path)}:${hashFile(file.path)}`),
+    ),
+    ...rubyPackages.flatMap((pkg) =>
+      pkg.files.map((file) => `ruby:${pkg.importPath}:${path.basename(file.path)}:${hashFile(file.path)}`),
     ),
   ].sort().join("\n"));
   const blocks: FactBlock[] = [{
@@ -530,8 +556,8 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
     sourcePath: relativePath(rootPath, args.markerPath),
     fingerprint,
     memberCount: 0,
-  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks];
-  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections];
+  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks, ...phpFacts.blocks, ...rubyFacts.blocks];
+  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections, ...phpFacts.connections, ...rubyFacts.connections];
   const completedBlocks = deriveChildren(blocks);
   const workspaceChildren = completedBlocks.find((block) => block.id === projectId)?.children ?? [];
   const groups: FactGroup[] = [{

@@ -43,6 +43,13 @@ test("registry maps Go sources", () => {
   assert.equal(monacoLanguageIdForPath("pkg/main.go"), "go");
 });
 
+test("registry maps PHP and Ruby sources", () => {
+  assert.equal(sourceLanguageIdForPath("app/Models/User.php"), "php");
+  assert.equal(monacoLanguageIdForPath("app/Models/User.php"), "php");
+  assert.equal(sourceLanguageIdForPath("app/models/user.rb"), "ruby");
+  assert.equal(monacoLanguageIdForPath("app/models/user.rb"), "ruby");
+});
+
 test("registry maps web extensions without .ts swallowing .tsx", () => {
   assert.equal(sourceLanguageIdForPath("src/App.tsx"), "web");
   assert.equal(sourceLanguageIdForPath("src/cli.ts"), "web");
@@ -65,7 +72,7 @@ test("registry entries have unique longest extensions", () => {
 });
 
 test("built-in packs expose extractor and fixture seams", () => {
-  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 6);
+  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 8);
   const rust = languagePackForPath("src/lib.rs");
   assert.equal(rust?.extractor?.kind, "rust-workspace");
   assert.equal(rust?.extractor?.moduleTreeModule, "extract/rust-modules");
@@ -92,6 +99,16 @@ test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(monacoLanguageIdForPath("Widget.cs"), "csharp");
   assert.equal(monacoLanguageIdForPath("Part.vb"), "vb");
   assert.equal(typeof dotnet?.registerHighlighter, "function");
+  const php = languagePackForPath("app/Models/User.php");
+  assert.equal(php?.id, "php");
+  assert.equal(php?.extractor?.kind, "php-module");
+  assert.equal(php?.fixtures?.root, "crates/lightwell-core/fixtures/php-sample");
+  assert.equal(typeof php?.registerHighlighter, "function");
+  const ruby = languagePackForPath("app/models/user.rb");
+  assert.equal(ruby?.id, "ruby");
+  assert.equal(ruby?.extractor?.kind, "ruby-module");
+  assert.equal(ruby?.fixtures?.root, "crates/lightwell-core/fixtures/ruby-sample");
+  assert.equal(typeof ruby?.registerHighlighter, "function");
 });
 
 test("extractWorkspaceMap uses rust pack workspace extractor on fixture workspace", () => {
