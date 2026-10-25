@@ -28,12 +28,22 @@ const entries = [...fixturesById].map(([id, fixture]) => ({ id, label: fixture.l
  * Browser-preview notes kept in memory so the notes UI can be exercised without the desktop app.
  * Follows the same VITE_ENABLE_PROJECT_NOTES opt-out as the desktop app.
  */
+const PREVIEW_NOTE_AUTHOR = "preview";
+const PREVIEW_NOTE_UPDATED_AT = "2026-10-25T03:00:00Z";
+
 export function createMemoryNotesSource(): ProjectNotesSource {
   const notesByWorkspace = new Map<string, Map<string, string>>();
   const snapshot = (workspaceId: string): ProjectNotesSnapshot => ({
     kind: "ready",
     notes: [...(notesByWorkspace.get(workspaceId) ?? new Map<string, string>())]
-      .map(([blockId, text]) => ({ blockId, text, sourceFingerprint: "preview", stale: false })),
+      .map(([blockId, text]) => ({
+        blockId,
+        text,
+        sourceFingerprint: "preview",
+        author: PREVIEW_NOTE_AUTHOR,
+        updatedAt: PREVIEW_NOTE_UPDATED_AT,
+        stale: false,
+      })),
   });
   const notesFor = (workspaceId: string) => {
     const existing = notesByWorkspace.get(workspaceId);

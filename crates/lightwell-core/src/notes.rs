@@ -17,7 +17,19 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 const NOTES_SCHEMA_VERSION: u32 = 1;
+/// Fallback when Git user.name/email cannot be resolved from the project repository.
+pub const DEFAULT_NOTE_AUTHOR: &str = "unknown";
+/// Empty `updatedAt` means unknown/legacy (note written before this field existed).
+pub const DEFAULT_NOTE_UPDATED_AT: &str = "";
 static NEXT_TEMP_FILE_ID: AtomicU64 = AtomicU64::new(0);
+
+fn default_note_author() -> String {
+    DEFAULT_NOTE_AUTHOR.to_owned()
+}
+
+fn default_note_updated_at() -> String {
+    DEFAULT_NOTE_UPDATED_AT.to_owned()
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,6 +37,8 @@ pub struct ProjectNoteView {
     pub block_id: String,
     pub text: String,
     pub source_fingerprint: String,
+    pub author: String,
+    pub updated_at: String,
     pub stale: bool,
 }
 
@@ -33,6 +47,10 @@ pub struct ProjectNoteView {
 struct ProjectNote {
     text: String,
     source_fingerprint: String,
+    #[serde(default = "default_note_author")]
+    author: String,
+    #[serde(default = "default_note_updated_at")]
+    updated_at: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -83,20 +101,32 @@ impl ProjectNotesStore {
                 block_id,
                 text: note.text,
                 source_fingerprint: note.source_fingerprint,
+                author: note.author,
+                updated_at: note.updated_at,
             })
             .collect())
     }
 
-    fn set(&self, block_id: &str, text: &str, source_fingerprint: &str) -> Result<(), NotesError> {
+    fn set(
+        &self,
+        project_root: &Path,
+        block_id: &str,
+        text: &str,
+        source_fingerprint: &str,
+    ) -> Result<(), NotesError> {
         if text.trim().is_empty() {
             return Err(NotesError::EmptyText);
         }
+        let author = resolve_note_author(project_root);
+        let updated_at = utc_now_rfc3339();
         self.update(true, |document| {
             document.notes.insert(
                 block_id.to_owned(),
                 ProjectNote {
                     text: text.to_owned(),
                     source_fingerprint: source_fingerprint.to_owned(),
+                    author,
+                    updated_at,
                 },
             );
             Ok(true)
@@ -104,16 +134,25 @@ impl ProjectNotesStore {
         .map(|_| ())
     }
 
-    fn update_text(&self, block_id: &str, text: &str) -> Result<(), NotesError> {
+    fn update_text(
+        &self,
+        project_root: &Path,
+        block_id: &str,
+        text: &str,
+    ) -> Result<(), NotesError> {
         if text.trim().is_empty() {
             return Err(NotesError::EmptyText);
         }
+        let author = resolve_note_author(project_root);
+        let updated_at = utc_now_rfc3339();
         let updated = self.update(false, |document| {
             let note = document
                 .notes
                 .get_mut(block_id)
                 .ok_or_else(|| NotesError::NoteNotFound(block_id.to_owned()))?;
             note.text = text.to_owned();
+            note.author = author;
+            note.updated_at = updated_at;
             Ok(true)
         })?;
         if !updated {
@@ -313,8 +352,9 @@ pub fn set_project_note_for_map(
         .find(|block| block_base(block).id == block_id)
         .ok_or_else(|| NotesError::BlockNotFound(block_id.to_owned()))?;
     let fingerprint = &block_base(block).fingerprint;
-    let store = ProjectNotesStore::new(project_root.as_ref());
-    store.set(block_id, text, fingerprint)?;
+    let root = project_root.as_ref();
+    let store = ProjectNotesStore::new(root);
+    store.set(root, block_id, text, fingerprint)?;
     store.list_for_map(map)
 }
 
@@ -324,8 +364,9 @@ pub fn update_project_note_text(
     block_id: &str,
     text: &str,
 ) -> Result<Vec<ProjectNoteView>, NotesError> {
-    let store = ProjectNotesStore::new(project_root.as_ref());
-    store.update_text(block_id, text)?;
+    let root = project_root.as_ref();
+    let store = ProjectNotesStore::new(root);
+    store.update_text(root, block_id, text)?;
     store.list_for_map(map)
 }
 
@@ -342,6 +383,58 @@ fn workspace_map(repository_path: impl AsRef<Path>) -> Result<(PathBuf, FactMap)
     let root = workspace.root.clone();
     let map = map_workspace(workspace, None)?;
     Ok((root, map))
+}
+
+fn resolve_note_author(project_root: &Path) -> String {
+    let Ok(repo) = git2::Repository::discover(project_root) else {
+        return DEFAULT_NOTE_AUTHOR.to_owned();
+    };
+    let Ok(signature) = repo.signature() else {
+        return DEFAULT_NOTE_AUTHOR.to_owned();
+    };
+    let name = signature.name().unwrap_or("").trim();
+    let email = signature.email().unwrap_or("").trim();
+    match (name.is_empty(), email.is_empty()) {
+        (true, true) => DEFAULT_NOTE_AUTHOR.to_owned(),
+        (false, true) => name.to_owned(),
+        (true, false) => format!("<{email}>"),
+        (false, false) => format!("{name} <{email}>"),
+    }
+}
+
+fn utc_now_rfc3339() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    format_unix_secs_rfc3339(secs)
+}
+
+/// Format a Unix timestamp as `YYYY-MM-DDTHH:MM:SSZ` (UTC, whole seconds).
+fn format_unix_secs_rfc3339(secs: u64) -> String {
+    let days = (secs / 86_400) as i64;
+    let time_of_day = secs % 86_400;
+    let hour = time_of_day / 3_600;
+    let minute = (time_of_day % 3_600) / 60;
+    let second = time_of_day % 60;
+    let (year, month, day) = civil_from_days(days);
+    format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
+}
+
+/// Days since Unix epoch → Gregorian (year, month, day). Howard Hinnant algorithm.
+fn civil_from_days(days_since_epoch: i64) -> (i32, u32, u32) {
+    let z = days_since_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y as i32, m as u32, d as u32)
 }
 
 #[derive(Debug)]
@@ -498,7 +591,12 @@ mod tests {
         assert!(store.list_for_map(&old_map).unwrap().is_empty());
         assert!(!project.0.join(".lightwell").exists());
         store
-            .set("crate:core", "Remember this crate", "old-fingerprint")
+            .set(
+                &project.0,
+                "crate:core",
+                "Remember this crate",
+                "old-fingerprint",
+            )
             .unwrap();
 
         let notes_path = project.0.join(".lightwell/notes.json");
@@ -598,8 +696,10 @@ mod tests {
     fn removing_a_note_is_explicit_and_does_not_remove_other_notes() {
         let project = TempProject::new();
         let store = ProjectNotesStore::new(&project.0);
-        store.set("crate:core", "First", "one").unwrap();
-        store.set("module:core:api", "Second", "two").unwrap();
+        store.set(&project.0, "crate:core", "First", "one").unwrap();
+        store
+            .set(&project.0, "module:core:api", "Second", "two")
+            .unwrap();
 
         assert!(store.remove("crate:core").unwrap());
         assert!(!store.remove("crate:core").unwrap());
@@ -615,10 +715,13 @@ mod tests {
         let left = ProjectNotesStore::new(&project.0);
         let right = ProjectNotesStore::new(&project.0);
         std::thread::scope(|scope| {
-            scope.spawn(|| left.set("crate:left", "Left", "left-fingerprint").unwrap());
+            scope.spawn(|| {
+                left.set(&project.0, "crate:left", "Left", "left-fingerprint")
+                    .unwrap()
+            });
             scope.spawn(|| {
                 right
-                    .set("crate:right", "Right", "right-fingerprint")
+                    .set(&project.0, "crate:right", "Right", "right-fingerprint")
                     .unwrap()
             });
         });
@@ -649,7 +752,7 @@ mod tests {
         let project = TempProject::new();
         let store = ProjectNotesStore::new(&project.0);
         assert!(matches!(
-            store.set("crate:core", "  ", "fingerprint"),
+            store.set(&project.0, "crate:core", "  ", "fingerprint"),
             Err(NotesError::EmptyText)
         ));
         assert!(!project.0.join(".lightwell").exists());
@@ -671,7 +774,7 @@ mod tests {
             MapStats::default(),
         );
         store
-            .set("crate:core", "Original note", "old-fingerprint")
+            .set(&project.0, "crate:core", "Original note", "old-fingerprint")
             .unwrap();
 
         let updated = update_project_note_text(
@@ -737,5 +840,165 @@ mod tests {
         assert!(list_project_notes(root)
             .expect("notes should list after removal")
             .is_empty());
+    }
+
+    #[test]
+    fn new_note_records_git_author_when_user_is_configured() {
+        let project = TempProject::new();
+        let git = |args: &[&str]| {
+            let output = Command::new("git")
+                .current_dir(&project.0)
+                .args(args)
+                .output()
+                .expect("Git should run for the temporary repository");
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        git(&["init", "-q"]);
+        git(&["config", "user.name", "Notes Author"]);
+        git(&["config", "user.email", "notes-author@example.invalid"]);
+
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set(&project.0, "crate:core", "With git author", "fingerprint")
+            .unwrap();
+        let notes = store.list_for_map(&map("fingerprint")).unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(
+            notes[0].author,
+            "Notes Author <notes-author@example.invalid>"
+        );
+        assert_ne!(notes[0].author, super::DEFAULT_NOTE_AUTHOR);
+        assert!(
+            notes[0].updated_at.ends_with('Z') && notes[0].updated_at.len() == 20,
+            "updatedAt should be RFC3339 UTC with seconds: {}",
+            notes[0].updated_at
+        );
+    }
+
+    #[test]
+    fn author_is_unknown_outside_a_git_repo_or_without_user_config() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set(&project.0, "crate:core", "No git", "fingerprint")
+            .unwrap();
+        let notes = store.list_for_map(&map("fingerprint")).unwrap();
+        assert_eq!(notes[0].author, super::DEFAULT_NOTE_AUTHOR);
+
+        let git_project = TempProject::new();
+        let git = |args: &[&str]| {
+            let output = Command::new("git")
+                .current_dir(&git_project.0)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        git(&["init", "-q"]);
+        // Empty local identity overrides any global Git user so signature fails closed.
+        git(&["config", "--local", "user.name", ""]);
+        git(&["config", "--local", "user.email", ""]);
+        let store = ProjectNotesStore::new(&git_project.0);
+        store
+            .set(
+                &git_project.0,
+                "crate:core",
+                "Git without identity",
+                "fingerprint",
+            )
+            .unwrap();
+        let notes = store.list_for_map(&map("fingerprint")).unwrap();
+        assert_eq!(notes[0].author, super::DEFAULT_NOTE_AUTHOR);
+    }
+
+    #[test]
+    fn legacy_notes_json_without_author_or_updated_at_deserializes_defaults() {
+        let project = TempProject::new();
+        fs::create_dir(project.0.join(".lightwell")).unwrap();
+        fs::write(
+            project.0.join(".lightwell/notes.json"),
+            r#"{
+  "schemaVersion": 1,
+  "notes": {
+    "crate:core": {
+      "text": "Legacy note",
+      "sourceFingerprint": "legacy-fingerprint"
+    }
+  }
+}
+"#,
+        )
+        .unwrap();
+        let store = ProjectNotesStore::new(&project.0);
+        let notes = store.list_for_map(&map("legacy-fingerprint")).unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].text, "Legacy note");
+        assert_eq!(notes[0].author, super::DEFAULT_NOTE_AUTHOR);
+        assert_eq!(notes[0].updated_at, super::DEFAULT_NOTE_UPDATED_AT);
+        assert!(!notes[0].stale);
+    }
+
+    #[test]
+    fn update_text_refreshes_updated_at_and_author() {
+        let project = TempProject::new();
+        let git = |args: &[&str]| {
+            let output = Command::new("git")
+                .current_dir(&project.0)
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        git(&["init", "-q"]);
+        git(&["config", "user.name", "Updater"]);
+        git(&["config", "user.email", "updater@example.invalid"]);
+
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set(&project.0, "crate:core", "Original", "fingerprint")
+            .unwrap();
+        let before = store.list_for_map(&map("fingerprint")).unwrap();
+        assert_eq!(before[0].author, "Updater <updater@example.invalid>");
+
+        // Pin a stale updatedAt so a refresh is observable without sleeping.
+        let mut document: serde_json::Value =
+            serde_json::from_slice(&fs::read(project.0.join(".lightwell/notes.json")).unwrap())
+                .unwrap();
+        document["notes"]["crate:core"]["updatedAt"] = serde_json::json!("2000-01-01T00:00:00Z");
+        document["notes"]["crate:core"]["author"] = serde_json::json!("stale-author");
+        fs::write(
+            project.0.join(".lightwell/notes.json"),
+            serde_json::to_vec_pretty(&document).unwrap(),
+        )
+        .unwrap();
+
+        update_project_note_text(&project.0, &map("fingerprint"), "crate:core", "Edited").unwrap();
+        let after = store.list_for_map(&map("fingerprint")).unwrap();
+        assert_eq!(after[0].text, "Edited");
+        assert_eq!(after[0].author, "Updater <updater@example.invalid>");
+        assert_ne!(after[0].updated_at, "2000-01-01T00:00:00Z");
+        assert!(after[0].updated_at.ends_with('Z'));
+        assert_eq!(after[0].source_fingerprint, "fingerprint");
+    }
+
+    #[test]
+    fn format_unix_secs_rfc3339_matches_known_instants() {
+        assert_eq!(super::format_unix_secs_rfc3339(0), "1970-01-01T00:00:00Z");
+        assert_eq!(
+            super::format_unix_secs_rfc3339(1_767_528_000),
+            "2026-01-04T12:00:00Z"
+        );
     }
 }

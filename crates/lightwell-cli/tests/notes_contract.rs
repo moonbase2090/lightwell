@@ -74,15 +74,24 @@ fn json_notes_roundtrip_reports_persisted_text_and_removal() {
     assert!(!project.0.join(".lightwell").exists());
 
     let text = "A \"quoted\" note\nSecond line: λ";
-    assert_eq!(
-        project.json(&["notes", "set", "--json", BLOCK, text]),
-        json!({"blockId": BLOCK, "text": text})
+    let set = project.json(&["notes", "set", "--json", BLOCK, text]);
+    assert_eq!(set["blockId"], BLOCK);
+    assert_eq!(set["text"], text);
+    assert_eq!(set["author"], "unknown");
+    let set_updated = set["updatedAt"]
+        .as_str()
+        .expect("set JSON includes updatedAt");
+    assert!(
+        set_updated.ends_with('Z') && set_updated.len() == 20,
+        "updatedAt should be RFC3339 UTC with seconds: {set_updated}"
     );
     let notes = project.json(&["notes", "list", "--json"]);
     assert_eq!(notes.as_array().unwrap().len(), 1);
     assert_eq!(notes[0]["blockId"], BLOCK);
     assert_eq!(notes[0]["text"], text);
     assert_eq!(notes[0]["stale"], false);
+    assert_eq!(notes[0]["author"], "unknown");
+    assert_eq!(notes[0]["updatedAt"], set_updated);
     let fingerprint = notes[0]["sourceFingerprint"].as_str().unwrap();
     assert_eq!(fingerprint.len(), 64);
     assert!(fingerprint.bytes().all(|byte| byte.is_ascii_hexdigit()));
@@ -91,6 +100,8 @@ fn json_notes_roundtrip_reports_persisted_text_and_removal() {
             .unwrap();
     assert_eq!(saved["notes"][BLOCK]["text"], text);
     assert_eq!(saved["notes"][BLOCK]["sourceFingerprint"], fingerprint);
+    assert_eq!(saved["notes"][BLOCK]["author"], "unknown");
+    assert_eq!(saved["notes"][BLOCK]["updatedAt"], set_updated);
 
     assert_eq!(
         project.json(&["notes", "rm", BLOCK, "--json"]),
@@ -116,6 +127,7 @@ fn human_success_output_remains_unchanged() {
     let listed = project.run(&["notes", "list"], 0);
     let text = String::from_utf8(listed.stdout).unwrap();
     assert!(text.starts_with(&format!("[current] {BLOCK} (source fingerprint ")));
+    assert!(text.contains("; author unknown; updated "));
     assert!(text.ends_with("): Keep this note\n"));
     let removed = project.run(&["notes", "rm", BLOCK], 0);
     assert_eq!(
@@ -216,10 +228,11 @@ fn option_terminator_preserves_literal_flag_text_and_invalid_usage_does_not_writ
         project.error(&arguments, 2, "lightwell:");
         assert!(!project.0.join(".lightwell/notes.json").exists());
     }
-    assert_eq!(
-        project.json(&["notes", "set", "--json", BLOCK, "--", "--json", "--check"]),
-        json!({"blockId": BLOCK, "text": "--json --check"})
-    );
+    let set = project.json(&["notes", "set", "--json", BLOCK, "--", "--json", "--check"]);
+    assert_eq!(set["blockId"], BLOCK);
+    assert_eq!(set["text"], "--json --check");
+    assert!(set.get("author").and_then(Value::as_str).is_some());
+    assert!(set.get("updatedAt").and_then(Value::as_str).is_some());
     assert_eq!(
         project.json(&["notes", "list", "--json"])[0]["text"],
         "--json --check"

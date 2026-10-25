@@ -315,8 +315,12 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                     for note in notes {
                         let status = if note.stale { "stale" } else { "current" };
                         println!(
-                            "[{status}] {} (source fingerprint {}): {}",
-                            note.block_id, note.source_fingerprint, note.text
+                            "[{status}] {} (source fingerprint {}; author {}; updated {}): {}",
+                            note.block_id,
+                            note.source_fingerprint,
+                            note.author,
+                            note.updated_at,
+                            note.text
                         );
                     }
                 }
@@ -373,10 +377,19 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                 NotesOutput::Human => {
                     println!("Saved note for `{block_id}` in `.lightwell/notes.json`.");
                 }
-                NotesOutput::Json => write_notes_json(serde_json::json!({
-                    "blockId": block_id,
-                    "text": text,
-                }))?,
+                NotesOutput::Json => {
+                    let notes = list_project_notes(&repository)?;
+                    let note = notes
+                        .iter()
+                        .find(|note| note.block_id == block_id)
+                        .ok_or_else(|| NotesError::NoteNotFound(block_id.clone()))?;
+                    write_notes_json(serde_json::json!({
+                        "blockId": note.block_id,
+                        "text": note.text,
+                        "author": note.author,
+                        "updatedAt": note.updated_at,
+                    }))?;
+                }
             }
         }
         NotesCommand::Remove { block_id } => {

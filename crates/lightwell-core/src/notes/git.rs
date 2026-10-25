@@ -620,7 +620,7 @@ mod tests {
         }
         fn save(&self, id: &str, text: &str) {
             ProjectNotesStore::new(&self.root)
-                .set(id, text, "fingerprint")
+                .set(&self.root, id, text, "fingerprint")
                 .unwrap();
         }
         fn commit(&self, id: &str, text: &str) -> Result<NoteCommitResult, String> {
@@ -795,7 +795,7 @@ mod tests {
         let nested = f.root.join("nested");
         fs::create_dir(&nested).unwrap();
         ProjectNotesStore::new(&nested)
-            .set("first", "nested note", "fingerprint")
+            .set(&nested, "first", "nested note", "fingerprint")
             .unwrap();
         let revision = revision(&ProjectNotesStore::new(&nested).path).unwrap();
         commit_project_note(&nested, "first", &revision, "nested note", "fingerprint").unwrap();
@@ -872,7 +872,7 @@ mod tests {
             linked.to_str().unwrap(),
         ]);
         ProjectNotesStore::new(&linked)
-            .set("first", "linked update", "fingerprint")
+            .set(&linked, "first", "linked update", "fingerprint")
             .unwrap();
         let token = revision(&ProjectNotesStore::new(&linked).path).unwrap();
         commit_project_note(&linked, "first", &token, "linked update", "fingerprint").unwrap();
@@ -1087,7 +1087,7 @@ mod tests {
                 },
             ]);
             ProjectNotesStore::new(&linked)
-                .set("first", "selected", "fingerprint")
+                .set(&linked, "first", "selected", "fingerprint")
                 .unwrap();
             fs::remove_file(linked.join(".lightwell/notes.lock")).unwrap();
             let token = revision(&ProjectNotesStore::new(&linked).path).unwrap();
@@ -1118,7 +1118,7 @@ mod tests {
         let nested = f.root.join(component);
         fs::create_dir(&nested).unwrap();
         ProjectNotesStore::new(&nested)
-            .set("first", "space path note", "fingerprint")
+            .set(&nested, "first", "space path note", "fingerprint")
             .unwrap();
         assert!(matches!(
             project_note_git_status(&nested, "first"),

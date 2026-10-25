@@ -76,7 +76,7 @@ export async function gotoIpc(page: Page, overrides: {
       capsPromise ??= fetch("/__lw-captures.json").then((r) => r.json());
       return capsPromise;
     };
-    const notesState: { notes: { blockId: string; text: string; sourceFingerprint: string; stale: boolean }[] } = {
+    const notesState: { notes: { blockId: string; text: string; sourceFingerprint: string; author: string; updatedAt: string; stale: boolean }[] } = {
       notes: [],
     };
     const snapshot = () => ({ kind: "ready", notes: [...notesState.notes] });
@@ -132,7 +132,7 @@ export async function gotoIpc(page: Page, overrides: {
           const text = String(args.text ?? "");
           const existing = notesState.notes.find((n) => n.blockId === blockId);
           if (existing) existing.text = text;
-          else notesState.notes.push({ blockId, text, sourceFingerprint: "capture", stale: false });
+          else notesState.notes.push({ blockId, text, sourceFingerprint: "capture", author: "preview", updatedAt: "2026-10-25T03:00:00Z", stale: false });
           return snapshot();
         }
         case "project_notes_git_status":

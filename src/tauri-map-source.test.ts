@@ -18,6 +18,8 @@ const note = {
   blockId: "module:lightwell:workspace",
   text: "Keep the local extraction boundary clear.",
   sourceFingerprint: "fingerprint-1",
+  author: "preview",
+  updatedAt: "2026-10-25T03:00:00Z",
   stale: false,
 };
 const projectNotes = { kind: "ready", notes: [note] };
@@ -45,6 +47,12 @@ test("Tauri map, project notes, and editor IPC responses pass boundary checks", 
   assert.throws(() => parseMapSourceDocument({ facts: {} }), /invalid workspace map/);
   assert.throws(() => parseWorkspaceMapUpdate({ workspaceId: entry.id, document: {} }), /invalid workspace map/);
   assert.throws(() => parseProjectNotesSnapshot({ kind: "ready", notes: [{ ...note, stale: "false" }] }), /invalid project note/);
+  assert.throws(() => parseProjectNotesSnapshot({ kind: "ready", notes: [{ ...note, author: "" }] }), /invalid project note/);
+  assert.throws(() => parseProjectNotesSnapshot({ kind: "ready", notes: [{ ...note, updatedAt: 1 }] }), /invalid project note/);
+  assert.deepEqual(parseProjectNotesSnapshot({ kind: "ready", notes: [{ ...note, updatedAt: "" }] }), {
+    kind: "ready",
+    notes: [{ ...note, updatedAt: "" }],
+  });
   assert.throws(() => parseProjectNotesSnapshot({ kind: "unknown", notes: [] }), /invalid project notes response/);
   assert.deepEqual(parseSourceFileDocument({ path: "src/lib.rs", content: "pub mod map;", line: 1, column: 9 }), {
     path: "src/lib.rs",

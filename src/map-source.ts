@@ -7,6 +7,8 @@ export interface ProjectNoteView {
   readonly blockId: string;
   readonly text: string;
   readonly sourceFingerprint: string;
+  readonly author: string;
+  readonly updatedAt: string;
   readonly stale: boolean;
 }
 
