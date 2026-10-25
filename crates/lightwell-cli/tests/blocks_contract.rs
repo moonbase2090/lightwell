@@ -144,16 +144,23 @@ fn blocks_file_filter_is_exact() {
 #[test]
 fn notes_set_file_unique_match_saves() {
     let project = Project::new();
-    assert_eq!(
-        project.json(&[
-            "notes",
-            "set",
-            "--file",
-            "src/extra.rs",
-            "--json",
-            "File note"
-        ]),
-        json!({"blockId": EXTRA_BLOCK, "text": "File note"})
+    let set = project.json(&[
+        "notes",
+        "set",
+        "--file",
+        "src/extra.rs",
+        "--json",
+        "File note",
+    ]);
+    assert_eq!(set["blockId"], EXTRA_BLOCK);
+    assert_eq!(set["text"], "File note");
+    assert_eq!(set["author"], "unknown");
+    let set_updated = set["updatedAt"]
+        .as_str()
+        .expect("set JSON includes updatedAt");
+    assert!(
+        set_updated.ends_with('Z') && set_updated.len() == 20,
+        "updatedAt should be RFC3339 UTC with seconds: {set_updated}"
     );
     let notes = project.json(&["notes", "list", "--json"]);
     assert_eq!(notes[0]["blockId"], EXTRA_BLOCK);
@@ -161,19 +168,22 @@ fn notes_set_file_unique_match_saves() {
         serde_json::from_slice(&fs::read(project.0.join(".lightwell/notes.json")).unwrap())
             .unwrap();
     assert_eq!(saved["notes"][EXTRA_BLOCK]["text"], "File note");
+    assert_eq!(saved["notes"][EXTRA_BLOCK]["author"], "unknown");
+    assert_eq!(saved["notes"][EXTRA_BLOCK]["updatedAt"], set_updated);
 
     let absolute = project.0.join("src/lib.rs");
-    assert_eq!(
-        project.json(&[
-            "notes",
-            "set",
-            "--json",
-            "--file",
-            absolute.to_str().unwrap(),
-            "Root note",
-        ]),
-        json!({"blockId": ROOT_BLOCK, "text": "Root note"})
-    );
+    let root_set = project.json(&[
+        "notes",
+        "set",
+        "--json",
+        "--file",
+        absolute.to_str().unwrap(),
+        "Root note",
+    ]);
+    assert_eq!(root_set["blockId"], ROOT_BLOCK);
+    assert_eq!(root_set["text"], "Root note");
+    assert!(root_set.get("author").and_then(Value::as_str).is_some());
+    assert!(root_set.get("updatedAt").and_then(Value::as_str).is_some());
 }
 
 #[test]
@@ -202,21 +212,30 @@ fn file_paths_with_parent_components_resolve_like_their_canonical_form() {
         .collect();
     assert_eq!(ids, [EXTRA_BLOCK]);
 
-    assert_eq!(
-        project.json(&[
-            "notes",
-            "set",
-            "--json",
-            "--file",
-            &absolute_with_parent,
-            "Parent path note",
-        ]),
-        json!({"blockId": EXTRA_BLOCK, "text": "Parent path note"})
+    let parent_set = project.json(&[
+        "notes",
+        "set",
+        "--json",
+        "--file",
+        &absolute_with_parent,
+        "Parent path note",
+    ]);
+    assert_eq!(parent_set["blockId"], EXTRA_BLOCK);
+    assert_eq!(parent_set["text"], "Parent path note");
+    assert_eq!(parent_set["author"], "unknown");
+    let parent_updated = parent_set["updatedAt"]
+        .as_str()
+        .expect("set JSON includes updatedAt");
+    assert!(
+        parent_updated.ends_with('Z') && parent_updated.len() == 20,
+        "updatedAt should be RFC3339 UTC with seconds: {parent_updated}"
     );
     let saved: Value =
         serde_json::from_slice(&fs::read(project.0.join(".lightwell/notes.json")).unwrap())
             .unwrap();
     assert_eq!(saved["notes"][EXTRA_BLOCK]["text"], "Parent path note");
+    assert_eq!(saved["notes"][EXTRA_BLOCK]["author"], "unknown");
+    assert_eq!(saved["notes"][EXTRA_BLOCK]["updatedAt"], parent_updated);
 
     let relative_filtered = project.json(&["blocks", "--json", "--file", "src/../src/extra.rs"]);
     assert_eq!(relative_filtered, filtered);
