@@ -2713,12 +2713,12 @@ fn jvm_file_block_id(relative: &str, test: bool) -> String {
     id
 }
 
-/// Injective path/name encoding for JVM block ids (`foo-bar` ≠ `foo_bar`).
-fn jvm_id_encode(value: &str) -> String {
+/// Injective path/name encoding for JVM block ids (`foo-bar` ≠ `foo_bar`, `Foo` ≠ `foo`).
+pub(crate) fn jvm_id_encode(value: &str) -> String {
     let mut out = String::new();
     for character in value.chars() {
         if character.is_ascii_alphanumeric() {
-            out.push(character.to_ascii_lowercase());
+            out.push(character);
         } else {
             out.push_str(&format!("_{:x}_", character as u32));
         }

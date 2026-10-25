@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { extractCargoMap } from "./extract/cargo.js";
-import { discoverJvm, jvmFactBlocks, jvmImportStatement, parseJvmSource } from "./extract/jvm-modules.js";
+import { discoverJvm, jvmFactBlocks, jvmIdEncode, jvmImportStatement, parseJvmSource } from "./extract/jvm-modules.js";
 
 const fixtureRoot = fileURLToPath(new URL("../crates/lightwell-core/fixtures/jvm-sample/", import.meta.url));
 
@@ -38,6 +38,59 @@ test("parseJvmSource keeps imports after non-ASCII comments and skips commented 
   );
   assert.equal(nested.symbols.some((symbol) => symbol.name === "nested"), false);
   assert.equal(nested.symbols.some((symbol) => symbol.name === "Inner"), false);
+});
+
+test("jvmIdEncode preserves ASCII case so Foo and foo stay distinct", () => {
+  assert.equal(jvmIdEncode("Foo"), "Foo");
+  assert.equal(jvmIdEncode("foo"), "foo");
+  assert.notEqual(jvmIdEncode("Foo"), jvmIdEncode("foo"));
+  assert.equal(jvmIdEncode("foo-bar"), "foo_2d_bar");
+  assert.equal(jvmIdEncode("foo_bar"), "foo_5f_bar");
+  const cases = readFileSync(path.join(fixtureRoot, "id-encode-cases.txt"), "utf8")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"));
+  assert.ok(cases.includes("Foo") && cases.includes("foo"));
+  const encoded = cases.map(jvmIdEncode);
+  assert.equal(new Set(encoded).size, encoded.length);
+});
+
+test("jvm case-distinct modules keep distinct block ids when the filesystem allows", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "lightwell-jvm-case-"));
+  try {
+    const probeUpper = path.join(root, "_case_probe_UPPER");
+    const probeLower = path.join(root, "_case_probe_upper");
+    mkdirSync(probeUpper);
+    let caseSensitive = true;
+    try {
+      mkdirSync(probeLower);
+    } catch {
+      caseSensitive = false;
+    }
+    if (!caseSensitive) return;
+    writeFileSync(path.join(root, "settings.gradle.kts"), 'include(":Foo", ":foo")\n');
+    for (const name of ["Foo", "foo"]) {
+      const module = path.join(root, name);
+      mkdirSync(path.join(module, "src/main/java/com/example"), { recursive: true });
+      writeFileSync(path.join(module, "build.gradle.kts"), "plugins { java }\n");
+      writeFileSync(
+        path.join(module, "src/main/java/com/example/Item.java"),
+        "package com.example;\npublic class Item {}\n",
+      );
+    }
+    const facts = jvmFactBlocks({
+      workspace: discoverJvm(root),
+      rootPath: root,
+      workspaceId: "workspace:case",
+    });
+    const upper = facts.blocks.find((block) => block.modulePath === "Foo");
+    const lower = facts.blocks.find((block) => block.modulePath === "foo");
+    assert.equal(upper?.id, "module:jvm:Foo");
+    assert.equal(lower?.id, "module:jvm:foo");
+    assert.notEqual(upper?.id, lower?.id);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("jvm fixture lists modules, packages, imports, and symbols", () => {
@@ -78,7 +131,7 @@ test("jvm fixture lists modules, packages, imports, and symbols", () => {
 test("jvm fixture extracts modules, files, symbols, and import edges", () => {
   const workspace = discoverJvm(fixtureRoot);
   const facts = jvmFactBlocks({ workspace, rootPath: fixtureRoot, workspaceId: "workspace:jvm-sample" });
-  const appFile = "module:jvm:app_2f_src_2f_main_2f_java_2f_com_2f_example_2f_app_2f_app_2e_java";
+  const appFile = "module:jvm:app_2f_src_2f_main_2f_java_2f_com_2f_example_2f_app_2f_App_2e_java";
   assert.ok(facts.blocks.some((block) => block.id === "module:jvm:app" && block.language === "jvm" && block.cfgAttributes[0] === "gradle"));
   assert.ok(facts.blocks.some((block) => block.id === "module:jvm:lib" && block.cfgAttributes[0] === "maven"));
   assert.ok(facts.blocks.some((block) => block.id === "module:jvm:foo_2d_bar"));
@@ -89,11 +142,11 @@ test("jvm fixture extracts modules, files, symbols, and import edges", () => {
   );
   assert.ok(facts.blocks.some((block) => block.id === "module:jvm:app:com_2e_example_2e_app" && block.modulePath === "com.example.app"));
   assert.ok(facts.blocks.some((block) => block.id === appFile && block.language === "java" && block.modulePath === "com.example.app/App"));
-  assert.ok(facts.blocks.some((block) => block.id === `${appFile}:app:class` && block.cfgAttributes[0] === "class"));
-  assert.ok(facts.blocks.some((block) => block.id.endsWith("greeter_2e_kt:hello:fun") && block.language === "kotlin"));
+  assert.ok(facts.blocks.some((block) => block.id === `${appFile}:App:class` && block.cfgAttributes[0] === "class"));
+  assert.ok(facts.blocks.some((block) => block.id.endsWith("Greeter_2e_kt:hello:fun") && block.language === "kotlin"));
   assert.equal(facts.blocks.some((block) => block.label === "nested"), false);
-  assert.ok(facts.blocks.some((block) => block.id.endsWith("apptest_2e_java:test")));
-  assert.ok(facts.blocks.some((block) => block.id.endsWith("helper_2e_java:test")));
+  assert.ok(facts.blocks.some((block) => block.id.endsWith("AppTest_2e_java:test")));
+  assert.ok(facts.blocks.some((block) => block.id.endsWith("Helper_2e_java:test")));
   const appEdges = facts.connections.filter((edge) => edge.kind === "depends_on" && edge.source === appFile);
   assert.deepEqual(appEdges.map((edge) => edge.target), ["module:jvm:lib:com_2e_example_2e_lib"]);
   assert.equal(facts.blocks.some((block) => block.label === "Skipped"), false);
