@@ -21,8 +21,18 @@ use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+
+#[cfg(test)]
+thread_local! {
+    /// When set, lock the temporary worktree before `git worktree remove` so the
+    /// failure path in `cleanup_temporary_commit_worktree` is exercised through
+    /// `extract_map_at_commit`.
+    static LOCK_TEMP_WORKTREE_BEFORE_REMOVE: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -347,8 +357,75 @@ fn extract_map_at_commit(
     } else {
         Ok(None)
     };
-    let _ = git(root, &["worktree", "remove", "--force", &worktree_arg]);
+    // Preserve the map result even when cleanup hits a locked or otherwise stuck
+    // worktree; never leave a stale admin registration behind.
+    cleanup_temporary_commit_worktree(root, &worktree, temporary);
     map
+}
+
+/// Removes a temporary commit-map worktree. On a successful `git worktree remove`,
+/// the reserved parent directory is deleted by `temporary`'s Drop. When remove
+/// fails (for example a locked worktree), deletes only this worktree's checkout
+/// and its matching admin registration under the repository common dir, then prunes.
+fn cleanup_temporary_commit_worktree(root: &Path, worktree: &Path, temporary: tempfile::TempDir) {
+    let worktree_arg = path_for_git(worktree);
+    #[cfg(test)]
+    if LOCK_TEMP_WORKTREE_BEFORE_REMOVE.get() {
+        let _ = git(root, &["worktree", "lock", &worktree_arg]);
+    }
+    if git(root, &["worktree", "remove", "--force", &worktree_arg]).is_ok() {
+        return;
+    }
+    let owned_admins = owned_worktree_admin_dirs(root, worktree);
+    let _ = fs::remove_dir_all(worktree);
+    for admin in owned_admins {
+        let _ = fs::remove_dir_all(&admin);
+    }
+    let _ = git(root, &["worktree", "prune"]);
+    drop(temporary);
+}
+
+fn git_common_dir(root: &Path) -> Option<PathBuf> {
+    let common = git(root, &["rev-parse", "--git-common-dir"]).ok()?;
+    let common = common.trim();
+    if common.is_empty() {
+        return None;
+    }
+    let path = Path::new(common);
+    Some(if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        root.join(path)
+    })
+}
+
+fn owned_worktree_admin_dirs(root: &Path, worktree: &Path) -> Vec<PathBuf> {
+    let admin_root = match git_common_dir(root) {
+        Some(common) => common.join("worktrees"),
+        None => return Vec::new(),
+    };
+    let Ok(entries) = fs::read_dir(&admin_root) else {
+        return Vec::new();
+    };
+    let expected_git_file = worktree.join(".git");
+    entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|admin| {
+            let Ok(contents) = fs::read_to_string(admin.join("gitdir")) else {
+                return false;
+            };
+            let pointed = PathBuf::from(contents.trim());
+            paths_refer_to_same_location(&pointed, &expected_git_file)
+        })
+        .collect()
+}
+
+fn paths_refer_to_same_location(left: &Path, right: &Path) -> bool {
+    if let (Ok(left), Ok(right)) = (left.canonicalize(), right.canonicalize()) {
+        return left == right;
+    }
+    path_for_git(left) == path_for_git(right)
 }
 
 fn map_extraction_message(error: &MapExtractionError) -> String {
@@ -1433,6 +1510,163 @@ edition = "2021"
                 !registrations.exists() || fs::read_dir(registrations).unwrap().next().is_none()
             );
         }
+    }
+
+    #[test]
+    fn failed_worktree_remove_from_linked_root_clears_only_owned_registration() {
+        let fixtures = tempfile::tempdir().unwrap();
+        let main = fixtures.path().join("repo");
+        let linked = fixtures.path().join("linked");
+        let other = fixtures.path().join("other");
+        for repo in [&main, &other] {
+            fs::create_dir_all(repo.join("src")).unwrap();
+            fs::write(
+                repo.join("Cargo.toml"),
+                r#"[package]
+name = "worktree-cleanup"
+version = "0.1.0"
+edition = "2021"
+"#,
+            )
+            .unwrap();
+            fs::write(repo.join("src/lib.rs"), "pub fn ready() {}\n").unwrap();
+            git(repo, &["init", "-q"]);
+            git(repo, &["add", "."]);
+            git(repo, &["commit", "-q", "-m", "Initial"]);
+        }
+        let linked_arg = linked.to_string_lossy().into_owned();
+        git(&main, &["worktree", "add", "--detach", &linked_arg, "HEAD"]);
+        assert!(
+            linked.join(".git").is_file(),
+            "linked root must use a gitfile, not a .git directory"
+        );
+
+        let foreign_worktree = fixtures.path().join("foreign-worktree");
+        let foreign_arg = foreign_worktree.to_string_lossy().into_owned();
+        git(
+            &other,
+            &["worktree", "add", "--detach", &foreign_arg, "HEAD"],
+        );
+        git(&other, &["worktree", "lock", &foreign_arg]);
+
+        let temporary = tempfile::Builder::new()
+            .prefix("lightwell-map-")
+            .tempdir()
+            .unwrap();
+        let worktree = temporary.path().join("worktree");
+        let worktree_arg = worktree.to_string_lossy().into_owned();
+        // Register the temp worktree through the linked root so admin lives in the
+        // common dir, not under linked/.git/worktrees (which does not exist).
+        git(
+            &linked,
+            &["worktree", "add", "--detach", &worktree_arg, "HEAD"],
+        );
+        git(&linked, &["worktree", "lock", &worktree_arg]);
+        assert!(
+            super::git(&linked, &["worktree", "remove", "--force", &worktree_arg]).is_err(),
+            "locked worktree must reproduce the ignored-remove failure"
+        );
+        assert!(
+            main.join(".git").is_dir(),
+            "admin registrations live under the common dir"
+        );
+        assert!(
+            !super::owned_worktree_admin_dirs(&linked, &worktree).is_empty(),
+            "linked-root lookup must resolve the common-dir admin entry"
+        );
+        assert!(
+            !linked.join(".git/worktrees").exists(),
+            "a naive root/.git/worktrees walk would miss the registration"
+        );
+
+        super::cleanup_temporary_commit_worktree(&linked, &worktree, temporary);
+        assert!(
+            !worktree.exists(),
+            "failed remove must still delete the temporary checkout"
+        );
+        let worktrees = super::git(&linked, &["worktree", "list", "--porcelain"]).unwrap();
+        assert_eq!(
+            worktrees
+                .lines()
+                .filter(|line| line.starts_with("worktree "))
+                .count(),
+            2,
+            "only main + linked should remain: {worktrees}"
+        );
+        let registrations = main.join(".git/worktrees");
+        let remaining = fs::read_dir(&registrations)
+            .map(|entries| {
+                entries
+                    .flatten()
+                    .map(|entry| entry.file_name().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        assert_eq!(
+            remaining.len(),
+            1,
+            "temp admin registration must be gone from the common dir: {remaining:?}"
+        );
+
+        let foreign = super::git(&other, &["worktree", "list", "--porcelain"]).unwrap();
+        assert!(
+            foreign.contains("foreign-worktree"),
+            "cleanup must not touch another repository's worktree: {foreign}"
+        );
+        assert!(
+            foreign_worktree.exists(),
+            "foreign worktree checkout must remain"
+        );
+    }
+
+    #[test]
+    fn extract_map_at_commit_clears_locked_temp_worktree_from_linked_root() {
+        let fixtures = tempfile::tempdir().unwrap();
+        let main = fixtures.path().join("repo");
+        let linked = fixtures.path().join("linked");
+        fs::create_dir_all(main.join("src")).unwrap();
+        fs::write(
+            main.join("Cargo.toml"),
+            r#"[package]
+name = "worktree-cleanup-extract"
+version = "0.1.0"
+edition = "2021"
+"#,
+        )
+        .unwrap();
+        fs::write(main.join("src/lib.rs"), "pub fn ready() {}\n").unwrap();
+        git(&main, &["init", "-q"]);
+        git(&main, &["add", "."]);
+        git(&main, &["commit", "-q", "-m", "Initial"]);
+        let linked_arg = linked.to_string_lossy().into_owned();
+        git(&main, &["worktree", "add", "--detach", &linked_arg, "HEAD"]);
+
+        super::LOCK_TEMP_WORKTREE_BEFORE_REMOVE.set(true);
+        let map = super::extract_map_at_commit(&linked, "HEAD", None);
+        super::LOCK_TEMP_WORKTREE_BEFORE_REMOVE.set(false);
+
+        let map = map.expect("extract_map_at_commit should preserve Ok through cleanup");
+        assert!(
+            map.is_some(),
+            "HEAD map should extract from the linked root"
+        );
+        let worktrees = super::git(&linked, &["worktree", "list", "--porcelain"]).unwrap();
+        assert_eq!(
+            worktrees
+                .lines()
+                .filter(|line| line.starts_with("worktree "))
+                .count(),
+            2,
+            "locked temp worktree must not remain registered: {worktrees}"
+        );
+        let registrations = main.join(".git/worktrees");
+        let remaining = fs::read_dir(&registrations)
+            .map(|entries| entries.flatten().count())
+            .unwrap_or(0);
+        assert_eq!(
+            remaining, 1,
+            "only the linked-worktree admin entry should remain"
+        );
     }
 
     #[test]
