@@ -84,6 +84,12 @@ export function monacoLanguageIdForPath(filePath: string): string {
   if (!pack) {
     return "rust";
   }
+  const basename = baseName(filePath).toLowerCase();
+  const exactBasenameId = pack.monacoIdByBasename?.[basename];
+  if (exactBasenameId !== undefined) return exactBasenameId;
+  for (const [prefix, languageId] of Object.entries(pack.monacoIdByBasenamePrefix ?? {})) {
+    if (basename.startsWith(prefix.toLowerCase())) return languageId;
+  }
   const extension = extensionForMonaco(filePath);
   const mapped = pack.monacoIdByExtension?.[extension];
   if (mapped !== undefined) {

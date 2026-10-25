@@ -1,3 +1,4 @@
+mod config_infra_source;
 mod diff;
 mod dotnet_source;
 mod editor;

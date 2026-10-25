@@ -208,6 +208,7 @@ Fixture workspaces, all under `crates/lightwell-core/fixtures`:
 - `go-sample` — Go module with `api` and `util` packages.
 - `dotnet-sample` — .NET solution with C# and Visual Basic projects.
 - `jvm-sample` — Maven and Gradle modules with Java and Kotlin sources.
+- `config-infra-sample` — Compose services, workflow jobs, Terraform resources, and Dockerfile build stages.
 
 ### app flows
 

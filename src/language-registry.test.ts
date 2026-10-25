@@ -52,6 +52,15 @@ test("registry maps Java and Kotlin sources", () => {
   assert.equal(monacoLanguageIdForPath("src/script.kts"), "kotlin");
 });
 
+test("registry maps YAML, Terraform and Dockerfile paths", () => {
+  assert.equal(sourceLanguageIdForPath(".github/workflows/deploy.yml"), "config-infra");
+  assert.equal(monacoLanguageIdForPath(".github/workflows/deploy.yml"), "yaml");
+  assert.equal(sourceLanguageIdForPath("infra/main.tf"), "config-infra");
+  assert.equal(monacoLanguageIdForPath("infra/main.tf"), "terraform");
+  assert.equal(sourceLanguageIdForPath(String.raw`C:\repo\infra\Dockerfile.dev`), "config-infra");
+  assert.equal(monacoLanguageIdForPath(String.raw`C:\repo\infra\Dockerfile.dev`), "dockerfile");
+});
+
 test("registry maps web extensions without .ts swallowing .tsx", () => {
   assert.equal(sourceLanguageIdForPath("src/App.tsx"), "web");
   assert.equal(sourceLanguageIdForPath("src/cli.ts"), "web");
@@ -74,7 +83,7 @@ test("registry entries have unique longest extensions", () => {
 });
 
 test("built-in packs expose extractor and fixture seams", () => {
-  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 7);
+  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 8);
   const rust = languagePackForPath("src/lib.rs");
   assert.equal(rust?.extractor?.kind, "rust-workspace");
   assert.equal(rust?.extractor?.moduleTreeModule, "extract/rust-modules");
@@ -108,6 +117,11 @@ test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(languagePackForPath("Greeter.kt")?.id, "jvm");
   assert.equal(languagePackForPath("script.kts")?.id, "jvm");
   assert.equal(typeof jvm?.registerHighlighter, "function");
+  const configInfra = languagePackForPath("infra/main.tf");
+  assert.equal(configInfra?.id, "config-infra");
+  assert.equal(configInfra?.extractor?.kind, "config-infra-module");
+  assert.equal(configInfra?.fixtures?.root, "crates/lightwell-core/fixtures/config-infra-sample");
+  assert.equal(typeof configInfra?.registerHighlighter, "function");
 });
 
 test("extractWorkspaceMap uses rust pack workspace extractor on fixture workspace", () => {

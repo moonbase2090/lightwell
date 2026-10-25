@@ -27,6 +27,7 @@ tauri-plugin-process = "2.4.0"
 tauri-plugin-updater = "2.14.0"
 tempfile = "3.27"
 toml = "0.8"
+yaml-rust2 = "0.13"
 
 # crates.io has yanked every zip release except 9.0.3 and 9.0.4.
 # tauri-plugin-updater 2.14 still requires zip 4, so resolve that line from the tag.

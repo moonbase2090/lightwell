@@ -1,0 +1,14 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on: [db]
+    volumes: [data:/data]
+    networks: [backend]
+  db:
+    image: postgres:17
+volumes:
+  data: {}
+networks:
+  backend: {}
