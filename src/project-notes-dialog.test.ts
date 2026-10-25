@@ -71,7 +71,7 @@ test("project notes lists current notes before stale ones and names their state"
 test("project notes offers Mark reviewed for a stale note whose block still exists", () => {
   const html = renderNotes({
     kind: "ready",
-    notes: [{ blockId: "crate:moved", text: "still good", sourceFingerprint: "old", stale: true }],
+    notes: [{ blockId: "crate:moved", text: "still good", sourceFingerprint: "old", author: "unknown", updatedAt: "", stale: true }],
   }, "crate:moved", [{ id: "crate:moved", label: "moved" }]);
 
   assert.match(html, /class="notes-review-button"[^>]*>[\s\S]*Mark reviewed/);
@@ -110,7 +110,7 @@ test("project notes hides stale actions when the source omits them", () => {
     source: gated,
     snapshot: {
       kind: "ready",
-      notes: [{ blockId: "crate:moved", text: "still good", sourceFingerprint: "old", stale: true }],
+      notes: [{ blockId: "crate:moved", text: "still good", sourceFingerprint: "old", author: "unknown", updatedAt: "", stale: true }],
     },
     map: mapWith([{ id: "crate:moved", label: "moved" }]),
     currentBlockId: "crate:moved",
@@ -125,7 +125,7 @@ test("project notes hides stale actions when the source omits them", () => {
 test("project notes does not offer Mark reviewed for an orphaned stale note", () => {
   const html = renderNotes({
     kind: "ready",
-    notes: [{ blockId: "missing", text: "orphaned", sourceFingerprint: "c", stale: true }],
+    notes: [{ blockId: "missing", text: "orphaned", sourceFingerprint: "c", author: "unknown", updatedAt: "", stale: true }],
   }, "missing");
 
   assert.equal(html.includes("notes-review-button"), false);
