@@ -84,7 +84,7 @@ export function parseRubySource(source: string): {
   const views = rubyViews(source.startsWith("\uFEFF") ? source.slice(1) : source);
   const imports: RubyImport[] = [];
   const symbols: RubySymbol[] = [];
-  const state: RubyScan = { depth: 0, structAt: [] };
+  const state: RubyScan = { depth: 0, structAt: [], expectDo: false };
   const codeLines = views.code.split("\n");
   const visibleLines = views.visible.split("\n");
   const lineCount = Math.max(codeLines.length, visibleLines.length);
@@ -413,6 +413,8 @@ type RubyTok =
 interface RubyScan {
   depth: number;
   structAt: number[];
+  /** `for`/`while`/`until` already opened a block; a same-line `do` must not open again. */
+  expectDo: boolean;
 }
 
 function tokenizeRuby(line: string): RubyTok[] {
@@ -528,19 +530,29 @@ function applyRubyLine(line: string, lineNo: number, state: RubyScan, symbols: R
       index += 1;
       continue;
     }
-    if (atStatement && ["if", "unless", "while", "until", "case", "begin", "for"].includes(token.text)) {
+    if (atStatement && (token.text === "while" || token.text === "until" || token.text === "for")) {
       state.depth += 1;
+      state.expectDo = true;
+      atStatement = false;
+      index += 1;
+      continue;
+    }
+    if (atStatement && ["if", "unless", "case", "begin"].includes(token.text)) {
+      state.depth += 1;
+      state.expectDo = false;
       atStatement = false;
       index += 1;
       continue;
     }
     if (token.text === "do") {
-      state.depth += 1;
+      if (state.expectDo) state.expectDo = false;
+      else state.depth += 1;
       atStatement = false;
       index += 1;
       continue;
     }
     if (token.text === "end") {
+      state.expectDo = false;
       closeRubyBlock(state);
       atStatement = false;
       index += 1;
@@ -549,6 +561,7 @@ function applyRubyLine(line: string, lineNo: number, state: RubyScan, symbols: R
     atStatement = false;
     index += 1;
   }
+  state.expectDo = false;
 }
 
 function closeRubyBlock(state: RubyScan): void {
@@ -628,15 +641,25 @@ function withRbExtension(candidate: string): string {
 }
 
 function rubyPackageBlockId(importPath: string): string {
-  return `module:ruby:${slug(importPath)}`;
+  return `module:ruby:${languageIdEncode(importPath)}`;
 }
 
 function rubyFileBlockId(modulePath: string): string {
-  return `module:ruby:${slug(modulePath)}`;
+  return `module:ruby:${languageIdEncode(modulePath)}`;
 }
 
 function rubySymbolBlockId(modulePath: string, kind: string): string {
-  return `module:ruby:${slug(modulePath)}:${slug(kind)}`;
+  return `module:ruby:${languageIdEncode(modulePath)}:${languageIdEncode(kind)}`;
+}
+
+/** Injective path/name encoding for language-pack block ids (`foo-bar` ≠ `foo_bar`, `Foo` ≠ `foo`). */
+export function languageIdEncode(value: string): string {
+  let out = "";
+  for (const character of value) {
+    if (/^[A-Za-z0-9]$/.test(character)) out += character;
+    else out += `_${character.codePointAt(0)!.toString(16)}_`;
+  }
+  return out;
 }
 
 function containsConnection(source: string, target: string): FactConnection {
@@ -656,10 +679,6 @@ function connectionId(kind: "contains" | "depends_on", source: string, target: s
 
 function contentFingerprint(filePaths: readonly string[]): string {
   return hashText(filePaths.map((filePath) => hashFile(filePath)).sort().join("\n"));
-}
-
-function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function hashFile(filePath: string): string {

@@ -795,6 +795,32 @@ mod tests {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/php-sample")
     }
 
+    #[test]
+    fn language_id_encode_keeps_case_and_separators_distinct() {
+        use crate::extract::{extract_cargo_map, language_id_encode};
+        use crate::facts::FactBlock;
+        assert_ne!(
+            language_id_encode("Vendor\\Foo_Bar"),
+            language_id_encode("Vendor\\Foo\\Bar")
+        );
+        assert_ne!(language_id_encode("Foo/Bar"), language_id_encode("foo/bar"));
+        let map = extract_cargo_map(&fixture_root(), Some("PHP Sample")).expect("extract");
+        let ids: Vec<_> = map
+            .blocks
+            .iter()
+            .filter_map(|block| match block {
+                FactBlock::Module(module) if module.language == "php" => {
+                    Some(module.base.id.as_str())
+                }
+                _ => None,
+            })
+            .collect();
+        let mut unique = ids.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(ids.len(), unique.len(), "php block ids must stay injective");
+    }
+
     fn temporary_directory(label: &str) -> PathBuf {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)

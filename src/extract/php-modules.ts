@@ -606,15 +606,25 @@ function phpImport(kind: string, qualified: string, alias: string | null, line: 
 }
 
 function phpPackageBlockId(importPath: string): string {
-  return `module:php:${slug(importPath)}`;
+  return `module:php:${languageIdEncode(importPath)}`;
 }
 
 function phpFileBlockId(modulePath: string): string {
-  return `module:php:${slug(modulePath)}`;
+  return `module:php:${languageIdEncode(modulePath)}`;
 }
 
 function phpSymbolBlockId(modulePath: string, kind: string): string {
-  return `module:php:${slug(modulePath)}:${slug(kind)}`;
+  return `module:php:${languageIdEncode(modulePath)}:${languageIdEncode(kind)}`;
+}
+
+/** Injective path/name encoding for language-pack block ids (`foo-bar` ≠ `foo_bar`, `Foo` ≠ `foo`). */
+export function languageIdEncode(value: string): string {
+  let out = "";
+  for (const character of value) {
+    if (/^[A-Za-z0-9]$/.test(character)) out += character;
+    else out += `_${character.codePointAt(0)!.toString(16)}_`;
+  }
+  return out;
 }
 
 function containsConnection(source: string, target: string): FactConnection {
@@ -635,10 +645,6 @@ function connectionId(kind: "contains" | "depends_on", source: string, target: s
 function contentFingerprint(filePaths: readonly string[]): string {
   const parts = filePaths.map((filePath) => hashFile(filePath)).sort();
   return hashText(parts.join("\n"));
-}
-
-function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function hashFile(filePath: string): string {

@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { extractCargoMap } from "./extract/cargo.js";
-import { discoverPhpPackages, parsePhpSource, phpFactBlocks } from "./extract/php-modules.js";
+import { discoverPhpPackages, languageIdEncode, parsePhpSource, phpFactBlocks } from "./extract/php-modules.js";
 
 const fixtureRoot = fileURLToPath(new URL("../crates/lightwell-core/fixtures/php-sample/", import.meta.url));
 
@@ -133,4 +133,16 @@ test("cargo extraction includes php modules when composer.json is present", () =
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("languageIdEncode keeps case and separators distinct for php block ids", () => {
+  assert.equal(languageIdEncode("Foo"), "Foo");
+  assert.equal(languageIdEncode("foo"), "foo");
+  assert.notEqual(languageIdEncode("Foo"), languageIdEncode("foo"));
+  assert.equal(languageIdEncode("foo-bar"), "foo_2d_bar");
+  assert.equal(languageIdEncode("foo_bar"), "foo_5f_bar");
+  assert.notEqual(languageIdEncode("Vendor\\Foo_Bar"), languageIdEncode("Vendor\\Foo\\Bar"));
+  const map = extractCargoMap({ repositoryPath: fixtureRoot, projectName: "PHP Sample" });
+  const ids = map.blocks.filter((block) => block.type === "module" && block.language === "php").map((block) => block.id);
+  assert.equal(new Set(ids).size, ids.length);
 });

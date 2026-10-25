@@ -141,22 +141,30 @@ pub(crate) fn resolve_ruby_require(
     from: &Path,
     import: &RubyImport,
 ) -> Option<PathBuf> {
+    // Canonicalize the opened root so Windows confinement matches discovered file paths
+    // (canonical paths may carry a `\\?\` prefix that a raw fixture path lacks).
+    let root = opened_root(root).ok()?;
+    let relative_path = PathBuf::from(import.path.replace('\\', "/"));
     if import.relative {
         let parent = from.parent()?;
-        return confined_ruby_file(root, &with_rb_extension(parent.join(&import.path)));
+        return confined_ruby_file(&root, &with_rb_extension(parent.join(&relative_path)));
     }
     let relative = if import.path.ends_with(".rb") {
-        import.path.trim_start_matches("./").to_owned()
+        import.path.trim_start_matches("./").replace('\\', "/")
     } else {
-        format!("{}.rb", import.path.trim_start_matches("./"))
+        format!(
+            "{}.rb",
+            import.path.trim_start_matches("./").replace('\\', "/")
+        )
     };
+    let relative = PathBuf::from(relative);
     for base in [
         root.join("lib"),
-        root.to_path_buf(),
+        root.clone(),
         root.join("app").join("models"),
         root.join("app").join("controllers"),
     ] {
-        if let Some(found) = confined_ruby_file(root, &base.join(&relative)) {
+        if let Some(found) = confined_ruby_file(&root, &base.join(&relative)) {
             return Some(found);
         }
     }
@@ -182,6 +190,8 @@ fn with_rb_extension(path: PathBuf) -> PathBuf {
 struct RubyScan {
     depth: i32,
     struct_at: Vec<i32>,
+    /// `for`/`while`/`until` already opened a block; a same-line `do` must not open again.
+    expect_do: bool,
 }
 
 fn load_ruby_file(path: &Path, module_suffix: String) -> Result<RubyFile, CargoDiscoveryError> {
@@ -641,22 +651,32 @@ fn apply_ruby_line(
                 index += 1;
             }
             RubyTok::Word(word)
-                if at_statement
-                    && matches!(
-                        word.as_str(),
-                        "if" | "unless" | "while" | "until" | "case" | "begin" | "for"
-                    ) =>
+                if at_statement && matches!(word.as_str(), "while" | "until" | "for") =>
             {
                 state.depth += 1;
+                state.expect_do = true;
+                at_statement = false;
+                index += 1;
+            }
+            RubyTok::Word(word)
+                if at_statement && matches!(word.as_str(), "if" | "unless" | "case" | "begin") =>
+            {
+                state.depth += 1;
+                state.expect_do = false;
                 at_statement = false;
                 index += 1;
             }
             RubyTok::Word(word) if word == "do" => {
-                state.depth += 1;
+                if state.expect_do {
+                    state.expect_do = false;
+                } else {
+                    state.depth += 1;
+                }
                 at_statement = false;
                 index += 1;
             }
             RubyTok::Word(word) if word == "end" => {
+                state.expect_do = false;
                 close_ruby_block(state);
                 at_statement = false;
                 index += 1;
@@ -667,6 +687,7 @@ fn apply_ruby_line(
             }
         }
     }
+    state.expect_do = false;
 }
 
 fn close_ruby_block(state: &mut RubyScan) {
@@ -773,7 +794,7 @@ fn keyword_rest<'a>(line: &'a str, keyword: &str) -> Option<&'a str> {
 #[cfg(test)]
 mod tests {
     use super::{discover_ruby_packages, parse_ruby_source, resolve_ruby_require, RubySymbolKind};
-    use crate::extract::extract_cargo_map;
+    use crate::extract::{extract_cargo_map, language_id_encode};
     use crate::facts::FactBlock;
     use sha2::{Digest, Sha256};
     use std::fs;
@@ -782,6 +803,66 @@ mod tests {
 
     fn fixture_root() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/ruby-sample")
+    }
+
+    #[test]
+    fn for_do_does_not_drop_later_top_level_defs() {
+        let source = "class Before\nend\nfor x in xs do\n  class A\n  end\nend\nmodule Foo\n  class Bar\n  end\nend\ndef top_level\nend\n";
+        let (_, symbols) = parse_ruby_source(source);
+        assert!(symbols
+            .iter()
+            .any(|symbol| symbol.name == "Before" && symbol.kind == RubySymbolKind::Class));
+        assert!(symbols
+            .iter()
+            .any(|symbol| symbol.name == "A" && symbol.kind == RubySymbolKind::Class));
+        assert!(symbols
+            .iter()
+            .any(|symbol| symbol.name == "Foo" && symbol.kind == RubySymbolKind::Module));
+        assert!(symbols
+            .iter()
+            .any(|symbol| symbol.name == "Bar" && symbol.kind == RubySymbolKind::Class));
+        assert!(
+            symbols
+                .iter()
+                .any(|symbol| symbol.name == "top_level" && symbol.kind == RubySymbolKind::Def),
+            "for..do must not leave depth stale so top_level disappears"
+        );
+    }
+
+    #[test]
+    fn language_id_encode_keeps_case_and_separators_distinct() {
+        assert_eq!(language_id_encode("Foo"), "Foo");
+        assert_eq!(language_id_encode("foo"), "foo");
+        assert_ne!(language_id_encode("Foo"), language_id_encode("foo"));
+        assert_eq!(language_id_encode("foo-bar"), "foo_2d_bar");
+        assert_eq!(language_id_encode("foo_bar"), "foo_5f_bar");
+        assert_ne!(
+            language_id_encode("Vendor\\Foo_Bar"),
+            language_id_encode("Vendor\\Foo\\Bar")
+        );
+        assert_ne!(
+            language_id_encode("lib/foo-bar"),
+            language_id_encode("lib/foo/bar")
+        );
+        let map = extract_cargo_map(&fixture_root(), Some("Ruby Sample")).expect("extract");
+        let ids: Vec<_> = map
+            .blocks
+            .iter()
+            .filter_map(|block| match block {
+                FactBlock::Module(module) if module.language == "ruby" => {
+                    Some(module.base.id.as_str())
+                }
+                _ => None,
+            })
+            .collect();
+        let mut unique = ids.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(
+            ids.len(),
+            unique.len(),
+            "ruby block ids must stay injective"
+        );
     }
 
     fn temporary_directory(label: &str) -> PathBuf {
@@ -961,7 +1042,13 @@ mod tests {
             &controller.path,
             controller.imports.iter().next().expect("import"),
         );
-        assert!(resolved.expect("resolved user").ends_with("user.rb"));
+        assert_eq!(
+            resolved
+                .expect("resolved user")
+                .file_name()
+                .and_then(|name| name.to_str()),
+            Some("user.rb")
+        );
         let map = extract_cargo_map(&root, Some("Ruby Sample")).expect("extract");
         assert!(map.blocks.iter().any(|block| matches!(
             block,

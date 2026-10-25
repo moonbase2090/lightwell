@@ -2059,27 +2059,48 @@ fn content_fingerprint<'a>(
 }
 
 fn php_package_block_id(import_path: &str) -> String {
-    format!("module:php:{}", slug(import_path))
+    format!("module:php:{}", language_id_encode(import_path))
 }
 
 fn php_file_block_id(module_path: &str) -> String {
-    format!("module:php:{}", slug(module_path))
+    format!("module:php:{}", language_id_encode(module_path))
 }
 
 fn php_symbol_block_id(module_path: &str, kind: &str) -> String {
-    format!("module:php:{}:{}", slug(module_path), slug(kind))
+    format!(
+        "module:php:{}:{}",
+        language_id_encode(module_path),
+        language_id_encode(kind)
+    )
 }
 
 fn ruby_package_block_id(import_path: &str) -> String {
-    format!("module:ruby:{}", slug(import_path))
+    format!("module:ruby:{}", language_id_encode(import_path))
 }
 
 fn ruby_file_block_id(module_path: &str) -> String {
-    format!("module:ruby:{}", slug(module_path))
+    format!("module:ruby:{}", language_id_encode(module_path))
 }
 
 fn ruby_symbol_block_id(module_path: &str, kind: &str) -> String {
-    format!("module:ruby:{}:{}", slug(module_path), slug(kind))
+    format!(
+        "module:ruby:{}:{}",
+        language_id_encode(module_path),
+        language_id_encode(kind)
+    )
+}
+
+/// Injective path/name encoding for language-pack block ids (`foo-bar` ≠ `foo_bar`, `Foo` ≠ `foo`).
+pub(crate) fn language_id_encode(value: &str) -> String {
+    let mut out = String::new();
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            out.push(character);
+        } else {
+            out.push_str(&format!("_{:x}_", character as u32));
+        }
+    }
+    out
 }
 
 fn append_python_blocks(

@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { extractCargoMap } from "./extract/cargo.js";
-import { discoverRubyPackages, parseRubySource, resolveRubyRequire, rubyFactBlocks } from "./extract/ruby-modules.js";
+import { discoverRubyPackages, languageIdEncode, parseRubySource, resolveRubyRequire, rubyFactBlocks } from "./extract/ruby-modules.js";
 
 const fixtureRoot = fileURLToPath(new URL("../crates/lightwell-core/fixtures/ruby-sample/", import.meta.url));
 
@@ -134,4 +134,27 @@ test("cargo extraction includes ruby modules when a Gemfile is present", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("for..do does not drop later top-level defs", () => {
+  const parsed = parseRubySource(
+    "class Before\nend\nfor x in xs do\n  class A\n  end\nend\nmodule Foo\n  class Bar\n  end\nend\ndef top_level\nend\n",
+  );
+  assert.ok(parsed.symbols.some((symbol) => symbol.name === "Before" && symbol.kind === "class"));
+  assert.ok(parsed.symbols.some((symbol) => symbol.name === "A" && symbol.kind === "class"));
+  assert.ok(parsed.symbols.some((symbol) => symbol.name === "Foo" && symbol.kind === "module"));
+  assert.ok(parsed.symbols.some((symbol) => symbol.name === "Bar" && symbol.kind === "class"));
+  assert.ok(
+    parsed.symbols.some((symbol) => symbol.name === "top_level" && symbol.kind === "def"),
+    "for..do must not leave depth stale so top_level disappears",
+  );
+});
+
+test("languageIdEncode keeps case and separators distinct for ruby block ids", () => {
+  assert.notEqual(languageIdEncode("lib/foo-bar"), languageIdEncode("lib/foo/bar"));
+  assert.equal(languageIdEncode("foo-bar"), "foo_2d_bar");
+  assert.equal(languageIdEncode("foo_bar"), "foo_5f_bar");
+  const map = extractCargoMap({ repositoryPath: fixtureRoot, projectName: "Ruby Sample" });
+  const ids = map.blocks.filter((block) => block.type === "module" && block.language === "ruby").map((block) => block.id);
+  assert.equal(new Set(ids).size, ids.length);
 });
