@@ -67,10 +67,22 @@
         "module:python:tests-performance-checkpoint-latency",
         "module:python:tests-performance-compare",
         "module:python:tests-performance-workload",
-        "module:python:tests-test-mail-attention-clear"
+        "module:python:tests-test-mail-attention-clear",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+        "module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml",
+        "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml",
+        "module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml",
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+        "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+        "module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml",
+        "module:config-infra:demo_2f_docker_2f_Dockerfile",
+        "module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux",
+        "module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile",
+        "module:config-infra:tests_2f_performance_2f_Dockerfile",
+        "module:config-infra:tests_2f_terminfo_2f_Dockerfile"
       ],
       "sourcePath": "Cargo.toml",
-      "fingerprint": "165dff2311669a1228e232ea8dba3fe5744a66ade7381c6f60258b36daa53326",
+      "fingerprint": "83232bd177a9a0d8ffa587ce335f56fe079205378cc5be9cb07039b9ae359837",
       "memberCount": 10
     },
     {
@@ -8181,6 +8193,803 @@
       ],
       "unresolved": false,
       "language": "python"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "label": "ci.yml",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:apple_2d_sdk",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:crap",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:crap_2d_refresh",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:format",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:lint",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:mutants",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:phase3_2d_rich",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:render_2d_bench",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:spaces_2d_e2e",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:spaces_2d_e2e_2d_wayland",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:test",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:walkthrough_2d_caption_2d_e2e",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:windows_2d_check",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:windows_2d_test"
+      ],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "1a0312d90c0d06cb19e862b717c767df347b5a63fd17d64a1bdbc3c2b06be348",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:apple_2d_sdk",
+      "label": "apple-sdk",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "3e05ed2f8ad4556fe713d191fd33f9a808484c57623d71853670a89e0126d823",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:apple-sdk",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check",
+      "label": "check",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "77c2165e8b2b17a1665e458b121dfdff95b5b91937df0f110e63ab9868c4f2a1",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:check",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:crap",
+      "label": "crap",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "3400dee8354677f7e759bc6b226ce497efcff62d9beccb9f748aef496ff78b9c",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:crap",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:crap_2d_refresh",
+      "label": "crap-refresh",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "42b8a1a24e9c44eb3bd0cd46a3ed4e7491f165b9d54496edd85bee2583c2bd23",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:crap-refresh",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:format",
+      "label": "format",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "2be7bedd4713fb26d80cd86b4122e87acce69dbbd5d9b9b6cf26c0791f874c9f",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:format",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:lint",
+      "label": "lint",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "90e4d496e90a05953f4045c39804b78db90d1050a69b2bd74d2aa93ed7e4a825",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:lint",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:mutants",
+      "label": "mutants",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "1a755aae3b7920bee19584dfe89d1eb50b539eed736f3c24d5d7f0d2a258d981",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:mutants",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:phase3_2d_rich",
+      "label": "phase3-rich",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "ce4f244014305df9ee4fe7c47cb48b0dd06b88cb9706efc63a10ef9741268b2c",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:phase3-rich",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:render_2d_bench",
+      "label": "render-bench",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "291e39969d25a7b872d9a515133d122e1b066f6eca8076a55714761211c4fa95",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:render-bench",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:spaces_2d_e2e",
+      "label": "spaces-e2e",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "f64ee33466c270203a7eff09992fa2ad8cf2df520484c9fdf726a8e8675d86b9",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:spaces-e2e",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:spaces_2d_e2e_2d_wayland",
+      "label": "spaces-e2e-wayland",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "e253938732d6491c809dbcf254ec4eefe789dc72f7923f46417bde3908307c79",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:spaces-e2e-wayland",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:test",
+      "label": "test",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "992ed899edb2d764e3e50053abeaaef1ca4d65544b848f194e21c5c96eb1cf14",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:test",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:walkthrough_2d_caption_2d_e2e",
+      "label": "walkthrough-caption-e2e",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "fd9cf5798ebbf0dfbd2cbd8a36564a85c5d0cfe331e1621960c8e51dec2fbc5f",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:walkthrough-caption-e2e",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:windows_2d_check",
+      "label": "windows-check",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "0aeaf8e148286406018160a68fd6a37252cede883bb8804a9f163b6f8386d662",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:windows-check",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:windows_2d_test",
+      "label": "windows-test",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "c5d0937310c20f48dfa033a3049bbcf117cdd3d3b922f0f807da9a5c70cac43f",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/ci.yml#job:windows-test",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml",
+      "label": "crap-release.yml",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml:job:crap_2d_release"
+      ],
+      "sourcePath": ".github/workflows/crap-release.yml",
+      "fingerprint": "a677b2993ba0635abef3910cd61ba252af1a567325b6d0064caabaf0d2c43a45",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/crap-release.yml",
+      "declaredByPath": ".github/workflows/crap-release.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml:job:crap_2d_release",
+      "label": "crap-release",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/crap-release.yml",
+      "fingerprint": "6971c1458c7a491bff8731c121a51431a3e8353e2f0cf55c302b490220ad047c",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/crap-release.yml#job:crap-release",
+      "declaredByPath": ".github/workflows/crap-release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml",
+      "label": "mutants-nightly.yml",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:missed_2d_mutants",
+        "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:mutants_2d_nightly"
+      ],
+      "sourcePath": ".github/workflows/mutants-nightly.yml",
+      "fingerprint": "da3ce58edbd990bfd77086b5ebdb618b8938416d92b0e8b1ff09288165d7a8a9",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/mutants-nightly.yml",
+      "declaredByPath": ".github/workflows/mutants-nightly.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:missed_2d_mutants",
+      "label": "missed-mutants",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/mutants-nightly.yml",
+      "fingerprint": "57b74f27f41fa85f4d0e1ec7bf7583082d814f9376368a3461ac4ed158df0f6d",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/mutants-nightly.yml#job:missed-mutants",
+      "declaredByPath": ".github/workflows/mutants-nightly.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:mutants_2d_nightly",
+      "label": "mutants-nightly",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/mutants-nightly.yml",
+      "fingerprint": "7fea92b2abea3498b96a3aa3f57ffe853dea8a2a5630dfedf83db75e5aac5fc6",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/mutants-nightly.yml#job:mutants-nightly",
+      "declaredByPath": ".github/workflows/mutants-nightly.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml",
+      "label": "phase3-rich-nightly.yml",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml:job:phase3_2d_rich_2d_nightly"
+      ],
+      "sourcePath": ".github/workflows/phase3-rich-nightly.yml",
+      "fingerprint": "ba570adb6c7052a935dc86c07b83408f8c1492cf639640598b684067fceda5f8",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/phase3-rich-nightly.yml",
+      "declaredByPath": ".github/workflows/phase3-rich-nightly.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml:job:phase3_2d_rich_2d_nightly",
+      "label": "phase3-rich-nightly",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/phase3-rich-nightly.yml",
+      "fingerprint": "9280d4dbc9fd05a4f5b2621cf63ecb792f9c692fb6081e47846bbd7fcacb2163",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/phase3-rich-nightly.yml#job:phase3-rich-nightly",
+      "declaredByPath": ".github/workflows/phase3-rich-nightly.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "label": "release.yml",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_arm64",
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_x86_5f_64",
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:windows"
+      ],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "df26490d9884bc1c15df6462f21a548b0c365fc3839968159260ebffc67d9395",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/release.yml",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+      "label": "apple",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "5f9ebd01686d5ef5634c34f50c686d0f855dd123d40f635b39a48657e537027d",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/release.yml#job:apple",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_arm64",
+      "label": "linux-arm64",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "f61e01e84f6edcb33f2da48de144a60c2546ceafdeb2730e87eb32c4feb9ac28",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/release.yml#job:linux-arm64",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_x86_5f_64",
+      "label": "linux-x86_64",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "e253446e334b0ff62ee16b21f8a5cda81760a49c275cfa9d343af6445473db90",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/release.yml#job:linux-x86_64",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "label": "publish",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "8fb9cac724105520d507fa462c6f2a4d8c03bd2e85c2197021ea1591ebf3932b",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/release.yml#job:publish",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "label": "validate",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "8f37a49673c401ea80c9b6e6bf4285f682c70b5205cd4a80a8e1a80b2fb3fdcc",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/release.yml#job:validate",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:windows",
+      "label": "windows",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "60f346e44cb0edf5ebe2dfc96b2d5700d37100915f607dfb581f696af48c45f1",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/release.yml#job:windows",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+      "label": "scorecard.yml",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml:job:scorecard"
+      ],
+      "sourcePath": ".github/workflows/scorecard.yml",
+      "fingerprint": "97e318e4341a1955d9b26e1a0b0bf661cf8016b672f14ae856391571f3f4760a",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/scorecard.yml",
+      "declaredByPath": ".github/workflows/scorecard.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml:job:scorecard",
+      "label": "scorecard",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/scorecard.yml",
+      "fingerprint": "1a58a576d4a7e4c00dc41d9b73680aec4e43d8f35db86cf8238d446a4585b8d9",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/scorecard.yml#job:scorecard",
+      "declaredByPath": ".github/workflows/scorecard.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml",
+      "label": "windows-package.yml",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml:job:package"
+      ],
+      "sourcePath": ".github/workflows/windows-package.yml",
+      "fingerprint": "2abebc516b28d459cda167dc3c65e68635355d8b6a21f0523466486e75a51a1c",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/windows-package.yml",
+      "declaredByPath": ".github/workflows/windows-package.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml:job:package",
+      "label": "package",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/windows-package.yml",
+      "fingerprint": "ae778848fc48b73bb6802b6aa6190de8e54b304567c92bc5b7b67209e5fa775e",
+      "packageName": "workspace:prismattyc",
+      "modulePath": ".github/workflows/windows-package.yml#job:package",
+      "declaredByPath": ".github/workflows/windows-package.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:demo_2f_docker_2f_Dockerfile",
+      "label": "Dockerfile",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:demo_2f_docker_2f_Dockerfile:stage:stage_2d_1"
+      ],
+      "sourcePath": "demo/docker/Dockerfile",
+      "fingerprint": "534b3ae8321ace0d33685ef5e13eb4bdd9b6b8fb8735c75d032ab85f937f6207",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "demo/docker/Dockerfile",
+      "declaredByPath": "demo/docker/Dockerfile",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:demo_2f_docker_2f_Dockerfile:stage:stage_2d_1",
+      "label": "stage-1",
+      "parentId": "module:config-infra:demo_2f_docker_2f_Dockerfile",
+      "children": [],
+      "sourcePath": "demo/docker/Dockerfile",
+      "fingerprint": "504f7e4f86e0726f5735ffbc52cab0fa90ae1b9d949aefb56050b0b2d58465b8",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "demo/docker/Dockerfile#stage:stage-1",
+      "declaredByPath": "demo/docker/Dockerfile",
+      "cfgAttributes": [
+        "docker-stage",
+        "from"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux",
+      "label": "Dockerfile.linux",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux:stage:stage_2d_1"
+      ],
+      "sourcePath": "scripts/release/Dockerfile.linux",
+      "fingerprint": "ea77966d2954477c6b6e0f2bb5ca053b06aa6604e9cf02f77bd1ef9018006a02",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "scripts/release/Dockerfile.linux",
+      "declaredByPath": "scripts/release/Dockerfile.linux",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux:stage:stage_2d_1",
+      "label": "stage-1",
+      "parentId": "module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux",
+      "children": [],
+      "sourcePath": "scripts/release/Dockerfile.linux",
+      "fingerprint": "f5daec7d9b6ff17b954730e697486a916fcdf29f1ca1cdd8815bacc2a00efa1c",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "scripts/release/Dockerfile.linux#stage:stage-1",
+      "declaredByPath": "scripts/release/Dockerfile.linux",
+      "cfgAttributes": [
+        "docker-stage",
+        "from"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile",
+      "label": "Dockerfile",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile:stage:stage_2d_1"
+      ],
+      "sourcePath": "tests/native/docker/Dockerfile",
+      "fingerprint": "5de82ed4eadaf348cd73f477c29991298ebb650479f3dd199c2a8fb66614db30",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "tests/native/docker/Dockerfile",
+      "declaredByPath": "tests/native/docker/Dockerfile",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile:stage:stage_2d_1",
+      "label": "stage-1",
+      "parentId": "module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile",
+      "children": [],
+      "sourcePath": "tests/native/docker/Dockerfile",
+      "fingerprint": "c58986fd20a4111d744c3c87c88570c4e3982370c7f0cf35bd0ce410d5f787c1",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "tests/native/docker/Dockerfile#stage:stage-1",
+      "declaredByPath": "tests/native/docker/Dockerfile",
+      "cfgAttributes": [
+        "docker-stage",
+        "from"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:tests_2f_performance_2f_Dockerfile",
+      "label": "Dockerfile",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:tests_2f_performance_2f_Dockerfile:stage:stage_2d_1"
+      ],
+      "sourcePath": "tests/performance/Dockerfile",
+      "fingerprint": "2043841f39ea7e2b7e3e9cd64b7723311c0020185cb9f81673fc9c6d955acae5",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "tests/performance/Dockerfile",
+      "declaredByPath": "tests/performance/Dockerfile",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:tests_2f_performance_2f_Dockerfile:stage:stage_2d_1",
+      "label": "stage-1",
+      "parentId": "module:config-infra:tests_2f_performance_2f_Dockerfile",
+      "children": [],
+      "sourcePath": "tests/performance/Dockerfile",
+      "fingerprint": "0a225ca5721923040281d5b4af9f31e6974b873a396c67600df665348aa1fda8",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "tests/performance/Dockerfile#stage:stage-1",
+      "declaredByPath": "tests/performance/Dockerfile",
+      "cfgAttributes": [
+        "docker-stage",
+        "from"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:tests_2f_terminfo_2f_Dockerfile",
+      "label": "Dockerfile",
+      "parentId": "workspace:prismattyc",
+      "children": [
+        "module:config-infra:tests_2f_terminfo_2f_Dockerfile:stage:stage_2d_1"
+      ],
+      "sourcePath": "tests/terminfo/Dockerfile",
+      "fingerprint": "b2bb47016751dadf74be161010c7b3b12296a8127ecd10939a13b1a15bc95de1",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "tests/terminfo/Dockerfile",
+      "declaredByPath": "tests/terminfo/Dockerfile",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:tests_2f_terminfo_2f_Dockerfile:stage:stage_2d_1",
+      "label": "stage-1",
+      "parentId": "module:config-infra:tests_2f_terminfo_2f_Dockerfile",
+      "children": [],
+      "sourcePath": "tests/terminfo/Dockerfile",
+      "fingerprint": "3c322a67ba8b23cf0d4fcbed7ac89dbe6dcb06338f6e6d9229d2f04d3df4650c",
+      "packageName": "workspace:prismattyc",
+      "modulePath": "tests/terminfo/Dockerfile#stage:stage-1",
+      "declaredByPath": "tests/terminfo/Dockerfile",
+      "cfgAttributes": [
+        "docker-stage",
+        "from"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
     }
   ],
   "connections": [
@@ -10927,6 +11736,340 @@
       "target": "module:python:tests-test-mail-attention-clear-main:def"
     },
     {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:apple_2d_sdk",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:apple_2d_sdk"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:crap",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:crap"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:crap_2d_refresh",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:crap_2d_refresh"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:format",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:format"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:lint",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:lint"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:mutants",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:mutants"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:phase3_2d_rich",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:phase3_2d_rich"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:render_2d_bench",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:render_2d_bench"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:spaces_2d_e2e",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:spaces_2d_e2e"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:spaces_2d_e2e_2d_wayland",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:spaces_2d_e2e_2d_wayland"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:test",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:test"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:walkthrough_2d_caption_2d_e2e",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:walkthrough_2d_caption_2d_e2e"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:windows_2d_check",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:windows_2d_check"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:windows_2d_test",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:windows_2d_test"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml:job:crap_2d_release",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml:job:crap_2d_release"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:missed_2d_mutants",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:missed_2d_mutants"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:mutants_2d_nightly",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:mutants_2d_nightly"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml:job:phase3_2d_rich_2d_nightly",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml:job:phase3_2d_rich_2d_nightly"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_arm64",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_arm64"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_x86_5f_64",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_x86_5f_64"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:windows",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:windows"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml:job:scorecard",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml:job:scorecard"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml:job:package",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml:job:package"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:demo_2f_docker_2f_Dockerfile->module:config-infra:demo_2f_docker_2f_Dockerfile:stage:stage_2d_1",
+      "source": "module:config-infra:demo_2f_docker_2f_Dockerfile",
+      "target": "module:config-infra:demo_2f_docker_2f_Dockerfile:stage:stage_2d_1"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux->module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux:stage:stage_2d_1",
+      "source": "module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux",
+      "target": "module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux:stage:stage_2d_1"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile->module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile:stage:stage_2d_1",
+      "source": "module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile",
+      "target": "module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile:stage:stage_2d_1"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:tests_2f_performance_2f_Dockerfile->module:config-infra:tests_2f_performance_2f_Dockerfile:stage:stage_2d_1",
+      "source": "module:config-infra:tests_2f_performance_2f_Dockerfile",
+      "target": "module:config-infra:tests_2f_performance_2f_Dockerfile:stage:stage_2d_1"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:tests_2f_terminfo_2f_Dockerfile->module:config-infra:tests_2f_terminfo_2f_Dockerfile:stage:stage_2d_1",
+      "source": "module:config-infra:tests_2f_terminfo_2f_Dockerfile",
+      "target": "module:config-infra:tests_2f_terminfo_2f_Dockerfile:stage:stage_2d_1"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_crap_2d_release_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_phase3_2d_rich_2d_nightly_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_windows_2d_package_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:demo_2f_docker_2f_Dockerfile",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:demo_2f_docker_2f_Dockerfile"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:scripts_2f_release_2f_Dockerfile_2e_linux"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:tests_2f_native_2f_docker_2f_Dockerfile"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:tests_2f_performance_2f_Dockerfile",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:tests_2f_performance_2f_Dockerfile"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:prismattyc->module:config-infra:tests_2f_terminfo_2f_Dockerfile",
+      "source": "workspace:prismattyc",
+      "target": "module:config-infra:tests_2f_terminfo_2f_Dockerfile"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:missed_2d_mutants->module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:mutants_2d_nightly",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:missed_2d_mutants",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_mutants_2d_nightly_2e_yml:job:mutants_2d_nightly",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_arm64->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_arm64",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_x86_5f_64->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_x86_5f_64",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_arm64",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_arm64",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_x86_5f_64",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux_2d_x86_5f_64",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:windows",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:windows",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:windows->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:windows",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:validate",
+      "dependencyScope": "normal"
+    },
+    {
       "kind": "depends_on",
       "id": "depends_on:crate:pmux-mcp->crate:prismattyc-core",
       "source": "crate:pmux-mcp",
@@ -11100,11 +12243,11 @@
     }
   ],
   "stats": {
-    "blocks": 458,
-    "connections": 479,
+    "blocks": 502,
+    "connections": 533,
     "crates": 10,
     "apps": 6,
-    "modules": 439,
+    "modules": 483,
     "cargoFeatures": 2
   }
 }

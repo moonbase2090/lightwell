@@ -46,7 +46,7 @@ export function discoverConfigInfra(repositoryPath: string): ConfigInfraWorkspac
     }
     const language = languageFor(filePath);
     return { path: relative, language, entities: parseEntities(source, language, relative) };
-  });
+  }).filter((file) => file.language !== "yaml" || file.entities.length > 0);
   return { files };
 }
 

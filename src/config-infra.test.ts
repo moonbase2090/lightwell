@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { configInfraFactBlocks, discoverConfigInfra } from "./extract/config-infra.js";
@@ -59,4 +62,21 @@ test("config/infra is available without Cargo and routes source highlighting by 
   assert.equal(monacoLanguageIdForPath("infra/compose.yaml"), "yaml");
   assert.equal(monacoLanguageIdForPath("infra/Dockerfile.dev"), "dockerfile");
   assert.equal(CONFIG_INFRA_LANGUAGE_PACK.extractor?.kind, "config-infra-module");
+});
+
+test("discovery omits YAML files without config/infra entities", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "lightwell-config-infra-empty-yaml-"));
+  try {
+    mkdirSync(path.join(root, ".github", "ISSUE_TEMPLATE"), { recursive: true });
+    mkdirSync(path.join(root, ".github", "workflows"), { recursive: true });
+    writeFileSync(path.join(root, ".github", "dependabot.yml"), "version: 2\nupdates: []\n");
+    writeFileSync(path.join(root, ".github", "ISSUE_TEMPLATE", "bug_report.yml"), "name: Bug report\ndescription: Report a bug\nbody: []\n");
+    writeFileSync(path.join(root, ".github", "workflows", "deploy.yml"), "jobs:\n  deploy:\n    runs-on: ubuntu-latest\n");
+
+    const workspace = discoverConfigInfra(root);
+
+    assert.deepEqual(workspace.files.map((file) => file.path), [".github/workflows/deploy.yml"]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

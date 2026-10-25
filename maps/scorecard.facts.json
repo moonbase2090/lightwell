@@ -53,10 +53,15 @@
         "module:web:testdata-web-site-bad-index",
         "module:dotnet:project:testdata-cov-csharp-app-csproj",
         "module:dotnet:project:testdata-csharp-pack-app-csproj",
-        "module:dotnet:project:testdata-csharp-pack-fail-app-csproj"
+        "module:dotnet:project:testdata-csharp-pack-fail-app-csproj",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+        "module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml",
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+        "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+        "module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile"
       ],
       "sourcePath": "Cargo.toml",
-      "fingerprint": "6f54e2568abeff1c08e94a5f14c44f8d1e9c85c1edec5f174bf4e235f7b29019",
+      "fingerprint": "aef75ce96e485e6d8bc3e248b37f48029bcea8c266e234665285af4c4db07c9b",
       "memberCount": 8
     },
     {
@@ -2118,6 +2123,313 @@
       ],
       "unresolved": false,
       "language": "csharp"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "label": "ci.yml",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check_2d_macos",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check_2d_ubuntu",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:coverage",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:deny",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:dogfood",
+        "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:msrv"
+      ],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "bd8dc9e7d5235eb84f1811e81e90b176b0ece254f755493d421c4854068d4bbf",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/ci.yml",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check_2d_macos",
+      "label": "check-macos",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "c5e3d1091db2079dc0b9e566d1356a439413f9f385cf13dd08006d96eae60657",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/ci.yml#job:check-macos",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check_2d_ubuntu",
+      "label": "check-ubuntu",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "345729227bc3b369289826e6b589c0a40606d3e56ad932502f4f3b2f7e38c969",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/ci.yml#job:check-ubuntu",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:coverage",
+      "label": "coverage",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "6233b710eb9d7073a01b4ce402e87452f2d09986f0589b48e2741557de1d1b33",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/ci.yml#job:coverage",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:deny",
+      "label": "deny",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "b1b8eb311e64643d682cdfabe74fad91bb14b44889c7cfa89c2adec40af874d8",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/ci.yml#job:deny",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:dogfood",
+      "label": "dogfood",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "44d308d581bb20610363f530badc4732e1439c9132419e3144c597af791403e7",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/ci.yml#job:dogfood",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:msrv",
+      "label": "msrv",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/ci.yml",
+      "fingerprint": "fb6635d5e48a1f2dea0c1222f0e6f8d69313608c7e106f2316d8b755f6269235",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/ci.yml#job:msrv",
+      "declaredByPath": ".github/workflows/ci.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml",
+      "label": "docs.yml",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml:job:docs"
+      ],
+      "sourcePath": ".github/workflows/docs.yml",
+      "fingerprint": "0360f8c09a4a9b32a153cc056411514ae00223e68e980d5f6558f80118c36fab",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/docs.yml",
+      "declaredByPath": ".github/workflows/docs.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml:job:docs",
+      "label": "docs",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/docs.yml",
+      "fingerprint": "dcee4c6491be81dc377201dc1b265c79166784b057f6d09986a6c18a7b3393d6",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/docs.yml#job:docs",
+      "declaredByPath": ".github/workflows/docs.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "label": "release.yml",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux",
+        "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish"
+      ],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "6f5733e101cfc49fdaa1ed1ac65314f26b045a2d525e018e6fee1493f4d71eaf",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/release.yml",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+      "label": "apple",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "4ae2da567ed5d4e5be3d9cf11bb4753fdc0a230abdb7ea4a50110a3f25323c29",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/release.yml#job:apple",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux",
+      "label": "linux",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "f140b51f315e998bd5fd388eec9d19f95f036eab51e55707053005ee7b20cd7c",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/release.yml#job:linux",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "label": "publish",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/release.yml",
+      "fingerprint": "a4a79e4639c0583493de965fc4929c3cd99609d906f56f2334fab29576aceab5",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/release.yml#job:publish",
+      "declaredByPath": ".github/workflows/release.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+      "label": "scorecard.yml",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml:job:scorecard"
+      ],
+      "sourcePath": ".github/workflows/scorecard.yml",
+      "fingerprint": "85b5a209148724a1f00c5ed88b49720a99147cc9849c2acb77a0e47bd1f8c643",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/scorecard.yml",
+      "declaredByPath": ".github/workflows/scorecard.yml",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml:job:scorecard",
+      "label": "scorecard",
+      "parentId": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+      "children": [],
+      "sourcePath": ".github/workflows/scorecard.yml",
+      "fingerprint": "02b1c8362185d3d3839bd2ca120188e09b31394982054bb45de6e91c412e2cff",
+      "packageName": "workspace:scorecard",
+      "modulePath": ".github/workflows/scorecard.yml#job:scorecard",
+      "declaredByPath": ".github/workflows/scorecard.yml",
+      "cfgAttributes": [
+        "workflow-job"
+      ],
+      "unresolved": false,
+      "language": "yaml"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile",
+      "label": "Dockerfile",
+      "parentId": "workspace:scorecard",
+      "children": [
+        "module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile:stage:stage_2d_1"
+      ],
+      "sourcePath": "docker/scorecard-tools/Dockerfile",
+      "fingerprint": "f625f4012c02fe08024e5b5a0521c981c1d704a0a806038e404988626b257a5b",
+      "packageName": "workspace:scorecard",
+      "modulePath": "docker/scorecard-tools/Dockerfile",
+      "declaredByPath": "docker/scorecard-tools/Dockerfile",
+      "cfgAttributes": [
+        "config-file"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
+    },
+    {
+      "type": "module",
+      "id": "module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile:stage:stage_2d_1",
+      "label": "stage-1",
+      "parentId": "module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile",
+      "children": [],
+      "sourcePath": "docker/scorecard-tools/Dockerfile",
+      "fingerprint": "be93008b721872f1064d2b7f3ef5ba85a85d9a5f0ed622dea91524acb3a3033e",
+      "packageName": "workspace:scorecard",
+      "modulePath": "docker/scorecard-tools/Dockerfile#stage:stage-1",
+      "declaredByPath": "docker/scorecard-tools/Dockerfile",
+      "cfgAttributes": [
+        "docker-stage",
+        "from"
+      ],
+      "unresolved": false,
+      "language": "dockerfile"
     }
   ],
   "connections": [
@@ -2884,6 +3196,122 @@
       "target": "module:dotnet:method:apptest:positive:5"
     },
     {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check_2d_macos",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check_2d_macos"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check_2d_ubuntu",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:check_2d_ubuntu"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:coverage",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:coverage"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:deny",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:deny"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:dogfood",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:dogfood"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:msrv",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml:job:msrv"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml:job:docs",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml:job:docs"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml->module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml:job:scorecard",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml:job:scorecard"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile->module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile:stage:stage_2d_1",
+      "source": "module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile",
+      "target": "module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile:stage:stage_2d_1"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml",
+      "source": "workspace:scorecard",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_ci_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml",
+      "source": "workspace:scorecard",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_docs_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+      "source": "workspace:scorecard",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml",
+      "source": "workspace:scorecard",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_scorecard_2e_yml"
+    },
+    {
+      "kind": "contains",
+      "id": "contains:workspace:scorecard->module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile",
+      "source": "workspace:scorecard",
+      "target": "module:config-infra:docker_2f_scorecard_2d_tools_2f_Dockerfile"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:apple",
+      "dependencyScope": "normal"
+    },
+    {
+      "kind": "depends_on",
+      "id": "depends_on:module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish->module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux",
+      "source": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:publish",
+      "target": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml:job:linux",
+      "dependencyScope": "normal"
+    },
+    {
       "kind": "depends_on",
       "id": "depends_on:crate:sc-cli->crate:sc-core",
       "source": "crate:sc-cli",
@@ -2971,11 +3399,11 @@
     }
   ],
   "stats": {
-    "blocks": 128,
-    "connections": 137,
+    "blocks": 145,
+    "connections": 156,
     "crates": 8,
     "apps": 2,
-    "modules": 116,
+    "modules": 133,
     "cargoFeatures": 1
   }
 }

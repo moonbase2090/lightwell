@@ -88,18 +88,21 @@ pub(crate) fn discover_config_infra(
     paths.sort();
     let files = paths
         .into_iter()
-        .map(|path| {
+        .filter_map(|path| {
             let language = language_for(&path);
             let source = fs::read(&path)
                 .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
                 .unwrap_or_default();
             let relative = relative_path(root, &path);
             let entities = parse_entities(&source, language, &relative);
-            ConfigInfraFile {
+            if language == ConfigInfraLanguage::Yaml && entities.is_empty() {
+                return None;
+            }
+            Some(ConfigInfraFile {
                 path,
                 language,
                 entities,
-            }
+            })
         })
         .collect();
     Ok(ConfigInfraWorkspace { files })
@@ -867,7 +870,11 @@ mod tests {
         fs::create_dir_all(root.0.join(".github/workflows")).expect("workflow dir");
         fs::create_dir_all(root.0.join(".terraform")).expect("generated dir");
         fs::create_dir_all(root.0.join("fixtures")).expect("fixtures dir");
-        fs::write(root.0.join(".github/workflows/deploy.yml"), "jobs: {}\n").expect("workflow");
+        fs::write(
+            root.0.join(".github/workflows/deploy.yml"),
+            "jobs:\n  build:\n    runs-on: ubuntu-latest\n",
+        )
+        .expect("workflow");
         fs::write(
             root.0.join(".terraform/hidden.tf"),
             "resource \"x\" \"y\" {}\n",
@@ -889,6 +896,33 @@ mod tests {
             .files
             .iter()
             .any(|file| file.path.to_string_lossy().contains("/fixtures/")));
+    }
+
+    #[test]
+    fn omits_yaml_files_without_config_infra_entities() {
+        let root = TempDir::new();
+        fs::create_dir_all(root.0.join(".github/ISSUE_TEMPLATE")).expect("issue templates");
+        fs::create_dir_all(root.0.join(".github/workflows")).expect("workflows");
+        fs::write(
+            root.0.join(".github/ISSUE_TEMPLATE/bug_report.yml"),
+            "name: Bug report\ndescription: Report a bug\nbody: []\n",
+        )
+        .expect("issue template");
+        fs::write(
+            root.0.join(".github/dependabot.yml"),
+            "version: 2\nupdates: []\n",
+        )
+        .expect("dependabot config");
+        fs::write(
+            root.0.join(".github/workflows/deploy.yml"),
+            "jobs:\n  deploy:\n    runs-on: ubuntu-latest\n",
+        )
+        .expect("workflow");
+
+        let workspace = discover_config_infra(&root.0).expect("discover");
+
+        assert_eq!(workspace.files.len(), 1);
+        assert!(workspace.files[0].path.ends_with("deploy.yml"));
     }
 
     #[test]
