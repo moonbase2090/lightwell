@@ -104,4 +104,16 @@ powershell -File scripts/release/build-windows.ps1
 
 `build-windows.ps1` reads the workspace version from `Cargo.toml` and does not bump it. The GUI is `Lightwell.exe`. The CLI is `bin\lightwell.exe`. `ADDTOPATH` defaults on. The release workflow signs the staged binaries, packages with `-SkipBuild -Signed`, then signs the MSI. Without `-Signed`, the script prints `Windows code signing skipped: Azure Artifact Signing settings are absent.`
 
+## macOS command on PATH
+
+On macOS the release app bundles `lightwell-cli` at `Lightwell.app/Contents/Resources/bin/lightwell`, separate from the desktop binary at `Contents/MacOS/lightwell`. `scripts/ci/bundle-macos-cli.sh` builds that CLI and copies it in after `tauri build` and before signing. Opening the app links it to `/usr/local/bin/lightwell` when that directory exists and is writable, otherwise `~/.local/bin/lightwell`. The app does not edit shell profiles.
+
+Proof, from the repository root on macOS:
+
+```sh
+scripts/ci/test-macos-cli-path.sh
+```
+
+Expect `macOS CLI path proof passed`. The script uses a temporary stand-in for `/usr/local/bin` and a temporary `HOME`. It does not write the machine PATH or shell profiles.
+
 After product changes to build commands, test commands, or primary user flows, run `/maintain-verification-skill`.

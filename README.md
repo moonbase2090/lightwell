@@ -12,6 +12,22 @@ Lightwell v0.1.21 is available for macOS (Apple Silicon and Intel), Linux x86_64
 
 Download [`Lightwell_0.1.21_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.21_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
 
+Open Lightwell once after moving it to the Applications folder. When `/usr/local/bin` exists and Lightwell can write there, it links the bundled command line tool to `/usr/local/bin/lightwell`. Otherwise it links `~/.local/bin/lightwell`, creating `~/.local/bin` if needed. Lightwell does not edit shell profiles. If `~/.local/bin` is not on your `PATH`, or another `lightwell` comes first, the app prints that path and the recovery steps. Open a new terminal, or move the Lightwell directory earlier on `PATH`.
+
+In a new shell:
+
+```sh
+command -v lightwell
+lightwell --help
+```
+
+The link targets `Contents/Resources/bin/lightwell` inside the app, which is the command line tool. The desktop binary stays at `Contents/MacOS/lightwell`. To create the link yourself:
+
+```sh
+mkdir -p ~/.local/bin
+ln -s /Applications/Lightwell.app/Contents/Resources/bin/lightwell ~/.local/bin/lightwell
+```
+
 ### Linux
 
 Download [`Lightwell_0.1.21_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:

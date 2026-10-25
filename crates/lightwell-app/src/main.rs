@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(any(target_os = "macos", all(test, unix)))]
+mod path_shim;
 mod updates;
 mod workspace;
 
@@ -8,7 +10,14 @@ fn main() {
         .manage(workspace::WorkspaceWatchers::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build());
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .setup(|_app| {
+            #[cfg(target_os = "macos")]
+            if let Err(error) = path_shim::ensure_current_app() {
+                eprintln!("lightwell: warning: {error}");
+            }
+            Ok(())
+        });
 
     // Stale-note actions are registered only when the app was built with
     // VITE_ENABLE_NOTES_STALE_ACTIONS=true (or LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=true).
