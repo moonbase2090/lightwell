@@ -59,7 +59,7 @@ The CLI stores project notes in `.lightwell/notes.json`, creating the directory 
     "crate:lightwell-core": {
       "text": "Review output serialization.",
       "sourceFingerprint": "<sha256 from the matching facts block>",
-      "author": "Ada Lovelace <ada@example.invalid>",
+      "author": "unknown",
       "updatedAt": "2026-10-25T03:00:00Z"
     }
   }
