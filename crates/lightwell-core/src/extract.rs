@@ -7,6 +7,10 @@ use crate::facts::{
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock,
 };
 use crate::go_source::{discover_go_packages, go_import_alias_paths, GoFile, GoPackage, GoSymbol};
+use crate::jvm_source::{
+    discover_jvm, jvm_import_package_matches, JvmFile, JvmModule, JvmPackage, JvmSymbol,
+    JvmWorkspace,
+};
 use crate::metadata::{
     discover_cargo_workspace, CargoDependencyKind, CargoDiscoveryError, CargoPackage,
     CargoWorkspace, RustModule,
@@ -66,6 +70,11 @@ const PROJECT_MANIFESTS: &[&str] = &[
     "go.work",
     "composer.json",
     "Gemfile",
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle",
+    "settings.gradle.kts",
     "package.json",
     "tsconfig.json",
     "jsconfig.json",
@@ -192,6 +201,7 @@ pub(crate) fn map_workspace(
     let ruby_packages = discover_ruby_packages(&root_path)?;
     let typescript_modules = discover_typescript_modules(&root_path)?;
     let dotnet = discover_dotnet(&root_path)?;
+    let jvm = discover_jvm(&root_path)?;
     let cpp_targets = discover_cpp_targets(&root_path)?;
     let mut workspace_inputs: Vec<_> = crate_fingerprints
         .into_iter()
@@ -272,6 +282,31 @@ pub(crate) fn map_workspace(
             }
         }
     }
+    for module in &jvm.modules {
+        workspace_inputs.push(format!(
+            "jvm:module:{}:{}",
+            module.name,
+            jvm_module_key(&root_path, module)
+        ));
+        if let Some(marker) = module.marker_file() {
+            if let Ok(fingerprint) = fingerprints.file(&marker) {
+                workspace_inputs.push(format!(
+                    "jvm:marker:{}:{fingerprint}",
+                    relative_path(&root_path, &marker)
+                ));
+            }
+        }
+    }
+    for package in &jvm.packages {
+        for file in &package.files {
+            if let Ok(fingerprint) = fingerprints.file(&file.path) {
+                workspace_inputs.push(format!(
+                    "jvm:{}:{fingerprint}",
+                    relative_path(&root_path, &file.path)
+                ));
+            }
+        }
+    }
     workspace_inputs.sort();
     let workspace_fingerprint = hash_text(&workspace_inputs.join("\n"));
     blocks.insert(
@@ -342,6 +377,14 @@ pub(crate) fn map_workspace(
     )?;
     append_cpp_blocks(
         &cpp_targets,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
+    append_jvm_blocks(
+        &jvm,
         &root_path,
         &project_id,
         &mut fingerprints,
@@ -2362,6 +2405,312 @@ pub(crate) fn cpp_id_encode(value: &str) -> String {
         }
     }
     out
+}
+
+fn append_jvm_blocks(
+    jvm: &JvmWorkspace,
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let mut module_ids: HashMap<String, String> = HashMap::new();
+    for module in &jvm.modules {
+        let key = jvm_module_key(root_path, module);
+        let id = format!("module:jvm:{}", slug(&key));
+        let declared = module
+            .marker_file()
+            .as_ref()
+            .map(|path| relative_path(root_path, path))
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| key.clone());
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: id.clone(),
+                label: module.name.clone(),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: Some(declared.clone()),
+                fingerprint: jvm_module_fingerprint(module, &jvm.packages, fingerprints)?,
+            },
+            package_name: module.name.clone(),
+            module_path: key,
+            declared_by_path: declared,
+            cfg_attributes: vec![module.kind.as_str().to_owned()],
+            unresolved: false,
+            language: "jvm".to_owned(),
+        }));
+        connections.push(contains_connection(workspace_id, &id));
+        module_ids.insert(module.name.clone(), id);
+    }
+
+    let mut package_ids: HashMap<(Option<String>, String), String> = HashMap::new();
+    for package in &jvm.packages {
+        let module_key = package
+            .module_name
+            .as_ref()
+            .and_then(|name| {
+                jvm.modules
+                    .iter()
+                    .find(|module| &module.name == name)
+                    .map(|module| jvm_module_key(root_path, module))
+            })
+            .unwrap_or_default();
+        let parent = package
+            .module_name
+            .as_ref()
+            .and_then(|name| module_ids.get(name))
+            .cloned()
+            .unwrap_or_else(|| workspace_id.to_owned());
+        let id = jvm_package_block_id(&module_key, &package.name);
+        let relative_dir = relative_path(root_path, &package.directory);
+        let source = package
+            .files
+            .first()
+            .map(|file| relative_path(root_path, &file.path));
+        let label = if package.name.is_empty() {
+            "(default)".to_owned()
+        } else {
+            package.name.clone()
+        };
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: id.clone(),
+                label,
+                parent_id: Some(parent.clone()),
+                children: Vec::new(),
+                source_path: source,
+                fingerprint: jvm_package_fingerprint(package, fingerprints)?,
+            },
+            package_name: package.name.clone(),
+            module_path: if package.name.is_empty() {
+                "(default)".to_owned()
+            } else {
+                package.name.clone()
+            },
+            declared_by_path: relative_dir,
+            cfg_attributes: package
+                .files
+                .iter()
+                .flat_map(|file| file.imports.iter().map(|import| import.statement()))
+                .collect(),
+            unresolved: !package.files.is_empty()
+                && package.files.iter().all(|file| file.unreadable),
+            language: "jvm".to_owned(),
+        }));
+        connections.push(contains_connection(&parent, &id));
+        package_ids.insert(
+            (package.module_name.clone(), package.name.clone()),
+            id.clone(),
+        );
+        for file in &package.files {
+            append_jvm_file(
+                &id,
+                package,
+                file,
+                root_path,
+                fingerprints,
+                blocks,
+                connections,
+            )?;
+        }
+    }
+
+    let mut import_edges = HashSet::new();
+    for package in &jvm.packages {
+        let package_id = package_ids[&(package.module_name.clone(), package.name.clone())].clone();
+        for file in &package.files {
+            let relative = relative_path(root_path, &file.path);
+            let file_id = jvm_file_block_id(&relative, file.test);
+            for import in &file.imports {
+                for target in jvm_import_package_matches(&import.path, &jvm.packages) {
+                    let Some(target_id) =
+                        package_ids.get(&(target.module_name.clone(), target.name.clone()))
+                    else {
+                        continue;
+                    };
+                    if target_id == &package_id {
+                        continue;
+                    }
+                    let id = connection_id("depends_on", &file_id, target_id);
+                    if import_edges.insert(id.clone()) {
+                        connections.push(Connection::DependsOn {
+                            id,
+                            source: file_id.clone(),
+                            target: target_id.clone(),
+                            dependency_scope: DependencyScope::Normal,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn jvm_module_key(root: &Path, module: &JvmModule) -> String {
+    let relative = relative_path(root, &module.path);
+    if relative.is_empty() || relative == "." {
+        module.name.clone()
+    } else {
+        relative
+    }
+}
+
+fn jvm_module_fingerprint(
+    module: &JvmModule,
+    packages: &[JvmPackage],
+    fingerprints: &mut FileFingerprints,
+) -> Result<String, MapExtractionError> {
+    let mut parts = Vec::new();
+    if let Some(marker) = module.marker_file() {
+        if let Ok(fingerprint) = fingerprints.file(&marker) {
+            parts.push(fingerprint);
+        }
+    }
+    for package in packages {
+        if package.module_name.as_deref() != Some(module.name.as_str()) {
+            continue;
+        }
+        for file in &package.files {
+            parts.push(fingerprints.file(&file.path)?);
+        }
+    }
+    parts.sort();
+    Ok(hash_text(&parts.join("\n")))
+}
+
+fn jvm_package_fingerprint(
+    package: &JvmPackage,
+    fingerprints: &mut FileFingerprints,
+) -> Result<String, MapExtractionError> {
+    let mut parts = Vec::new();
+    for file in &package.files {
+        parts.push(fingerprints.file(&file.path)?);
+    }
+    parts.sort();
+    Ok(hash_text(&parts.join("\n")))
+}
+
+fn append_jvm_file(
+    package_id: &str,
+    package: &JvmPackage,
+    file: &JvmFile,
+    root_path: &Path,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let stem = file
+        .path
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("file");
+    let relative = relative_path(root_path, &file.path);
+    let id = jvm_file_block_id(&relative, file.test);
+    let fingerprint = fingerprints.file(&file.path)?;
+    let module_path = if package.name.is_empty() {
+        stem.to_owned()
+    } else {
+        format!("{}/{}", package.name, stem)
+    };
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: stem.to_owned(),
+            parent_id: Some(package_id.to_owned()),
+            children: Vec::new(),
+            source_path: Some(relative.clone()),
+            fingerprint: fingerprint.clone(),
+        },
+        package_name: package.name.clone(),
+        module_path,
+        declared_by_path: relative.clone(),
+        cfg_attributes: file
+            .imports
+            .iter()
+            .map(|import| import.statement())
+            .collect(),
+        unresolved: file.unreadable,
+        language: file.language.as_str().to_owned(),
+    }));
+    connections.push(contains_connection(package_id, &id));
+    for symbol in &file.symbols {
+        append_jvm_symbol(
+            &id,
+            package,
+            file,
+            symbol,
+            &relative,
+            &fingerprint,
+            blocks,
+            connections,
+        );
+    }
+    Ok(())
+}
+
+fn append_jvm_symbol(
+    parent_id: &str,
+    package: &JvmPackage,
+    file: &JvmFile,
+    symbol: &JvmSymbol,
+    relative: &str,
+    fingerprint: &str,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) {
+    let kind = symbol.kind.outline_label();
+    let id = format!(
+        "module:jvm:{}:{}:{}",
+        slug(relative),
+        slug(&symbol.name),
+        slug(kind)
+    );
+    let module_path = if package.name.is_empty() {
+        symbol.name.clone()
+    } else {
+        format!("{}.{}", package.name, symbol.name)
+    };
+    blocks.push(FactBlock::Module(ModuleBlock {
+        base: BlockBase {
+            id: id.clone(),
+            label: symbol.name.clone(),
+            parent_id: Some(parent_id.to_owned()),
+            children: Vec::new(),
+            source_path: Some(relative.to_owned()),
+            fingerprint: fingerprint.to_owned(),
+        },
+        package_name: package.name.clone(),
+        module_path,
+        declared_by_path: relative.to_owned(),
+        cfg_attributes: vec![kind.to_owned()],
+        unresolved: false,
+        language: file.language.as_str().to_owned(),
+    }));
+    connections.push(contains_connection(parent_id, &id));
+}
+
+fn jvm_package_block_id(module_key: &str, package_name: &str) -> String {
+    let package_slug = if package_name.is_empty() {
+        "default".to_owned()
+    } else {
+        slug(package_name)
+    };
+    if module_key.is_empty() {
+        format!("module:jvm:pkg:{package_slug}")
+    } else {
+        format!("module:jvm:{}:{package_slug}", slug(module_key))
+    }
+}
+
+fn jvm_file_block_id(relative: &str, test: bool) -> String {
+    let mut id = format!("module:jvm:{}", slug(relative));
+    if test {
+        id.push_str(":test");
+    }
+    id
 }
 
 fn append_python_blocks(

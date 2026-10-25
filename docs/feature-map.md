@@ -209,6 +209,7 @@ Fixture workspaces, all under `crates/lightwell-core/fixtures`:
 - `php-sample` — Composer package with namespaces, `use` edges, and a Laravel-shaped `app/` tree.
 - `ruby-sample` — Gemfile project with modules, `require_relative` edges, and a Rails-shaped `app/` tree.
 - `dotnet-sample` — .NET solution with C# and Visual Basic projects.
+- `jvm-sample` — Maven and Gradle modules with Java and Kotlin sources.
 - `cpp-sample` — CMake project with an executable target, header, and quoted include.
 
 ### app flows
