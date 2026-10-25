@@ -844,12 +844,61 @@ fn parse_imports(source: &str) -> Vec<JvmImport> {
 
 fn parse_symbols(source: &str, language: JvmLanguage) -> Vec<JvmSymbol> {
     let mut symbols = Vec::new();
+    let mut depth = 0i32;
     for (index, line) in source.lines().enumerate() {
-        if let Some(symbol) = parse_symbol_line(line, index + 1, language) {
-            symbols.push(symbol);
+        // Emit only package-scope declarations (depth 0 before this line's braces).
+        if depth == 0 {
+            if let Some(symbol) = parse_symbol_line(line, index + 1, language) {
+                symbols.push(symbol);
+            }
         }
+        depth = adjust_brace_depth(depth, line);
     }
     symbols
+}
+
+fn adjust_brace_depth(mut depth: i32, line: &str) -> i32 {
+    let chars: Vec<char> = line.chars().collect();
+    let mut index = 0usize;
+    while index < chars.len() {
+        if chars[index] == '"'
+            && index + 2 < chars.len()
+            && chars[index + 1] == '"'
+            && chars[index + 2] == '"'
+        {
+            index += 3;
+            while index + 2 < chars.len()
+                && !(chars[index] == '"' && chars[index + 1] == '"' && chars[index + 2] == '"')
+            {
+                index += 1;
+            }
+            index = (index + 3).min(chars.len());
+            continue;
+        }
+        if chars[index] == '"' || chars[index] == '\'' {
+            let quote = chars[index];
+            index += 1;
+            while index < chars.len() {
+                if chars[index] == '\\' && index + 1 < chars.len() {
+                    index += 2;
+                    continue;
+                }
+                if chars[index] == quote {
+                    index += 1;
+                    break;
+                }
+                index += 1;
+            }
+            continue;
+        }
+        if chars[index] == '{' {
+            depth += 1;
+        } else if chars[index] == '}' {
+            depth = depth.saturating_sub(1);
+        }
+        index += 1;
+    }
+    depth
 }
 
 fn parse_symbol_line(line: &str, line_no: usize, language: JvmLanguage) -> Option<JvmSymbol> {
@@ -1274,6 +1323,21 @@ mod tests {
                 ("Holder", JvmSymbolKind::Object),
             ]
         );
+
+        let nested = "object Outer {\n    fun nested() {}\n    class Inner\n}\nfun top() {}\n";
+        let (_, symbols) = parse_jvm_source(nested, JvmLanguage::Kotlin);
+        assert_eq!(
+            symbols
+                .iter()
+                .map(|symbol| (symbol.name.as_str(), symbol.kind))
+                .collect::<Vec<_>>(),
+            vec![
+                ("Outer", JvmSymbolKind::Object),
+                ("top", JvmSymbolKind::Fun),
+            ]
+        );
+        assert!(symbols.iter().all(|symbol| symbol.name != "nested"));
+        assert!(symbols.iter().all(|symbol| symbol.name != "Inner"));
     }
 
     #[test]
@@ -1287,6 +1351,8 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![
                 ("app", JvmModuleKind::Gradle),
+                ("foo-bar", JvmModuleKind::Gradle),
+                ("foo_bar", JvmModuleKind::Gradle),
                 ("lib", JvmModuleKind::Maven)
             ]
         );
@@ -1326,8 +1392,9 @@ mod tests {
             && symbol.kind == JvmSymbolKind::Object
             && symbol.line == 8));
         assert!(greeter.symbols.iter().any(|symbol| {
-            symbol.name == "hello" && symbol.kind == JvmSymbolKind::Fun && symbol.line == 9
+            symbol.name == "hello" && symbol.kind == JvmSymbolKind::Fun && symbol.line == 12
         }));
+        assert!(greeter.symbols.iter().all(|symbol| symbol.name != "nested"));
         assert!(greeter.symbols.iter().all(|symbol| symbol.name != "hidden"));
         let app_test = app
             .files
@@ -1388,40 +1455,45 @@ mod tests {
         assert_eq!(lib.cfg_attributes, ["maven"]);
         assert_eq!(lib.base.source_path.as_deref(), Some("lib/pom.xml"));
         let app_package = module_block(&map.blocks, "jvm", "com.example.app").expect("app package");
-        assert_eq!(app_package.base.id, "module:jvm:app:com-example-app");
+        assert_eq!(app_package.base.id, "module:jvm:app:com_2e_example_2e_app");
         assert_eq!(
             app_package.base.parent_id.as_deref(),
             Some("module:jvm:app")
         );
         let lib_package = module_block(&map.blocks, "jvm", "com.example.lib").expect("lib package");
-        assert_eq!(lib_package.base.id, "module:jvm:lib:com-example-lib");
+        assert_eq!(lib_package.base.id, "module:jvm:lib:com_2e_example_2e_lib");
         let app_file = module_block(&map.blocks, "java", "com.example.app/App").expect("App file");
-        assert_eq!(
-            app_file.base.id,
-            "module:jvm:app-src-main-java-com-example-app-app-java"
-        );
+        let app_file_id =
+            "module:jvm:app_2f_src_2f_main_2f_java_2f_com_2f_example_2f_app_2f_app_2e_java";
+        assert_eq!(app_file.base.id, app_file_id);
         assert_eq!(
             app_file.base.parent_id.as_deref(),
-            Some("module:jvm:app:com-example-app")
+            Some("module:jvm:app:com_2e_example_2e_app")
         );
         let app_class =
             module_block(&map.blocks, "java", "com.example.app.App").expect("App class");
         assert_eq!(app_class.cfg_attributes, ["class"]);
-        assert_eq!(
-            app_class.base.id,
-            "module:jvm:app-src-main-java-com-example-app-app-java:app:class"
-        );
+        assert_eq!(app_class.base.id, format!("{app_file_id}:app:class"));
         let hello = module_block(&map.blocks, "kotlin", "com.example.app.hello").expect("hello");
         assert_eq!(hello.cfg_attributes, ["fun"]);
         assert_eq!(
             hello.base.id,
-            "module:jvm:app-src-main-kotlin-com-example-app-greeter-kt:hello:fun"
+            "module:jvm:app_2f_src_2f_main_2f_kotlin_2f_com_2f_example_2f_app_2f_greeter_2e_kt:hello:fun"
         );
         let greeter =
             module_block(&map.blocks, "kotlin", "com.example.app.Greeter").expect("Greeter");
         assert_eq!(greeter.cfg_attributes, ["object"]);
+        assert!(map.blocks.iter().all(|block| match block {
+            FactBlock::Module(module) => module.base.label != "nested",
+            _ => true,
+        }));
+        let hyphen = module_block(&map.blocks, "jvm", "foo-bar").expect("foo-bar module");
+        let under = module_block(&map.blocks, "jvm", "foo_bar").expect("foo_bar module");
+        assert_eq!(hyphen.base.id, "module:jvm:foo_2d_bar");
+        assert_eq!(under.base.id, "module:jvm:foo_5f_bar");
+        assert_ne!(hyphen.base.id, under.base.id);
         let app_test = map.blocks.iter().find_map(|block| match block {
-            FactBlock::Module(module) if module.base.id.ends_with("apptest-java:test") => {
+            FactBlock::Module(module) if module.base.id.ends_with("apptest_2e_java:test") => {
                 Some(module)
             }
             _ => None,
@@ -1431,7 +1503,7 @@ mod tests {
             "AppTest.java should be a test file block"
         );
         let helper = map.blocks.iter().find_map(|block| match block {
-            FactBlock::Module(module) if module.base.id.ends_with("helper-java:test") => {
+            FactBlock::Module(module) if module.base.id.ends_with("helper_2e_java:test") => {
                 Some(module)
             }
             _ => None,
@@ -1446,14 +1518,14 @@ mod tests {
             .filter(|connection| {
                 matches!(
                     connection,
-                    Connection::DependsOn { source, .. } if source == "module:jvm:app-src-main-java-com-example-app-app-java"
+                    Connection::DependsOn { source, .. } if source == app_file_id
                 )
             })
             .collect();
         assert_eq!(app_edges.len(), 1);
         assert!(matches!(
             app_edges[0],
-            Connection::DependsOn { target, .. } if target == "module:jvm:lib:com-example-lib"
+            Connection::DependsOn { target, .. } if target == "module:jvm:lib:com_2e_example_2e_lib"
         ));
         assert!(map.blocks.iter().all(|block| match block {
             FactBlock::Module(module) => module.base.label != "Skipped",
@@ -1686,15 +1758,15 @@ mod tests {
         };
         assert_eq!(
             target_of("App"),
-            vec!["module:jvm:prefix:com-example-lib".to_owned()]
+            vec!["module:jvm:prefix:com_2e_example_2e_lib".to_owned()]
         );
         assert_eq!(
             target_of("Wild"),
-            vec!["module:jvm:prefix:com-example-lib".to_owned()]
+            vec!["module:jvm:prefix:com_2e_example_2e_lib".to_owned()]
         );
         assert_eq!(
             target_of("Other"),
-            vec!["module:jvm:prefix:com-example".to_owned()]
+            vec!["module:jvm:prefix:com_2e_example".to_owned()]
         );
     }
 

@@ -2418,7 +2418,7 @@ fn append_jvm_blocks(
     let mut module_ids: HashMap<String, String> = HashMap::new();
     for module in &jvm.modules {
         let key = jvm_module_key(root_path, module);
-        let id = format!("module:jvm:{}", slug(&key));
+        let id = format!("module:jvm:{}", jvm_id_encode(&key));
         let declared = module
             .marker_file()
             .as_ref()
@@ -2664,9 +2664,9 @@ fn append_jvm_symbol(
     let kind = symbol.kind.outline_label();
     let id = format!(
         "module:jvm:{}:{}:{}",
-        slug(relative),
-        slug(&symbol.name),
-        slug(kind)
+        jvm_id_encode(relative),
+        jvm_id_encode(&symbol.name),
+        jvm_id_encode(kind)
     );
     let module_path = if package.name.is_empty() {
         symbol.name.clone()
@@ -2696,21 +2696,34 @@ fn jvm_package_block_id(module_key: &str, package_name: &str) -> String {
     let package_slug = if package_name.is_empty() {
         "default".to_owned()
     } else {
-        slug(package_name)
+        jvm_id_encode(package_name)
     };
     if module_key.is_empty() {
         format!("module:jvm:pkg:{package_slug}")
     } else {
-        format!("module:jvm:{}:{package_slug}", slug(module_key))
+        format!("module:jvm:{}:{package_slug}", jvm_id_encode(module_key))
     }
 }
 
 fn jvm_file_block_id(relative: &str, test: bool) -> String {
-    let mut id = format!("module:jvm:{}", slug(relative));
+    let mut id = format!("module:jvm:{}", jvm_id_encode(relative));
     if test {
         id.push_str(":test");
     }
     id
+}
+
+/// Injective path/name encoding for JVM block ids (`foo-bar` ≠ `foo_bar`).
+fn jvm_id_encode(value: &str) -> String {
+    let mut out = String::new();
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            out.push(character.to_ascii_lowercase());
+        } else {
+            out.push_str(&format!("_{:x}_", character as u32));
+        }
+    }
+    out
 }
 
 fn append_python_blocks(

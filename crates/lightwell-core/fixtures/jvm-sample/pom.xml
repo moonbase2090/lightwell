@@ -8,5 +8,7 @@
     <!-- <module>skipped</module> -->
     <module>app</module>
     <module>lib</module>
+    <module>foo-bar</module>
+    <module>foo_bar</module>
   </modules>
 </project>
