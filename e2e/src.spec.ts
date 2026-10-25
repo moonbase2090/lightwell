@@ -36,9 +36,9 @@ test.describe("source inspector after a file diff (ipc)", () => {
   test.beforeEach(async ({ page }) => gotoIpc(page));
 
   test("SRC-02: selecting a block after a changed-file diff shows the block", async ({ page }) => {
-    const select = page.getByLabel("Show changes through this commit");
+    const select = page.getByLabel("Show changes", { exact: true });
     await expect(select).toBeVisible();
-    await select.selectOption({ index: 1 });
+    await select.selectOption("lastCommit");
     await page.getByRole("button", { name: /expand|changes/i }).first().click();
     await page.getByRole("button", { name: /README\.md/ }).first().click();
     await expect(page.getByLabel("Source inspector for README.md")).toBeVisible();
