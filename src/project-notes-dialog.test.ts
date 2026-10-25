@@ -34,10 +34,10 @@ test("project notes lists current notes before stale ones and names their state"
   const html = renderNotes({
     kind: "ready",
     notes: [
-      { blockId: "crate:zeta", text: "later\nline", sourceFingerprint: "b", stale: false },
-      { blockId: "missing", text: "orphaned", sourceFingerprint: "c", stale: true },
-      { blockId: "crate:alpha", text: "first", sourceFingerprint: "a", stale: false },
-      { blockId: "crate:moved", text: "shifted", sourceFingerprint: "d", stale: true },
+      { blockId: "crate:zeta", text: "later\nline", sourceFingerprint: "b", author: "preview", updatedAt: "2026-10-25T03:00:00Z", stale: false },
+      { blockId: "missing", text: "orphaned", sourceFingerprint: "c", author: "unknown", updatedAt: "", stale: true },
+      { blockId: "crate:alpha", text: "first", sourceFingerprint: "a", author: "preview", updatedAt: "2026-10-25T03:00:00Z", stale: false },
+      { blockId: "crate:moved", text: "shifted", sourceFingerprint: "d", author: "preview", updatedAt: "2026-10-24T12:00:00Z", stale: true },
     ],
   }, "crate:alpha", [
     { id: "crate:alpha", label: "alpha" },
@@ -82,7 +82,7 @@ test("project notes opens a blank editor for the selected block", () => {
 test("project notes refuses a blank or whitespace-only saved note", () => {
   const html = renderNotes({
     kind: "ready",
-    notes: [{ blockId: "crate:core", text: "   ", sourceFingerprint: "a", stale: false }],
+    notes: [{ blockId: "crate:core", text: "   ", sourceFingerprint: "a", author: "preview", updatedAt: "2026-10-25T03:00:00Z", stale: false }],
   }, "crate:core", [{ id: "crate:core", label: "core" }]);
 
   assert.match(html, /class="notes-save-button"[^>]*disabled/);

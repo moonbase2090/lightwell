@@ -58,13 +58,15 @@ The CLI stores project notes in `.lightwell/notes.json`, creating the directory 
   "notes": {
     "crate:lightwell-core": {
       "text": "Review output serialization.",
-      "sourceFingerprint": "<sha256 from the matching facts block>"
+      "sourceFingerprint": "<sha256 from the matching facts block>",
+      "author": "unknown",
+      "updatedAt": "2026-10-25T03:00:00Z"
     }
   }
 }
 ```
 
-The `notes` object is keyed by stable fact block IDs. `lightwell notes list` compares each saved fingerprint with the current extracted map and marks missing or changed blocks stale. It does not delete stale notes. `lightwell notes set <block-id> <text...>` records the current fingerprint, and `lightwell notes rm <block-id>` removes only that note.
+The `notes` object is keyed by stable fact block IDs. Each note carries `author` and `updatedAt` (RFC 3339 UTC, whole seconds). On every `notes set` and text update, Lightwell stamps `updatedAt` to the current UTC time and sets `author` from the Git identity of the project repository when available (`user.name` / `user.email` as `"Name <email>"`). If the project is not in a Git repository or no Git signature can be resolved, `author` is `"unknown"` — Lightwell does not invent an OS username. Schema version stays `1`. Notes written before these fields existed deserialize with `author` `"unknown"` and an empty `updatedAt` (unknown/legacy). `lightwell notes list` compares each saved fingerprint with the current extracted map and marks missing or changed blocks stale. It does not delete stale notes. `lightwell notes set <block-id> <text...>` records the current fingerprint, and `lightwell notes rm <block-id>` removes only that note.
 
 ## Changed notes
 

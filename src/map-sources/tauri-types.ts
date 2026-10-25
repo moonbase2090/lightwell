@@ -78,6 +78,11 @@ function parseProjectNoteView(value: unknown): ProjectNoteView {
     || !("sourceFingerprint" in value)
     || typeof value.sourceFingerprint !== "string"
     || value.sourceFingerprint.length === 0
+    || !("author" in value)
+    || typeof value.author !== "string"
+    || value.author.length === 0
+    || !("updatedAt" in value)
+    || typeof value.updatedAt !== "string"
     || !("stale" in value)
     || typeof value.stale !== "boolean"
   ) {
@@ -88,6 +93,8 @@ function parseProjectNoteView(value: unknown): ProjectNoteView {
     blockId: value.blockId,
     text: value.text,
     sourceFingerprint: value.sourceFingerprint,
+    author: value.author,
+    updatedAt: value.updatedAt,
     stale: value.stale,
   };
 }
