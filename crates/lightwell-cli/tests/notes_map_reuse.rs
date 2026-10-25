@@ -143,9 +143,14 @@ fn file_set_and_unknown_id_extract_once() {
         0,
     );
     assert_eq!(set_extracts, 1);
+    let result: Value = serde_json::from_slice(&set.stdout).unwrap();
+    assert_eq!(result["blockId"], block_id);
+    assert_eq!(result["text"], "File note");
+    assert_eq!(result["author"], "unknown");
+    assert!(result["updatedAt"].as_str().unwrap().ends_with('Z'));
     assert_eq!(
-        serde_json::from_slice::<Value>(&set.stdout).unwrap(),
-        serde_json::json!({"blockId": block_id, "text": "File note"})
+        saved_note(&project, &block_id)["updatedAt"],
+        result["updatedAt"]
     );
     assert_eq!(
         saved_note(&project, &block_id)["sourceFingerprint"],
@@ -201,6 +206,7 @@ fn reused_map_skips_extract_and_stale_checks_follow_that_map() {
             "set",
             "--file",
             "src/lib.rs",
+            "--replace",
             "--map",
             &before_arg,
             "--json",
@@ -276,6 +282,7 @@ fn reused_map_skips_extract_and_stale_checks_follow_that_map() {
         &[
             "notes",
             "set",
+            "--replace",
             "--map",
             &before_arg,
             "--json",
@@ -285,9 +292,14 @@ fn reused_map_skips_extract_and_stale_checks_follow_that_map() {
         0,
     );
     assert_eq!(rewritten_extracts, 0);
+    let result: Value = serde_json::from_slice(&rewritten.stdout).unwrap();
+    assert_eq!(result["blockId"], block_id);
+    assert_eq!(result["text"], "Still the old map");
+    assert_eq!(result["author"], "unknown");
+    assert!(result["updatedAt"].as_str().unwrap().ends_with('Z'));
     assert_eq!(
-        serde_json::from_slice::<Value>(&rewritten.stdout).unwrap(),
-        serde_json::json!({"blockId": block_id, "text": "Still the old map"})
+        saved_note(&project, &block_id)["updatedAt"],
+        result["updatedAt"]
     );
     assert_eq!(
         saved_note(&project, &block_id)["sourceFingerprint"],
@@ -451,8 +463,14 @@ fn help_lists_the_map_option() {
         .unwrap();
     assert_eq!(output.status.code(), Some(0));
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("notes list [--json] [--check] [--map <facts.json>]"));
-    assert!(stdout.contains("notes set [--json] [--map <facts.json>] <block-id> <text...>"));
-    assert!(stdout.contains("notes set --file <path> [--json] [--map <facts.json>] <text...>"));
+    assert!(
+        stdout.contains("notes list [-C|--repo <path>] [--json] [--check] [--map <facts.json>]")
+    );
+    assert!(stdout.contains(
+        "notes set [-C|--repo <path>] [--replace] [--json] [--map <facts.json>] <block-id> <text...>"
+    ));
+    assert!(stdout.contains(
+        "notes set [-C|--repo <path>] --file <path> [--replace] [--json] [--map <facts.json>] <text...>"
+    ));
     assert!(!stdout.contains("notes rm [--json] [--map"));
 }

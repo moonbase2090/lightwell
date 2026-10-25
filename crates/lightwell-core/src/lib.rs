@@ -48,8 +48,8 @@ pub use notes::{
     commit_project_note, list_project_notes, mark_project_note_reviewed, project_note_git_status,
     project_notes_for_map, remove_project_note, remove_stale_project_notes, set_project_note,
     set_project_note_for_map, set_project_note_if_absent, set_project_note_if_absent_for_map,
-    update_project_note_text,
-    NoteCommitResult, NotesError, NotesGitFileState, NotesGitStatus, ProjectNoteView,
+    update_project_note_text, NoteCommitResult, NotesError, NotesGitFileState, NotesGitStatus,
+    ProjectNoteView,
 };
 
 pub use watch::{MapWatchError, MapWatcher};

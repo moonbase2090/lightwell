@@ -1,9 +1,9 @@
 use lightwell_core::{
-    discover_project_workspace, extract_cargo_map, extract_project_map,
-    mark_project_note_reviewed, open_block, project_notes_for_map, remove_project_note,
-    remove_stale_project_notes, set_project_note_for_map, set_project_note_if_absent_for_map,
-    BlockBase, EditorSettings, FactBlock, FactMap, MapStats, MapWatchError, MapWatcher,
-    NotesError, Project, WorkspaceBlock, MAP_SCHEMA_VERSION,
+    discover_project_workspace, extract_cargo_map, extract_project_map, mark_project_note_reviewed,
+    open_block, project_notes_for_map, remove_project_note, remove_stale_project_notes,
+    set_project_note_for_map, set_project_note_if_absent_for_map, BlockBase, EditorSettings,
+    FactBlock, FactMap, MapStats, MapWatchError, MapWatcher, NotesError, Project, WorkspaceBlock,
+    MAP_SCHEMA_VERSION,
 };
 use std::env;
 use std::error::Error;
@@ -316,12 +316,10 @@ fn parse_notes_command(
     if file.is_some() && subcommand != OsStr::new("set") {
         return Err("--file is only available for `lightwell notes set`".to_owned());
     }
-    if map_path.is_some()
-        && subcommand != OsStr::new("list")
-        && subcommand != OsStr::new("set")
-    {
+    if map_path.is_some() && subcommand != OsStr::new("list") && subcommand != OsStr::new("set") {
         return Err(
-            "--map is only available for `lightwell notes list` and `lightwell notes set`".to_owned(),
+            "--map is only available for `lightwell notes list` and `lightwell notes set`"
+                .to_owned(),
         );
     }
     let mut arguments = positional.into_iter();
