@@ -122,6 +122,12 @@ fn is_config_infra_project_file(path: &Path) -> bool {
         )
 }
 
+fn is_xcodeproj_directory(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.ends_with(".xcodeproj"))
+}
+
 fn is_dotnet_project_file(path: &Path) -> bool {
     matches!(
         path.extension()
