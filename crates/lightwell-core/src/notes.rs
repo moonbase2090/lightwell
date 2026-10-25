@@ -962,7 +962,7 @@ mod tests {
             )
             .unwrap();
 
-        let notes_path = project.0.join(".lightwell/notes.json");
+        let notes_path = project.0.join(".lightwell").join("notes.json");
         assert!(notes_path.is_file());
         let stale = store.list_for_map(&new_map).unwrap();
         assert_eq!(stale.len(), 1);
@@ -1406,7 +1406,7 @@ mod tests {
         .unwrap();
         assert_eq!(created[0].text, "First");
         let revision = created[0].revision.clone();
-        let notes_path = project.0.join(".lightwell/notes.json");
+        let notes_path = project.0.join(".lightwell").join("notes.json");
         let after_create = fs::read(&notes_path).unwrap();
 
         let conflict = set_project_note_for_map_expecting(
@@ -1495,7 +1495,7 @@ mod tests {
                 &NoteWriteExpectation::Unconditional,
             )
             .unwrap();
-        let notes_path = project.0.join(".lightwell/notes.json");
+        let notes_path = project.0.join(".lightwell").join("notes.json");
         let conflicted = b"<<<<<<< HEAD\n{}\n=======\n{}\n>>>>>>> other\n".to_vec();
         fs::write(&notes_path, &conflicted).unwrap();
 
