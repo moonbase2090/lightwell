@@ -15,6 +15,7 @@ import type {
 } from "../model.js";
 import { discoverDotnet, dotnetFactBlocks } from "./dotnet-modules.js";
 import { discoverGoPackages, goFactBlocks } from "./go-modules.js";
+import { discoverJvm, jvmFactBlocks, jvmFingerprintInputs } from "./jvm-modules.js";
 import { discoverPythonModules, pythonFactBlocks } from "./python-modules.js";
 import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
 import { discoverWebModules, webFactBlocks } from "./web-modules.js";
@@ -414,6 +415,10 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   const goFacts = goFactBlocks({ packages: goPackages, rootPath, workspaceId: projectId });
   blocks.push(...goFacts.blocks);
   connections.push(...goFacts.connections);
+  const jvm = discoverJvm(rootPath);
+  const jvmFacts = jvmFactBlocks({ workspace: jvm, rootPath, workspaceId: projectId });
+  blocks.push(...jvmFacts.blocks);
+  connections.push(...jvmFacts.connections);
   const finalWorkspaceFingerprint = hashText([
     ...packages.map((pkg) => {
       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
@@ -426,6 +431,7 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
     ...goPackages.flatMap((pkg) =>
       pkg.files.map((file) => `go:${pkg.importPath}:${hashFile(file.path)}`),
     ),
+    ...jvmFingerprintInputs(rootPath, jvm),
   ].sort().join("\n"));
   const workspaceIndex = blocks.findIndex((block) => block.id === projectId);
   if (workspaceIndex >= 0) blocks[workspaceIndex] = { ...workspaceBlock, fingerprint: finalWorkspaceFingerprint || workspaceFingerprint };
@@ -470,7 +476,18 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   };
 }
 
-const namedProjectMarkers = ["go.mod", "go.work", "package.json", "tsconfig.json", "jsconfig.json"];
+const namedProjectMarkers = [
+  "go.mod",
+  "go.work",
+  "package.json",
+  "tsconfig.json",
+  "jsconfig.json",
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+  "settings.gradle",
+  "settings.gradle.kts",
+];
 
 function nonCargoProjectMarker(root: string): string | null {
   for (const name of namedProjectMarkers) {
@@ -512,6 +529,8 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
   const dotnetFacts = dotnetFactBlocks({ workspace: dotnet, rootPath, workspaceId: projectId });
   const goPackages = discoverGoPackages(rootPath);
   const goFacts = goFactBlocks({ packages: goPackages, rootPath, workspaceId: projectId });
+  const jvm = discoverJvm(rootPath);
+  const jvmFacts = jvmFactBlocks({ workspace: jvm, rootPath, workspaceId: projectId });
   const fingerprint = hashText([
     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
     ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
@@ -520,6 +539,7 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
     ...goPackages.flatMap((pkg) =>
       pkg.files.map((file) => `go:${pkg.importPath}:${hashFile(file.path)}`),
     ),
+    ...jvmFingerprintInputs(rootPath, jvm),
   ].sort().join("\n"));
   const blocks: FactBlock[] = [{
     id: projectId,
@@ -530,8 +550,8 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
     sourcePath: relativePath(rootPath, args.markerPath),
     fingerprint,
     memberCount: 0,
-  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks];
-  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections];
+  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks, ...jvmFacts.blocks];
+  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections, ...jvmFacts.connections];
   const completedBlocks = deriveChildren(blocks);
   const workspaceChildren = completedBlocks.find((block) => block.id === projectId)?.children ?? [];
   const groups: FactGroup[] = [{
