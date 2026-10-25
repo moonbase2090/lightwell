@@ -159,9 +159,12 @@ export async function gotoIpc(page: Page, overrides: {
           return caps.commits.filter((commit) => commit.id !== args.through);
         case "workspace_commit_range": {
           w.__LW_RANGE_INPUT__ = args;
-          if (typeof args.preset !== "object" || args.preset === null || !("kind" in args.preset) || typeof args.preset.kind !== "string") throw new Error("Invalid captured range request");
-          const preset = args.preset;
-          const response = caps.ranges?.[preset.kind];
+          if (typeof args.preset !== "object" || args.preset === null || !("kind" in args.preset)) {
+            throw new Error("Invalid captured range request");
+          }
+          const kind = args.preset.kind;
+          if (typeof kind !== "string") throw new Error("Invalid captured range request");
+          const response = caps.ranges?.[kind];
           if (typeof response === "string") throw new Error(response);
           if (response) return response;
           if (typeof caps.changes !== "object" || caps.changes === null || !("commit" in caps.changes)) throw new Error("Missing captured commit");
