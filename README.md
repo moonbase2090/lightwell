@@ -180,9 +180,12 @@ Save project notes from the workspace root. Lightwell creates `.lightwell/notes.
 ```sh
 lightwell extract . -o /tmp/lightwell-map.json
 lightwell notes set crate:lightwell-core "Review output serialization"
+git add .lightwell/notes.json
 lightwell notes list
 lightwell notes rm crate:lightwell-core
 ```
+
+`lightwell notes set` writes `.lightwell/notes.json` but does not stage or commit it. Agents and other automation that want the note in version control should run `git add .lightwell/notes.json` after a successful save, then commit and push with their usual Git workflow. The notes CLI does not run `git add` or `git commit`.
 
 Use a `blocks[].id` value from the extracted map. `lightwell blocks` lists the current workspace's blocks with their IDs, labels, kinds, and source paths (`--json` for machine-readable output, `--file <path>` to list only the blocks from one source file), so no separate extract step is needed to find an ID. `notes set --file <path> <text...>` saves a note on the one block whose source path matches exactly; when several blocks share that file (for example a module and its symbols) it lists the candidate block IDs and saves nothing, and when none match it suggests similar paths. An unknown block ID in `notes set` also prints did-you-mean block IDs on stderr. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
 
