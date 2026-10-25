@@ -16,6 +16,38 @@ pub(crate) struct PythonModule {
     pub symbols: Vec<PythonSymbol>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum PythonManifestKind {
+    Pyproject,
+    SetupCfg,
+    SetupPy,
+}
+
+impl PythonManifestKind {
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Self::Pyproject => "pyproject.toml",
+            Self::SetupCfg => "setup.cfg",
+            Self::SetupPy => "setup.py",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PythonEntryPoint {
+    pub name: String,
+    pub object_ref: String,
+    pub group: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PythonProject {
+    pub name: String,
+    pub manifest_path: PathBuf,
+    pub kind: PythonManifestKind,
+    pub entry_points: Vec<PythonEntryPoint>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PythonImport {
     pub line: usize,
@@ -101,6 +133,282 @@ pub(crate) fn discover_python_modules(
             .then(left.path.cmp(&right.path))
     });
     Ok(modules)
+}
+
+/// Discover a Python project boundary from `pyproject.toml`, `setup.cfg`, or `setup.py`.
+/// Missing manifests are fine — module discovery still runs for loose `.py` trees.
+pub(crate) fn discover_python_project(
+    repository_path: &Path,
+) -> Result<Option<PythonProject>, CargoDiscoveryError> {
+    let _canonical_root = opened_root(repository_path)?;
+    let pyproject = repository_path.join("pyproject.toml");
+    if pyproject.is_file() {
+        return Ok(Some(read_pyproject(&pyproject)?));
+    }
+    let setup_cfg = repository_path.join("setup.cfg");
+    if setup_cfg.is_file() {
+        return Ok(Some(read_setup_cfg(&setup_cfg)?));
+    }
+    let setup_py = repository_path.join("setup.py");
+    if setup_py.is_file() {
+        return Ok(Some(read_setup_py(&setup_py)?));
+    }
+    Ok(None)
+}
+
+/// Resolve an import to a discovered module path when the target is inside the workspace.
+pub(crate) fn resolve_python_import(
+    from: &PythonModule,
+    import: &PythonImport,
+    known_modules: &HashSet<String>,
+) -> Option<String> {
+    let candidate = if import.relative_level > 0 {
+        let package = containing_package(from)?;
+        resolve_relative_import(&package, import.relative_level, &import.module)?
+    } else if import.module.is_empty() {
+        return None;
+    } else {
+        import.module.clone()
+    };
+    longest_known_module(&candidate, known_modules)
+}
+
+fn containing_package(module: &PythonModule) -> Option<String> {
+    if module.path.file_stem().and_then(|stem| stem.to_str()) == Some("__init__") {
+        return Some(module.name.clone());
+    }
+    module
+        .name
+        .rfind('.')
+        .map(|index| module.name[..index].to_owned())
+}
+
+fn resolve_relative_import(package: &str, level: usize, module: &str) -> Option<String> {
+    if level == 0 {
+        return None;
+    }
+    let mut parts = package
+        .split('.')
+        .filter(|part| !part.is_empty())
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    let up = level - 1;
+    if up > parts.len() {
+        return None;
+    }
+    parts.truncate(parts.len() - up);
+    if !module.is_empty() {
+        parts.extend(
+            module
+                .split('.')
+                .filter(|part| !part.is_empty())
+                .map(str::to_owned),
+        );
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("."))
+    }
+}
+
+fn longest_known_module(candidate: &str, known: &HashSet<String>) -> Option<String> {
+    let mut parts = candidate.split('.').collect::<Vec<_>>();
+    while !parts.is_empty() {
+        let joined = parts.join(".");
+        if known.contains(&joined) {
+            return Some(joined);
+        }
+        parts.pop();
+    }
+    None
+}
+
+fn read_pyproject(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
+    let source = fs::read_to_string(path).map_err(|source| CargoDiscoveryError::SourceRead {
+        path: path.to_owned(),
+        source,
+    })?;
+    let value = source.parse::<toml::Value>().map_err(|source| {
+        CargoDiscoveryError::InvalidManifestToml {
+            path: path.to_owned(),
+            source,
+        }
+    })?;
+    let mut name = value
+        .get("project")
+        .and_then(|project| project.get("name"))
+        .and_then(|name| name.as_str())
+        .map(str::to_owned);
+    if name.is_none() {
+        name = value
+            .get("tool")
+            .and_then(|tool| tool.get("poetry"))
+            .and_then(|poetry| poetry.get("name"))
+            .and_then(|name| name.as_str())
+            .map(str::to_owned);
+    }
+    let name = name.unwrap_or_else(|| "python-project".to_owned());
+    let mut entry_points = Vec::new();
+    if let Some(project) = value.get("project") {
+        push_script_table(&mut entry_points, project.get("scripts"), "console_scripts");
+        push_script_table(&mut entry_points, project.get("gui-scripts"), "gui_scripts");
+        if let Some(groups) = project
+            .get("entry-points")
+            .and_then(|value| value.as_table())
+        {
+            for (group, table) in groups {
+                push_script_table(&mut entry_points, Some(table), group);
+            }
+        }
+    }
+    if let Some(scripts) = value
+        .get("tool")
+        .and_then(|tool| tool.get("poetry"))
+        .and_then(|poetry| poetry.get("scripts"))
+    {
+        push_script_table(&mut entry_points, Some(scripts), "console_scripts");
+    }
+    entry_points.sort_by(|left, right| {
+        left.group
+            .cmp(&right.group)
+            .then(left.name.cmp(&right.name))
+            .then(left.object_ref.cmp(&right.object_ref))
+    });
+    Ok(PythonProject {
+        name,
+        manifest_path: path.to_owned(),
+        kind: PythonManifestKind::Pyproject,
+        entry_points,
+    })
+}
+
+fn push_script_table(
+    entry_points: &mut Vec<PythonEntryPoint>,
+    table: Option<&toml::Value>,
+    group: &str,
+) {
+    let Some(table) = table.and_then(|value| value.as_table()) else {
+        return;
+    };
+    for (name, value) in table {
+        let Some(object_ref) = value.as_str() else {
+            continue;
+        };
+        entry_points.push(PythonEntryPoint {
+            name: name.clone(),
+            object_ref: object_ref.to_owned(),
+            group: group.to_owned(),
+        });
+    }
+}
+
+fn read_setup_cfg(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
+    let source = fs::read_to_string(path).map_err(|source| CargoDiscoveryError::SourceRead {
+        path: path.to_owned(),
+        source,
+    })?;
+    let mut name = "python-project".to_owned();
+    let mut entry_points = Vec::new();
+    let mut section = String::new();
+    let mut entry_group: Option<String> = None;
+    for raw in source.lines() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') || line.starts_with(';') {
+            continue;
+        }
+        if line.starts_with('[') && line.ends_with(']') {
+            section = line[1..line.len() - 1].to_owned();
+            entry_group = None;
+            continue;
+        }
+        if section == "metadata" {
+            if let Some(value) = line.strip_prefix("name") {
+                let value = value.trim().trim_start_matches('=').trim();
+                if !value.is_empty() {
+                    name = value.to_owned();
+                }
+            }
+            continue;
+        }
+        if section != "options.entry_points" {
+            continue;
+        }
+        let indented = raw.starts_with(' ') || raw.starts_with('\t');
+        if !indented {
+            let (group, rest) = match line.split_once('=') {
+                Some((group, rest)) => (group.trim(), rest.trim()),
+                None => (line, ""),
+            };
+            entry_group = Some(group.to_owned());
+            if !rest.is_empty() {
+                if let Some((script, object_ref)) = rest.split_once('=') {
+                    entry_points.push(PythonEntryPoint {
+                        name: script.trim().to_owned(),
+                        object_ref: object_ref.trim().to_owned(),
+                        group: group.to_owned(),
+                    });
+                }
+            }
+            continue;
+        }
+        let Some(group) = entry_group.clone() else {
+            continue;
+        };
+        let Some((script, object_ref)) = line.split_once('=') else {
+            continue;
+        };
+        entry_points.push(PythonEntryPoint {
+            name: script.trim().to_owned(),
+            object_ref: object_ref.trim().to_owned(),
+            group,
+        });
+    }
+    entry_points.sort_by(|left, right| {
+        left.group
+            .cmp(&right.group)
+            .then(left.name.cmp(&right.name))
+    });
+    Ok(PythonProject {
+        name,
+        manifest_path: path.to_owned(),
+        kind: PythonManifestKind::SetupCfg,
+        entry_points,
+    })
+}
+
+fn read_setup_py(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
+    let source = fs::read_to_string(path).map_err(|source| CargoDiscoveryError::SourceRead {
+        path: path.to_owned(),
+        source,
+    })?;
+    let name = setup_py_name(&source).unwrap_or_else(|| "python-project".to_owned());
+    Ok(PythonProject {
+        name,
+        manifest_path: path.to_owned(),
+        kind: PythonManifestKind::SetupPy,
+        entry_points: Vec::new(),
+    })
+}
+
+fn setup_py_name(source: &str) -> Option<String> {
+    for (index, _) in source.match_indices("name") {
+        let rest = source[index + 4..].trim_start();
+        let Some(rest) = rest.strip_prefix('=').map(str::trim_start) else {
+            continue;
+        };
+        let quote = rest.chars().next()?;
+        if quote != '"' && quote != '\'' {
+            continue;
+        }
+        let body = &rest[1..];
+        let end = body.find(quote)?;
+        let name = &body[..end];
+        if !name.is_empty() {
+            return Some(name.to_owned());
+        }
+    }
+    None
 }
 
 pub(crate) fn parse_python_source(source: &str) -> (Vec<PythonImport>, Vec<PythonSymbol>) {
@@ -603,10 +911,14 @@ fn split_top_level(value: &str, separator: char) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{discover_python_modules, parse_python_source, PythonSymbolKind};
+    use super::{
+        discover_python_modules, discover_python_project, parse_python_source,
+        resolve_python_import, PythonManifestKind, PythonSymbolKind,
+    };
     use crate::extract::extract_cargo_map;
-    use crate::facts::FactBlock;
+    use crate::facts::{Connection, FactBlock};
     use crate::metadata::CargoDiscoveryError;
+    use std::collections::HashSet;
     use std::fs;
     use std::io;
     use std::path::{Path, PathBuf};
@@ -814,5 +1126,122 @@ def load_widget():
             FactBlock::Module(module) if module.language == "rust" && module.module_path == "crate root"
         )));
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn fixture_project_lists_entry_points_and_import_edges() {
+        let project = discover_python_project(&fixture_root())
+            .expect("project")
+            .expect("pyproject");
+        assert_eq!(project.name, "sample-pkg");
+        assert_eq!(project.kind, PythonManifestKind::Pyproject);
+        assert!(project.entry_points.iter().any(|entry| {
+            entry.name == "sample-cli" && entry.object_ref == "sample_pkg.api:load_widget"
+        }));
+        assert!(project
+            .entry_points
+            .iter()
+            .any(|entry| { entry.name == "on-refresh" && entry.group == "sample.hooks" }));
+
+        let modules = discover_python_modules(&fixture_root()).expect("modules");
+        let known = modules
+            .iter()
+            .map(|module| module.name.clone())
+            .collect::<HashSet<_>>();
+        let api = modules
+            .iter()
+            .find(|module| module.name == "sample_pkg.api" && !module.stub)
+            .expect("api");
+        let relative = api
+            .imports
+            .iter()
+            .find(|import| import.statement() == "from .nested.worker import run")
+            .expect("relative import");
+        assert_eq!(
+            resolve_python_import(api, relative, &known).as_deref(),
+            Some("sample_pkg.nested.worker")
+        );
+
+        let map = extract_cargo_map(&fixture_root(), Some("Python Sample")).expect("extract");
+        assert!(map.blocks.iter().any(|block| matches!(
+            block,
+            FactBlock::Module(module)
+                if module.language == "python"
+                    && module.cfg_attributes.iter().any(|value| value == "project")
+                    && module.base.label == "sample-pkg"
+        )));
+        assert!(map.blocks.iter().any(|block| matches!(
+            block,
+            FactBlock::App(app)
+                if app.target_name == "sample-cli" && app.target_kind == "console_scripts"
+        )));
+        assert!(map.connections.iter().any(|connection| matches!(
+            connection,
+            Connection::DependsOn { source, target, .. }
+                if source.contains("sample-pkg-api") || source.contains("sample_pkg_api")
+                    || (source.contains("python") && target.contains("python"))
+        )));
+        let api_id = map.blocks.iter().find_map(|block| match block {
+            FactBlock::Module(module)
+                if module.language == "python" && module.module_path == "sample_pkg.api" =>
+            {
+                Some(module.base.id.clone())
+            }
+            _ => None,
+        });
+        let worker_id = map.blocks.iter().find_map(|block| match block {
+            FactBlock::Module(module)
+                if module.language == "python"
+                    && module.module_path == "sample_pkg.nested.worker" =>
+            {
+                Some(module.base.id.clone())
+            }
+            _ => None,
+        });
+        let (api_id, worker_id) = (api_id.expect("api block"), worker_id.expect("worker block"));
+        assert!(map.connections.iter().any(|connection| matches!(
+            connection,
+            Connection::DependsOn { source, target, .. }
+                if source == &api_id && target == &worker_id
+        )));
+        assert!(modules
+            .iter()
+            .any(|module| module.name == "sample_pkg.__main__"));
+    }
+
+    #[test]
+    fn setup_cfg_and_setup_py_project_names_are_discovered() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let cfg_root = std::env::temp_dir().join(format!("lightwell-python-cfg-{unique}"));
+        fs::create_dir_all(&cfg_root).expect("cfg root");
+        fs::write(
+            cfg_root.join("setup.cfg"),
+            "[metadata]\nname = cfg-sample\n\n[options.entry_points]\nconsole_scripts =\n    cfg-cli = cfg_pkg.main:run\n",
+        )
+        .expect("setup.cfg");
+        let cfg = discover_python_project(&cfg_root)
+            .expect("cfg project")
+            .expect("present");
+        assert_eq!(cfg.name, "cfg-sample");
+        assert_eq!(cfg.kind, PythonManifestKind::SetupCfg);
+        assert_eq!(cfg.entry_points[0].name, "cfg-cli");
+        let _ = fs::remove_dir_all(&cfg_root);
+
+        let py_root = std::env::temp_dir().join(format!("lightwell-python-setuppy-{unique}"));
+        fs::create_dir_all(&py_root).expect("setup.py root");
+        fs::write(
+            py_root.join("setup.py"),
+            "from setuptools import setup\nsetup(name=\"setuppy-sample\", version=\"0.1.0\")\n",
+        )
+        .expect("setup.py");
+        let setup = discover_python_project(&py_root)
+            .expect("setup.py project")
+            .expect("present");
+        assert_eq!(setup.name, "setuppy-sample");
+        assert_eq!(setup.kind, PythonManifestKind::SetupPy);
+        let _ = fs::remove_dir_all(&py_root);
     }
 }

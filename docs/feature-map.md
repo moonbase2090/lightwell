@@ -204,7 +204,7 @@ Fixture workspaces, all under `crates/lightwell-core/fixtures`:
 - `no-cargo-workspace` — Rust workspace crates (`crates/app`, `crates/shared`), including the manifest-fallback shape its name describes.
 - `typescript-sample` — TypeScript sources, including a nested worker.
 - `web-sample` — TypeScript and JavaScript, including `.mjs` (`src/main.mjs`, `src/Button.jsx`, `next.config.mjs`), pages, and app-router files.
-- `python-sample` — Python package with nested package and stub file.
+- `python-sample` — Python package with `pyproject.toml` scripts/entry points, nested package, `__main__`, and stub file.
 - `go-sample` — Go module with `api` and `util` packages.
 - `dotnet-sample` — .NET solution with C# and Visual Basic projects.
 

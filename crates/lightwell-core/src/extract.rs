@@ -10,7 +10,10 @@ use crate::metadata::{
     discover_cargo_workspace, CargoDependencyKind, CargoDiscoveryError, CargoPackage,
     CargoWorkspace, RustModule,
 };
-use crate::python_source::{discover_python_modules, PythonModule, PythonSymbol};
+use crate::python_source::{
+    discover_python_modules, discover_python_project, resolve_python_import, PythonModule,
+    PythonProject, PythonSymbol,
+};
 use crate::typescript_source::{discover_typescript_modules, TypeScriptModule, TypeScriptSymbol};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -59,13 +62,16 @@ const PROJECT_MANIFESTS: &[&str] = &[
     "Cargo.toml",
     "go.mod",
     "go.work",
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
     "package.json",
     "tsconfig.json",
     "jsconfig.json",
 ];
 
 /// The manifest that shows `root` is a project Lightwell can open.
-/// `Cargo.toml` wins when a folder is also a Node, TypeScript, or .NET project.
+/// `Cargo.toml` wins when a folder is also a Node, TypeScript, Python, or .NET project.
 pub fn project_manifest(root: &Path) -> Option<PathBuf> {
     if let Some(path) = PROJECT_MANIFESTS.iter().find_map(|name| {
         let path = root.join(name);
@@ -101,9 +107,9 @@ pub fn extract_cargo_map(
 }
 
 /// Find the Cargo workspace for `repository_path`, or an empty one when the
-/// folder is a Node, TypeScript, JavaScript, or .NET project without a root
-/// `Cargo.toml`. The initial map and live refresh both use this, so a project
-/// that opens also refreshes.
+/// folder is a Node, TypeScript, JavaScript, Python, Go, or .NET project without
+/// a root `Cargo.toml`. The initial map and live refresh both use this, so a
+/// project that opens also refreshes.
 pub fn discover_project_workspace(
     repository_path: impl AsRef<Path>,
 ) -> Result<CargoWorkspace, MapExtractionError> {
@@ -171,6 +177,7 @@ pub(crate) fn map_workspace(
     }
 
     let python_modules = discover_python_modules(&root_path)?;
+    let python_project = discover_python_project(&root_path)?;
     let go_packages = match discover_go_packages(&root_path) {
         Ok(packages) => packages,
         Err(CargoDiscoveryError::ManifestMissing(path))
@@ -186,6 +193,10 @@ pub(crate) fn map_workspace(
         .into_iter()
         .map(|(name, fingerprint)| format!("{name}:{fingerprint}"))
         .collect();
+    if let Some(project) = &python_project {
+        let fingerprint = fingerprints.file(&project.manifest_path)?;
+        workspace_inputs.push(format!("python-project:{}:{fingerprint}", project.name));
+    }
     for module in &python_modules {
         let fingerprint = fingerprints.file(&module.path)?;
         workspace_inputs.push(format!("python:{}:{fingerprint}", module.name));
@@ -241,6 +252,7 @@ pub(crate) fn map_workspace(
 
     append_python_blocks(
         &python_modules,
+        python_project.as_ref(),
         &root_path,
         &project_id,
         &mut fingerprints,
@@ -1628,21 +1640,104 @@ fn go_symbol_block_id(module_path: &str, kind: &str) -> String {
 
 fn append_python_blocks(
     modules: &[PythonModule],
+    project: Option<&PythonProject>,
     root_path: &Path,
     workspace_id: &str,
     fingerprints: &mut FileFingerprints,
     blocks: &mut Vec<FactBlock>,
     connections: &mut Vec<Connection>,
 ) -> Result<(), MapExtractionError> {
+    let mut project_parent = workspace_id.to_owned();
+    if let Some(project) = project {
+        let project_id = python_project_block_id(&project.name);
+        let relative = relative_path(root_path, &project.manifest_path);
+        let fingerprint = fingerprints.file(&project.manifest_path)?;
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: project_id.clone(),
+                label: project.name.clone(),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: Some(relative.clone()),
+                fingerprint,
+            },
+            package_name: project.name.clone(),
+            module_path: project.name.clone(),
+            declared_by_path: relative,
+            cfg_attributes: vec!["project".to_owned(), project.kind.label().to_owned()],
+            unresolved: false,
+            language: "python".to_owned(),
+        }));
+        connections.push(contains_connection(workspace_id, &project_id));
+        for entry in &project.entry_points {
+            let app_id = format!("app:python:{}:{}", slug(&project.name), slug(&entry.name));
+            let entry_module = entry
+                .object_ref
+                .split_once(':')
+                .map(|(module, _)| module)
+                .unwrap_or(entry.object_ref.as_str());
+            let source_path = modules
+                .iter()
+                .find(|module| module.name == entry_module)
+                .map(|module| relative_path(root_path, &module.path))
+                .unwrap_or_else(|| relative_path(root_path, &project.manifest_path));
+            let app_fingerprint = fingerprints.file(
+                &modules
+                    .iter()
+                    .find(|module| module.name == entry_module)
+                    .map(|module| module.path.clone())
+                    .unwrap_or_else(|| project.manifest_path.clone()),
+            )?;
+            blocks.push(FactBlock::App(AppBlock {
+                base: BlockBase {
+                    id: app_id.clone(),
+                    label: entry.name.clone(),
+                    parent_id: Some(project_id.clone()),
+                    children: Vec::new(),
+                    source_path: Some(source_path.clone()),
+                    fingerprint: app_fingerprint,
+                },
+                package_name: project.name.clone(),
+                target_name: entry.name.clone(),
+                entry_path: source_path,
+                target_kind: entry.group.clone(),
+            }));
+            connections.push(contains_connection(&project_id, &app_id));
+        }
+        project_parent = project_id;
+    }
+
+    let module_ids: HashMap<String, String> = modules
+        .iter()
+        .map(|module| {
+            (
+                module.name.clone(),
+                python_block_id(&module.name, module.stub, None),
+            )
+        })
+        .collect();
+    let known_modules = module_ids.keys().cloned().collect::<HashSet<_>>();
+
     for module in modules {
-        let id = python_block_id(&module.name, module.stub, None);
+        let id = module_ids[&module.name].clone();
         let relative = relative_path(root_path, &module.path);
         let fingerprint = fingerprints.file(&module.path)?;
+        let parent_id = module
+            .package
+            .as_ref()
+            .and_then(|package| {
+                if package == &module.name {
+                    None
+                } else {
+                    module_ids.get(package).cloned()
+                }
+            })
+            .unwrap_or_else(|| project_parent.clone());
         blocks.push(FactBlock::Module(ModuleBlock {
             base: BlockBase {
                 id: id.clone(),
                 label: module_label(&module.name),
-                parent_id: Some(workspace_id.to_owned()),
+                parent_id: Some(parent_id.clone()),
                 children: Vec::new(),
                 source_path: Some(relative.clone()),
                 fingerprint: fingerprint.clone(),
@@ -1661,12 +1756,41 @@ fn append_python_blocks(
             unresolved: module.unreadable,
             language: "python".to_owned(),
         }));
-        connections.push(contains_connection(workspace_id, &id));
+        connections.push(contains_connection(&parent_id, &id));
         for symbol in &module.symbols {
             append_python_symbol(&id, module, symbol, &fingerprint, blocks, connections);
         }
     }
+
+    let mut import_edges = HashSet::new();
+    for module in modules {
+        let source_id = &module_ids[&module.name];
+        for import in &module.imports {
+            let Some(target_name) = resolve_python_import(module, import, &known_modules) else {
+                continue;
+            };
+            let Some(target_id) = module_ids.get(&target_name) else {
+                continue;
+            };
+            if target_id == source_id {
+                continue;
+            }
+            let edge_id = connection_id("depends_on", source_id, target_id);
+            if import_edges.insert(edge_id.clone()) {
+                connections.push(Connection::DependsOn {
+                    id: edge_id,
+                    source: source_id.clone(),
+                    target: target_id.clone(),
+                    dependency_scope: DependencyScope::Normal,
+                });
+            }
+        }
+    }
     Ok(())
+}
+
+fn python_project_block_id(name: &str) -> String {
+    format!("module:python:project:{}", slug(name))
 }
 
 fn append_python_symbol(

@@ -6,6 +6,7 @@ export const PYTHON_LANGUAGE_PACK: LanguagePack = {
   id: "python",
   extensions: [".py", ".pyi"],
   monacoLanguageId: "python",
+  basenameFiles: ["pyproject.toml", "setup.cfg", "setup.py"],
   extractor: {
     kind: "python-module",
     moduleId: "extract/python-modules",

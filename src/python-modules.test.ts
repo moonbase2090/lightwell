@@ -5,7 +5,13 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { extractCargoMap } from "./extract/cargo.js";
-import { discoverPythonModules, parsePythonSource, pythonImportStatement } from "./extract/python-modules.js";
+import {
+  discoverPythonModules,
+  discoverPythonProject,
+  parsePythonSource,
+  pythonImportStatement,
+  resolvePythonImport,
+} from "./extract/python-modules.js";
 
 const fixtureRoot = fileURLToPath(new URL("../crates/lightwell-core/fixtures/python-sample/", import.meta.url));
 
@@ -99,6 +105,33 @@ test("a symlink outside the opened root is not a python module", { skip: canCrea
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
   }
+});
+
+test("python fixture project lists entry points and import edges", () => {
+  const project = discoverPythonProject(fixtureRoot);
+  assert.ok(project);
+  assert.equal(project.name, "sample-pkg");
+  assert.equal(project.kind, "pyproject.toml");
+  assert.ok(project.entryPoints.some((entry) => entry.name === "sample-cli" && entry.objectRef === "sample_pkg.api:load_widget"));
+  assert.ok(project.entryPoints.some((entry) => entry.name === "on-refresh" && entry.group === "sample.hooks"));
+
+  const modules = discoverPythonModules(fixtureRoot);
+  const known = new Set(modules.map((module) => module.name));
+  const api = modules.find((module) => module.name === "sample_pkg.api" && !module.stub);
+  assert.ok(api);
+  const relative = api.imports.find((item) => pythonImportStatement(item) === "from .nested.worker import run");
+  assert.ok(relative);
+  assert.equal(resolvePythonImport(api, relative, known), "sample_pkg.nested.worker");
+  assert.ok(modules.some((module) => module.name === "sample_pkg.__main__"));
+
+  const map = extractCargoMap({ repositoryPath: fixtureRoot, projectName: "Python Sample" });
+  assert.ok(map.blocks.some((block) => block.type === "module" && block.language === "python" && block.cfgAttributes.includes("project") && block.label === "sample-pkg"));
+  assert.ok(map.blocks.some((block) => block.type === "app" && block.targetName === "sample-cli" && block.targetKind === "console_scripts"));
+  const apiId = map.blocks.find((block) => block.type === "module" && block.language === "python" && block.modulePath === "sample_pkg.api")?.id;
+  const workerId = map.blocks.find((block) => block.type === "module" && block.language === "python" && block.modulePath === "sample_pkg.nested.worker")?.id;
+  assert.ok(apiId);
+  assert.ok(workerId);
+  assert.ok(map.connections.some((connection) => connection.kind === "depends_on" && connection.source === apiId && connection.target === workerId));
 });
 
 test("cargo extraction includes python modules without a flag", () => {
