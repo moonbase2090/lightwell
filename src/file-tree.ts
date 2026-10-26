@@ -227,6 +227,7 @@ export function explorerBadge(source: {
     || source.language === "go"
     || source.language === "php"
     || source.language === "ruby"
+    || source.language === "cpp"
   ) {
     if (kind === "def" || kind === "async def" || kind === "function" || kind === "func" || kind === "method") {
       return "FN";

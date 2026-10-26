@@ -13,6 +13,7 @@ import type {
   ModuleBlock,
   WorkspaceBlock,
 } from "../model.js";
+import { discoverCppTargets, cppFactBlocks } from "./cpp-modules.js";
 import { discoverDotnet, dotnetFactBlocks } from "./dotnet-modules.js";
 import { discoverGoPackages, goFactBlocks } from "./go-modules.js";
 import { discoverPhpPackages, phpFactBlocks } from "./php-modules.js";
@@ -424,6 +425,10 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   const rubyFacts = rubyFactBlocks({ packages: rubyPackages, rootPath, workspaceId: projectId });
   blocks.push(...rubyFacts.blocks);
   connections.push(...rubyFacts.connections);
+  const cppTargets = discoverCppTargets(rootPath);
+  const cppFacts = cppFactBlocks({ targets: cppTargets, rootPath, workspaceId: projectId });
+  blocks.push(...cppFacts.blocks);
+  connections.push(...cppFacts.connections);
   const finalWorkspaceFingerprint = hashText([
     ...packages.map((pkg) => {
       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
@@ -441,6 +446,15 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
     ),
     ...rubyPackages.flatMap((pkg) =>
       pkg.files.map((file) => `ruby:${pkg.importPath}:${path.basename(file.path)}:${hashFile(file.path)}`),
+    ),
+    ...cppTargets.flatMap((target) =>
+      target.files.flatMap((file) => {
+        try {
+          return [`cpp:${target.name}:${path.basename(file.path)}:${hashFile(file.path)}`];
+        } catch {
+          return [];
+        }
+      }),
     ),
   ].sort().join("\n"));
   const workspaceIndex = blocks.findIndex((block) => block.id === projectId);
@@ -486,7 +500,7 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   };
 }
 
-const namedProjectMarkers = ["go.mod", "go.work", "composer.json", "Gemfile", "package.json", "tsconfig.json", "jsconfig.json"];
+const namedProjectMarkers = ["go.mod", "go.work", "composer.json", "Gemfile", "package.json", "tsconfig.json", "jsconfig.json", "CMakeLists.txt"];
 
 function nonCargoProjectMarker(root: string): string | null {
   for (const name of namedProjectMarkers) {
@@ -532,6 +546,8 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
   const phpFacts = phpFactBlocks({ packages: phpPackages, rootPath, workspaceId: projectId });
   const rubyPackages = discoverRubyPackages(rootPath);
   const rubyFacts = rubyFactBlocks({ packages: rubyPackages, rootPath, workspaceId: projectId });
+  const cppTargets = discoverCppTargets(rootPath);
+  const cppFacts = cppFactBlocks({ targets: cppTargets, rootPath, workspaceId: projectId });
   const fingerprint = hashText([
     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
     ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
@@ -546,6 +562,15 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
     ...rubyPackages.flatMap((pkg) =>
       pkg.files.map((file) => `ruby:${pkg.importPath}:${path.basename(file.path)}:${hashFile(file.path)}`),
     ),
+    ...cppTargets.flatMap((target) =>
+      target.files.flatMap((file) => {
+        try {
+          return [`cpp:${target.name}:${path.basename(file.path)}:${hashFile(file.path)}`];
+        } catch {
+          return [];
+        }
+      }),
+    ),
   ].sort().join("\n"));
   const blocks: FactBlock[] = [{
     id: projectId,
@@ -556,8 +581,8 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
     sourcePath: relativePath(rootPath, args.markerPath),
     fingerprint,
     memberCount: 0,
-  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks, ...phpFacts.blocks, ...rubyFacts.blocks];
-  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections, ...phpFacts.connections, ...rubyFacts.connections];
+  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks, ...phpFacts.blocks, ...rubyFacts.blocks, ...cppFacts.blocks];
+  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections, ...phpFacts.connections, ...rubyFacts.connections, ...cppFacts.connections];
   const completedBlocks = deriveChildren(blocks);
   const workspaceChildren = completedBlocks.find((block) => block.id === projectId)?.children ?? [];
   const groups: FactGroup[] = [{

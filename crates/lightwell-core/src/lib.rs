@@ -1,3 +1,4 @@
+mod cpp_source;
 mod diff;
 mod dotnet_source;
 mod editor;

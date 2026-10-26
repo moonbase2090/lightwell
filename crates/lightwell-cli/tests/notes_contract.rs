@@ -292,21 +292,22 @@ fn repo_flag_targets_another_workspace_from_a_foreign_cwd() {
     );
 
     let updated = "Updated from foreign cwd";
-    assert_eq!(
-        project.json_in(
-            &foreign,
-            &[
-                "notes",
-                "set",
-                "--repo",
-                repo.as_ref(),
-                "--json",
-                BLOCK,
-                updated,
-            ],
-        ),
-        json!({"blockId": BLOCK, "text": updated})
+    let saved = project.json_in(
+        &foreign,
+        &[
+            "notes",
+            "set",
+            "--repo",
+            repo.as_ref(),
+            "--json",
+            BLOCK,
+            updated,
+        ],
     );
+    assert_eq!(saved["blockId"], BLOCK);
+    assert_eq!(saved["text"], updated);
+    assert_eq!(saved["author"], "unknown");
+    assert!(saved["updatedAt"].as_str().is_some());
     assert!(!foreign.join(".lightwell").exists());
     assert_eq!(
         project.json(&["notes", "list", "--json"])[0]["text"],

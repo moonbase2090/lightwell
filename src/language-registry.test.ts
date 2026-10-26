@@ -50,6 +50,15 @@ test("registry maps PHP and Ruby sources", () => {
   assert.equal(monacoLanguageIdForPath("app/models/user.rb"), "ruby");
 });
 
+test("registry maps C/C++ sources", () => {
+  assert.equal(sourceLanguageIdForPath("src/main.cpp"), "cpp");
+  assert.equal(sourceLanguageIdForPath("src/greeter.h"), "cpp");
+  assert.equal(sourceLanguageIdForPath("legacy.c"), "cpp");
+  assert.equal(monacoLanguageIdForPath("src/main.cpp"), "cpp");
+  assert.equal(monacoLanguageIdForPath("src/greeter.h"), "cpp");
+  assert.equal(monacoLanguageIdForPath("legacy.c"), "cpp");
+});
+
 test("registry maps web extensions without .ts swallowing .tsx", () => {
   assert.equal(sourceLanguageIdForPath("src/App.tsx"), "web");
   assert.equal(sourceLanguageIdForPath("src/cli.ts"), "web");
@@ -72,7 +81,7 @@ test("registry entries have unique longest extensions", () => {
 });
 
 test("built-in packs expose extractor and fixture seams", () => {
-  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 8);
+  assert.equal(BUILTIN_LANGUAGE_PACKS.length, 9);
   const rust = languagePackForPath("src/lib.rs");
   assert.equal(rust?.extractor?.kind, "rust-workspace");
   assert.equal(rust?.extractor?.moduleTreeModule, "extract/rust-modules");
@@ -109,6 +118,13 @@ test("built-in packs expose extractor and fixture seams", () => {
   assert.equal(ruby?.extractor?.kind, "ruby-module");
   assert.equal(ruby?.fixtures?.root, "crates/lightwell-core/fixtures/ruby-sample");
   assert.equal(typeof ruby?.registerHighlighter, "function");
+  const cpp = languagePackForPath("main.cpp");
+  assert.equal(cpp?.id, "cpp");
+  assert.equal(cpp?.extractor?.kind, "cpp-module");
+  assert.equal(cpp?.fixtures?.root, "crates/lightwell-core/fixtures/cpp-sample");
+  assert.equal(monacoLanguageIdForPath("main.cpp"), "cpp");
+  assert.equal(monacoLanguageIdForPath("greeter.h"), "cpp");
+  assert.equal(typeof cpp?.registerHighlighter, "function");
 });
 
 test("extractWorkspaceMap uses rust pack workspace extractor on fixture workspace", () => {

@@ -11,7 +11,7 @@ IDs group by area: `APP` shell, `MAP` graph canvas and map toolbar, `TREE` verti
 Coverage uses three layers. The layer on a row says which layer proves it.
 
 - **`web`** — the fixture map via the Vite web build: Playwright runs the web build on a fixture map with no Tauri backend.
-- **`ipc`** — Playwright on the app frontend with `mockIPC` from `@tauri-apps/api/mocks` answering Tauri commands from real `lightwell-core` output on the fixture projects under `crates/lightwell-core/fixtures`. The projects are Rust, TypeScript/JavaScript including `.mjs`, Python, Go, PHP, Ruby, .NET, and the no-Cargo workspace (see "Coverage routes" below). Desktop command paths — opening a workspace, read-only source panel reads, Open in editor, notes added, edited, and removed through commands, the commit picker and history, the updater prompt, and window behaviour — run through the same UI code users run. Where a flow needs a real OS dialog, such as the native folder picker, the dialog itself is stubbed at the IPC layer; the command that follows it still runs.
+- **`ipc`** — Playwright on the app frontend with `mockIPC` from `@tauri-apps/api/mocks` answering Tauri commands from real `lightwell-core` output on the fixture projects under `crates/lightwell-core/fixtures`. The projects are Rust, TypeScript/JavaScript including `.mjs`, Python, Go, PHP, Ruby, .NET, C/C++, and the no-Cargo workspace (see "Coverage routes" below). Desktop command paths — opening a workspace, read-only source panel reads, Open in editor, notes added, edited, and removed through commands, the commit picker and history, the updater prompt, and window behaviour — run through the same UI code users run. Where a flow needs a real OS dialog, such as the native folder picker, the dialog itself is stubbed at the IPC layer; the command that follows it still runs.
 - **`app`** — tauri-driver smoke on the built app: the real built app launches on Linux and walks top-level flows only: open a fixture folder, switch Modules/Files, select a block, view source, and add a note. A row on one of those flows carries `ipc, app` because both layers cover it.
 
 The entry point picks the data source at startup. A Tauri window gets the desktop source; anything else gets the fixture source, which serves the checked-in Prismattyc and Scorecard maps with no backend. The fixture source has no editor, no git history, no folder picker, and no file watcher. Its project notes live in page memory and follow the same build-time opt-out as the desktop app.
@@ -75,7 +75,7 @@ The tree replaces the graph in Files view with vertical orientation. Its toolbar
 | TREE-09 | Tree rows | File-tree body in `FileExplorer`, role `tree` | Each row indents by level with guide lines and shows a kind badge, label, the last two path segments, and a child count for parents. Clicking selects the row and scrolls it into view; Enter or Space selects a focused row, and ArrowUp, ArrowDown, Home, and End only move focus between visible rows without selecting. Selecting a file or symbol row opens its source right away unless SET-13 is set to show details first; folder rows always show details. Selecting a row in vertical view expands its ancestors so it stays visible. A changed row adds "+n −n" counts while a commit diff is active. | web |
 | TREE-10 | Row expand toggle | Chevron button on each parent row in `FileExplorer` | Expands or collapses that folder without changing the selection. The button label names the action and folder, and the row reports its expanded state. | web |
 | TREE-11 | Empty filter state | File-tree body in `FileExplorer` | When the filter matches nothing, the body reads "No matching symbols" instead of rows. | web |
-| TREE-12 | Row kind badges | File-tree rows in `FileExplorer` and `file-tree` (`explorerBadge`) | Badges read FILE for folders, crates, and workspaces; APP for binary targets; FEAT for Cargo features; MOD for modules; and FN, TYPE, or CONST for function, type, and constant symbols in Python, web, Go, and .NET outlines. Display only. | web |
+| TREE-12 | Row kind badges | File-tree rows in `FileExplorer` and `file-tree` (`explorerBadge`) | Badges read FILE for folders, crates, and workspaces; APP for binary targets; FEAT for Cargo features; MOD for modules; and FN, TYPE, or CONST for function, type, and constant symbols in Python, web, Go, .NET, and C/C++ outlines. Display only. | web |
 | TREE-13 | Only-changed rows | File-tree body in `FileExplorer`, driven from DIFF-06 | With "Only changed" on, the tree keeps only rows on branches that contain a changed block, still honouring the text filter. This needs commit data, so it cannot appear in the web build. | ipc |
 
 ## Inspectors
@@ -209,6 +209,7 @@ Fixture workspaces, all under `crates/lightwell-core/fixtures`:
 - `php-sample` — Composer package with namespaces, `use` edges, and a Laravel-shaped `app/` tree.
 - `ruby-sample` — Gemfile project with modules, `require_relative` edges, and a Rails-shaped `app/` tree.
 - `dotnet-sample` — .NET solution with C# and Visual Basic projects.
+- `cpp-sample` — CMake project with an executable target, header, and quoted include.
 
 ### app flows
 
