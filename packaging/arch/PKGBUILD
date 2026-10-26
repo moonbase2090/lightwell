@@ -5,7 +5,7 @@
 # release's SHA256SUMS in prepare(). To pin the checksum in the PKGBUILD
 # instead (as an AUR package would), run packaging/arch/update-pkgbuild.sh.
 pkgname=lightwell-bin
-pkgver=0.1.18
+pkgver=0.1.19
 pkgrel=1
 pkgdesc='Live code map for Rust, web and Python projects'
 arch=('x86_64')

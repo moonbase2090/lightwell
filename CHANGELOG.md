@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.19 - 2026-10-26
+
+### Added
+
+- CMake-based C and C++ projects map targets, source and header files, top-level symbols, and quoted include edges (#195).
+- PHP and Ruby projects map Composer or Gemfile packages, namespaces and modules, classes, and import or require edges (#194).
+- Project notes record an author and last-updated timestamp, with defaults for legacy notes (#197).
+- Notes CLI commands accept `-C` or `--repo <path>` to target a workspace from any current directory (#186).
+
+### Changed
+
+- Commit changes has named range presets and a custom chronological range (#190).
+- Notes documentation explains that saving a note does not stage it and shows the required `git add` command (#188).
+- Vite is updated to 8.3.3 (#202).
+
+### Fixed
+
+- Failed temporary Git worktree removal clears only the matching checkout and administrative registration (#187).
+
 ## 0.1.18 - 2026-10-23
 
 ### Added
