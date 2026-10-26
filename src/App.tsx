@@ -248,12 +248,16 @@ function MapSourceState({
   openWorkspace,
   opening,
   error = false,
+  recent,
+  onChooseRecent,
 }: {
   readonly message: string;
   readonly title: string;
   readonly openWorkspace?: () => void;
   readonly opening?: boolean;
   readonly error?: boolean;
+  readonly recent?: readonly { readonly id: string; readonly label: string }[];
+  readonly onChooseRecent?: (id: string) => void;
 }) {
   const Icon = error ? CircleAlert : Activity;
   return (
@@ -262,6 +266,15 @@ function MapSourceState({
         <div className="workspace-glyph"><FolderOpen size={18} /></div>
         <h1>{title}</h1>
         <p role={error ? "alert" : undefined}>{message}</p>
+        {recent !== undefined && recent.length > 0 && onChooseRecent !== undefined && (
+          <ul className="recent-workspaces" aria-label="Recent workspaces">
+            {recent.map((entry) => (
+              <li key={entry.id}>
+                <button type="button" onClick={() => onChooseRecent(entry.id)}>{entry.label}</button>
+              </li>
+            ))}
+          </ul>
+        )}
         {openWorkspace !== undefined && (
           <button className="open-workspace-primary" type="button" onClick={openWorkspace} disabled={opening}>
             {opening ? <Activity size={15} /> : <FolderOpen size={15} />}
@@ -688,6 +701,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [workspaceError, setWorkspaceError] = useState("");
   const [openingWorkspace, setOpeningWorkspace] = useState(false);
   const [notesDialog, setNotesDialog] = useState<{ readonly blockId: string | null; readonly initialText: string } | null>(null);
+  const notesDirtyRef = useRef(false);
+  const reportNotesDirty = useCallback((dirty: boolean) => {
+    notesDirtyRef.current = dirty;
+  }, []);
   const [noteMenu, setNoteMenu] = useState<NoteMenuTarget | null>(null);
   const [noteActionError, setNoteActionError] = useState("");
   const [mapRequestVersion, setMapRequestVersion] = useState(0);
@@ -1002,6 +1019,19 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     ? mapCatalog.entries.find((entry) => entry.id === mapKey)
     : undefined;
   const openWorkspaceAction = mapSource.openWorkspace === undefined ? undefined : handleOpenWorkspace;
+  const closeWorkspace = useCallback(() => {
+    if (notesDirtyRef.current && !window.confirm("Discard unsaved note changes and close this workspace?")) return;
+    notesDirtyRef.current = false;
+    setNotesDialog(null);
+    setInspectedBlockId(null);
+    setActiveFeatureId(null);
+    setActiveNodeId(null);
+    setMapKey(null);
+  }, []);
+  const chooseRecentWorkspace = useCallback((id: string) => {
+    setMapKey(id);
+    setInspectedBlockId(null);
+  }, []);
   const map = loadedMap.kind === "ready" && loadedMap.id === mapKey ? loadedMap.map : null;
   const history = mapSource.history;
 
@@ -1813,6 +1843,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     />;
   }
   if (mapKey === null) {
+    if (mapCatalog.entries.length > 0) {
+      return <MapSourceState title="Workspace closed" message="Pick a recent workspace, or choose another folder. Nothing on disk was changed." openWorkspace={openWorkspaceAction} opening={openingWorkspace} recent={mapCatalog.entries} onChooseRecent={chooseRecentWorkspace} />;
+    }
     return <MapSourceState title="Selecting a workspace" message="Preparing the workspace map…" openWorkspace={openWorkspaceAction} opening={openingWorkspace} />;
   }
   if (source === undefined) {
@@ -2264,6 +2297,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           initialText={notesDialog.initialText}
           onSnapshot={acceptProjectNotes}
           onClose={closeProjectNotes}
+          onDirtyChange={reportNotesDirty}
           onShowOnMap={(blockId) => {
             const block = map.blockById.get(blockId);
             if (block === undefined) return;
@@ -2297,6 +2331,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <div className="brand-mark"><img className="brand-logo" src="/lightwell-mark.svg" width={32} height={32} alt="Lightwell" draggable={false} /></div>
           <div><div className="brand-name">Lightwell<span className="brand-version">LOCAL</span></div></div>
         </div>
+        <button className="close-workspace-button" type="button" onClick={closeWorkspace} title="Close this workspace. Nothing on disk is changed; it stays in recent workspaces.">
+          Close workspace
+        </button>
         <div className="project-select-wrap">
           <label htmlFor="project-select">PROJECT</label>
           <select
