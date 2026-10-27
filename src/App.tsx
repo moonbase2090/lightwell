@@ -24,6 +24,7 @@ import {
   FolderOpen,
   GitBranch,
   Layers3,
+  Maximize2,
   Search,
   RotateCw,
   Settings2,
@@ -41,6 +42,16 @@ import {
 import { isTauri } from "@tauri-apps/api/core";
 import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNoteView, ProjectNotesSnapshot, ResolvedCommitRange } from "./map-source.js";
 import CommitRangePicker from "./CommitRangePicker.js";
+import {
+  closeMapPopoutWindow,
+  emitMapPopoutSync,
+  isMapPopoutSearch,
+  listenMapPopoutSync,
+  mapPopoutShortcut,
+  openMapPopoutWindow,
+  workspaceFromPopoutSearch,
+  type MapPopoutSync,
+} from "./map-popout.js";
 import EditorSettingsPanel from "./EditorSettingsPanel.js";
 import UpdatePrompt from "./UpdatePrompt.js";
 import { readUpdateCheck, writeUpdateCheck, type UpdateDelivery } from "./app-updates.js";
@@ -186,6 +197,30 @@ function formatStatus(status: DisplayNode["status"]): string {
       return exhaustive;
     }
   }
+}
+
+function sameScopePath(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+
+function popoutSyncKey(sync: {
+  readonly workspaceId: string;
+  readonly selectedId: string;
+  readonly scopePath: readonly string[];
+  readonly mapView: MapView;
+  readonly orientation: TreeOrientation;
+  readonly fileScope: string;
+  readonly notesRevision: number;
+}): string {
+  return JSON.stringify([
+    sync.workspaceId,
+    sync.selectedId,
+    sync.scopePath,
+    sync.mapView,
+    sync.orientation,
+    sync.fileScope,
+    sync.notesRevision,
+  ]);
 }
 
 function mapDepthStorage(): MapDepthStorage | null {
@@ -644,8 +679,11 @@ function RestoreViewport({
 }
 
 function App({ mapSource }: { readonly mapSource: MapSource }) {
+  const popoutWorkspaceId = import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isMapPopoutSearch(window.location.search)
+    ? workspaceFromPopoutSearch(window.location.search)
+    : null;
   const [mapCatalog, setMapCatalog] = useState<MapCatalogState>({ kind: "loading" });
-  const [mapKey, setMapKey] = useState<string | null>(null);
+  const [mapKey, setMapKey] = useState<string | null>(popoutWorkspaceId);
   const [loadedMap, setLoadedMap] = useState<LoadedMapState>({ kind: "loading", id: null });
   const [workspaceError, setWorkspaceError] = useState("");
   const [openingWorkspace, setOpeningWorkspace] = useState(false);
@@ -682,6 +720,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [expandedFor, setExpandedFor] = useState("");
   const [fileScope, setFileScope] = useState("");
+  const [notesRevision, setNotesRevision] = useState(0);
   const [selectedId, setSelectedId] = useState("");
   const [search, setSearch] = useState("");
   const [activeGroupId, setActiveGroupId] = useState("");
@@ -750,6 +789,36 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const initializedMapKeyRef = useRef<string | null>(null);
   const [connectorPaths, setConnectorPaths] = useState<readonly ConnectorPath[]>([]);
   const getSavedViewport = useCallback(() => savedViewportRef.current, []);
+  const popoutSyncFieldsRef = useRef({
+    workspaceId: null as string | null,
+    selectedId: "",
+    scopePath: [] as string[],
+    mapView: "modules" as MapView,
+    orientation: "vertical" as TreeOrientation,
+    fileScope: "",
+    notesRevision: 0,
+  });
+  const notesRevisionRef = useRef(0);
+  const remoteSyncRef = useRef<MapPopoutSync | null>(null);
+  const preservedFileScopeRef = useRef<string | null>(null);
+  const popoutHeardPeerRef = useRef(false);
+  const remoteHoldKeyRef = useRef<string | null>(null);
+  const lastEmittedKeyRef = useRef<string | null>(null);
+  const popoutRevisionRef = useRef(0);
+  const notesLoadTokenRef = useRef(0);
+  const mapSourceRef = useRef(mapSource);
+  const applyPopoutSyncRef = useRef<(payload: MapPopoutSync) => void>(() => {});
+  mapSourceRef.current = mapSource;
+  notesRevisionRef.current = notesRevision;
+  popoutSyncFieldsRef.current = {
+    workspaceId: mapKey,
+    selectedId,
+    scopePath,
+    mapView,
+    orientation,
+    fileScope,
+    notesRevision,
+  };
   const theme = resolveTheme(themePreference, systemTheme);
 
   useEffect(() => {
@@ -810,14 +879,20 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       .then(() => mapSource.listMaps())
       .then((entries) => {
         if (cancelled) return;
+        const listed = popoutWorkspaceId !== null && !entries.some((entry) => entry.id === popoutWorkspaceId)
+          ? [{ id: popoutWorkspaceId, label: popoutWorkspaceId }, ...entries]
+          : entries;
         setMapCatalog((current) => {
           const recent = current.kind === "ready" ? current.entries : [];
+          const merged = [...recent, ...listed.filter((entry) => !recent.some((item) => item.id === entry.id))];
           return {
             kind: "ready",
-            entries: [...recent, ...entries.filter((entry) => !recent.some((item) => item.id === entry.id))],
+            entries: popoutWorkspaceId !== null && !merged.some((entry) => entry.id === popoutWorkspaceId)
+              ? [{ id: popoutWorkspaceId, label: popoutWorkspaceId }, ...merged]
+              : merged,
           };
         });
-        setMapKey((current) => current ?? entries[0]?.id ?? null);
+        setMapKey((current) => current ?? listed[0]?.id ?? null);
       })
       .catch((error: unknown) => {
         if (!cancelled) {
@@ -828,7 +903,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         }
       });
     return () => { cancelled = true; };
-  }, [mapSource]);
+  }, [mapSource, popoutWorkspaceId]);
 
   useEffect(() => {
     if (mapKey === null) {
@@ -1026,6 +1101,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   useEffect(() => {
     if (fileScopeResetKeyRef.current === fileScopeResetKey) return;
     fileScopeResetKeyRef.current = fileScopeResetKey;
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && preservedFileScopeRef.current !== null) {
+      const preserved = preservedFileScopeRef.current;
+      preservedFileScopeRef.current = null;
+      setFileScope(preserved);
+      return;
+    }
     setFileScope("");
   }, [fileScopeResetKey]);
   const scopeChildren = useMemo(() => scope?.children
@@ -1118,18 +1199,209 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setLoadedMap((current) => current.kind === "ready" && current.id === mapKey
       ? { ...current, projectNotes: snapshot }
       : current);
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true") setNotesRevision((current) => current + 1);
   }, [mapKey]);
 
   useEffect(() => {
     if (map === null || initializedMapKeyRef.current === mapKey) return;
     initializedMapKeyRef.current = mapKey;
-    setScopePath([map.facts.project.id]);
-    setSelectedId(map.facts.project.id);
+    const sync = import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" ? remoteSyncRef.current : null;
+    if (sync !== null && sync.workspaceId === mapKey && sync.revision > 0) {
+      setScopePath([...sync.scopePath]);
+      setSelectedId(sync.selectedId);
+      setFileScope(sync.fileScope);
+      setMapView(sync.mapView);
+      setOrientation(sync.orientation);
+      setViewWorkspaceId(mapKey);
+      setOrientationWorkspaceId(mapKey);
+    } else {
+      setScopePath([map.facts.project.id]);
+      setSelectedId(map.facts.project.id);
+    }
     setSearch("");
     setActiveGroupId(map.annotations.groups[0]?.id ?? "");
     setActiveNodeId(null);
     setActiveFeatureId(null);
   }, [mapKey, map]);
+
+  applyPopoutSyncRef.current = (payload) => {
+    popoutHeardPeerRef.current = true;
+    remoteSyncRef.current = payload;
+    const current = popoutSyncFieldsRef.current;
+    const nextNotesRevision = Math.max(payload.notesRevision, notesRevisionRef.current);
+    const sameSelection = current.workspaceId === payload.workspaceId
+      && current.selectedId === payload.selectedId
+      && current.mapView === payload.mapView
+      && current.orientation === payload.orientation
+      && current.fileScope === payload.fileScope
+      && sameScopePath(current.scopePath, payload.scopePath);
+    if (payload.notesRevision > notesRevisionRef.current) {
+      notesRevisionRef.current = payload.notesRevision;
+      setNotesRevision(payload.notesRevision);
+      const token = notesLoadTokenRef.current + 1;
+      notesLoadTokenRef.current = token;
+      const workspaceId = payload.workspaceId;
+      void mapSourceRef.current.loadMap(workspaceId).then((document) => {
+        if (notesLoadTokenRef.current !== token || document.projectNotes === undefined) return;
+        setLoadedMap((loaded) => loaded.kind === "ready" && loaded.id === workspaceId
+          ? { ...loaded, projectNotes: document.projectNotes ?? loaded.projectNotes }
+          : loaded);
+      }).catch((error: unknown) => {
+        setWorkspaceError(describeError(error, "Could not refresh project notes."));
+      });
+    }
+    if (sameSelection && nextNotesRevision === current.notesRevision) return;
+    remoteHoldKeyRef.current = popoutSyncKey({
+      workspaceId: payload.workspaceId,
+      selectedId: payload.selectedId,
+      scopePath: payload.scopePath,
+      mapView: payload.mapView,
+      orientation: payload.orientation,
+      fileScope: payload.fileScope,
+      notesRevision: nextNotesRevision,
+    });
+    if (current.workspaceId !== payload.workspaceId) {
+      setMapCatalog((catalog) => {
+        if (catalog.kind !== "ready" || catalog.entries.some((entry) => entry.id === payload.workspaceId)) return catalog;
+        return { kind: "ready", entries: [{ id: payload.workspaceId, label: payload.workspaceId }, ...catalog.entries] };
+      });
+      setViewWorkspaceId(payload.workspaceId);
+      setOrientationWorkspaceId(payload.workspaceId);
+      setMapKey(payload.workspaceId);
+    }
+    if (current.mapView !== payload.mapView) {
+      setMapView(payload.mapView);
+      writeMapView(mapDepthStorage(), payload.workspaceId, payload.mapView);
+    }
+    if (current.orientation !== payload.orientation) {
+      setOrientation(payload.orientation);
+      writeTreeOrientation(mapDepthStorage(), payload.workspaceId, payload.orientation);
+    }
+    if (!sameScopePath(current.scopePath, payload.scopePath) || current.workspaceId !== payload.workspaceId) {
+      preservedFileScopeRef.current = payload.fileScope;
+      setScopePath([...payload.scopePath]);
+    }
+    if (current.selectedId !== payload.selectedId) setSelectedId(payload.selectedId);
+    if (current.fileScope !== payload.fileScope) setFileScope(payload.fileScope);
+  };
+
+  useEffect(() => {
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri()) {
+      let cancelled = false;
+      let unlisten: (() => void) | undefined;
+      const popoutMode = isMapPopoutSearch(window.location.search);
+      void listenMapPopoutSync((payload) => {
+        if (payload.revision === 0) {
+          if (popoutMode) return;
+          const current = popoutSyncFieldsRef.current;
+          if (current.workspaceId === null || current.selectedId.length === 0) return;
+          const revision = popoutRevisionRef.current + 1;
+          popoutRevisionRef.current = revision;
+          const message: MapPopoutSync = {
+            workspaceId: current.workspaceId,
+            selectedId: current.selectedId,
+            scopePath: [...current.scopePath],
+            mapView: current.mapView,
+            orientation: current.orientation,
+            fileScope: current.fileScope,
+            notesRevision: current.notesRevision,
+            revision,
+          };
+          lastEmittedKeyRef.current = popoutSyncKey(message);
+          void emitMapPopoutSync(message);
+          return;
+        }
+        applyPopoutSyncRef.current(payload);
+      }).then((stop) => {
+        if (cancelled || stop === null) {
+          stop?.();
+          return;
+        }
+        unlisten = stop;
+        if (!popoutMode) return;
+        const workspaceId = workspaceFromPopoutSearch(window.location.search) ?? popoutSyncFieldsRef.current.workspaceId;
+        if (workspaceId === null || workspaceId.length === 0) return;
+        void emitMapPopoutSync({
+          workspaceId,
+          selectedId: "",
+          scopePath: [],
+          mapView: "modules",
+          orientation: "vertical",
+          fileScope: "",
+          notesRevision: 0,
+          revision: 0,
+        });
+      });
+      return () => {
+        cancelled = true;
+        unlisten?.();
+      };
+    }
+    return undefined;
+  }, []);
+
+  useEffect(() => {
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri() && mapKey !== null && map !== null && selectedId.length > 0) {
+      const popoutMode = isMapPopoutSearch(window.location.search);
+      if (popoutMode && !popoutHeardPeerRef.current) return;
+      const fields = {
+        workspaceId: mapKey,
+        selectedId,
+        scopePath,
+        mapView,
+        orientation,
+        fileScope,
+        notesRevision,
+      };
+      const key = popoutSyncKey(fields);
+      if (remoteHoldKeyRef.current !== null) {
+        if (remoteHoldKeyRef.current === key) {
+          remoteHoldKeyRef.current = null;
+          lastEmittedKeyRef.current = key;
+          return;
+        }
+        remoteHoldKeyRef.current = null;
+      }
+      if (lastEmittedKeyRef.current === key) return;
+      const revision = popoutRevisionRef.current + 1;
+      popoutRevisionRef.current = revision;
+      lastEmittedKeyRef.current = key;
+      void emitMapPopoutSync({ ...fields, scopePath: [...scopePath], revision });
+    }
+  }, [fileScope, map, mapKey, mapView, notesRevision, orientation, scopePath, selectedId]);
+
+  useEffect(() => {
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri() && !isMapPopoutSearch(window.location.search)) {
+      const handleShortcut = (event: globalThis.KeyboardEvent) => {
+        if (event.repeat || !mapPopoutShortcut(event) || mapKey === null) return;
+        const target = event.target;
+        if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select") !== null)) return;
+        event.preventDefault();
+        void openMapPopoutWindow(mapKey).catch((error: unknown) => {
+          setWorkspaceError(describeError(error, "Could not open the map window."));
+        });
+      };
+      window.addEventListener("keydown", handleShortcut);
+      return () => window.removeEventListener("keydown", handleShortcut);
+    }
+    return undefined;
+  }, [mapKey]);
+
+  useEffect(() => {
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isMapPopoutSearch(window.location.search)) {
+      const handleKey = (event: globalThis.KeyboardEvent) => {
+        if (event.key !== "Escape") return;
+        const target = event.target;
+        if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select") !== null)) return;
+        if (notesDialog !== null || noteMenu !== null || settingsOpen) return;
+        event.preventDefault();
+        void closeMapPopoutWindow();
+      };
+      window.addEventListener("keydown", handleKey);
+      return () => window.removeEventListener("keydown", handleKey);
+    }
+    return undefined;
+  }, [noteMenu, notesDialog, settingsOpen]);
 
   useEffect(() => {
     const handleShortcut = (event: globalThis.KeyboardEvent) => {
@@ -1825,6 +2097,21 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             {projectNotes.kind === "ready" && projectNotes.notes.length > 0 && <span>{projectNotes.notes.length}</span>}
           </button>
         )}
+        {import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri() && mapKey !== null && !isMapPopoutSearch(window.location.search) && (
+          <button
+            className="map-popout-button"
+            type="button"
+            aria-label="Pop out map"
+            title="Pop out the map into a fullscreen window (Ctrl+Shift+M or Cmd+Shift+M)"
+            onClick={() => {
+              void openMapPopoutWindow(mapKey).catch((error: unknown) => {
+                setWorkspaceError(describeError(error, "Could not open the map window."));
+              });
+            }}
+          >
+            <Maximize2 size={13} /> Pop out
+          </button>
+        )}
       </div>
         {history !== undefined && mapKey !== null && (
           <CommitRangePicker key={`${mapKey}:${rangeReset}`} history={history} workspaceId={mapKey}
@@ -1961,6 +2248,48 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     />
   );
 
+  const noteChrome = (
+    <>
+      {noteMenuView}
+      {noteActionError.length > 0 && (
+        <div className="note-action-error" role="alert"><CircleAlert size={14} />{noteActionError}</div>
+      )}
+      {notesDialog !== null && projectNotesSource !== undefined && (
+        <ProjectNotesDialog
+          workspaceId={mapKey ?? ""}
+          source={projectNotesSource}
+          snapshot={projectNotes}
+          map={map}
+          currentBlockId={notesDialog.blockId !== null && map.blockById.has(notesDialog.blockId) ? notesDialog.blockId : null}
+          initialText={notesDialog.initialText}
+          onSnapshot={acceptProjectNotes}
+          onClose={closeProjectNotes}
+          onShowOnMap={(blockId) => {
+            const block = map.blockById.get(blockId);
+            if (block === undefined) return;
+            closeProjectNotes();
+            selectSearchNode(block);
+          }}
+        />
+      )}
+    </>
+  );
+  const connectorLayer = (
+    <svg className="connector-layer" aria-hidden="true">
+      {connectorPaths.map((path, index) => <path className="feature-connector" d={path.d} stroke={path.color} key={`${path.d}-${index}`} />)}
+    </svg>
+  );
+
+  if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isMapPopoutSearch(window.location.search)) {
+    return (
+      <div className="workspace-shell map-popout-shell" data-theme={theme} ref={shellRef} style={textSizeVars(textSize) as CSSProperties}>
+        {mapColumn}
+        {connectorLayer}
+        {noteChrome}
+      </div>
+    );
+  }
+
   return (
     <div className="workspace-shell" data-theme={theme} ref={shellRef} style={textSizeVars(textSize) as CSSProperties}>
       <header className={`topbar${openWorkspaceAction === undefined ? "" : " desktop-topbar"}`}>
@@ -2054,37 +2383,14 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         second={sidePanel}
       />
 
-      <svg className="connector-layer" aria-hidden="true">
-        {connectorPaths.map((path, index) => <path className="feature-connector" d={path.d} stroke={path.color} key={`${path.d}-${index}`} />)}
-      </svg>
+      {connectorLayer}
       <div className="statusbar">
         <span><span className="statusbar-dot" /> Map is local and source-backed</span>
         <span><GitBranch size={12} /> {map.facts.project.name} <i /> cargo metadata --no-deps</span>
         <span><FileCode2 size={12} /> annotations kept in a separate overlay</span>
         <span className="statusbar-right"><Check size={12} /> {map.facts.stats.crates} crates mapped</span>
       </div>
-      {noteMenuView}
-      {noteActionError.length > 0 && (
-        <div className="note-action-error" role="alert"><CircleAlert size={14} />{noteActionError}</div>
-      )}
-      {notesDialog !== null && projectNotesSource !== undefined && (
-        <ProjectNotesDialog
-          workspaceId={mapKey ?? ""}
-          source={projectNotesSource}
-          snapshot={projectNotes}
-          map={map}
-          currentBlockId={notesDialog.blockId !== null && map.blockById.has(notesDialog.blockId) ? notesDialog.blockId : null}
-          initialText={notesDialog.initialText}
-          onSnapshot={acceptProjectNotes}
-          onClose={closeProjectNotes}
-          onShowOnMap={(blockId) => {
-            const block = map.blockById.get(blockId);
-            if (block === undefined) return;
-            closeProjectNotes();
-            selectSearchNode(block);
-          }}
-        />
-      )}
+      {noteChrome}
       {settingsOpen && (
         <EditorSettingsPanel
           editor={mapSource.editor}

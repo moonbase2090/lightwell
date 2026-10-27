@@ -414,7 +414,7 @@ fn repo_flag_targets_another_workspace_from_a_foreign_cwd() {
     );
 
     let updated = "Updated from foreign cwd";
-    let result = project.json_in(
+    let updated_note = &project.json_in(
         &foreign,
         &[
             "notes",
@@ -427,14 +427,17 @@ fn repo_flag_targets_another_workspace_from_a_foreign_cwd() {
             updated,
         ],
     );
-    assert_eq!(result["blockId"], BLOCK);
-    assert_eq!(result["text"], updated);
-    assert_eq!(result["author"], "unknown");
+    assert_eq!(updated_note["blockId"], BLOCK);
+    assert_eq!(updated_note["text"], updated);
+    assert_eq!(updated_note["author"], "unknown");
     let stored: Value =
         serde_json::from_slice(&fs::read(project.0.join(".lightwell/notes.json")).unwrap())
             .unwrap();
-    assert_eq!(stored["notes"][BLOCK]["updatedAt"], result["updatedAt"]);
-    assert!(result["updatedAt"].as_str().unwrap().ends_with('Z'));
+    assert_eq!(
+        stored["notes"][BLOCK]["updatedAt"],
+        updated_note["updatedAt"]
+    );
+    assert!(updated_note["updatedAt"].as_str().unwrap().ends_with('Z'));
     assert!(!foreign.join(".lightwell").exists());
     assert_eq!(
         project.json(&["notes", "list", "--json"])[0]["text"],
