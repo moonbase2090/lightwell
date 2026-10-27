@@ -107,6 +107,7 @@ impl ProjectNotesStore {
             .collect())
     }
 
+    #[cfg(test)]
     fn set(
         &self,
         project_root: &Path,
@@ -114,12 +115,36 @@ impl ProjectNotesStore {
         text: &str,
         source_fingerprint: &str,
     ) -> Result<(), NotesError> {
+        self.set_with_replace(project_root, block_id, text, source_fingerprint, true)
+    }
+
+    fn set_if_absent(
+        &self,
+        project_root: &Path,
+        block_id: &str,
+        text: &str,
+        source_fingerprint: &str,
+    ) -> Result<(), NotesError> {
+        self.set_with_replace(project_root, block_id, text, source_fingerprint, false)
+    }
+
+    fn set_with_replace(
+        &self,
+        project_root: &Path,
+        block_id: &str,
+        text: &str,
+        source_fingerprint: &str,
+        replace_existing: bool,
+    ) -> Result<(), NotesError> {
         if text.trim().is_empty() {
             return Err(NotesError::EmptyText);
         }
         let author = resolve_note_author(project_root);
         let updated_at = utc_now_rfc3339();
         self.update(true, |document| {
+            if document.notes.contains_key(block_id) && !replace_existing {
+                return Err(NotesError::NoteAlreadyExists(block_id.to_owned()));
+            }
             document.notes.insert(
                 block_id.to_owned(),
                 ProjectNote {
@@ -389,6 +414,19 @@ pub fn set_project_note(
         .ok_or_else(|| NotesError::NoteNotFound(block_id.to_owned()))
 }
 
+pub fn set_project_note_if_absent(
+    repository_path: impl AsRef<Path>,
+    block_id: &str,
+    text: &str,
+) -> Result<ProjectNoteView, NotesError> {
+    let (root, map) = workspace_map(repository_path)?;
+    let notes = set_project_note_for_map_if_absent(&root, &map, block_id, text)?;
+    notes
+        .into_iter()
+        .find(|note| note.block_id == block_id)
+        .ok_or_else(|| NotesError::NoteNotFound(block_id.to_owned()))
+}
+
 pub fn set_project_note_for_map(
     project_root: impl AsRef<Path>,
     map: &FactMap,
@@ -403,7 +441,25 @@ pub fn set_project_note_for_map(
     let fingerprint = &block_base(block).fingerprint;
     let root = project_root.as_ref();
     let store = ProjectNotesStore::new(root);
-    store.set(root, block_id, text, fingerprint)?;
+    store.set_with_replace(root, block_id, text, fingerprint, true)?;
+    store.list_for_map(map)
+}
+
+fn set_project_note_for_map_if_absent(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+    block_id: &str,
+    text: &str,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
+    let block = map
+        .blocks
+        .iter()
+        .find(|block| block_base(block).id == block_id)
+        .ok_or_else(|| NotesError::BlockNotFound(block_id.to_owned()))?;
+    let fingerprint = &block_base(block).fingerprint;
+    let root = project_root.as_ref();
+    let store = ProjectNotesStore::new(root);
+    store.set_if_absent(root, block_id, text, fingerprint)?;
     store.list_for_map(map)
 }
 
@@ -552,6 +608,7 @@ pub enum NotesError {
     Extraction(MapExtractionError),
     BlockNotFound(String),
     NoteNotFound(String),
+    NoteAlreadyExists(String),
     EmptyText,
     Io {
         path: PathBuf,
@@ -577,6 +634,10 @@ impl Display for NotesError {
                 "No block with ID `{id}` exists in this workspace. Run `lightwell extract . -o /tmp/lightwell-map.json` here and choose a `blocks[].id` value."
             ),
             Self::NoteNotFound(id) => write!(formatter, "No saved note exists for block `{id}`."),
+            Self::NoteAlreadyExists(id) => write!(
+                formatter,
+                "A note already exists for block `{id}`. Use `lightwell notes set --replace {id} <text...>` to overwrite it."
+            ),
             Self::EmptyText => write!(
                 formatter,
                 "Note text cannot be empty. Use `lightwell notes set <block-id> <text...>`."
@@ -609,6 +670,7 @@ impl Error for NotesError {
             Self::InvalidJson { source, .. } | Self::Serialize(source) => Some(source),
             Self::BlockNotFound(_)
             | Self::NoteNotFound(_)
+            | Self::NoteAlreadyExists(_)
             | Self::EmptyText
             | Self::UnsupportedSchema { .. } => None,
         }
@@ -719,6 +781,32 @@ mod tests {
         assert_eq!(stale[0].source_fingerprint, "old-fingerprint");
         assert!(!store.list_for_map(&old_map).unwrap()[0].stale);
         assert!(notes_path.is_file());
+    }
+
+    #[test]
+    fn setting_an_existing_note_requires_explicit_replacement() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set(&project.0, "crate:core", "Keep this", "old")
+            .unwrap();
+
+        assert!(matches!(
+            store.set_with_replace(&project.0, "crate:core", "Do not replace", "new", false),
+            Err(NotesError::NoteAlreadyExists(block_id)) if block_id == "crate:core"
+        ));
+        let saved = store.list_for_map(&map("old")).unwrap();
+        assert_eq!(saved.len(), 1);
+        assert_eq!(saved[0].text, "Keep this");
+        assert_eq!(saved[0].source_fingerprint, "old");
+
+        store
+            .set_with_replace(&project.0, "crate:core", "Replace this", "new", true)
+            .unwrap();
+        let replaced = store.list_for_map(&map("new")).unwrap();
+        assert_eq!(replaced.len(), 1);
+        assert_eq!(replaced[0].text, "Replace this");
+        assert_eq!(replaced[0].source_fingerprint, "new");
     }
 
     #[test]

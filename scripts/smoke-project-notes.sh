@@ -43,7 +43,7 @@ test -z "$(git -C "$project" ls-files --stage)"
 test "$(cat "$project/.gitignore")" = 'user-cache/'
 
 cp "$project/.lightwell/.gitignore" "$temporary_root/first-ignore"
-(cd "$project" && "$cli_path" notes set 'module:notes-smoke:crate root' 'Keep this note')
+(cd "$project" && "$cli_path" notes set --replace 'module:notes-smoke:crate root' 'Keep this note')
 cmp "$temporary_root/first-ignore" "$project/.lightwell/.gitignore"
 
 current_output=$(cd "$project" && "$cli_path" notes list)

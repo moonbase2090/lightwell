@@ -1,8 +1,8 @@
 use lightwell_core::{
     discover_project_workspace, extract_cargo_map, list_project_notes, mark_project_note_reviewed,
     open_block, project_notes_for_map, remove_project_note, remove_stale_project_notes,
-    set_project_note, BlockBase, EditorSettings, FactBlock, FactMap, MapWatchError, MapWatcher,
-    NotesError,
+    set_project_note, set_project_note_if_absent, BlockBase, EditorSettings, FactBlock, FactMap,
+    MapWatchError, MapWatcher, NotesError,
 };
 use std::env;
 use std::error::Error;
@@ -12,7 +12,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check]\n  lightwell notes set [-C|--repo <path>] [--json] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--json] <text...>\n  lightwell notes review [-C|--repo <path>] [--json] <block-id>\n  lightwell notes rm-stale [-C|--repo <path>] --yes [--json]\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
+const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check]\n  lightwell notes set [-C|--repo <path>] [--replace] [--json] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--replace] [--json] <text...>\n  lightwell notes review [-C|--repo <path>] [--json] <block-id>\n  lightwell notes rm-stale [-C|--repo <path>] --yes [--json]\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
 
 const NOTES_STALE_ACTIONS_ENV: &str = "LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS";
 
@@ -31,10 +31,20 @@ struct BlocksOptions {
 }
 
 enum NotesCommand {
-    List { check: bool },
-    Set { target: SetTarget, text: String },
-    Review { block_id: String },
-    Remove { block_id: String },
+    List {
+        check: bool,
+    },
+    Set {
+        target: SetTarget,
+        text: String,
+        replace_existing: bool,
+    },
+    Review {
+        block_id: String,
+    },
+    Remove {
+        block_id: String,
+    },
     RemoveStale,
 }
 
@@ -100,6 +110,7 @@ fn main() -> ExitCode {
                 match error.downcast_ref::<NotesError>() {
                     Some(NotesError::NoteNotFound(_)) => ExitCode::from(3),
                     Some(NotesError::BlockNotFound(_)) => ExitCode::from(4),
+                    Some(NotesError::NoteAlreadyExists(_)) => ExitCode::from(6),
                     _ => ExitCode::FAILURE,
                 }
             }
@@ -219,6 +230,7 @@ fn parse_notes_command(
     let mut json = false;
     let mut check = false;
     let mut yes = false;
+    let mut replace_existing = false;
     let mut file: Option<String> = None;
     let mut parse_options = true;
     let mut positional = Vec::new();
@@ -243,6 +255,11 @@ fn parse_notes_command(
                 return Err("the --check option may appear only once".to_owned());
             }
             check = true;
+        } else if parse_options && argument == OsStr::new("--replace") {
+            if replace_existing {
+                return Err("the --replace option may appear only once".to_owned());
+            }
+            replace_existing = true;
         } else if parse_options && argument == OsStr::new("--yes") {
             if yes {
                 return Err("the --yes option may appear only once".to_owned());
@@ -274,6 +291,9 @@ fn parse_notes_command(
     if check && subcommand != OsStr::new("list") {
         return Err("--check is only available for `lightwell notes list`".to_owned());
     }
+    if replace_existing && subcommand != OsStr::new("set") {
+        return Err("--replace is only available for `lightwell notes set`".to_owned());
+    }
     if yes && subcommand != OsStr::new("rm-stale") {
         return Err("--yes is only available for `lightwell notes rm-stale`".to_owned());
     }
@@ -301,7 +321,11 @@ fn parse_notes_command(
         if text.is_empty() {
             return Err("`lightwell notes set` requires note text".to_owned());
         }
-        NotesCommand::Set { target, text }
+        NotesCommand::Set {
+            target,
+            text,
+            replace_existing,
+        }
     } else if subcommand == OsStr::new("review") {
         let block_id = required_utf8(&mut arguments, "a block ID")?;
         if arguments.next().is_some() {
@@ -409,7 +433,11 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                 return Ok(ExitCode::from(5));
             }
         }
-        NotesCommand::Set { target, text } => {
+        NotesCommand::Set {
+            target,
+            text,
+            replace_existing,
+        } => {
             let block_id = match target {
                 SetTarget::BlockId(block_id) => block_id,
                 SetTarget::File(path) => {
@@ -436,7 +464,12 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                     }
                 }
             };
-            let note = match set_project_note(&repository, &block_id, &text) {
+            let result = if replace_existing {
+                set_project_note(&repository, &block_id, &text)
+            } else {
+                set_project_note_if_absent(&repository, &block_id, &text)
+            };
+            let note = match result {
                 Ok(note) => note,
                 Err(error) => {
                     if let NotesError::BlockNotFound(_) = error {
