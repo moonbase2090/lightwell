@@ -561,13 +561,10 @@ pub fn update_project_note_text(
     block_id: &str,
     text: &str,
 ) -> Result<Vec<ProjectNoteView>, NotesError> {
-    update_project_note_text_expecting(
-        project_root,
-        map,
-        block_id,
-        text,
-        NoteWriteExpectation::Unconditional,
-    )
+    let root = project_root.as_ref();
+    let store = ProjectNotesStore::new(root);
+    store.update_text(root, block_id, text)?;
+    store.list_for_map(map)
 }
 
 pub fn update_project_note_text_expecting(
