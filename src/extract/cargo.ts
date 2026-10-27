@@ -21,6 +21,7 @@ import { discoverJvm, jvmFactBlocks, jvmFingerprintInputs } from "./jvm-modules.
 import { configInfraFactBlocks, discoverConfigInfra } from "./config-infra.js";
 import { discoverPythonModules, pythonFactBlocks } from "./python-modules.js";
 import { discoverRubyPackages, rubyFactBlocks } from "./ruby-modules.js";
+import { discoverSwiftTargets, swiftFactBlocks } from "./swift-modules.js";
 import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
 import { discoverWebModules, webFactBlocks } from "./web-modules.js";
 
@@ -437,8 +438,12 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
   const configInfraFacts = configInfraFactBlocks({ workspace: configInfra, rootPath, workspaceId: projectId });
   blocks.push(...jvmFacts.blocks);
   connections.push(...jvmFacts.connections);
+  const swiftTargets = discoverSwiftTargets(rootPath);
+  const swiftFacts = swiftFactBlocks({ targets: swiftTargets, rootPath, workspaceId: projectId });
   blocks.push(...configInfraFacts.blocks);
   connections.push(...configInfraFacts.connections);
+  blocks.push(...swiftFacts.blocks);
+  connections.push(...swiftFacts.connections);
   const finalWorkspaceFingerprint = hashText([
     ...packages.map((pkg) => {
       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
@@ -468,6 +473,9 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
     ),
     ...jvmFingerprintInputs(rootPath, jvm),
     ...configInfra.files.map((file) => `config-infra:${file.path}:${hashFile(path.join(rootPath, file.path))}`),
+    ...swiftTargets.flatMap((target) =>
+      target.files.map((file) => `swift:${target.name}:${path.basename(file.path)}:${hashFile(file.path)}`),
+    ),
   ].sort().join("\n"));
   const workspaceIndex = blocks.findIndex((block) => block.id === projectId);
   if (workspaceIndex >= 0) blocks[workspaceIndex] = { ...workspaceBlock, fingerprint: finalWorkspaceFingerprint || workspaceFingerprint };
@@ -527,6 +535,7 @@ const namedProjectMarkers = [
   "settings.gradle.kts",
   "CMakeLists.txt",
   "Dockerfile",
+  "Package.swift",
 ];
 
 function nonCargoProjectMarker(root: string): string | null {
@@ -542,6 +551,7 @@ function nonCargoProjectMarker(root: string): string | null {
   }
   for (const name of names) {
     const candidate = path.join(root, name);
+    if (name.endsWith(".xcodeproj") && isDirectory(candidate)) return candidate;
     if (!isFile(candidate)) continue;
     const extension = path.extname(name).toLowerCase();
     const lowerName = name.toLowerCase();
@@ -550,6 +560,14 @@ function nonCargoProjectMarker(root: string): string | null {
       || extension === ".tfvars" || extension === ".hcl" || lowerName === "dockerfile" || lowerName.startsWith("dockerfile.")) return candidate;
   }
   return null;
+}
+
+function isDirectory(candidate: string): boolean {
+  try {
+    return statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function isFile(candidate: string): boolean {
@@ -582,6 +600,8 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
   const jvmFacts = jvmFactBlocks({ workspace: jvm, rootPath, workspaceId: projectId });
   const configInfra = discoverConfigInfra(rootPath);
   const configInfraFacts = configInfraFactBlocks({ workspace: configInfra, rootPath, workspaceId: projectId });
+  const swiftTargets = discoverSwiftTargets(rootPath);
+  const swiftFacts = swiftFactBlocks({ targets: swiftTargets, rootPath, workspaceId: projectId });
   const fingerprint = hashText([
     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
     ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
@@ -607,6 +627,9 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
     ),
     ...jvmFingerprintInputs(rootPath, jvm),
     ...configInfra.files.map((file) => `config-infra:${file.path}:${hashFile(path.join(rootPath, file.path))}`),
+    ...swiftTargets.flatMap((target) =>
+      target.files.map((file) => `swift:${target.name}:${path.basename(file.path)}:${hashFile(file.path)}`),
+    ),
   ].sort().join("\n"));
   const blocks: FactBlock[] = [{
     id: projectId,
@@ -617,8 +640,8 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
     sourcePath: relativePath(rootPath, args.markerPath),
     fingerprint,
     memberCount: 0,
-  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks, ...phpFacts.blocks, ...rubyFacts.blocks, ...cppFacts.blocks, ...jvmFacts.blocks, ...configInfraFacts.blocks];
-  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections, ...phpFacts.connections, ...rubyFacts.connections, ...cppFacts.connections, ...jvmFacts.connections, ...configInfraFacts.connections];
+  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks, ...phpFacts.blocks, ...rubyFacts.blocks, ...cppFacts.blocks, ...jvmFacts.blocks, ...configInfraFacts.blocks, ...swiftFacts.blocks];
+  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections, ...phpFacts.connections, ...rubyFacts.connections, ...cppFacts.connections, ...jvmFacts.connections, ...configInfraFacts.connections, ...swiftFacts.connections];
   const completedBlocks = deriveChildren(blocks);
   const workspaceChildren = completedBlocks.find((block) => block.id === projectId)?.children ?? [];
   const groups: FactGroup[] = [{
