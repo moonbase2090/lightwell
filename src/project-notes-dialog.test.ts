@@ -4,12 +4,14 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ProjectNotesSnapshot, ProjectNotesSource } from "./map-source.js";
 import type { ResolvedMap } from "./model.js";
-import ProjectNotesDialog from "./ProjectNotesDialog.js";
+import ProjectNotesDialog, { shouldResetEditorAfterStaleRemoval } from "./ProjectNotesDialog.js";
 
 const source: ProjectNotesSource = {
   add: () => Promise.reject(new Error("unused")),
   edit: () => Promise.reject(new Error("unused")),
   remove: () => Promise.reject(new Error("unused")),
+  markReviewed: () => Promise.reject(new Error("unused")),
+  removeStale: () => Promise.reject(new Error("unused")),
 };
 
 function mapWith(blocks: readonly { readonly id: string; readonly label: string }[]): ResolvedMap {
@@ -61,7 +63,74 @@ test("project notes lists current notes before stale ones and names their state"
   assert.match(html, /<strong>alpha<\/strong>/);
   assert.match(html, />Save changes</);
   assert.match(html, /class="notes-remove-button"/);
+  assert.match(html, /class="notes-bulk-remove-button"[^>]*>[\s\S]*Delete stale \(2\)/);
   assert.equal(html.includes("NEW NOTE FOR"), false);
+  assert.equal(html.includes("Mark reviewed"), false);
+});
+
+test("project notes offers Mark reviewed for a stale note whose block still exists", () => {
+  const html = renderNotes({
+    kind: "ready",
+    notes: [{ blockId: "crate:moved", text: "still good", sourceFingerprint: "old", author: "unknown", updatedAt: "", stale: true }],
+  }, "crate:moved", [{ id: "crate:moved", label: "moved" }]);
+
+  assert.match(html, /class="notes-review-button"[^>]*>[\s\S]*Mark reviewed/);
+  assert.match(html, /Mark reviewed if the note still matches/);
+  assert.match(html, /class="notes-bulk-remove-button"[^>]*>[\s\S]*Delete stale \(1\)/);
+});
+
+test("Delete stale keeps a new-note draft and only resets a removed saved note", () => {
+  const remaining = new Set(["crate:current"]);
+  assert.equal(
+    shouldResetEditorAfterStaleRemoval({ kind: "new", blockId: "crate:current", text: "draft" }, remaining),
+    false,
+  );
+  assert.equal(
+    shouldResetEditorAfterStaleRemoval({ kind: "new", blockId: "crate:other", text: "draft" }, new Set()),
+    false,
+  );
+  assert.equal(
+    shouldResetEditorAfterStaleRemoval({ kind: "saved", blockId: "crate:current", text: "kept" }, remaining),
+    false,
+  );
+  assert.equal(
+    shouldResetEditorAfterStaleRemoval({ kind: "saved", blockId: "crate:gone", text: "stale" }, remaining),
+    true,
+  );
+});
+
+test("project notes hides stale actions when the source omits them", () => {
+  const gated: ProjectNotesSource = {
+    add: () => Promise.reject(new Error("unused")),
+    edit: () => Promise.reject(new Error("unused")),
+    remove: () => Promise.reject(new Error("unused")),
+  };
+  const html = renderToStaticMarkup(createElement(ProjectNotesDialog, {
+    workspaceId: "workspace-1",
+    source: gated,
+    snapshot: {
+      kind: "ready",
+      notes: [{ blockId: "crate:moved", text: "still good", sourceFingerprint: "old", author: "unknown", updatedAt: "", stale: true }],
+    },
+    map: mapWith([{ id: "crate:moved", label: "moved" }]),
+    currentBlockId: "crate:moved",
+    onSnapshot: () => undefined,
+    onClose: () => undefined,
+  }));
+  assert.equal(html.includes("notes-review-button"), false);
+  assert.equal(html.includes("notes-bulk-remove-button"), false);
+  assert.match(html, /This note is kept until you remove it/);
+});
+
+test("project notes does not offer Mark reviewed for an orphaned stale note", () => {
+  const html = renderNotes({
+    kind: "ready",
+    notes: [{ blockId: "missing", text: "orphaned", sourceFingerprint: "c", author: "unknown", updatedAt: "", stale: true }],
+  }, "missing");
+
+  assert.equal(html.includes("notes-review-button"), false);
+  assert.match(html, /This note is kept until you remove it/);
+  assert.match(html, /class="notes-bulk-remove-button"/);
 });
 
 test("project notes opens a blank editor for the selected block", () => {

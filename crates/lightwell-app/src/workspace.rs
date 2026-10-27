@@ -7,6 +7,8 @@ use lightwell_core::{
     MapExtractionError, MapWatchError, MapWatcher, NotesError, ProjectNoteView,
     EDITOR_TEMPLATE_PRESETS,
 };
+#[cfg(lightwell_notes_stale_actions)]
+use lightwell_core::{mark_project_note_reviewed, remove_stale_project_notes};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -316,6 +318,33 @@ pub fn remove_workspace_note(
     remove_project_note(&root, &block_id).map_err(|error| error.to_string())?;
     project_notes_for_map(&root, &facts)
         .map(|notes| ProjectNotesState::Ready { notes })
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(lightwell_notes_stale_actions)]
+#[tauri::command(async)]
+pub fn mark_workspace_note_reviewed(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+    block_id: String,
+) -> Result<ProjectNotesState, String> {
+    let root = workspace_root(&path)?;
+    let facts = watchers.current_map(&root)?;
+    mark_project_note_reviewed(&root, &facts, &block_id)
+        .map(|notes| ProjectNotesState::Ready { notes })
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(lightwell_notes_stale_actions)]
+#[tauri::command(async)]
+pub fn remove_stale_workspace_notes(
+    watchers: State<'_, WorkspaceWatchers>,
+    path: String,
+) -> Result<ProjectNotesState, String> {
+    let root = workspace_root(&path)?;
+    let facts = watchers.current_map(&root)?;
+    remove_stale_project_notes(&root, &facts)
+        .map(|(_removed, notes)| ProjectNotesState::Ready { notes })
         .map_err(|error| error.to_string())
 }
 

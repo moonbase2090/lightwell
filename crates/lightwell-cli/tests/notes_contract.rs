@@ -32,11 +32,17 @@ impl Project {
     }
 
     fn run_in(&self, cwd: &std::path::Path, arguments: &[&str], exit: i32) -> Output {
-        let output = Command::new(env!("CARGO_BIN_EXE_lightwell"))
-            .current_dir(cwd)
-            .args(arguments)
-            .output()
-            .unwrap();
+        let enable_stale = arguments
+            .iter()
+            .any(|argument| *argument == "review" || *argument == "rm-stale");
+        let mut command = Command::new(env!("CARGO_BIN_EXE_lightwell"));
+        command.current_dir(cwd).args(arguments);
+        if enable_stale {
+            command.env("LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS", "true");
+        } else {
+            command.env_remove("LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS");
+        }
+        let output = command.output().unwrap();
         assert_eq!(
             output.status.code(),
             Some(exit),
@@ -201,6 +207,83 @@ fn check_reports_changed_source_without_mutating_or_suppressing_notes() {
 }
 
 #[test]
+fn review_re_fingerprints_a_stale_note_and_rm_stale_requires_yes() {
+    let project = Project::new();
+    project.json(&["notes", "set", BLOCK, "Still accurate", "--json"]);
+    let old_fingerprint = project.json(&["notes", "list", "--json"])[0]["sourceFingerprint"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    fs::write(
+        project.0.join("src/lib.rs"),
+        "pub fn before() -> u8 { 1 }\npub fn after() -> u8 { 2 }\n",
+    )
+    .unwrap();
+    assert_eq!(project.json(&["notes", "list", "--json"])[0]["stale"], true);
+
+    project.error(
+        &["notes", "rm-stale", "--json"],
+        2,
+        "requires `--yes` to delete stale notes",
+    );
+    let gated = Command::new(env!("CARGO_BIN_EXE_lightwell"))
+        .current_dir(&project.0)
+        .args(["notes", "review", BLOCK, "--json"])
+        .env_remove("LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS")
+        .output()
+        .unwrap();
+    assert_eq!(gated.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&gated.stderr)
+            .contains("LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=true"),
+        "{}",
+        String::from_utf8_lossy(&gated.stderr)
+    );
+    assert_eq!(project.json(&["notes", "list", "--json"])[0]["stale"], true);
+
+    let reviewed = project.json(&["notes", "review", BLOCK, "--json"]);
+    assert_eq!(reviewed["blockId"], BLOCK);
+    assert_eq!(reviewed["reviewed"], true);
+    assert_eq!(reviewed["stale"], false);
+    assert_ne!(reviewed["sourceFingerprint"], old_fingerprint);
+    assert_eq!(
+        project.json(&["notes", "list", "--json"])[0]["stale"],
+        false
+    );
+
+    let notes_path = project.0.join(".lightwell/notes.json");
+    let mut document: Value = serde_json::from_slice(&fs::read(&notes_path).unwrap()).unwrap();
+    document["notes"]["crate:gone"] = json!({
+        "text": "orphan",
+        "sourceFingerprint": "deadbeef"
+    });
+    fs::write(
+        &notes_path,
+        format!("{}\n", serde_json::to_string_pretty(&document).unwrap()),
+    )
+    .unwrap();
+    let listed = project.json(&["notes", "list", "--json"]);
+    assert_eq!(listed.as_array().unwrap().len(), 2);
+    assert_eq!(
+        listed
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|note| note["stale"] == true)
+            .count(),
+        1
+    );
+
+    let removed = project.json(&["notes", "rm-stale", "--yes", "--json"]);
+    assert_eq!(removed["removed"], 1);
+    let remaining = removed["notes"].as_array().unwrap();
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0]["blockId"], BLOCK);
+    assert_eq!(remaining[0]["stale"], false);
+    assert_eq!(remaining[0]["text"], "Still accurate");
+}
+
+#[test]
 fn orphaned_saved_notes_are_stale_but_can_still_be_removed() {
     let project = Project::new();
     fs::write(project.0.join("src/lib.rs"), "pub mod extra;\n").unwrap();
@@ -235,6 +318,9 @@ fn option_terminator_preserves_literal_flag_text_and_invalid_usage_does_not_writ
         vec!["notes", "list", "unexpected"],
         vec!["notes", "rm", BLOCK, "--check"],
         vec!["notes", "rm", BLOCK, "extra", "--json"],
+        vec!["notes", "rm-stale"],
+        vec!["notes", "rm-stale", "--yes", "extra"],
+        vec!["notes", "review"],
         vec!["notes", "set", BLOCK, "text", "--check"],
         vec!["notes", "set", BLOCK, "--json"],
         vec!["notes", "list", "-C"],
@@ -292,7 +378,7 @@ fn repo_flag_targets_another_workspace_from_a_foreign_cwd() {
     );
 
     let updated = "Updated from foreign cwd";
-    let saved = project.json_in(
+    let result = project.json_in(
         &foreign,
         &[
             "notes",
@@ -304,10 +390,14 @@ fn repo_flag_targets_another_workspace_from_a_foreign_cwd() {
             updated,
         ],
     );
-    assert_eq!(saved["blockId"], BLOCK);
-    assert_eq!(saved["text"], updated);
-    assert_eq!(saved["author"], "unknown");
-    assert!(saved["updatedAt"].as_str().is_some());
+    assert_eq!(result["blockId"], BLOCK);
+    assert_eq!(result["text"], updated);
+    assert_eq!(result["author"], "unknown");
+    let stored: Value =
+        serde_json::from_slice(&fs::read(project.0.join(".lightwell/notes.json")).unwrap())
+            .unwrap();
+    assert_eq!(stored["notes"][BLOCK]["updatedAt"], result["updatedAt"]);
+    assert!(result["updatedAt"].as_str().unwrap().ends_with('Z'));
     assert!(!foreign.join(".lightwell").exists());
     assert_eq!(
         project.json(&["notes", "list", "--json"])[0]["text"],

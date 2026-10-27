@@ -111,7 +111,7 @@ Project notes are on in default and release builds. To omit the notes commands a
 VITE_ENABLE_PROJECT_NOTES=false npm run tauri:build
 ```
 
-Right-click a block (or press Shift+F10), use **Add note** in the details panel, press **N**, or click **Notes** to add, edit, or remove notes for map blocks. The dialog reads and writes the opened project's `.lightwell/notes.json` file. It marks stale notes and keeps them until you remove them.
+Right-click a block (or press Shift+F10), use **Add note** in the details panel, press **N**, or click **Notes** to add, edit, or remove notes for map blocks. The dialog reads and writes the opened project's `.lightwell/notes.json` file. It marks stale notes and keeps them until you remove them. Build with `VITE_ENABLE_NOTES_STALE_ACTIONS=true` to enable **Mark reviewed** (re-fingerprint without changing text) and **Delete stale** (opt-in bulk remove of stale notes only). That same environment variable gates the matching Tauri IPC commands at compile time. Those controls are off by default.
 
 Build with `VITE_ENABLE_NOTE_GIT=true npm run tauri:build` to enable the experimental Git sharing controls. They are off by default. After saving a note in this build, its Git status appears below the editor. Choose **Commit this note** to commit that saved note for Git sharing. The action uses your Git identity and signing configuration. Finish any merge, rebase, cherry-pick, revert, or bisect first, and resolve all conflicts. Repositories with active commit or reference hooks require a manual Git commit; the app leaves those hooks intact and does not run or bypass them. It leaves other notes, staged files, and working changes intact and never pushes. Refresh the status after external Git changes. Ignored notes require an explicit ignore-rule change before they can be committed. If a commit fails, the saved note remains on disk.
 
@@ -183,12 +183,14 @@ lightwell notes set crate:lightwell-core "Review output serialization"
 git add .lightwell/notes.json
 lightwell notes list
 lightwell notes list -C /path/to/other/workspace --json
+lightwell notes review crate:lightwell-core
+lightwell notes rm-stale --yes
 lightwell notes rm crate:lightwell-core
 ```
 
 `lightwell notes set` writes `.lightwell/notes.json` but does not stage or commit it. Agents and other automation that want the note in version control should run `git add .lightwell/notes.json` after a successful save, then commit and push with their usual Git workflow. The notes CLI does not run `git add` or `git commit`.
 
-Use a `blocks[].id` value from the extracted map. `lightwell blocks` lists the current workspace's blocks with their IDs, labels, kinds, and source paths (`--json` for machine-readable output, `--file <path>` to list only the blocks from one source file), so no separate extract step is needed to find an ID. `notes set --file <path> <text...>` saves a note on the one block whose source path matches exactly; when several blocks share that file (for example a module and its symbols) it lists the candidate block IDs and saves nothing, and when none match it suggests similar paths. An unknown block ID in `notes set` also prints did-you-mean block IDs on stderr. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
+Use a `blocks[].id` value from the extracted map. `lightwell blocks` lists the current workspace's blocks with their IDs, labels, kinds, and source paths (`--json` for machine-readable output, `--file <path>` to list only the blocks from one source file), so no separate extract step is needed to find an ID. `notes set --file <path> <text...>` saves a note on the one block whose source path matches exactly; when several blocks share that file (for example a module and its symbols) it lists the candidate block IDs and saves nothing, and when none match it suggests similar paths. An unknown block ID in `notes set` also prints did-you-mean block IDs on stderr. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. With `LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=true`, `notes review <block-id>` re-fingerprints a note whose text still matches the current block, and `notes rm-stale --yes` deletes every stale note (`--yes` required). Those two commands refuse to run when the environment variable is unset. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
 
 For automation, add `--json` after the notes subcommand:
 

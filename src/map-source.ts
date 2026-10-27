@@ -48,6 +48,16 @@ export interface ProjectNotesSource {
   add(input: ProjectNoteInput): Promise<ProjectNotesSnapshot>;
   edit(input: ProjectNoteInput): Promise<ProjectNotesSnapshot>;
   remove(input: Omit<ProjectNoteInput, "text">): Promise<ProjectNotesSnapshot>;
+  /**
+   * Re-fingerprint a note whose text still matches the current block source.
+   * Present only when `VITE_ENABLE_NOTES_STALE_ACTIONS=true`.
+   */
+  markReviewed?(input: Omit<ProjectNoteInput, "text">): Promise<ProjectNotesSnapshot>;
+  /**
+   * Remove every stale note. Callers must confirm with the user first.
+   * Present only when `VITE_ENABLE_NOTES_STALE_ACTIONS=true`.
+   */
+  removeStale?(input: { readonly workspaceId: string }): Promise<ProjectNotesSnapshot>;
 }
 
 export interface SourceFileDocument {

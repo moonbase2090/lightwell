@@ -170,6 +170,51 @@ impl ProjectNotesStore {
         })
     }
 
+    fn refresh_fingerprint(
+        &self,
+        block_id: &str,
+        source_fingerprint: &str,
+    ) -> Result<(), NotesError> {
+        let updated = self.update(false, |document| {
+            let note = document
+                .notes
+                .get_mut(block_id)
+                .ok_or_else(|| NotesError::NoteNotFound(block_id.to_owned()))?;
+            note.source_fingerprint = source_fingerprint.to_owned();
+            Ok(true)
+        })?;
+        if !updated {
+            return Err(NotesError::NoteNotFound(block_id.to_owned()));
+        }
+        Ok(())
+    }
+
+    fn remove_stale_for_map(&self, map: &FactMap) -> Result<usize, NotesError> {
+        if !self.path.is_file() {
+            return Ok(0);
+        }
+        let current_fingerprints: BTreeMap<_, _> = map
+            .blocks
+            .iter()
+            .map(|block| {
+                let base = block_base(block);
+                (base.id.clone(), base.fingerprint.clone())
+            })
+            .collect();
+        let mut removed = 0usize;
+        self.update(false, |document| {
+            let before = document.notes.len();
+            document.notes.retain(|block_id, note| {
+                current_fingerprints
+                    .get(block_id)
+                    .is_some_and(|fingerprint| fingerprint == &note.source_fingerprint)
+            });
+            removed = before - document.notes.len();
+            Ok(removed > 0)
+        })?;
+        Ok(removed)
+    }
+
     fn update(
         &self,
         create_parent: bool,
@@ -382,6 +427,37 @@ pub fn remove_project_note(
     ProjectNotesStore::new(&workspace.root).remove(block_id)
 }
 
+/// Update a note's stored fingerprint to the block's current fingerprint.
+///
+/// Use this when the note text still matches the source after a code change.
+/// Orphaned notes (block missing from the map) cannot be marked reviewed.
+pub fn mark_project_note_reviewed(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+    block_id: &str,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
+    let block = map
+        .blocks
+        .iter()
+        .find(|block| block_base(block).id == block_id)
+        .ok_or_else(|| NotesError::BlockNotFound(block_id.to_owned()))?;
+    let fingerprint = &block_base(block).fingerprint;
+    let store = ProjectNotesStore::new(project_root.as_ref());
+    store.refresh_fingerprint(block_id, fingerprint)?;
+    store.list_for_map(map)
+}
+
+/// Remove every note that is stale relative to `map`. Current notes are kept.
+pub fn remove_stale_project_notes(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+) -> Result<(usize, Vec<ProjectNoteView>), NotesError> {
+    let store = ProjectNotesStore::new(project_root.as_ref());
+    let removed = store.remove_stale_for_map(map)?;
+    let notes = store.list_for_map(map)?;
+    Ok((removed, notes))
+}
+
 fn workspace_map(repository_path: impl AsRef<Path>) -> Result<(PathBuf, FactMap), NotesError> {
     let workspace = discover_project_workspace(repository_path)?;
     let root = workspace.root.clone();
@@ -548,7 +624,8 @@ impl From<MapExtractionError> for NotesError {
 #[cfg(test)]
 mod tests {
     use super::{
-        list_project_notes, remove_project_note, set_project_note, set_project_note_for_map,
+        list_project_notes, mark_project_note_reviewed, remove_project_note,
+        remove_stale_project_notes, set_project_note, set_project_note_for_map,
         update_project_note_text, NotesError, ProjectNotesStore,
     };
     use crate::extract::{block_base, extract_cargo_map};
@@ -790,6 +867,135 @@ mod tests {
             Err(NotesError::EmptyText)
         ));
         assert!(!project.0.join(".lightwell").exists());
+    }
+
+    #[test]
+    fn mark_reviewed_re_fingerprints_a_stale_note_without_changing_text() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set(
+                &project.0,
+                "crate:core",
+                "Still accurate",
+                "old-fingerprint",
+            )
+            .unwrap();
+        let current_map = map("new-fingerprint");
+        let before = store.list_for_map(&current_map).unwrap();
+        assert!(before[0].stale);
+
+        let reviewed = mark_project_note_reviewed(&project.0, &current_map, "crate:core").unwrap();
+        assert_eq!(reviewed.len(), 1);
+        assert!(!reviewed[0].stale);
+        assert_eq!(reviewed[0].text, "Still accurate");
+        assert_eq!(reviewed[0].source_fingerprint, "new-fingerprint");
+    }
+
+    #[test]
+    fn mark_reviewed_refuses_orphaned_notes_and_missing_notes() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set(&project.0, "crate:gone", "Orphaned", "old-fingerprint")
+            .unwrap();
+        let empty_map = FactMap::schema_v1(
+            Project {
+                id: "workspace:test".to_owned(),
+                name: "test".to_owned(),
+                root_path: ".".to_owned(),
+            },
+            Vec::new(),
+            Vec::new(),
+            Vec::new(),
+            MapStats::default(),
+        );
+        assert!(matches!(
+            mark_project_note_reviewed(&project.0, &empty_map, "crate:gone"),
+            Err(NotesError::BlockNotFound(_))
+        ));
+        assert!(matches!(
+            mark_project_note_reviewed(&project.0, &map("fingerprint"), "crate:core"),
+            Err(NotesError::NoteNotFound(_))
+        ));
+    }
+
+    #[test]
+    fn remove_stale_deletes_only_stale_notes_and_keeps_current() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set(
+                &project.0,
+                "crate:core",
+                "Current text",
+                "current-fingerprint",
+            )
+            .unwrap();
+        store
+            .set(&project.0, "crate:old", "Stale text", "old-fingerprint")
+            .unwrap();
+        store
+            .set(
+                &project.0,
+                "crate:gone",
+                "Orphaned text",
+                "gone-fingerprint",
+            )
+            .unwrap();
+        let current_map = FactMap::schema_v1(
+            Project {
+                id: "workspace:test".to_owned(),
+                name: "test".to_owned(),
+                root_path: ".".to_owned(),
+            },
+            vec![
+                FactBlock::Crate(CrateBlock {
+                    base: BlockBase {
+                        id: "crate:core".to_owned(),
+                        label: "core".to_owned(),
+                        parent_id: Some("workspace:test".to_owned()),
+                        children: Vec::new(),
+                        source_path: Some("Cargo.toml".to_owned()),
+                        fingerprint: "current-fingerprint".to_owned(),
+                    },
+                    package_name: "core".to_owned(),
+                    version: "0.1.0".to_owned(),
+                    description: None,
+                }),
+                FactBlock::Crate(CrateBlock {
+                    base: BlockBase {
+                        id: "crate:old".to_owned(),
+                        label: "old".to_owned(),
+                        parent_id: Some("workspace:test".to_owned()),
+                        children: Vec::new(),
+                        source_path: Some("old/Cargo.toml".to_owned()),
+                        fingerprint: "changed-fingerprint".to_owned(),
+                    },
+                    package_name: "old".to_owned(),
+                    version: "0.1.0".to_owned(),
+                    description: None,
+                }),
+            ],
+            Vec::new(),
+            Vec::new(),
+            MapStats {
+                blocks: 2,
+                crates: 2,
+                ..MapStats::default()
+            },
+        );
+
+        let (removed, notes) = remove_stale_project_notes(&project.0, &current_map).unwrap();
+        assert_eq!(removed, 2);
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].block_id, "crate:core");
+        assert!(!notes[0].stale);
+        assert_eq!(notes[0].text, "Current text");
+
+        let (again, notes) = remove_stale_project_notes(&project.0, &current_map).unwrap();
+        assert_eq!(again, 0);
+        assert_eq!(notes.len(), 1);
     }
 
     #[test]
