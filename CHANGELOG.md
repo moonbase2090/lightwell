@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.21 - 2026-10-27
+
+### Added
+
+- Swift projects map SwiftPM packages (`Package.swift`) and Xcode projects (`*.xcodeproj`), with modules, files, types, functions, and imports, and Swift source highlighting (#189).
+
 ## 0.1.20 - 2026-10-27
 
 ### Added
