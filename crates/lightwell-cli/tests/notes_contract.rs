@@ -396,7 +396,10 @@ fn repo_flag_targets_another_workspace_from_a_foreign_cwd() {
     let stored: Value =
         serde_json::from_slice(&fs::read(project.0.join(".lightwell/notes.json")).unwrap())
             .unwrap();
-    assert_eq!(stored["notes"][BLOCK]["updatedAt"], updated_note["updatedAt"]);
+    assert_eq!(
+        stored["notes"][BLOCK]["updatedAt"],
+        updated_note["updatedAt"]
+    );
     assert!(updated_note["updatedAt"].as_str().unwrap().ends_with('Z'));
     assert!(!foreign.join(".lightwell").exists());
     assert_eq!(
