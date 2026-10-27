@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.20 - 2026-10-27
+
+### Added
+
+- Configuration and infrastructure projects map YAML services and resources, Terraform declarations, and Dockerfile stages with deployment wiring (#193).
+- Java and Kotlin projects map Maven and Gradle modules, packages, classes, and imports (#191).
+- Project notes can be marked reviewed without changing their text, and stale notes can be removed in bulk behind opt-in controls (#185).
+- The workspace map can open in an opt-in fullscreen-capable pop-out window (#196).
+
+### Changed
+
+- `lightwell notes set` requires `--replace` to overwrite an existing note (#198).
+
 ## 0.1.19 - 2026-10-26
 
 ### Added
