@@ -198,6 +198,7 @@ For automation, add `--json` after the notes subcommand:
 | --- | --- |
 | `notes list --json` | An array of objects with `blockId`, `text`, `sourceFingerprint`, and `stale`. An empty list is `[]`. |
 | `notes set --json <block-id> <text...>` | `{"blockId":"...","text":"..."}` after the note is saved. |
+| `notes set --json --replace <block-id> <text...>` | The same result after explicitly replacing an existing note. |
 | `notes rm --json <block-id>` | `{"blockId":"...","removed":true}` after the saved note is removed. |
 
 JSON results are a single value followed by a newline. Diagnostics go to stderr. Failed lookups, invalid arguments, and notes-storage errors do not print a result. Without `--json`, successful commands retain their human-readable output.
@@ -214,6 +215,7 @@ These exit codes apply to the notes commands; `lightwell blocks` uses 0, 1 (extr
 | 3 | `notes rm` found no saved note for that ID. |
 | 4 | `notes set` found no current block for that ID, or no block for a `--file` path. |
 | 5 | `notes list --check` found at least one stale note. |
+| 6 | `notes set` found an existing note and `--replace` was not provided. |
 
 Removing a saved note does not require its block to exist in the current map, so orphaned notes remain removable. A missing saved note is an error on stderr and exits with code 3.
 

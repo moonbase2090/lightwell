@@ -156,6 +156,42 @@ fn human_success_output_remains_unchanged() {
 }
 
 #[test]
+fn replacing_a_note_requires_an_explicit_flag_and_is_noninteractive() {
+    let project = Project::new();
+    project.json(&["notes", "set", "--json", BLOCK, "Keep the existing note"]);
+    let notes_path = project.0.join(".lightwell/notes.json");
+    let saved_before = fs::read(&notes_path).unwrap();
+
+    let rejected = project.run(
+        &["notes", "set", "--json", BLOCK, "Accidental replacement"],
+        6,
+    );
+    assert!(rejected.stdout.is_empty());
+    let diagnostic = String::from_utf8_lossy(&rejected.stderr);
+    assert!(diagnostic.contains(&format!("A note already exists for block `{BLOCK}`")));
+    assert!(diagnostic.contains("--replace"));
+    assert_eq!(fs::read(&notes_path).unwrap(), saved_before);
+
+    let replaced = project.json(&[
+        "notes",
+        "set",
+        "--json",
+        "--replace",
+        BLOCK,
+        "Intentional replacement",
+    ]);
+    assert_eq!(replaced["blockId"], BLOCK);
+    assert_eq!(replaced["text"], "Intentional replacement");
+    assert_eq!(replaced["author"], "unknown");
+    assert!(!replaced["updatedAt"].as_str().unwrap().is_empty());
+    assert_eq!(
+        project.json(&["notes", "list", "--json"])[0]["text"],
+        "Intentional replacement"
+    );
+    project.error(&["notes", "list", "--replace"], 2, "only available");
+}
+
+#[test]
 fn missing_saved_note_and_current_block_have_distinct_exits() {
     let project = Project::new();
     for json_flag in [false, true] {
@@ -386,6 +422,7 @@ fn repo_flag_targets_another_workspace_from_a_foreign_cwd() {
             "--repo",
             repo.as_ref(),
             "--json",
+            "--replace",
             BLOCK,
             updated,
         ],
