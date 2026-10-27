@@ -1,7 +1,7 @@
 import type * as Monaco from "monaco-editor-core";
 import type { FactMap } from "../model.js";
 
-export type LanguagePackId = "rust" | "toml" | "web" | "python" | "go" | "dotnet" | "php" | "ruby" | "cpp" | "jvm";
+export type LanguagePackId = "rust" | "toml" | "web" | "python" | "go" | "dotnet" | "php" | "ruby" | "cpp" | "jvm" | "config-infra";
 
 export interface WorkspaceExtractArgs {
   readonly repositoryPath: string;
@@ -57,6 +57,11 @@ export type LanguagePackExtractor =
       readonly kind: "jvm-module";
       readonly moduleId: "extract/jvm-modules";
       readonly coreSourceModule: "lightwell_core::jvm_source";
+    }
+  | {
+      readonly kind: "config-infra-module";
+      readonly moduleId: "extract/config-infra";
+      readonly coreSourceModule: "lightwell_core::config_infra_source";
     };
 
 export interface LanguagePackFixtures {
@@ -79,6 +84,10 @@ export interface LanguagePack {
   readonly basenameFiles?: readonly string[];
   /** Config stems such as `vite.config.` matching `vite.config.ts`. */
   readonly basenamePrefixes?: readonly string[];
+  /** Monaco language ids for exact basenames, such as Dockerfile. */
+  readonly monacoIdByBasename?: Readonly<Record<string, string>>;
+  /** Monaco language ids for basename prefixes, such as Dockerfile.dev. */
+  readonly monacoIdByBasenamePrefix?: Readonly<Record<string, string>>;
   /** Monaco language id per file extension (includes the leading dot). */
   readonly monacoIdByExtension?: Readonly<Record<string, string>>;
   /** Describes source parsing modules; null until a pack extracts map facts. */

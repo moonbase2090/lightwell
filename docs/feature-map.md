@@ -211,6 +211,7 @@ Fixture workspaces, all under `crates/lightwell-core/fixtures`:
 - `dotnet-sample` — .NET solution with C# and Visual Basic projects.
 - `jvm-sample` — Maven and Gradle modules with Java and Kotlin sources.
 - `cpp-sample` — CMake project with an executable target, header, and quoted include.
+- `config-infra-sample` — Compose services, workflow jobs, Terraform resources, and Dockerfile build stages.
 
 ### app flows
 

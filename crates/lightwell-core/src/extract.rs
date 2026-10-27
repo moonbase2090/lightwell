@@ -1,3 +1,6 @@
+use crate::config_infra_source::{
+    discover_config_infra, ConfigInfraEntityKind, ConfigInfraReference, ConfigInfraWorkspace,
+};
 use crate::cpp_source::{discover_cpp_targets, CppFile, CppSymbol, CppTarget};
 use crate::dotnet_source::{
     discover_dotnet, DotnetFile, DotnetImport, DotnetSymbolKind, DotnetWorkspace,
@@ -79,6 +82,7 @@ const PROJECT_MANIFESTS: &[&str] = &[
     "tsconfig.json",
     "jsconfig.json",
     "CMakeLists.txt",
+    "Dockerfile",
 ];
 
 /// The manifest that shows `root` is a project Lightwell can open.
@@ -93,11 +97,27 @@ pub fn project_manifest(root: &Path) -> Option<PathBuf> {
     let entries = fs::read_dir(root).ok()?;
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_file() && is_dotnet_project_file(&path) {
+        if path.is_file() && (is_dotnet_project_file(&path) || is_config_infra_project_file(&path))
+        {
             return Some(path);
         }
     }
     None
+}
+
+fn is_config_infra_project_file(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    let lower_name = name.to_ascii_lowercase();
+    lower_name.starts_with("dockerfile.")
+        || matches!(
+            path.extension()
+                .and_then(|extension| extension.to_str())
+                .map(str::to_ascii_lowercase)
+                .as_deref(),
+            Some("yaml" | "yml" | "tf" | "tfvars" | "hcl")
+        )
 }
 
 fn is_dotnet_project_file(path: &Path) -> bool {
@@ -203,6 +223,7 @@ pub(crate) fn map_workspace(
     let dotnet = discover_dotnet(&root_path)?;
     let jvm = discover_jvm(&root_path)?;
     let cpp_targets = discover_cpp_targets(&root_path)?;
+    let config_infra = discover_config_infra(&root_path)?;
     let mut workspace_inputs: Vec<_> = crate_fingerprints
         .into_iter()
         .map(|(name, fingerprint)| format!("{name}:{fingerprint}"))
@@ -307,6 +328,14 @@ pub(crate) fn map_workspace(
             }
         }
     }
+    for file in &config_infra.files {
+        if let Ok(fingerprint) = fingerprints.file(&file.path) {
+            workspace_inputs.push(format!(
+                "config-infra:{}:{fingerprint}",
+                relative_path(&root_path, &file.path)
+            ));
+        }
+    }
     workspace_inputs.sort();
     let workspace_fingerprint = hash_text(&workspace_inputs.join("\n"));
     blocks.insert(
@@ -385,6 +414,14 @@ pub(crate) fn map_workspace(
     )?;
     append_jvm_blocks(
         &jvm,
+        &root_path,
+        &project_id,
+        &mut fingerprints,
+        &mut blocks,
+        &mut connections,
+    )?;
+    append_config_infra_blocks(
+        &config_infra,
         &root_path,
         &project_id,
         &mut fingerprints,
@@ -2547,6 +2584,153 @@ fn append_jvm_blocks(
         }
     }
     Ok(())
+}
+
+fn append_config_infra_blocks(
+    workspace: &ConfigInfraWorkspace,
+    root_path: &Path,
+    workspace_id: &str,
+    fingerprints: &mut FileFingerprints,
+    blocks: &mut Vec<FactBlock>,
+    connections: &mut Vec<Connection>,
+) -> Result<(), MapExtractionError> {
+    let mut file_ids = HashMap::<String, String>::new();
+    let mut local_entity_ids = HashMap::<(String, String), Vec<String>>::new();
+    let mut global_entity_ids = HashMap::<String, Vec<String>>::new();
+    let mut infra_connections = Vec::new();
+    for file in &workspace.files {
+        let relative = relative_path(root_path, &file.path);
+        let file_id = config_infra_file_id(&relative);
+        let fingerprint = fingerprints.file(&file.path)?;
+        let label = file
+            .path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("config");
+        blocks.push(FactBlock::Module(ModuleBlock {
+            base: BlockBase {
+                id: file_id.clone(),
+                label: label.to_owned(),
+                parent_id: Some(workspace_id.to_owned()),
+                children: Vec::new(),
+                source_path: Some(relative.clone()),
+                fingerprint: fingerprint.clone(),
+            },
+            package_name: workspace_id.to_owned(),
+            module_path: relative.clone(),
+            declared_by_path: relative.clone(),
+            cfg_attributes: vec!["config-file".to_owned()],
+            unresolved: false,
+            language: file.language.as_str().to_owned(),
+        }));
+        infra_connections.push(contains_connection(workspace_id, &file_id));
+        file_ids.insert(relative.clone(), file_id.clone());
+        for entity in &file.entities {
+            let id = config_infra_entity_id(&relative, entity.kind, &entity.name);
+            let module_path = format!("{}#{}:{}", relative, entity.kind.as_str(), entity.name);
+            blocks.push(FactBlock::Module(ModuleBlock {
+                base: BlockBase {
+                    id: id.clone(),
+                    label: entity.name.clone(),
+                    parent_id: Some(file_id.clone()),
+                    children: Vec::new(),
+                    source_path: Some(relative.clone()),
+                    fingerprint: hash_text(&format!(
+                        "{fingerprint}:{}:{}",
+                        entity.kind.as_str(),
+                        entity.name
+                    )),
+                },
+                package_name: workspace_id.to_owned(),
+                module_path,
+                declared_by_path: relative.clone(),
+                cfg_attributes: entity.attributes.clone(),
+                unresolved: false,
+                language: file.language.as_str().to_owned(),
+            }));
+            infra_connections.push(contains_connection(&file_id, &id));
+            local_entity_ids
+                .entry((relative.clone(), entity.name.clone()))
+                .or_default()
+                .push(id.clone());
+            global_entity_ids
+                .entry(entity.name.clone())
+                .or_default()
+                .push(id);
+        }
+    }
+    for file in &workspace.files {
+        let relative = relative_path(root_path, &file.path);
+        for entity in &file.entities {
+            let source_id = config_infra_entity_id(&relative, entity.kind, &entity.name);
+            for reference in &entity.references {
+                let targets = match reference {
+                    ConfigInfraReference::File(target) => file_ids
+                        .get(target)
+                        .cloned()
+                        .into_iter()
+                        .collect::<Vec<_>>(),
+                    ConfigInfraReference::Entity(target) => {
+                        match local_entity_ids.get(&(relative.clone(), target.clone())) {
+                            Some(ids) => ids.clone(),
+                            None => global_entity_ids
+                                .get(target)
+                                .filter(|ids| ids.len() == 1)
+                                .cloned()
+                                .unwrap_or_default(),
+                        }
+                    }
+                };
+                for target in targets {
+                    if target == source_id {
+                        continue;
+                    }
+                    let id = connection_id("depends_on", &source_id, &target);
+                    infra_connections.push(Connection::DependsOn {
+                        id,
+                        source: source_id.clone(),
+                        target,
+                        dependency_scope: DependencyScope::Normal,
+                    });
+                }
+            }
+        }
+    }
+    infra_connections.sort_by(|left, right| connection_id_of(left).cmp(connection_id_of(right)));
+    infra_connections.dedup_by(|left, right| connection_id_of(left) == connection_id_of(right));
+    connections.extend(infra_connections);
+    Ok(())
+}
+
+fn connection_id_of(connection: &Connection) -> &str {
+    match connection {
+        Connection::Contains { id, .. } | Connection::DependsOn { id, .. } => id,
+    }
+}
+
+fn config_infra_file_id(relative: &str) -> String {
+    format!("module:config-infra:{}", config_infra_id_encode(relative))
+}
+
+fn config_infra_entity_id(relative: &str, kind: ConfigInfraEntityKind, name: &str) -> String {
+    format!(
+        "{}:{}:{}",
+        config_infra_file_id(relative),
+        config_infra_id_encode(kind.as_str()),
+        config_infra_id_encode(name)
+    )
+}
+
+fn config_infra_id_encode(value: &str) -> String {
+    let mut encoded = String::new();
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            encoded.push(character);
+        } else {
+            encoded.push_str(&format!("_{:x}_", character as u32));
+        }
+    }
+    encoded
 }
 
 fn jvm_module_key(root: &Path, module: &JvmModule) -> String {

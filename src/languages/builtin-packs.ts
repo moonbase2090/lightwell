@@ -1,6 +1,7 @@
 import type { LanguagePack } from "./language-pack.js";
 import { CPP_LANGUAGE_PACK } from "./packs/cpp.js";
 import { DOTNET_LANGUAGE_PACK } from "./packs/dotnet.js";
+import { CONFIG_INFRA_LANGUAGE_PACK } from "./packs/config-infra.js";
 import { GO_LANGUAGE_PACK } from "./packs/go.js";
 import { PHP_LANGUAGE_PACK } from "./packs/php.js";
 import { JVM_LANGUAGE_PACK } from "./packs/jvm.js";
@@ -25,4 +26,5 @@ export const BUILTIN_LANGUAGE_PACKS: readonly LanguagePack[] = [
   RUBY_LANGUAGE_PACK,
   JVM_LANGUAGE_PACK,
   CPP_LANGUAGE_PACK,
+  CONFIG_INFRA_LANGUAGE_PACK,
 ];

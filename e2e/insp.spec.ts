@@ -47,7 +47,7 @@ test.describe("inspectors (web)", () => {
     await page.getByRole("button", { name: /, FOLDER/ }).first().click();
     // The horizontal Files view now renders that folder's details. Without
     // the rotate and select actions this panel never appears.
-    await expect(page.getByText(/items in this folder\./)).toBeVisible();
+    await expect(page.getByText(/(?:1 item|\d+ items) in this folder\./)).toBeVisible();
     await expect(page.getByText("CONTENTS")).toBeVisible();
   });
 
