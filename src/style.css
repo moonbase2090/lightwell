@@ -462,6 +462,11 @@ a.update-download { display: inline-flex; align-items: center; text-decoration: 
 .project-note-footer { min-height: 42px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .project-note-feedback { min-width: 0; flex: 1; color: #7ecbad; font-size: calc(12px * var(--lw-ui-scale, 1)); line-height: 1.45; }
 .project-notes-error { color: #e7ad88; }
+.notes-disk-banner, .notes-conflict { padding: 10px 12px; border: 1px solid #6a5432; border-radius: 6px; background: #241c12; color: #e7d3b0; font-size: calc(12px * var(--lw-ui-scale, 1)); line-height: 1.45; }
+.notes-disk-banner p, .notes-conflict p { margin: 0; }
+.notes-disk-banner-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.notes-conflict-disk { margin-top: 6px; white-space: pre-wrap; color: #d5e0ec; font-family: var(--mono); }
+.notes-remove-button, .notes-save-button { min-height: 44px; padding: 0 10px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #38495b; border-radius: 5px; color: #b7c4d4; background: #17212b; font-size: calc(10px * var(--lw-ui-scale, 1)); cursor: pointer; }
 .notes-remove-button, .notes-review-button, .notes-save-button { min-height: 44px; padding: 0 10px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #38495b; border-radius: 5px; color: #b7c4d4; background: #17212b; font-size: calc(10px * var(--lw-ui-scale, 1)); cursor: pointer; }
 .notes-remove-button:hover { border-color: #74514d; color: #f0b6a7; background: #2b1f20; }
 .notes-review-button { border-color: #3f6a55; color: #c5e6d4; background: #1a2f26; }

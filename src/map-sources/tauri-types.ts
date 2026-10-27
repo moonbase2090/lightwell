@@ -89,6 +89,11 @@ function parseProjectNoteView(value: unknown): ProjectNoteView {
     throw new Error("The desktop app returned an invalid project note.");
   }
 
+  const revision = "revision" in value ? value.revision : undefined;
+  if (revision !== undefined && (typeof revision !== "string" || revision.length === 0)) {
+    throw new Error("The desktop app returned an invalid project note.");
+  }
+
   return {
     blockId: value.blockId,
     text: value.text,
@@ -96,6 +101,7 @@ function parseProjectNoteView(value: unknown): ProjectNoteView {
     author: value.author,
     updatedAt: value.updatedAt,
     stale: value.stale,
+    ...(typeof revision === "string" ? { revision } : {}),
   };
 }
 
@@ -118,6 +124,24 @@ export function parseProjectNotesSnapshot(value: unknown): ProjectNotesSnapshot 
   }
 
   throw new Error("The desktop app returned an invalid project notes response.");
+}
+
+export function parseWorkspaceNotesUpdate(value: unknown): {
+  readonly path: string;
+  readonly projectNotes: ProjectNotesSnapshot;
+} {
+  if (
+    !isRecord(value)
+    || typeof value.path !== "string"
+    || value.path.length === 0
+    || !("projectNotes" in value)
+  ) {
+    throw new Error("The desktop app returned an invalid notes update.");
+  }
+  return {
+    path: value.path,
+    projectNotes: parseProjectNotesSnapshot(value.projectNotes),
+  };
 }
 
 export function parseWorkspaceMapUpdate(value: unknown): {

@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { commitDiffEnabled, mapPopoutEnabled, notesStaleActionsEnabled, projectNotesEnabled } from "./feature-flags.js";
+import {
+  commitDiffEnabled,
+  mapPopoutEnabled,
+  notesCasEnabled,
+  notesStaleActionsEnabled,
+  projectNotesEnabled,
+} from "./feature-flags.js";
 
 test("project notes are on when the build sets no flag", () => {
   assert.equal(projectNotesEnabled(undefined), true);
@@ -56,4 +62,27 @@ test("history call sites compare the env string so the bundler can drop the bran
   const tauri = readFileSync(new URL("./map-sources/tauri.ts", import.meta.url), "utf8");
   assert.match(tauri, /import\.meta\.env\.VITE_ENABLE_COMMIT_DIFF\) === "false"/);
   assert.equal(tauri.includes("commitDiffEnabled"), false);
+});
+
+test("notes compare-and-swap is off unless the build sets VITE_ENABLE_NOTES_CAS=true", () => {
+  assert.equal(notesCasEnabled(undefined), false);
+  assert.equal(notesCasEnabled(""), false);
+  assert.equal(notesCasEnabled("false"), false);
+  assert.equal(notesCasEnabled("TRUE"), false);
+  assert.equal(notesCasEnabled(" true "), false);
+  assert.equal(notesCasEnabled("true"), true);
+});
+
+test("notes compare-and-swap call sites compare the env string so the bundler can drop the branch", () => {
+  const files = [
+    "./ProjectNotesDialog.tsx",
+    "./App.tsx",
+    "./map-sources/tauri.ts",
+    "./map-sources/fixtures.ts",
+  ];
+  for (const file of files) {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8");
+    assert.match(source, /import\.meta\.env\.VITE_ENABLE_NOTES_CAS === "true"/);
+    assert.equal(source.includes("notesCasEnabled"), false);
+  }
 });

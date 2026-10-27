@@ -17,7 +17,27 @@ import {
   parseNoteCommitResult,
   parseSourceFileDocument,
   parseWorkspaceMapUpdate,
+  parseWorkspaceNotesUpdate,
 } from "./tauri-types.js";
+import { readNoteRevisionConflict } from "../notes-reload.js";
+
+function noteCommandArgs(input: Pick<ProjectNoteInput, "expectedRevision" | "expectation">): { expectedRevision?: string | null; expectation?: ProjectNoteInput["expectation"] | null } {
+  if (!(typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true")) return {};
+  return {
+    expectedRevision: input.expectedRevision ?? null,
+    expectation: input.expectation ?? null,
+  };
+}
+
+function rejectNoteCommand(cause: unknown): never {
+  const conflict = readNoteRevisionConflict(cause);
+  if (conflict !== null) {
+    throw Object.assign(new Error("This note changed on disk."), conflict);
+  }
+  if (typeof cause === "string" && cause.length > 0) throw new Error(cause);
+  if (cause instanceof Error) throw cause;
+  throw new Error("Could not save this project note.");
+}
 
 const projectNotesApi: ProjectNotesSource = {
   ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTE_GIT) === "true" ? { git: {
@@ -36,20 +56,23 @@ const projectNotesApi: ProjectNotesSource = {
       path: input.workspaceId,
       blockId: input.blockId,
       text: input.text,
-    }).then(parseProjectNotesSnapshot);
+      ...noteCommandArgs(input),
+    }).then(parseProjectNotesSnapshot, rejectNoteCommand);
   },
   edit(input: ProjectNoteInput) {
     return invoke<unknown>("edit_workspace_note", {
       path: input.workspaceId,
       blockId: input.blockId,
       text: input.text,
-    }).then(parseProjectNotesSnapshot);
+      ...noteCommandArgs(input),
+    }).then(parseProjectNotesSnapshot, rejectNoteCommand);
   },
   remove(input: Omit<ProjectNoteInput, "text">) {
     return invoke<unknown>("remove_workspace_note", {
       path: input.workspaceId,
       blockId: input.blockId,
-    }).then(parseProjectNotesSnapshot);
+      ...noteCommandArgs(input),
+    }).then(parseProjectNotesSnapshot, rejectNoteCommand);
   },
   ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS) === "true" ? {
     markReviewed(input: Omit<ProjectNoteInput, "text">) {
@@ -141,10 +164,21 @@ export const tauriMapSource: MapSource = {
     const result = await invoke<unknown>("open_workspace", { path: selected });
     return parseMapSourceEntry(result);
   },
-  async watchMap(id, onChange, onError) {
+  async watchMap(id, onChange, onError, onNotes) {
     let commandFinished = false;
     let pendingUpdate: ReturnType<typeof parseWorkspaceMapUpdate> | undefined;
-    const unlisten = await listen<unknown>("workspace-map-changed", (event) => {
+    const unlistenNotes = typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true" && onNotes !== undefined
+      ? await listen<unknown>("workspace-notes-changed", (event) => {
+          try {
+            const update = parseWorkspaceNotesUpdate(event.payload);
+            if (update.path !== id) return;
+            onNotes(update.projectNotes);
+          } catch (error: unknown) {
+            onError(error);
+          }
+        })
+      : () => undefined;
+    const unlistenMap = await listen<unknown>("workspace-map-changed", (event) => {
       try {
         const update = parseWorkspaceMapUpdate(event.payload);
         if (update.workspaceId !== id) return;
@@ -160,9 +194,13 @@ export const tauriMapSource: MapSource = {
       onChange(parseMapSourceDocument(initial));
       commandFinished = true;
       if (pendingUpdate !== undefined) onChange(pendingUpdate.document);
-      return unlisten;
+      return () => {
+        unlistenMap();
+        unlistenNotes();
+      };
     } catch (error: unknown) {
-      unlisten();
+      unlistenMap();
+      unlistenNotes();
       throw error;
     }
   },
