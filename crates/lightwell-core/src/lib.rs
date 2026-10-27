@@ -1,5 +1,5 @@
-mod cpp_source;
 mod config_infra_source;
+mod cpp_source;
 mod diff;
 mod dotnet_source;
 mod editor;
