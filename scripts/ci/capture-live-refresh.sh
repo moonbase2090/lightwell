@@ -72,6 +72,11 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     xdotool windowsize "$window_id" 1280 850
     wait_for_label() {
       local phase="$1" expected="$2" deadline=$((SECONDS + 60))
+      local expected_pattern="$expected"
+      if [[ "$expected" == "CRATE" ]]; then
+        # OCR often drops the first glyph from this small, low-contrast label.
+        expected_pattern="C?RATE"
+      fi
       while (( SECONDS < deadline )); do
         if ! kill -0 "$app_pid" 2>/dev/null; then
           cat "$app_log" >&2
@@ -82,7 +87,7 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
         # Isolate the default map pane, excluding search, counters and source text.
         convert "$artifact_dir/$phase.png" -crop 960x470+0+154 +repage -colorspace Gray -threshold 55% -negate -resize 200% "$artifact_dir/ocr.png"
         tesseract "$artifact_dir/ocr.png" stdout --psm 11 >"$artifact_dir/$phase.txt" 2>"$artifact_dir/ocr.log"
-        if grep -Eiq "(^|[^[:alnum:]_])${expected}([^[:alnum:]_]|$)" "$artifact_dir/$phase.txt"; then
+        if grep -Eiq "(^|[^[:alnum:]_])${expected_pattern}([^[:alnum:]_]|$)" "$artifact_dir/$phase.txt"; then
           return 0
         fi
         sleep 1
