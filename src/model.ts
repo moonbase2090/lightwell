@@ -42,7 +42,7 @@ export interface ModuleBlock extends FactBlockBase {
   readonly declaredByPath: string;
   readonly cfgAttributes: readonly string[];
   readonly unresolved: boolean;
-  /** Omitted for Rust modules; web (`typescript`, `javascript`, `html`, `css`, …), `python`, `go`, `php`, `ruby`, `csharp`, and `vb` when applicable. */
+  /** Omitted for Rust modules; web (`typescript`, `javascript`, `html`, `css`, …), `python`, `go`, `jvm`, `java`, `kotlin`, `php`, `ruby`, `csharp`, and `vb` when applicable. */
   readonly language?: string;
 }
 

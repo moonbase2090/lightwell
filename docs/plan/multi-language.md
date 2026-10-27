@@ -15,6 +15,7 @@ Lightwell is adding source languages beyond Rust workspace manifests. TypeScript
 - **PHP** (`.php` when `composer.json` is present): namespaces, `use` imports, classes, interfaces, traits, enums, and top-level functions. Laravel projects (`artisan`, `app/Http`, or an Illuminate package) map `app/Models` and `app/Http/Controllers` onto `App\Models` and `App\Http\Controllers`. `vendor/` is skipped.
 - **Ruby** (`.rb` when a `Gemfile` is present): modules, classes, `require` / `require_relative`, and top-level methods. Rails projects (`config/application.rb`, `bin/rails`, or a Rails gem) map `app/models` and `app/controllers` as model and controller units. `vendor/`, `tmp/`, and `log/` are skipped.
 - **C# and VB.NET** (one .NET pack, on by default): solutions and projects, namespaces, types, methods, project references, and resolved type names. `bin/` and `obj/` are skipped.
+- **Java and Kotlin** (one JVM pack, on by default): Maven and Gradle modules, packages, classes, and imports. `.java`, `.kt`, and `.kts`. `build/`, `.gradle/`, `target/`, `out/`, and `testdata/` are skipped.
 - **C/C++** (`.c`, `.cc`, `.cpp`, `.cxx`, `.h`, `.hh`, `.hpp`, `.hxx` when a root `CMakeLists.txt` is present): CMake targets, quoted includes, and top-level class/struct/function symbols.
 
 Vue, Svelte, Astro, Angular, other meta-frameworks, and bundler/monorepo orchestrator graphs ship **after v0.1.4** in follow-up PRs.
@@ -34,6 +35,6 @@ Optional dev-only toggles (for example project notes in the desktop shell) are u
 - The built-in **Rust** pack (`src/languages/packs/rust.ts`) owns workspace extraction (`extract/cargo` + `lightwell_core::rust_source`), Rust and Cargo-manifest TOML Monarch tokenizers, and `crates/lightwell-core/fixtures`. The CLI calls `extractWorkspaceMap`, which delegates to that pack.
 - Rust parsing stays in `crates/lightwell-core`; TypeScript mirrors live under `src/extract/` with parity checks in `scripts/check-rust-map-parity.mjs` where applicable.
 - Schema and `docs/schema.md` gain per-block `language` fields as each extractor lands. Rust modules omit `language`.
-- Inspector highlighting registers through each pack’s `registerHighlighter` (Rust, TOML, Python, Go, PHP, Ruby, web, C#, VB.NET, and C/C++ Monarch today).
+- Inspector highlighting registers through each pack’s `registerHighlighter` (Rust, TOML, Python, Go, PHP, Ruby, web, Java, Kotlin, C#, VB.NET, and C/C++ Monarch today).
 
 Keep pull requests small and rebased on `main`. Avoid path-handling churn that conflicts with cross-platform work; use `path_confinement` for filesystem scope.

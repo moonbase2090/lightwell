@@ -1,0 +1,14 @@
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>jvm-sample</artifactId>
+  <version>1.0.0</version>
+  <packaging>pom</packaging>
+  <modules>
+    <!-- <module>skipped</module> -->
+    <module>app</module>
+    <module>lib</module>
+    <module>foo-bar</module>
+    <module>foo_bar</module>
+  </modules>
+</project>

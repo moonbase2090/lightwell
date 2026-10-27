@@ -5,6 +5,7 @@ mod editor;
 mod extract;
 mod facts;
 mod go_source;
+mod jvm_source;
 pub mod language_pack;
 mod manifest;
 mod metadata;

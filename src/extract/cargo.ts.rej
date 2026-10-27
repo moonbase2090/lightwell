@@ -1,0 +1,40 @@
+@@ -425,6 +426,10 @@
+   const rubyFacts = rubyFactBlocks({ packages: rubyPackages, rootPath, workspaceId: projectId });
+   blocks.push(...rubyFacts.blocks);
+   connections.push(...rubyFacts.connections);
++  const jvm = discoverJvm(rootPath);
++  const jvmFacts = jvmFactBlocks({ workspace: jvm, rootPath, workspaceId: projectId });
++  blocks.push(...jvmFacts.blocks);
++  connections.push(...jvmFacts.connections);
+   const finalWorkspaceFingerprint = hashText([
+     ...packages.map((pkg) => {
+       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
+@@ -499,7 +505,7 @@
+   };
+ }
+ 
+-const namedProjectMarkers = ["go.mod", "go.work", "composer.json", "Gemfile", "package.json", "tsconfig.json", "jsconfig.json"];
++const namedProjectMarkers = ["go.mod", "go.work", "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "composer.json", "Gemfile", "package.json", "tsconfig.json", "jsconfig.json"];
+ 
+ function nonCargoProjectMarker(root: string): string | null {
+   for (const name of namedProjectMarkers) {
+@@ -545,6 +551,8 @@
+   const phpFacts = phpFactBlocks({ packages: phpPackages, rootPath, workspaceId: projectId });
+   const rubyPackages = discoverRubyPackages(rootPath);
+   const rubyFacts = rubyFactBlocks({ packages: rubyPackages, rootPath, workspaceId: projectId });
++  const jvm = discoverJvm(rootPath);
++  const jvmFacts = jvmFactBlocks({ workspace: jvm, rootPath, workspaceId: projectId });
+   const fingerprint = hashText([
+     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
+     ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
+@@ -568,8 +577,8 @@
+     sourcePath: relativePath(rootPath, args.markerPath),
+     fingerprint,
+     memberCount: 0,
+-  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks, ...phpFacts.blocks, ...rubyFacts.blocks];
+-  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections, ...phpFacts.connections, ...rubyFacts.connections];
++  }, ...pythonFacts.blocks, ...webFacts.blocks, ...dotnetFacts.blocks, ...goFacts.blocks, ...phpFacts.blocks, ...rubyFacts.blocks, ...jvmFacts.blocks];
++  const connections = [...pythonFacts.connections, ...webFacts.connections, ...dotnetFacts.connections, ...goFacts.connections, ...phpFacts.connections, ...rubyFacts.connections, ...jvmFacts.connections];
+   const completedBlocks = deriveChildren(blocks);
+   const workspaceChildren = completedBlocks.find((block) => block.id === projectId)?.children ?? [];
+   const groups: FactGroup[] = [{

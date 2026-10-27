@@ -218,6 +218,10 @@ test("explorer badges use the outline kind when a symbol has one", () => {
   assert.equal(explorerBadge({ folder: false, blockType: "module", language: "ruby", symbolKind: "def" }), "FN");
   assert.equal(explorerBadge({ folder: false, blockType: "module", language: "ruby", symbolKind: "class" }), "TYPE");
   assert.equal(explorerBadge({ folder: false, blockType: "module", language: "ruby", symbolKind: "module" }), "TYPE");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "java", symbolKind: "class" }), "TYPE");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "kotlin", symbolKind: "fun" }), "FN");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "kotlin", symbolKind: "object" }), "TYPE");
+  assert.equal(explorerBadge({ folder: false, blockType: "module", language: "jvm", symbolKind: "gradle" }), "MOD");
   assert.equal(explorerBadge({ folder: false, blockType: "app" }), "APP");
   assert.equal(explorerBadge({ folder: false, blockType: "cargo_feature" }), "FEAT");
 });

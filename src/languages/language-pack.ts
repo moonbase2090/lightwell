@@ -1,7 +1,7 @@
 import type * as Monaco from "monaco-editor-core";
 import type { FactMap } from "../model.js";
 
-export type LanguagePackId = "rust" | "toml" | "web" | "python" | "go" | "dotnet" | "php" | "ruby" | "cpp";
+export type LanguagePackId = "rust" | "toml" | "web" | "python" | "go" | "dotnet" | "php" | "ruby" | "cpp" | "jvm";
 
 export interface WorkspaceExtractArgs {
   readonly repositoryPath: string;
@@ -52,6 +52,11 @@ export type LanguagePackExtractor =
       readonly kind: "cpp-module";
       readonly moduleId: "extract/cpp-modules";
       readonly coreSourceModule: "lightwell_core::cpp_source";
+    }
+  | {
+      readonly kind: "jvm-module";
+      readonly moduleId: "extract/jvm-modules";
+      readonly coreSourceModule: "lightwell_core::jvm_source";
     };
 
 export interface LanguagePackFixtures {
