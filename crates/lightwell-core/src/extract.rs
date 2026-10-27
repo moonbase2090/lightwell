@@ -103,6 +103,9 @@ pub fn project_manifest(root: &Path) -> Option<PathBuf> {
         {
             return Some(path);
         }
+        if path.is_dir() && is_xcodeproj_directory(&path) {
+            return Some(path);
+        }
     }
     None
 }

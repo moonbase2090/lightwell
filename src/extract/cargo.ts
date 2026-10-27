@@ -21,8 +21,8 @@ import { discoverJvm, jvmFactBlocks, jvmFingerprintInputs } from "./jvm-modules.
 import { configInfraFactBlocks, discoverConfigInfra } from "./config-infra.js";
 import { discoverPythonModules, pythonFactBlocks } from "./python-modules.js";
 import { discoverRubyPackages, rubyFactBlocks } from "./ruby-modules.js";
-import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
 import { discoverSwiftTargets, swiftFactBlocks } from "./swift-modules.js";
+import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
 import { discoverWebModules, webFactBlocks } from "./web-modules.js";
 
 interface CargoTarget {
@@ -551,6 +551,7 @@ function nonCargoProjectMarker(root: string): string | null {
   }
   for (const name of names) {
     const candidate = path.join(root, name);
+    if (name.endsWith(".xcodeproj") && isDirectory(candidate)) return candidate;
     if (!isFile(candidate)) continue;
     const extension = path.extname(name).toLowerCase();
     const lowerName = name.toLowerCase();
@@ -559,6 +560,14 @@ function nonCargoProjectMarker(root: string): string | null {
       || extension === ".tfvars" || extension === ".hcl" || lowerName === "dockerfile" || lowerName.startsWith("dockerfile.")) return candidate;
   }
   return null;
+}
+
+function isDirectory(candidate: string): boolean {
+  try {
+    return statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function isFile(candidate: string): boolean {
