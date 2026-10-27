@@ -10,7 +10,15 @@ import {
 } from "./notes-reload.js";
 
 function note(blockId: string, text: string, revision: string): ProjectNoteView {
-  return { blockId, text, sourceFingerprint: "fp", stale: false, revision };
+  return {
+    blockId,
+    text,
+    sourceFingerprint: "fp",
+    author: "test-author",
+    updatedAt: "2026-01-01T00:00:00Z",
+    stale: false,
+    revision,
+  };
 }
 
 test("note revision matches the stored SHA-256 of text, NUL, and fingerprint", async () => {

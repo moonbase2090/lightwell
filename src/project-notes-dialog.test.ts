@@ -82,19 +82,19 @@ test("project notes offers Mark reviewed for a stale note whose block still exis
 test("Delete stale keeps a new-note draft and only resets a removed saved note", () => {
   const remaining = new Set(["crate:current"]);
   assert.equal(
-    shouldResetEditorAfterStaleRemoval({ kind: "new", blockId: "crate:current", text: "draft" }, remaining),
+    shouldResetEditorAfterStaleRemoval({ kind: "new", blockId: "crate:current", text: "draft", loadedText: "", loadedRevision: null }, remaining),
     false,
   );
   assert.equal(
-    shouldResetEditorAfterStaleRemoval({ kind: "new", blockId: "crate:other", text: "draft" }, new Set()),
+    shouldResetEditorAfterStaleRemoval({ kind: "new", blockId: "crate:other", text: "draft", loadedText: "", loadedRevision: null }, new Set()),
     false,
   );
   assert.equal(
-    shouldResetEditorAfterStaleRemoval({ kind: "saved", blockId: "crate:current", text: "kept" }, remaining),
+    shouldResetEditorAfterStaleRemoval({ kind: "saved", blockId: "crate:current", text: "kept", loadedText: "kept", loadedRevision: null }, remaining),
     false,
   );
   assert.equal(
-    shouldResetEditorAfterStaleRemoval({ kind: "saved", blockId: "crate:gone", text: "stale" }, remaining),
+    shouldResetEditorAfterStaleRemoval({ kind: "saved", blockId: "crate:gone", text: "stale", loadedText: "stale", loadedRevision: null }, remaining),
     true,
   );
 });
