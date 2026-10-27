@@ -235,6 +235,7 @@ impl ProjectNotesStore {
         Ok(())
     }
 
+    #[cfg(test)]
     fn remove(&self, block_id: &str) -> Result<bool, NotesError> {
         self.remove_expecting(block_id, &NoteWriteExpectation::Unconditional)
     }
