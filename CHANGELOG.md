@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.20 - 2026-10-27
+
+### Added
+
+- Configuration and infrastructure projects map YAML services and resources, Terraform declarations, and Dockerfile stages with deployment wiring (#193).
+- The workspace map can open in an opt-in fullscreen-capable pop-out window (#196).
+
+### Changed
+
+- `lightwell notes set` requires `--replace` to overwrite an existing note (#198).
+
 ## 0.1.19 - 2026-10-26
 
 ### Added
