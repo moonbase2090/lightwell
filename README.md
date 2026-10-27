@@ -184,6 +184,7 @@ lightwell extract . -o /tmp/lightwell-map.json
 lightwell notes set crate:lightwell-core "Review output serialization"
 git add .lightwell/notes.json
 lightwell notes list
+lightwell notes for-file crates/lightwell-core/src/notes.rs
 lightwell notes list -C /path/to/other/workspace --json
 lightwell notes review crate:lightwell-core
 lightwell notes rm-stale --yes
@@ -194,11 +195,14 @@ lightwell notes rm crate:lightwell-core
 
 Use a `blocks[].id` value from the extracted map. `lightwell blocks` lists the current workspace's blocks with their IDs, labels, kinds, and source paths (`--json` for machine-readable output, `--file <path>` to list only the blocks from one source file), so no separate extract step is needed to find an ID. `notes set --file <path> <text...>` saves a note on the one block whose source path matches exactly; when several blocks share that file (for example a module and its symbols) it lists the candidate block IDs and saves nothing, and when none match it suggests similar paths. An unknown block ID in `notes set` also prints did-you-mean block IDs on stderr. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. With `LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=true`, `notes review <block-id>` re-fingerprints a note whose text still matches the current block, and `notes rm-stale --yes` deletes every stale note (`--yes` required). Those two commands refuse to run when the environment variable is unset. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
 
+Use `notes for-file <path>` before editing a source file to read notes attached to blocks from that file. It returns every matching note, including stale notes, and accepts absolute or workspace-relative paths. A file with no notes returns an empty array with `--json` or a short human-readable message.
+
 For automation, add `--json` after the notes subcommand:
 
 | Command | JSON result on stdout |
 | --- | --- |
 | `notes list --json` | An array of objects with `blockId`, `text`, `sourceFingerprint`, and `stale`. An empty list is `[]`. |
+| `notes for-file <path> --json` | The same note objects, filtered to blocks whose source path matches `<path>`. No matches returns `[]`. |
 | `notes set --json <block-id> <text...>` | `{"blockId":"...","text":"..."}` after the note is saved. |
 | `notes set --json --replace <block-id> <text...>` | The same result after explicitly replacing an existing note. |
 | `notes rm --json <block-id>` | `{"blockId":"...","removed":true}` after the saved note is removed. |
