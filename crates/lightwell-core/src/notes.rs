@@ -556,6 +556,28 @@ pub fn set_project_note_for_map_expecting(
     store.list_for_map(map)
 }
 
+pub fn set_project_note_if_absent_for_map(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+    block_id: &str,
+    text: &str,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
+    set_project_note_for_map_expecting(
+        project_root,
+        map,
+        block_id,
+        text,
+        NoteWriteExpectation::Absent,
+    )
+    .map_err(|error| match error {
+        NotesError::RevisionConflict {
+            current: NoteConflictCurrent::Present { .. },
+            ..
+        } => NotesError::NoteAlreadyExists(block_id.to_owned()),
+        error => error,
+    })
+}
+
 pub fn update_project_note_text(
     project_root: impl AsRef<Path>,
     map: &FactMap,

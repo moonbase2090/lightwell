@@ -194,7 +194,7 @@ lightwell notes rm crate:lightwell-core
 
 `lightwell notes set` writes `.lightwell/notes.json` but does not stage or commit it. Agents and other automation that want the note in version control should run `git add .lightwell/notes.json` after a successful save, then commit and push with their usual Git workflow. The notes CLI does not run `git add` or `git commit`.
 
-Use a `blocks[].id` value from the extracted map. `lightwell blocks` lists the current workspace's blocks with their IDs, labels, kinds, and source paths (`--json` for machine-readable output, `--file <path>` to list only the blocks from one source file), so no separate extract step is needed to find an ID. `notes set --file <path> <text...>` saves a note on the one block whose source path matches exactly; when several blocks share that file (for example a module and its symbols) it lists the candidate block IDs and saves nothing, and when none match it suggests similar paths. An unknown block ID in `notes set` also prints did-you-mean block IDs on stderr. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. With `LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=true`, `notes review <block-id>` re-fingerprints a note whose text still matches the current block, and `notes rm-stale --yes` deletes every stale note (`--yes` required). Those two commands refuse to run when the environment variable is unset. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
+Use a `blocks[].id` value from the extracted map. `lightwell blocks` lists the current workspace's blocks with their IDs, labels, kinds, and source paths (`--json` for machine-readable output, `--file <path>` to list only the blocks from one source file), so no separate extract step is needed to find an ID. `notes set --file <path> <text...>` saves a note on the one block whose source path matches exactly; when several blocks share that file (for example a module and its symbols) it lists the candidate block IDs and saves nothing, and when none match it suggests similar paths. An unknown block ID in `notes set` also prints did-you-mean block IDs on stderr. `notes list` extracts the current workspace map, or reads a facts file passed with `--map`, and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. With `LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=true`, `notes review <block-id>` re-fingerprints a note whose text still matches the current block, and `notes rm-stale --yes` deletes every stale note (`--yes` required). Those two commands refuse to run when the environment variable is unset. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
 
 For automation, add `--json` after the notes subcommand:
 
@@ -209,12 +209,14 @@ JSON results are a single value followed by a newline. Diagnostics go to stderr.
 
 Run `lightwell notes list --check` to fail when any saved note is stale. It still prints the complete list, with `--json` if requested, and writes a stale-note count to stderr. An empty list or a list of current notes exits successfully. Checking does not change the saved notes or their fingerprints.
 
+`notes list` and `notes set` extract the workspace once per command. A `--file` match and the suggestions for an unknown block id reuse that map. Pass `--map <facts.json>` to either command to skip extraction and use a facts file from `lightwell extract` for block lookup and stale checks. The flag is off unless you pass it. `--map` trusts that file: a facts file written before a source edit does not report that edit as stale. Omit `--map` when the check must follow the current source. `notes rm` does not extract and does not accept `--map`.
+
 These exit codes apply to the notes commands; `lightwell blocks` uses 0, 1 (extraction or output failure), and 2:
 
 | Exit | Meaning |
 | --- | --- |
 | 0 | Success, including stale notes listed without `--check`. |
-| 1 | Extraction, storage, invalid notes data, or output failure. |
+| 1 | Extraction, storage, invalid notes data, an unreadable or invalid map file, or output failure. |
 | 2 | Invalid or ambiguous command arguments, including a `--file` path that matches several blocks. |
 | 3 | `notes rm` found no saved note for that ID. |
 | 4 | `notes set` found no current block for that ID, or no block for a `--file` path. |
@@ -229,7 +231,7 @@ Removing a saved note does not require its block to exist in the current map, so
 lightwell notes set --json crate:lightwell-core -- --json --check
 ```
 
-This saves the text `--json --check`. Unknown or repeated options are usage errors; `--check` is only valid for `notes list`.
+This saves the text `--json --check`. Unknown or repeated options are usage errors; `--check` is only valid for `notes list`, and `--map` is only valid for `notes list` and `notes set`.
 
 ## Data flow
 

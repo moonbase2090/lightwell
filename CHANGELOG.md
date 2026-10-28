@@ -5,10 +5,15 @@
 ### Added
 
 - Note revision checks are opt-in: a note write or delete can carry the revision it loaded and is refused when the saved note changed on disk. The project-notes dialog reloads notes changed on disk instead of overwriting them. Build with `VITE_ENABLE_NOTES_CAS=true` to enable it.
+- `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
 
 ### Fixed
 
 - Human-readable `lightwell notes list` output shows `unknown` for legacy notes without an update timestamp (#204).
+
+### Changed
+
+- Use project-folder wording in the open-project actions (#217, fixes #154).
 
 ## 0.1.22 - 2026-10-28
 
