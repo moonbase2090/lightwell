@@ -75,6 +75,7 @@ import { readThemePreference, resolveTheme, saveThemePreference, type ThemePrefe
 import { clampTextSize, readTextSize, textSizeVars, writeTextSize, type TextSize } from "./type-scale.js";
 import { readWordWrapPreference, readWordWrapShortcut, saveWordWrapPreference, saveWordWrapShortcut } from "./source-view-preferences.js";
 import ProjectNotesDialog from "./ProjectNotesDialog.js";
+import { readNoteRevisionConflict } from "./notes-reload.js";
 import NoteContextMenu, {
   addNoteShortcut,
   isAddNoteShortcut,
@@ -1886,9 +1887,18 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     const label = map.blockById.get(blockId)?.label ?? blockId;
     if (!window.confirm(`Delete the note on ${label}?`)) return;
     try {
-      acceptProjectNotes(await projectNotesSource.remove({ workspaceId: mapKey, blockId }));
+      const loaded = projectNotes.kind === "ready" ? projectNotes.notes.find((note) => note.blockId === blockId) : undefined;
+      acceptProjectNotes(await projectNotesSource.remove({
+        workspaceId: mapKey,
+        blockId,
+        expectedRevision: loaded?.revision ?? null,
+        expectation: loaded === undefined ? "absent" : "matchesRevision",
+      }));
     } catch (error: unknown) {
-      setNoteActionError(describeError(error, "Could not delete this note."));
+      const conflict = readNoteRevisionConflict(error);
+      setNoteActionError(conflict !== null
+        ? "This note changed on disk. Reopen the notes dialog to review it before deleting."
+        : describeError(error, "Could not delete this note."));
     }
   };
   const chooseNoteMenuAction = (target: NoteMenuTarget, action: NoteMenuAction) => {

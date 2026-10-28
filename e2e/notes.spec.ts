@@ -68,6 +68,27 @@ test.describe("project notes (web)", () => {
 });
 
 test.describe("project notes (ipc)", () => {
+  test("NOTES-16: deleting a note that changed on disk offers Delete this version, not a silent delete", async ({ page }) => {
+    await gotoIpc(page);
+    const node = page.locator(".react-flow__node").first();
+    await node.click();
+    await page.keyboard.press("n");
+    await page.getByLabel("Project note text").fill("note before the disk change");
+    await page.keyboard.press("Control+Enter");
+    await page.keyboard.press("Escape");
+    // Open the dialog so it loads the note's revision, then change the note on disk.
+    await page.getByRole("button", { name: /^Notes/ }).click();
+    await expect(page.getByRole("dialog")).toContainText("Project notes");
+    await page.evaluate(() => (window as unknown as { __LW_NOTE_DISK_EDIT__: (text: string) => void }).__LW_NOTE_DISK_EDIT__("changed on disk"));
+    await page.getByRole("button", { name: "Remove" }).click();
+    await expect(page.getByText("This note changed on disk. Your draft is still here.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete this version" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Overwrite" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Delete this version" }).click();
+    await expect(page.getByText("Note removed")).toBeVisible();
+    await expect(page.getByLabel("Saved project notes")).not.toContainText("note before the disk change");
+  });
+
   test("NOTES-05: Delete note item appears after adding via menu", async ({ page }) => {
     await gotoIpc(page);
     const node = page.locator(".react-flow__node").first();

@@ -81,7 +81,14 @@ export async function gotoIpc(page: Page, overrides: {
     const notesState: { notes: { blockId: string; text: string; sourceFingerprint: string; author: string; updatedAt: string; stale: boolean }[] } = {
       notes: [],
     };
-    const snapshot = () => ({ kind: "ready", notes: [...notesState.notes] });
+    // Revision the mock hands out: a note's text and fingerprint, so a changed note has a new revision.
+    const noteRevisionOf = (note: { blockId: string; text: string; sourceFingerprint: string }) =>
+      `rev:${note.blockId}:${note.sourceFingerprint}:${note.text}`;
+    const snapshot = () => ({ kind: "ready", notes: notesState.notes.map((note) => ({ ...note, revision: noteRevisionOf(note) })) });
+    // Test hook: change the first note on "disk" after the dialog has loaded it, as another process would.
+    w.__LW_NOTE_DISK_EDIT__ = (text: string) => {
+      if (notesState.notes[0]) notesState.notes[0].text = text;
+    };
     const committedNotes = new Map<string, string>();
     let notesRevision = 0;
     const gitStatus = (blockId: string) => {
@@ -150,6 +157,18 @@ export async function gotoIpc(page: Page, overrides: {
         }
         case "remove_workspace_note": {
           const blockId = String(args.blockId);
+          const current = notesState.notes.find((n) => n.blockId === blockId);
+          if (args.expectation === "matchesRevision" && typeof args.expectedRevision === "string") {
+            if (!current) throw { kind: "revisionConflict", blockId, current: { kind: "deleted" } };
+            const revision = noteRevisionOf(current);
+            if (revision !== args.expectedRevision) {
+              throw {
+                kind: "revisionConflict",
+                blockId,
+                current: { kind: "present", text: current.text, sourceFingerprint: current.sourceFingerprint, revision },
+              };
+            }
+          }
           notesState.notes = notesState.notes.filter((n) => n.blockId !== blockId);
           return snapshot();
         }
