@@ -6,6 +6,11 @@
 
 - The top bar shows the Local map indicator before Settings, the Notes button matches the size and colors of the map controls beside it, and the commit diff banner uses the amber accent in the Blueprint theme.
 
+### Added
+
+- `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
+
+
 ### Fixed
 
 - Human-readable `lightwell notes list` output shows `unknown` for legacy notes without an update timestamp (#204).
