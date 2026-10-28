@@ -5,6 +5,7 @@
 ### Added
 
 - The top bar has a Close workspace action that returns to the recent-workspaces chooser without touching disk. The chooser lists recent workspaces so a closed one can be reopened. Closing asks first only when a note draft has unsaved text.
+
 ## 0.1.22 - 2026-10-28
 
 ### Changed
