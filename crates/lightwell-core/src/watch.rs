@@ -76,7 +76,7 @@ impl MapWatcher {
             let events = result.map_err(MapWatchError::DebouncedEvent)?;
             let notes_changed = events
                 .iter()
-                .any(|event| event_is_notes_file(&self.repository_path, &event.path));
+                .any(|event| event_is_notes_path(&self.repository_path, &event.path));
             let map_relevant = events.iter().any(|event| {
                 event_is_relevant(&self.repository_path, &self.current_map, &event.path)
             });
@@ -181,9 +181,10 @@ fn classify_watch(
     }
 }
 
-fn event_is_notes_file(repository_path: &Path, event_path: &Path) -> bool {
+fn event_is_notes_path(repository_path: &Path, event_path: &Path) -> bool {
     event_path.starts_with(repository_path)
-        && event_path.ends_with(Path::new(".lightwell").join("notes.json"))
+        && (event_path.ends_with(Path::new(".lightwell").join("notes.json"))
+            || event_path.ends_with(".lightwell"))
 }
 
 fn event_is_relevant(repository_path: &Path, map: &FactMap, event_path: &Path) -> bool {
@@ -303,11 +304,15 @@ mod tests {
             !relevant(".lightwell/notes.json"),
             "notes.json must not force a map re-extract"
         );
-        assert!(event_is_notes_file(
+        assert!(event_is_notes_path(
             &fixture.root,
             &fixture.root.join(".lightwell/notes.json")
         ));
-        assert!(!event_is_notes_file(
+        assert!(event_is_notes_path(
+            &fixture.root,
+            &fixture.root.join(".lightwell")
+        ));
+        assert!(!event_is_notes_path(
             &fixture.root,
             &fixture.root.join(".lightwell/notes.lock")
         ));
