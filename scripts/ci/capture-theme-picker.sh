@@ -79,7 +79,9 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
       printf "Could not read the Lightwell window height.\n" >&2
       exit 1
     fi
-    settings_button_x=$((window_width - 164))
+    # Settings is the rightmost top-bar control: a 25px margin, then an 87px button.
+    # Its centre is about 68px from the right edge.
+    settings_button_x=$((window_width - 68))
     # Match .editor-settings-panel sizing in src/style.css (min(760px, 90vw), min(85vh, 100vh - 48px)).
     panel_width=$((window_width * 90 / 100))
     if (( panel_width > 760 )); then panel_width=760; fi
