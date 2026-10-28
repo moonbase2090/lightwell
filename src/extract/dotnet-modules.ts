@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, ModuleBlock } from "../model.js";
 
 export type DotnetSymbolKind = "class" | "struct" | "record" | "interface" | "enum" | "module" | "method";
@@ -47,7 +48,7 @@ export interface DotnetWorkspace {
   readonly files: readonly DotnetFile[];
 }
 
-const skippedDirectories = new Set(["bin", "obj", "node_modules", "target", "dist"]);
+const skippedDirectories = ["bin", "obj"];
 
 type MaskMode =
   | { readonly kind: "code" }
@@ -477,7 +478,7 @@ function walkDotnetFiles(directory: string, canonicalRoot: string, seen: Set<str
   seen.add(canonical);
   const entries = readdirSync(directory, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.name.startsWith(".") || skippedDirectories.has(entry.name.toLowerCase())) continue;
+    if (entry.name.startsWith(".") || isIgnoredDirectory(entry.name, skippedDirectories)) continue;
     const child = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       walkDotnetFiles(child, canonicalRoot, seen, files);

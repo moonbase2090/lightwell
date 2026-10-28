@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, ModuleBlock } from "../model.js";
 
 export type PythonSymbolKind = "def" | "async def" | "class";
@@ -33,7 +34,7 @@ export interface PythonModule {
   readonly symbols: readonly PythonSymbol[];
 }
 
-const skippedDirectories = new Set(["__pycache__", "node_modules", "target", "dist", "venv", ".venv"]);
+const skippedDirectories = ["__pycache__", "venv", ".venv"];
 
 type Quote = "single" | "double" | "tripleSingle" | "tripleDouble";
 
@@ -189,7 +190,7 @@ function walkPythonFiles(directory: string, canonicalRoot: string, seen: Set<str
   seen.add(canonical);
   const entries = readdirSync(directory, { withFileTypes: true });
   for (const entry of entries) {
-    if (entry.name.startsWith(".") || skippedDirectories.has(entry.name)) continue;
+    if (entry.name.startsWith(".") || isIgnoredDirectory(entry.name, skippedDirectories)) continue;
     const child = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       walkPythonFiles(child, canonicalRoot, seen, files);

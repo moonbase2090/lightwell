@@ -1,5 +1,6 @@
 use crate::metadata::CargoDiscoveryError;
 use crate::path_confinement::{confined_canonical, opened_root};
+use crate::workspace_ignore::is_ignored_directory;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -269,10 +270,12 @@ fn confined_cpp_path(path: &Path, root: &Path) -> Option<PathBuf> {
 }
 
 fn skipped_directory(name: &str) -> bool {
-    if matches!(
-        name,
-        "build" | "node_modules" | "target" | "dist" | "out" | "DerivedData" | "vendor" | ".git"
-    ) {
+    if is_ignored_directory(name)
+        || matches!(
+            name.to_ascii_lowercase().as_str(),
+            "build" | "deriveddata" | "vendor"
+        )
+    {
         return true;
     }
     name.starts_with("cmake-build-")

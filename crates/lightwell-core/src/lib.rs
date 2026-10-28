@@ -19,6 +19,7 @@ mod rust_source;
 mod swift_source;
 mod typescript_source;
 mod watch;
+mod workspace_ignore;
 
 pub use diff::{
     block_diff, block_diff_for, commit_changes, commit_changes_for,

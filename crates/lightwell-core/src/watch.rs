@@ -1,9 +1,12 @@
 use crate::extract::{block_base, discover_project_workspace, map_workspace};
+use crate::workspace_ignore::{is_ignored_directory, path_contains_ignored_directory};
 use crate::{FactMap, MapExtractionError};
-use notify_debouncer_mini::notify::{self, RecursiveMode};
+use notify_debouncer_mini::notify::{self, RecursiveMode, Watcher};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
+use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, RecvError};
 use std::time::Duration;
@@ -17,6 +20,7 @@ pub struct MapWatcher {
     project_name: Option<String>,
     current_map: FactMap,
     events: Receiver<DebounceEventResult>,
+    watched_directories: HashSet<PathBuf>,
     _debouncer: Debouncer<notify::RecommendedWatcher>,
 }
 
@@ -40,10 +44,13 @@ impl MapWatcher {
             let _ = sender.send(result);
         })
         .map_err(MapWatchError::Watch)?;
-        debouncer
-            .watcher()
-            .watch(&repository_path, RecursiveMode::Recursive)
-            .map_err(MapWatchError::Watch)?;
+        let mut watched_directories = HashSet::new();
+        reconcile_workspace_watches(
+            debouncer.watcher(),
+            &repository_path,
+            &mut watched_directories,
+        )
+        .map_err(MapWatchError::Watch)?;
 
         let current_map = map_workspace(workspace, project_name)?;
         Ok(Self {
@@ -51,6 +58,7 @@ impl MapWatcher {
             project_name: project_name.map(str::to_owned),
             current_map,
             events,
+            watched_directories,
             _debouncer: debouncer,
         })
     }
@@ -74,6 +82,12 @@ impl MapWatcher {
         loop {
             let result = self.events.recv().map_err(MapWatchError::EventsClosed)?;
             let events = result.map_err(MapWatchError::DebouncedEvent)?;
+            reconcile_workspace_watches(
+                self._debouncer.watcher(),
+                &self.repository_path,
+                &mut self.watched_directories,
+            )
+            .map_err(MapWatchError::Watch)?;
             let notes_changed = events
                 .iter()
                 .any(|event| event_is_notes_path(&self.repository_path, &event.path));
@@ -188,18 +202,10 @@ fn event_is_notes_path(repository_path: &Path, event_path: &Path) -> bool {
 }
 
 fn event_is_relevant(repository_path: &Path, map: &FactMap, event_path: &Path) -> bool {
-    if !event_path.starts_with(repository_path)
-        || event_path
-            .strip_prefix(repository_path)
-            .is_ok_and(|relative| {
-                relative.components().next().is_some_and(|component| {
-                    matches!(
-                        component.as_os_str().to_str(),
-                        Some(".git" | "target" | "node_modules")
-                    )
-                })
-            })
-    {
+    let Ok(relative_path) = event_path.strip_prefix(repository_path) else {
+        return false;
+    };
+    if path_contains_ignored_directory(relative_path) {
         return false;
     }
 
@@ -227,6 +233,61 @@ fn event_is_relevant(repository_path: &Path, map: &FactMap, event_path: &Path) -
             .parent()
             .is_some_and(|parent| event_path.starts_with(parent))
     })
+}
+
+fn reconcile_workspace_watches(
+    watcher: &mut (impl Watcher + ?Sized),
+    root: &Path,
+    watched_directories: &mut HashSet<PathBuf>,
+) -> Result<(), notify::Error> {
+    let desired: HashSet<_> = watchable_directories(root).into_iter().collect();
+    let removed: Vec<_> = watched_directories.difference(&desired).cloned().collect();
+    for directory in removed {
+        match watcher.unwatch(&directory) {
+            Ok(()) => {}
+            Err(_) if !directory.is_dir() => {}
+            Err(error) => return Err(error),
+        }
+        watched_directories.remove(&directory);
+    }
+
+    for directory in &desired {
+        if watched_directories.contains(directory) || !directory.is_dir() {
+            continue;
+        }
+        match watcher.watch(directory, RecursiveMode::NonRecursive) {
+            Ok(()) => {
+                watched_directories.insert(directory.clone());
+            }
+            Err(_) if !directory.is_dir() => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Ok(())
+}
+
+fn watchable_directories(root: &Path) -> Vec<PathBuf> {
+    let mut directories = HashSet::new();
+    let mut pending = vec![root.to_owned()];
+    while let Some(directory) = pending.pop() {
+        if !directories.insert(directory.clone()) {
+            continue;
+        }
+        let Ok(entries) = fs::read_dir(&directory) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            if entry.file_name().to_str().is_some_and(is_ignored_directory) {
+                continue;
+            }
+            if entry.file_type().is_ok_and(|file_type| file_type.is_dir()) {
+                pending.push(entry.path());
+            }
+        }
+    }
+    let mut directories: Vec<_> = directories.into_iter().collect();
+    directories.sort();
+    directories
 }
 
 fn same_fingerprints(previous: &FactMap, next: &FactMap) -> bool {
@@ -340,6 +401,10 @@ mod tests {
             ".git/Cargo.toml",
             "target/debug/Cargo.toml",
             "node_modules/pkg/Cargo.toml",
+            "packages/app/node_modules/pkg/Cargo.toml",
+            "packages/app/.pnpm/store/Cargo.toml",
+            "packages/app/.next/Cargo.toml",
+            "packages/app/out/Cargo.toml",
         ] {
             assert!(
                 !event_is_relevant(&fixture.root, &map, &fixture.root.join(ignored)),
@@ -351,6 +416,42 @@ mod tests {
             &map,
             &fixture.root.with_extension("sibling").join("Cargo.toml"),
         ));
+    }
+
+    #[test]
+    fn monorepo_dependency_directories_are_not_registered_for_watching() {
+        let fixture = Fixture::new("monorepo-node-modules");
+        for directory in [
+            "packages/app/src",
+            "packages/app/node_modules/example",
+            "packages/app/.pnpm/store/node_modules/example",
+            "packages/app/target/debug",
+            "packages/app/.next/cache",
+            "packages/app/dist",
+            "packages/app/out",
+        ] {
+            fs::create_dir_all(fixture.root.join(directory))
+                .expect("monorepo directory should be created");
+        }
+
+        let watched = watchable_directories(&fixture.root);
+        assert!(watched.contains(&fixture.root.join("packages/app")));
+        assert!(watched.contains(&fixture.root.join("packages/app/src")));
+        for ignored in [
+            "packages/app/node_modules",
+            "packages/app/node_modules/example",
+            "packages/app/.pnpm",
+            "packages/app/.pnpm/store/node_modules",
+            "packages/app/target",
+            "packages/app/.next",
+            "packages/app/dist",
+            "packages/app/out",
+        ] {
+            assert!(
+                !watched.contains(&fixture.root.join(ignored)),
+                "{ignored} should not have a watch registered"
+            );
+        }
     }
 
     #[test]
