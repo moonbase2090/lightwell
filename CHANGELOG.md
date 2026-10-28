@@ -1,10 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.23 - 2026-10-28
 
 ### Changed
 
-- The top bar shows the Local map indicator before Settings, the Notes button matches the size and colors of the map controls beside it, and the commit diff banner uses the amber accent in the Blueprint theme.
+- The top bar shows the Local map indicator before Settings, the Notes button matches the size and colors of the map controls beside it, and the commit diff banner uses the amber accent in the Blueprint theme (#206).
 
 ### Added
 
