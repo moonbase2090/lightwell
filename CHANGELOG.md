@@ -6,6 +6,10 @@
 
 - Human-readable `lightwell notes list` output shows `unknown` for legacy notes without an update timestamp (#204).
 
+### Changed
+
+- Use project-folder wording in the open-project actions (#154).
+
 ## 0.1.22 - 2026-10-28
 
 ### Changed
