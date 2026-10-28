@@ -8,7 +8,7 @@
 
 ### Changed
 
-- Use project-folder wording in the open-project actions (#154).
+- Use project-folder wording in the open-project actions (#217, fixes #154).
 
 ## 0.1.22 - 2026-10-28
 
