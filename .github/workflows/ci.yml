@@ -127,15 +127,19 @@ jobs:
         with:
           targets: aarch64-apple-darwin
       - run: npm ci
+      - name: Prove the bundled CLI lands on PATH
+        run: scripts/ci/test-macos-cli-path.sh
       - name: Build the unsigned Apple Silicon app
         run: npm run tauri:build -- --target aarch64-apple-darwin --bundles app --no-sign
+      - name: Bundle the command line tool
+        run: scripts/ci/bundle-macos-cli.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app aarch64-apple-darwin
       - name: Check the deployment target and unsigned bundle
         run: |
           app='target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app'
           scripts/ci/check-macos-minimum.sh "$app" 11.0
           scripts/ci/check-unsigned-macos-app.sh "$app"
           ditto -c -k --keepParent "$app" "$RUNNER_TEMP/Lightwell-macos-arm64.zip"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: lightwell-macos-arm64-unsigned
           path: ${{ runner.temp }}/Lightwell-macos-arm64.zip
@@ -168,6 +172,8 @@ jobs:
       - run: npm ci
       - name: Build the unsigned app for signing
         run: npm run tauri:build -- --target universal-apple-darwin --bundles app --no-sign
+      - name: Bundle the command line tool
+        run: scripts/ci/bundle-macos-cli.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app aarch64-apple-darwin x86_64-apple-darwin
       - name: Sign and verify the universal app
         env:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
@@ -182,6 +188,7 @@ jobs:
       - name: Check both architectures and the deployment target
         run: |
           lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
+          lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/Resources/bin/lightwell -verify_arch arm64 x86_64
           scripts/ci/check-macos-minimum.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app 11.0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
@@ -201,7 +208,7 @@ jobs:
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
         run: scripts/ci/notarize-macos-app.sh "$RUNNER_TEMP/Lightwell-macos-universal.dmg"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: lightwell-macos-universal-signed
           path: ${{ runner.temp }}/Lightwell-macos-universal.dmg
@@ -236,7 +243,7 @@ jobs:
         run: npm run tauri:build -- --runner cargo-zigbuild --target x86_64-unknown-linux-gnu --bundles deb,appimage,rpm --no-sign
       - name: Capture the empty workspace screen from the built app
         run: scripts/ci/capture-open-workspace.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-open-workspace.png"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: lightwell-open-workspace-linux-screenshot
           path: ${{ runner.temp }}/lightwell-open-workspace.png
@@ -244,7 +251,7 @@ jobs:
       - name: Capture the live map before and after a Rust source edit
         id: live_refresh_capture
         run: scripts/ci/capture-live-refresh.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-live-refresh"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always() && steps.live_refresh_capture.outcome != 'skipped'
         with:
           name: lightwell-live-refresh-linux-screenshots
@@ -255,12 +262,12 @@ jobs:
         run: scripts/ci/capture-project-notes.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-project-notes"
       - name: Upload project notes failure diagnostics
         if: failure() && steps.notes_capture.outcome == 'failure'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: lightwell-project-notes-failure-debug
           path: ${{ runner.temp }}/lightwell-project-notes/
           if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: steps.notes_capture.outcome == 'success'
         with:
           name: lightwell-project-notes-linux-screenshots
@@ -269,7 +276,7 @@ jobs:
       - name: Capture the source inspector and editor settings from the built app
         id: source_inspector_capture
         run: scripts/ci/capture-source-inspector.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-source-inspector"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: steps.source_inspector_capture.outcome == 'success'
         with:
           name: lightwell-source-inspector-linux-screenshots
@@ -279,7 +286,7 @@ jobs:
         env:
           CAPTURE_SPLITTERS: ${{ startsWith(github.head_ref, 'm2/draggable-rails') }}
         run: scripts/ci/capture-theme-picker.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-theme-picker" "$CAPTURE_SPLITTERS"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: lightwell-theme-picker-linux-screenshots
           path: ${{ runner.temp }}/lightwell-theme-picker/*.png
@@ -287,7 +294,7 @@ jobs:
       - name: Exercise draggable rails and per-project restore
         if: startsWith(github.head_ref, 'm2/draggable-rails')
         run: scripts/ci/capture-splitters.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-splitters"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always() && startsWith(github.head_ref, 'm2/draggable-rails')
         with:
           name: lightwell-splitters-linux-screenshots
@@ -317,7 +324,7 @@ jobs:
             "$previous_app" \
             "$GITHUB_WORKSPACE/target/x86_64-unknown-linux-gnu/release/lightwell" \
             "$RUNNER_TEMP/lightwell-compact-header"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: startsWith(github.head_ref, 'm2/compact-header')
         with:
           name: lightwell-compact-header-linux-screenshots
@@ -353,7 +360,7 @@ jobs:
           cp "$RUNNER_TEMP"/dist-linux/* "$RUNNER_TEMP/text-check/"
           (cd "$RUNNER_TEMP/text-check" && sha256sum * > SHA256SUMS)
           scripts/check-release-text.sh --root "$GITHUB_WORKSPACE" --artifact "$RUNNER_TEMP/text-check"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: lightwell-linux-x86_64-glibc-2.28
           path: ${{ runner.temp }}/dist-linux/*

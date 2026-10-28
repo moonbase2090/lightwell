@@ -89,6 +89,8 @@ jobs:
         run: echo "RUSTFLAGS=--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build" >> "$GITHUB_ENV"
       - name: Build the unsigned app for signing
         run: npm run tauri:build -- --target aarch64-apple-darwin --bundles app --no-sign
+      - name: Bundle the command line tool
+        run: scripts/ci/bundle-macos-cli.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app aarch64-apple-darwin
       - name: Sign and verify the Apple Silicon app
         env:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
@@ -152,6 +154,8 @@ jobs:
         run: echo "RUSTFLAGS=--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build" >> "$GITHUB_ENV"
       - name: Build the unsigned Apple Silicon app
         run: npm run tauri:build -- --target aarch64-apple-darwin --bundles app --no-sign
+      - name: Bundle the command line tool
+        run: scripts/ci/bundle-macos-cli.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app aarch64-apple-darwin
       - name: Confirm the app is unsigned
         run: scripts/ci/check-unsigned-macos-app.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app
       - name: Check the deployment target
@@ -186,6 +190,8 @@ jobs:
         run: echo "RUSTFLAGS=--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build" >> "$GITHUB_ENV"
       - name: Build the unsigned app for signing
         run: npm run tauri:build -- --target universal-apple-darwin --bundles app --no-sign
+      - name: Bundle the command line tool
+        run: scripts/ci/bundle-macos-cli.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app aarch64-apple-darwin x86_64-apple-darwin
       - name: Sign and verify the universal app
         env:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
@@ -198,7 +204,9 @@ jobs:
           APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
         run: scripts/ci/notarize-macos-app.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app "$RUNNER_TEMP/Lightwell-macos-universal.zip"
       - name: Check both architectures are present
-        run: lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
+        run: |
+          lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
+          lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/Resources/bin/lightwell -verify_arch arm64 x86_64
       - name: Check the deployment target
         run: scripts/ci/check-macos-minimum.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app 11.0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
@@ -251,10 +259,14 @@ jobs:
         run: echo "RUSTFLAGS=--remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo --remap-path-prefix=$GITHUB_WORKSPACE=/build" >> "$GITHUB_ENV"
       - name: Build the unsigned universal app
         run: npm run tauri:build -- --target universal-apple-darwin --bundles app --no-sign
+      - name: Bundle the command line tool
+        run: scripts/ci/bundle-macos-cli.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app aarch64-apple-darwin x86_64-apple-darwin
       - name: Confirm the app is unsigned
         run: scripts/ci/check-unsigned-macos-app.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app
       - name: Check both architectures are present
-        run: lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
+        run: |
+          lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
+          lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/Resources/bin/lightwell -verify_arch arm64 x86_64
       - name: Check the deployment target
         run: scripts/ci/check-macos-minimum.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app 11.0
       - name: Zip the app
@@ -418,6 +430,14 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Register the PowerShell Gallery repository
+        if: steps.signing.outputs.enabled == 'True'
+        shell: pwsh
+        run: |
+          if (-not (Get-PSRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+            Register-PSRepository -Default
+          }
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
       - name: Sign Windows executables
         if: steps.signing.outputs.enabled == 'True'
         uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0

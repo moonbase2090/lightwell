@@ -51,7 +51,7 @@ jobs:
       - name: Capture the live map before and after a Rust source edit
         id: live_refresh_capture
         run: scripts/ci/capture-live-refresh.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-live-refresh"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always() && steps.live_refresh_capture.outcome != 'skipped'
         with:
           name: lightwell-live-refresh-linux-screenshots

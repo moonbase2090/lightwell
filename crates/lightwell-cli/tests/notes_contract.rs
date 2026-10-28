@@ -130,6 +130,22 @@ fn json_notes_roundtrip_reports_persisted_text_and_removal() {
 }
 
 #[test]
+fn legacy_note_without_updated_at_lists_unknown_timestamp() {
+    let project = Project::new();
+    project.json(&["notes", "set", "--json", BLOCK, "Legacy note"]);
+    let notes_path = project.0.join(".lightwell/notes.json");
+    let mut document: Value = serde_json::from_slice(&fs::read(&notes_path).unwrap()).unwrap();
+    let note = document["notes"][BLOCK].as_object_mut().unwrap();
+    note.remove("author");
+    note.remove("updatedAt");
+    fs::write(&notes_path, serde_json::to_vec(&document).unwrap()).unwrap();
+
+    let listed = String::from_utf8(project.run(&["notes", "list"], 0).stdout).unwrap();
+    assert!(listed.contains("; author unknown; updated unknown): Legacy note"));
+    assert!(!listed.contains("updated )"));
+}
+
+#[test]
 fn human_success_output_remains_unchanged() {
     let project = Project::new();
     assert_eq!(
@@ -534,5 +550,55 @@ fn notes_set_leaves_notes_unstaged_so_documented_git_add_is_required() {
     assert!(
         after.lines().any(|line| line == "A  .lightwell/notes.json"),
         "documented `git add .lightwell/notes.json` must stage the saved notes file: {after:?}"
+    );
+}
+
+#[test]
+fn for_file_returns_only_notes_for_matching_source_and_marks_stale_notes() {
+    let project = Project::new();
+    fs::write(
+        project.0.join("src/lib.rs"),
+        "pub mod extra;\npub fn before() -> u8 { 1 }\n",
+    )
+    .unwrap();
+    fs::write(
+        project.0.join("src/extra.rs"),
+        "pub fn extra() -> u8 { 2 }\n",
+    )
+    .unwrap();
+    let extra = "module:notes-contracts:crate root::extra";
+    project.json(&["notes", "set", BLOCK, "Root note", "--json"]);
+    project.json(&["notes", "set", extra, "Extra note", "--json"]);
+
+    let root_notes = project.json(&["notes", "for-file", "src/lib.rs", "--json"]);
+    assert_eq!(root_notes.as_array().unwrap().len(), 1);
+    assert_eq!(root_notes[0]["blockId"], BLOCK);
+    assert_eq!(root_notes[0]["text"], "Root note");
+    assert_eq!(root_notes[0]["stale"], false);
+
+    let extra_notes = project.json(&["notes", "for-file", "src/extra.rs", "--json"]);
+    assert_eq!(extra_notes.as_array().unwrap().len(), 1);
+    assert_eq!(extra_notes[0]["blockId"], extra);
+    assert_eq!(extra_notes[0]["text"], "Extra note");
+
+    fs::write(
+        project.0.join("src/extra.rs"),
+        "pub fn extra() -> u8 { 3 }\n",
+    )
+    .unwrap();
+    let stale = project.json(&["notes", "for-file", "src/extra.rs", "--json"]);
+    assert_eq!(stale[0]["blockId"], extra);
+    assert_eq!(stale[0]["text"], "Extra note");
+    assert_eq!(stale[0]["stale"], true);
+
+    assert_eq!(
+        project.json(&["notes", "for-file", "src/missing.rs", "--json"]),
+        json!([])
+    );
+    assert_eq!(
+        project
+            .run(&["notes", "for-file", "src/missing.rs"], 0)
+            .stdout,
+        b"No project notes for file `src/missing.rs`.\n"
     );
 }

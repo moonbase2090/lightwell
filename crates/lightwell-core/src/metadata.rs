@@ -469,6 +469,22 @@ mod tests {
             Self { root }
         }
 
+        fn discover(&self) -> Result<super::CargoWorkspace, super::CargoDiscoveryError> {
+            // Linux can briefly retain a writable mapping of a newly written script.
+            for attempt in 0..5 {
+                match discover_cargo_workspace(&self.root) {
+                    Err(super::CargoDiscoveryError::CargoStart(source))
+                        if source.kind() == std::io::ErrorKind::ExecutableFileBusy
+                            && attempt < 4 =>
+                    {
+                        std::thread::sleep(std::time::Duration::from_millis(20 * (attempt + 1)));
+                    }
+                    result => return result,
+                }
+            }
+            unreachable!()
+        }
+
         fn cargo_script(&self, unix_script: &str, windows_script: &str) -> PathBuf {
             let bin_dir = self.root.join("bin");
             fs::create_dir_all(&bin_dir).expect("fake cargo folder should be created");
@@ -524,23 +540,9 @@ mod tests {
         let _override = CargoOverride::set(
             fixture.cargo_script("#!/bin/sh\nexit 127\n", "@echo off\r\nexit /b 127\r\n"),
         );
-        // A freshly written script can return ETXTBSY for a moment on Linux.
-        let mut workspace = None;
-        for attempt in 0..5 {
-            match discover_cargo_workspace(&fixture.root) {
-                Ok(discovered) => {
-                    workspace = Some(discovered);
-                    break;
-                }
-                Err(super::CargoDiscoveryError::CargoStart(source))
-                    if source.kind() == std::io::ErrorKind::ExecutableFileBusy && attempt < 4 =>
-                {
-                    std::thread::sleep(std::time::Duration::from_millis(20 * (attempt as u64 + 1)));
-                }
-                Err(error) => panic!("a missing cargo should fall back to the manifest: {error}"),
-            }
-        }
-        let workspace = workspace.expect("a missing cargo should fall back to the manifest");
+        let workspace = fixture
+            .discover()
+            .expect("a missing cargo should fall back to the manifest");
         assert_eq!(workspace.packages.len(), 1);
         assert_eq!(workspace.packages[0].name, "fallback-fixture");
         assert_eq!(
@@ -556,7 +558,8 @@ mod tests {
             "#!/bin/sh\necho 'metadata exploded' >&2\nexit 1\n",
             "@echo off\r\necho metadata exploded 1>&2\r\nexit /b 1\r\n",
         ));
-        let message = discover_cargo_workspace(&fixture.root)
+        let message = fixture
+            .discover()
             .expect_err("a real cargo failure should stay visible")
             .to_string();
         assert!(
