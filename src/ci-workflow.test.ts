@@ -40,3 +40,18 @@ test("windows runs the npm suite and the cargo tests", () => {
   assert.match(block, /cargo test -p lightwell-app --bin lightwell --locked/);
   assert.match(block, /python scripts\/release\/windows_msi_test.py/);
 });
+
+test("CI upload-artifact steps are pinned to a full commit SHA", () => {
+  assert.equal(text.includes("actions/upload-artifact@v"), false);
+  const uploads = [...text.matchAll(/^ {2,}(?:- )?uses: (actions\/upload-artifact@\S+)/gm)].map(
+    (match) => match[1],
+  );
+  assert.ok(uploads.length > 0);
+  for (const action of uploads) {
+    assert.match(action, /^actions\/upload-artifact@[0-9a-f]{40}$/, `Pin ${action} to a commit`);
+  }
+  assert.match(
+    text,
+    /uses: actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4\.6\.2/,
+  );
+});
