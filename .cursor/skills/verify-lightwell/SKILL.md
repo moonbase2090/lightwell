@@ -46,7 +46,7 @@ Read `.cursor/skills/verify-lightwell/features/README.md` and the feature file f
 Harness summary:
 
 - **CLI:** `target/debug/lightwell` (after build) or `cargo run -p lightwell-cli --locked --` with `extract`, `--name`, and `-o`.
-- **CLI project notes:** run `scripts/smoke-project-notes.sh target/debug/lightwell` after building the CLI. It saves notes in a temporary Git repository and checks ignored lock/temp files, unstaged trackable notes, preserved root ignore rules, and idempotent saves, then exercises stale detection and removal.
+- **CLI project notes:** run `scripts/smoke-project-notes.sh target/debug/lightwell` after building the CLI. It saves notes in a temporary Git repository and checks ignored lock/temp files, unstaged trackable notes, preserved root ignore rules, and idempotent saves, then exercises stale detection and removal. `notes list` and `notes set` accept optional `--map <facts.json>` to reuse a facts file from `lightwell extract` instead of extracting. Without `--map`, each command extracts the workspace once. Contract coverage is `cargo test -p lightwell-cli --locked --test notes_map_reuse`.
 - **Commit-diff concurrency:** follow `features/commit-map-concurrency.md` when changing commit-map extraction or temporary worktree ownership.
 - **Browser:** HTTP against the preview URL; built `dist/` must exist (`npm run build`).
 - **Desktop project notes (Linux only):** `scripts/ci/capture-project-notes.sh` with a built Tauri binary. See `features/project-notes-capture.md` for Xvfb, xdotool, ImageMagick, and the fixed layout. Skip it when those are missing; do not substitute the browser preview.
@@ -103,5 +103,17 @@ powershell -File scripts/release/build-windows.ps1
 ```
 
 `build-windows.ps1` reads the workspace version from `Cargo.toml` and does not bump it. The GUI is `Lightwell.exe`. The CLI is `bin\lightwell.exe`. `ADDTOPATH` defaults on. The release workflow signs the staged binaries, packages with `-SkipBuild -Signed`, then signs the MSI. Without `-Signed`, the script prints `Windows code signing skipped: Azure Artifact Signing settings are absent.`
+
+## macOS command on PATH
+
+On macOS the release app bundles `lightwell-cli` at `Lightwell.app/Contents/Resources/bin/lightwell`, separate from the desktop binary at `Contents/MacOS/lightwell`. `scripts/ci/bundle-macos-cli.sh` builds that CLI and copies it in after `tauri build` and before signing. Opening the app links it to `/usr/local/bin/lightwell` when that directory exists and is writable, otherwise `~/.local/bin/lightwell`. The app does not edit shell profiles.
+
+Proof, from the repository root on macOS:
+
+```sh
+scripts/ci/test-macos-cli-path.sh
+```
+
+Expect `macOS CLI path proof passed`. The script uses a temporary stand-in for `/usr/local/bin` and a temporary `HOME`. It does not write the machine PATH or shell profiles.
 
 After product changes to build commands, test commands, or primary user flows, run `/maintain-verification-skill`.

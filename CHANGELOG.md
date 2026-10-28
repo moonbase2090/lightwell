@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The top bar shows the Local map indicator before Settings, the Notes button matches the size and colors of the map controls beside it, and the commit diff banner uses the amber accent in the Blueprint theme.
+
+### Added
+
+- `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).
+- `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
+
+### Fixed
+
+- Human-readable `lightwell notes list` output shows `unknown` for legacy notes without an update timestamp (#204).
+
+### Changed
+
+- Use project-folder wording in the open-project actions (#217, fixes #154).
+
+## 0.1.22 - 2026-10-28
+
+### Changed
+
+- The Windows release build registers the PowerShell Gallery before signing, so the signing step can install its module again (#214).
+
 ## 0.1.21 - 2026-10-27
 
 ### Added

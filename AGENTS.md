@@ -13,6 +13,8 @@ cargo test -p lightwell-core --lib --locked
 cargo test -p lightwell-app --bin lightwell --locked
 ```
 
+On macOS, `scripts/ci/test-macos-cli-path.sh` checks that a fresh shell resolves the bundled `lightwell` command. `scripts/ci/bundle-macos-cli.sh` copies that command into `Lightwell.app` after `tauri build` and before signing.
+
 ## Tests
 
 No tautological tests. A test must fail when the behavior it covers breaks. Don't write tests that:
@@ -25,3 +27,7 @@ No tautological tests. A test must fail when the behavior it covers breaks. Don'
 - still pass when the implementation is deleted or replaced with a stub or default
 
 Review rejects tests like these.
+
+## Project notes
+
+Before changing a source file, run `lightwell notes for-file <path>` from the project root and read the notes attached to blocks from that file. Read stale notes too; they may explain past decisions even when the source has changed. Use `lightwell notes list` to inspect all project notes. Notes live in `.lightwell/notes.json`; preserve existing notes unless the task calls for updating or removing them.

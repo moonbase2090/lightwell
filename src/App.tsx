@@ -266,7 +266,7 @@ function MapSourceState({
         {openWorkspace !== undefined && (
           <button className="open-workspace-primary" type="button" onClick={openWorkspace} disabled={opening}>
             {opening ? <Activity size={15} /> : <FolderOpen size={15} />}
-            {opening ? "Opening workspace…" : "Choose workspace folder"}
+            {opening ? "Opening project…" : "Choose project folder"}
           </button>
         )}
         {openWorkspace === undefined && <Icon className="source-state-status" size={15} />}
@@ -867,7 +867,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       setInspectedBlockId(null);
       setMapRequestVersion((version) => version + 1);
     } catch (error: unknown) {
-      setWorkspaceError(describeError(error, "Could not open this workspace."));
+      setWorkspaceError(describeError(error, "Could not open this project."));
     } finally {
       setOpeningWorkspace(false);
     }
@@ -2334,7 +2334,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         </div>
         {openWorkspaceAction !== undefined && (
           <button className="open-workspace-button" type="button" onClick={handleOpenWorkspace} disabled={openingWorkspace}>
-            <FolderOpen size={14} />{openingWorkspace ? "Opening…" : "Open workspace"}
+            <FolderOpen size={14} />{openingWorkspace ? "Opening…" : "Open project folder"}
           </button>
         )}
         <div className="global-search-wrap">
@@ -2352,10 +2352,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <SearchResults query={search} nodes={nodeSearch} onChoose={selectSearchNode} />
         </div>
         <div className="top-status">
+          <span className="local-map-indicator"><span className="live-dot" />LOCAL MAP</span>
           <button className="editor-settings-button" type="button" onClick={() => setSettingsOpen(true)}>
             <Settings2 size={13} />Settings
           </button>
-          <span className="local-map-indicator"><span className="live-dot" />LOCAL MAP</span>
         </div>
       </header>
 

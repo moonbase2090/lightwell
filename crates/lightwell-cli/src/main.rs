@@ -1,8 +1,9 @@
 use lightwell_core::{
-    discover_project_workspace, extract_cargo_map, list_project_notes, mark_project_note_reviewed,
+    discover_project_workspace, extract_cargo_map, extract_project_map, mark_project_note_reviewed,
     open_block, project_notes_for_map, remove_project_note, remove_stale_project_notes,
-    set_project_note, set_project_note_if_absent, BlockBase, EditorSettings, FactBlock, FactMap,
-    MapWatchError, MapWatcher, NotesError,
+    set_project_note_for_map, set_project_note_if_absent_for_map, BlockBase, EditorSettings,
+    FactBlock, FactMap, MapStats, MapWatchError, MapWatcher, NotesError, Project, WorkspaceBlock,
+    MAP_SCHEMA_VERSION,
 };
 use std::env;
 use std::error::Error;
@@ -12,7 +13,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check]\n  lightwell notes set [-C|--repo <path>] [--replace] [--json] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--replace] [--json] <text...>\n  lightwell notes review [-C|--repo <path>] [--json] <block-id>\n  lightwell notes rm-stale [-C|--repo <path>] --yes [--json]\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
+const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check] [--map <facts.json>]\n  lightwell notes for-file [-C|--repo <path>] <path> [--json]\n  lightwell notes set [-C|--repo <path>] [--replace] [--json] [--map <facts.json>] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--replace] [--json] [--map <facts.json>] <text...>\n  lightwell notes review [-C|--repo <path>] [--json] <block-id>\n  lightwell notes rm-stale [-C|--repo <path>] --yes [--json]\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
 
 const NOTES_STALE_ACTIONS_ENV: &str = "LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS";
 
@@ -33,6 +34,9 @@ struct BlocksOptions {
 enum NotesCommand {
     List {
         check: bool,
+    },
+    ForFile {
+        path: String,
     },
     Set {
         target: SetTarget,
@@ -62,6 +66,7 @@ struct NotesOptions {
     command: NotesCommand,
     output: NotesOutput,
     repository_path: Option<PathBuf>,
+    map_path: Option<PathBuf>,
 }
 
 struct ExtractOptions {
@@ -232,6 +237,7 @@ fn parse_notes_command(
     let mut yes = false;
     let mut replace_existing = false;
     let mut file: Option<String> = None;
+    let mut map_path: Option<PathBuf> = None;
     let mut parse_options = true;
     let mut positional = Vec::new();
     while let Some(argument) = arguments.next() {
@@ -265,6 +271,19 @@ fn parse_notes_command(
                 return Err("the --yes option may appear only once".to_owned());
             }
             yes = true;
+        } else if parse_options && argument == OsStr::new("--map") {
+            if map_path.is_some() {
+                return Err("the --map option may appear only once".to_owned());
+            }
+            let value = arguments
+                .next()
+                .ok_or_else(|| "the --map option requires a path".to_owned())?
+                .into_string()
+                .map_err(|_| "the --map path must use UTF-8".to_owned())?;
+            if value.is_empty() {
+                return Err("the --map option requires a path".to_owned());
+            }
+            map_path = Some(PathBuf::from(value));
         } else if parse_options && argument == OsStr::new("--file") {
             if file.is_some() {
                 return Err("the --file option may appear only once".to_owned());
@@ -300,12 +319,24 @@ fn parse_notes_command(
     if file.is_some() && subcommand != OsStr::new("set") {
         return Err("--file is only available for `lightwell notes set`".to_owned());
     }
+    if map_path.is_some() && subcommand != OsStr::new("list") && subcommand != OsStr::new("set") {
+        return Err(
+            "--map is only available for `lightwell notes list` and `lightwell notes set`"
+                .to_owned(),
+        );
+    }
     let mut arguments = positional.into_iter();
     let command = if subcommand == OsStr::new("list") {
         if arguments.next().is_some() {
             return Err("`lightwell notes list` takes no arguments".to_owned());
         }
         NotesCommand::List { check }
+    } else if subcommand == OsStr::new("for-file") {
+        let path = required_utf8(&mut arguments, "a file path")?;
+        if arguments.next().is_some() {
+            return Err("`lightwell notes for-file` takes one file path".to_owned());
+        }
+        NotesCommand::ForFile { path }
     } else if subcommand == OsStr::new("set") {
         let target = match file {
             Some(path) => SetTarget::File(path),
@@ -363,6 +394,7 @@ fn parse_notes_command(
             NotesOutput::Human
         },
         repository_path,
+        map_path,
     }))
 }
 
@@ -397,6 +429,16 @@ fn required_utf8(
         .map_err(|_| format!("{description} must use UTF-8"))
 }
 
+fn require_notes_stale_actions() -> Result<(), Box<dyn Error>> {
+    match env::var(NOTES_STALE_ACTIONS_ENV) {
+        Ok(value) if value == "true" => Ok(()),
+        _ => Err(format!(
+            "`notes review` and `notes rm-stale` require {NOTES_STALE_ACTIONS_ENV}=true (off by default)."
+        )
+        .into()),
+    }
+}
+
 fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> {
     let repository = match options.repository_path {
         Some(path) => path,
@@ -404,7 +446,8 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
     };
     match options.command {
         NotesCommand::List { check } => {
-            let notes = list_project_notes(repository)?;
+            let (root, map) = notes_workspace_map(&repository, options.map_path.as_deref())?;
+            let notes = project_notes_for_map(&root, &map)?;
             let stale_count = notes.iter().filter(|note| note.stale).count();
             match options.output {
                 NotesOutput::Json => write_notes_json(serde_json::to_value(&notes)?)?,
@@ -416,12 +459,17 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                     }
                     for note in notes {
                         let status = if note.stale { "stale" } else { "current" };
+                        let updated_at = if note.updated_at.is_empty() {
+                            "unknown"
+                        } else {
+                            note.updated_at.as_str()
+                        };
                         println!(
                             "[{status}] {} (source fingerprint {}; author {}; updated {}): {}",
                             note.block_id,
                             note.source_fingerprint,
                             note.author,
-                            note.updated_at,
+                            updated_at,
                             note.text
                         );
                     }
@@ -433,51 +481,81 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                 return Ok(ExitCode::from(5));
             }
         }
+        NotesCommand::ForFile { path } => {
+            let (root, map) = current_workspace_map(&repository)?;
+            let wanted = normalized_workspace_path(&root, &path);
+            let matching_ids = block_views(&map)
+                .into_iter()
+                .filter(|block| {
+                    block
+                        .source_path
+                        .as_deref()
+                        .is_some_and(|source| normalized_source_path(source) == wanted)
+                })
+                .map(|block| block.id)
+                .collect::<Vec<_>>();
+            let mut notes = project_notes_for_map(&root, &map)?;
+            notes.retain(|note| matching_ids.contains(&note.block_id));
+            match options.output {
+                NotesOutput::Json => write_notes_json(serde_json::to_value(&notes)?)?,
+                NotesOutput::Human => {
+                    if notes.is_empty() {
+                        println!("No project notes for file `{path}`.");
+                    }
+                    for note in notes {
+                        let status = if note.stale { "stale" } else { "current" };
+                        println!(
+                            "[{status}] {} (source fingerprint {}): {}",
+                            note.block_id, note.source_fingerprint, note.text
+                        );
+                    }
+                }
+            }
+        }
         NotesCommand::Set {
             target,
             text,
             replace_existing,
         } => {
+            let (root, map) = notes_workspace_map(&repository, options.map_path.as_deref())?;
             let block_id = match target {
                 SetTarget::BlockId(block_id) => block_id,
-                SetTarget::File(path) => {
-                    let (root, map) = current_workspace_map(&repository)?;
-                    match resolve_file_block(&root, &map, &path) {
-                        FileResolution::Unique(block_id) => block_id,
-                        FileResolution::None => {
-                            eprintln!("lightwell: No block for file `{path}`.");
-                            for candidate in suggested_paths(&map, &path) {
-                                eprintln!("lightwell: Did you mean `{candidate}`?");
-                            }
-                            return Ok(ExitCode::from(4));
+                SetTarget::File(path) => match resolve_file_block(&root, &map, &path) {
+                    FileResolution::Unique(block_id) => block_id,
+                    FileResolution::None => {
+                        eprintln!("lightwell: No block for file `{path}`.");
+                        for candidate in suggested_paths(&map, &path) {
+                            eprintln!("lightwell: Did you mean `{candidate}`?");
                         }
-                        FileResolution::Ambiguous(matches) => {
-                            eprintln!(
-                                "lightwell: File `{path}` matches {} blocks. Choose a block ID:",
-                                matches.len()
-                            );
-                            for candidate in matches {
-                                eprintln!("lightwell:   `{candidate}`");
-                            }
-                            return Ok(ExitCode::from(2));
-                        }
+                        return Ok(ExitCode::from(4));
                     }
-                }
+                    FileResolution::Ambiguous(matches) => {
+                        eprintln!(
+                            "lightwell: File `{path}` matches {} blocks. Choose a block ID:",
+                            matches.len()
+                        );
+                        for candidate in matches {
+                            eprintln!("lightwell:   `{candidate}`");
+                        }
+                        return Ok(ExitCode::from(2));
+                    }
+                },
             };
             let result = if replace_existing {
-                set_project_note(&repository, &block_id, &text)
+                set_project_note_for_map(&root, &map, &block_id, &text)
             } else {
-                set_project_note_if_absent(&repository, &block_id, &text)
+                set_project_note_if_absent_for_map(&root, &map, &block_id, &text)
             };
             let note = match result {
-                Ok(note) => note,
+                Ok(notes) => notes
+                    .into_iter()
+                    .find(|note| note.block_id == block_id)
+                    .ok_or_else(|| NotesError::NoteNotFound(block_id.clone()))?,
                 Err(error) => {
                     if let NotesError::BlockNotFound(_) = error {
                         eprintln!("lightwell: {error}");
-                        if let Ok((_, map)) = current_workspace_map(&repository) {
-                            for candidate in suggested_blocks(&map, &block_id) {
-                                eprintln!("lightwell: Did you mean `{candidate}`?");
-                            }
+                        for candidate in suggested_blocks(&map, &block_id) {
+                            eprintln!("lightwell: Did you mean `{candidate}`?");
                         }
                         return Ok(ExitCode::from(4));
                     }
@@ -489,8 +567,7 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                     println!("Saved note for `{block_id}` in `.lightwell/notes.json`.");
                 }
                 NotesOutput::Json => {
-                    // Use the note returned from the write's extraction — do not
-                    // re-extract via list_project_notes for JSON metadata.
+                    // Use the note returned from the write — do not extract the map again.
                     write_notes_json(serde_json::json!({
                         "blockId": note.block_id,
                         "text": note.text,
@@ -565,16 +642,6 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
         }
     }
     Ok(ExitCode::SUCCESS)
-}
-
-fn require_notes_stale_actions() -> Result<(), Box<dyn Error>> {
-    match env::var(NOTES_STALE_ACTIONS_ENV) {
-        Ok(value) if value == "true" => Ok(()),
-        _ => Err(format!(
-            "`notes review` and `notes rm-stale` require {NOTES_STALE_ACTIONS_ENV}=true (off by default)."
-        )
-        .into()),
-    }
 }
 
 fn write_notes_json(value: serde_json::Value) -> Result<(), Box<dyn Error>> {
@@ -672,9 +739,105 @@ fn run_blocks_command(options: BlocksOptions) -> Result<ExitCode, Box<dyn Error>
 }
 
 fn current_workspace_map(repository: &Path) -> Result<(PathBuf, FactMap), Box<dyn Error>> {
-    let root = discover_project_workspace(repository)?.root;
-    let map = extract_cargo_map(repository, None)?;
-    Ok((root, map))
+    Ok(extract_project_map(repository)?)
+}
+
+fn notes_workspace_map(
+    repository: &Path,
+    map_path: Option<&Path>,
+) -> Result<(PathBuf, FactMap), Box<dyn Error>> {
+    match map_path {
+        Some(path) => {
+            let root = discover_project_workspace(repository)?.root;
+            Ok((root, read_reused_map(path)?))
+        }
+        None => Ok(extract_project_map(repository)?),
+    }
+}
+
+/// Read block id, label, fingerprint, and source path from a facts file.
+/// Notes compare those fields only, so the reused map does not rebuild language-specific blocks.
+fn read_reused_map(path: &Path) -> Result<FactMap, String> {
+    let bytes = fs::read(path)
+        .map_err(|source| format!("Could not read map file {}: {source}", path.display()))?;
+    let value: serde_json::Value = serde_json::from_slice(&bytes)
+        .map_err(|source| format!("Could not parse map file {}: {source}", path.display()))?;
+    let version = value
+        .get("schemaVersion")
+        .and_then(|version| version.as_u64())
+        .ok_or_else(|| format!("Map file {} has no schema version.", path.display()))?;
+    if version != u64::from(MAP_SCHEMA_VERSION) {
+        return Err(format!(
+            "Map file {} uses unsupported schema version {version}.",
+            path.display()
+        ));
+    }
+    let blocks = value
+        .get("blocks")
+        .and_then(|blocks| blocks.as_array())
+        .ok_or_else(|| format!("Map file {} has no blocks array.", path.display()))?;
+    let mut fact_blocks = Vec::with_capacity(blocks.len());
+    for (index, block) in blocks.iter().enumerate() {
+        let Some(block) = block.as_object() else {
+            return Err(format!(
+                "Map file {} block {index} is not an object.",
+                path.display()
+            ));
+        };
+        let id = block
+            .get("id")
+            .and_then(|id| id.as_str())
+            .ok_or_else(|| format!("Map file {} block {index} has no id.", path.display()))?;
+        let label = block
+            .get("label")
+            .and_then(|label| label.as_str())
+            .ok_or_else(|| format!("Map file {} block `{id}` has no label.", path.display()))?;
+        let fingerprint = block
+            .get("fingerprint")
+            .and_then(|fingerprint| fingerprint.as_str())
+            .ok_or_else(|| {
+                format!(
+                    "Map file {} block `{id}` has no fingerprint.",
+                    path.display()
+                )
+            })?;
+        let source_path = match block.get("sourcePath") {
+            None | Some(serde_json::Value::Null) => None,
+            Some(serde_json::Value::String(source_path)) => Some(source_path.clone()),
+            Some(_) => {
+                return Err(format!(
+                    "Map file {} block `{id}` has a non-string source path.",
+                    path.display()
+                ));
+            }
+        };
+        fact_blocks.push(FactBlock::Workspace(WorkspaceBlock {
+            base: BlockBase {
+                id: id.to_owned(),
+                label: label.to_owned(),
+                parent_id: None,
+                children: Vec::new(),
+                source_path,
+                fingerprint: fingerprint.to_owned(),
+            },
+            member_count: 0,
+        }));
+    }
+    let block_count = fact_blocks.len();
+    Ok(FactMap::schema_v1(
+        Project {
+            id: "workspace:reused-map".to_owned(),
+            name: "Reused map".to_owned(),
+            root_path: ".".to_owned(),
+        },
+        fact_blocks,
+        Vec::new(),
+        Vec::new(),
+        MapStats {
+            blocks: block_count,
+            ..MapStats::default()
+        },
+    ))
 }
 
 struct BlockView {

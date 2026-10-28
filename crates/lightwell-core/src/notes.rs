@@ -1790,3 +1790,34 @@ mod tests {
         );
     }
 }
+
+pub fn set_project_note_if_absent_for_map(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+    block_id: &str,
+    text: &str,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
+    let block = map
+        .blocks
+        .iter()
+        .find(|block| block_base(block).id == block_id)
+        .ok_or_else(|| NotesError::BlockNotFound(block_id.to_owned()))?;
+    let fingerprint = &block_base(block).fingerprint;
+    let root = project_root.as_ref();
+    let store = ProjectNotesStore::new(root);
+    match store.set_expecting(
+        root,
+        block_id,
+        text,
+        fingerprint,
+        &NoteWriteExpectation::Absent,
+    ) {
+        Ok(()) => {}
+        Err(NotesError::RevisionConflict {
+            block_id,
+            current: NoteConflictCurrent::Present { .. },
+        }) => return Err(NotesError::NoteAlreadyExists(block_id)),
+        Err(error) => return Err(error),
+    }
+    store.list_for_map(map)
+}

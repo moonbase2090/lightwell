@@ -6,25 +6,25 @@ Lightwell maps Rust workspaces, TypeScript, JavaScript, HTML and CSS projects (i
 
 ## Install
 
-Lightwell v0.1.21 is available for macOS (Apple Silicon and Intel), Linux x86_64 and ARM64, and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [getlightwell.app](https://getlightwell.app/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
+Lightwell v0.1.22 is available for macOS (Apple Silicon and Intel), Linux x86_64 and ARM64, and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [getlightwell.app](https://getlightwell.app/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
 
 ### macOS
 
-Download [`Lightwell_0.1.21_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.21_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
+Download [`Lightwell_0.1.22_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.22_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
 
 ### Linux
 
-Download [`Lightwell_0.1.21_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
+Download [`Lightwell_0.1.22_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
 
 ```sh
-sudo apt install ./Lightwell_0.1.21_amd64.deb
+sudo apt install ./Lightwell_0.1.22_amd64.deb
 ```
 
-Other x86_64 distributions can use [`Lightwell_0.1.21_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_amd64.AppImage), [`Lightwell_0.1.21_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.21_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.21_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_linux_aarch64.tar.gz) carries the command line tool.
+Other x86_64 distributions can use [`Lightwell_0.1.22_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_amd64.AppImage), [`Lightwell_0.1.22_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.22_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.22_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_linux_aarch64.tar.gz) carries the command line tool.
 
 ### Windows
 
-Download [`Lightwell_0.1.21_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.21/Lightwell_0.1.21_x64.msi) (x64) and run it to install Lightwell.
+Download [`Lightwell_0.1.22_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_x64.msi) (x64) and run it to install Lightwell.
 
 ### Updates
 
@@ -186,6 +186,7 @@ lightwell extract . -o /tmp/lightwell-map.json
 lightwell notes set crate:lightwell-core "Review output serialization"
 git add .lightwell/notes.json
 lightwell notes list
+lightwell notes for-file crates/lightwell-core/src/notes.rs
 lightwell notes list -C /path/to/other/workspace --json
 lightwell notes review crate:lightwell-core
 lightwell notes rm-stale --yes
@@ -194,13 +195,16 @@ lightwell notes rm crate:lightwell-core
 
 `lightwell notes set` writes `.lightwell/notes.json` but does not stage or commit it. Agents and other automation that want the note in version control should run `git add .lightwell/notes.json` after a successful save, then commit and push with their usual Git workflow. The notes CLI does not run `git add` or `git commit`.
 
-Use a `blocks[].id` value from the extracted map. `lightwell blocks` lists the current workspace's blocks with their IDs, labels, kinds, and source paths (`--json` for machine-readable output, `--file <path>` to list only the blocks from one source file), so no separate extract step is needed to find an ID. `notes set --file <path> <text...>` saves a note on the one block whose source path matches exactly; when several blocks share that file (for example a module and its symbols) it lists the candidate block IDs and saves nothing, and when none match it suggests similar paths. An unknown block ID in `notes set` also prints did-you-mean block IDs on stderr. `notes list` extracts the current workspace map and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. With `LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=true`, `notes review <block-id>` re-fingerprints a note whose text still matches the current block, and `notes rm-stale --yes` deletes every stale note (`--yes` required). Those two commands refuse to run when the environment variable is unset. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
+Use a `blocks[].id` value from the extracted map. `lightwell blocks` lists the current workspace's blocks with their IDs, labels, kinds, and source paths (`--json` for machine-readable output, `--file <path>` to list only the blocks from one source file), so no separate extract step is needed to find an ID. `notes set --file <path> <text...>` saves a note on the one block whose source path matches exactly; when several blocks share that file (for example a module and its symbols) it lists the candidate block IDs and saves nothing, and when none match it suggests similar paths. An unknown block ID in `notes set` also prints did-you-mean block IDs on stderr. `notes list` extracts the current workspace map, or reads a facts file passed with `--map`, and marks a note stale when its block is missing or its source fingerprint changed. Stale notes stay in the file until you remove or replace them. With `LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=true`, `notes review <block-id>` re-fingerprints a note whose text still matches the current block, and `notes rm-stale --yes` deletes every stale note (`--yes` required). Those two commands refuse to run when the environment variable is unset. The checked-in browser preview continues to use the separate `maps/*.annotations.json` overlays above. See [the schema reference](docs/schema.md) for both formats.
+
+Use `notes for-file <path>` before editing a source file to read notes attached to blocks from that file. It returns every matching note, including stale notes, and accepts absolute or workspace-relative paths. A file with no notes returns an empty array with `--json` or a short human-readable message.
 
 For automation, add `--json` after the notes subcommand:
 
 | Command | JSON result on stdout |
 | --- | --- |
 | `notes list --json` | An array of objects with `blockId`, `text`, `sourceFingerprint`, and `stale`. An empty list is `[]`. |
+| `notes for-file <path> --json` | The same note objects, filtered to blocks whose source path matches `<path>`. No matches returns `[]`. |
 | `notes set --json <block-id> <text...>` | `{"blockId":"...","text":"..."}` after the note is saved. |
 | `notes set --json --replace <block-id> <text...>` | The same result after explicitly replacing an existing note. |
 | `notes rm --json <block-id>` | `{"blockId":"...","removed":true}` after the saved note is removed. |
@@ -209,12 +213,14 @@ JSON results are a single value followed by a newline. Diagnostics go to stderr.
 
 Run `lightwell notes list --check` to fail when any saved note is stale. It still prints the complete list, with `--json` if requested, and writes a stale-note count to stderr. An empty list or a list of current notes exits successfully. Checking does not change the saved notes or their fingerprints.
 
+`notes list` and `notes set` extract the workspace once per command. A `--file` match and the suggestions for an unknown block id reuse that map. Pass `--map <facts.json>` to either command to skip extraction and use a facts file from `lightwell extract` for block lookup and stale checks. The flag is off unless you pass it. `--map` trusts that file: a facts file written before a source edit does not report that edit as stale. Omit `--map` when the check must follow the current source. `notes rm` does not extract and does not accept `--map`.
+
 These exit codes apply to the notes commands; `lightwell blocks` uses 0, 1 (extraction or output failure), and 2:
 
 | Exit | Meaning |
 | --- | --- |
 | 0 | Success, including stale notes listed without `--check`. |
-| 1 | Extraction, storage, invalid notes data, or output failure. |
+| 1 | Extraction, storage, invalid notes data, an unreadable or invalid map file, or output failure. |
 | 2 | Invalid or ambiguous command arguments, including a `--file` path that matches several blocks. |
 | 3 | `notes rm` found no saved note for that ID. |
 | 4 | `notes set` found no current block for that ID, or no block for a `--file` path. |
@@ -229,7 +235,7 @@ Removing a saved note does not require its block to exist in the current map, so
 lightwell notes set --json crate:lightwell-core -- --json --check
 ```
 
-This saves the text `--json --check`. Unknown or repeated options are usage errors; `--check` is only valid for `notes list`.
+This saves the text `--json --check`. Unknown or repeated options are usage errors; `--check` is only valid for `notes list`, and `--map` is only valid for `notes list` and `notes set`.
 
 ## Data flow
 
