@@ -3,6 +3,7 @@ import type { Dirent } from "node:fs";
 import { readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { parseAllDocuments } from "yaml";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, FactMap, ModuleBlock } from "../model.js";
 
 export type ConfigInfraLanguage = "yaml" | "terraform" | "dockerfile";
@@ -28,7 +29,7 @@ export interface ConfigInfraWorkspace {
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { readonly [key: string]: JsonValue };
 
-const skippedDirectories = new Set([".git", ".terraform", "node_modules", "target", "build", "dist", "out", "vendor", "testdata", "fixtures"]);
+const skippedDirectories = [".terraform", "build", "vendor", "testdata", "fixtures"];
 
 export function discoverConfigInfra(repositoryPath: string): ConfigInfraWorkspace {
   const root = path.resolve(repositoryPath);
@@ -376,7 +377,7 @@ function walk(directory: string, root: string, seen: Set<string>, files: string[
     const name = entry.name;
     const child = path.join(directory, name);
     if (entry.isDirectory()) {
-      if (!skippedDirectories.has(name.toLowerCase())) walk(child, root, seen, files);
+      if (!isIgnoredDirectory(name, skippedDirectories)) walk(child, root, seen, files);
       continue;
     }
     if (!entry.isFile() || languageFor(child) === null) continue;

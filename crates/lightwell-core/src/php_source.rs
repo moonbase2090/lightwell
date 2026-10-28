@@ -1,5 +1,6 @@
 use crate::metadata::CargoDiscoveryError;
 use crate::path_confinement::{confined_canonical, is_confined_to, opened_root};
+use crate::workspace_ignore::is_ignored_directory;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -386,7 +387,7 @@ fn confined_php_path(path: &Path, root: &Path) -> Option<PathBuf> {
 }
 
 fn skipped_php_directory(name: &str) -> bool {
-    matches!(name, "vendor" | "node_modules" | "target" | "dist" | ".git")
+    is_ignored_directory(name) || name.eq_ignore_ascii_case("vendor")
 }
 
 fn is_php_file(path: &Path) -> bool {

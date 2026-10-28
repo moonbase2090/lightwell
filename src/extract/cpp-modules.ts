@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, ModuleBlock } from "../model.js";
 
 export type CppTargetKind = "executable" | "library" | "interface";
@@ -33,16 +34,11 @@ export interface CppTarget {
   readonly files: readonly CppFile[];
 }
 
-const skippedDirectories = new Set([
+const skippedDirectories = [
   "build",
-  "node_modules",
-  "target",
-  "dist",
-  "out",
-  "DerivedData",
+  "deriveddata",
   "vendor",
-  ".git",
-]);
+];
 
 const cppExtensions = new Set([".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"]);
 
@@ -389,7 +385,7 @@ function confinedCppPath(candidate: string, root: string): string | null {
 }
 
 function skippedDirectory(name: string): boolean {
-  if (skippedDirectories.has(name)) return true;
+  if (isIgnoredDirectory(name, skippedDirectories)) return true;
   return name.startsWith("cmake-build-");
 }
 

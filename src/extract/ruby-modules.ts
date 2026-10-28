@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, ModuleBlock } from "../model.js";
 
 export type RubySymbolKind = "module" | "class" | "def";
@@ -34,7 +35,7 @@ export interface RubyPackage {
   readonly files: readonly RubyFile[];
 }
 
-const skippedDirectories = new Set(["vendor", "node_modules", "tmp", "log", ".git", ".bundle"]);
+const skippedDirectories = ["vendor", "tmp", "log", ".bundle"];
 
 export function discoverRubyPackages(repositoryPath: string): RubyPackage[] {
   const root = path.resolve(repositoryPath);
@@ -294,7 +295,7 @@ function walkRubyFiles(directory: string, canonicalRoot: string, seen: Set<strin
   if (!isConfined(canonicalRoot, canonical) || seen.has(canonical)) return;
   seen.add(canonical);
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.name.startsWith(".") || skippedDirectories.has(entry.name)) continue;
+    if (entry.name.startsWith(".") || isIgnoredDirectory(entry.name, skippedDirectories)) continue;
     const child = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       walkRubyFiles(child, canonicalRoot, seen, files);

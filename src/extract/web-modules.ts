@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, ModuleBlock } from "../model.js";
 
 export type TypeScriptSymbolKind = "function" | "class" | "interface" | "type" | "const";
@@ -24,8 +25,6 @@ export interface TypeScriptModule {
   readonly imports: readonly TypeScriptImport[];
   readonly symbols: readonly TypeScriptSymbol[];
 }
-
-const skippedDirectories = new Set(["node_modules", "target", "dist", ".next", "out"]);
 
 type Quote = "single" | "double" | "backtick";
 
@@ -245,7 +244,7 @@ function walkWebFiles(directory: string, canonicalRoot: string, seen: Set<string
   if (!isConfined(canonicalRoot, canonical) || seen.has(canonical)) return;
   seen.add(canonical);
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.name.startsWith(".") || skippedDirectories.has(entry.name)) continue;
+    if (entry.name.startsWith(".") || isIgnoredDirectory(entry.name)) continue;
     const child = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       walkWebFiles(child, canonicalRoot, seen, files);

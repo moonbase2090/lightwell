@@ -3,6 +3,7 @@ use crate::metadata::{
     CargoWorkspace,
 };
 use crate::path_confinement::{confined_canonical, opened_root};
+use crate::workspace_ignore::is_ignored_directory;
 use glob::glob;
 use std::collections::BTreeSet;
 use std::fs;
@@ -846,7 +847,12 @@ fn add_automatic_targets(
                 .unwrap_or_default()
                 .to_owned();
             add_target(targets, entry, name, vec![kind.to_owned()]);
-        } else if entry.is_dir() {
+        } else if entry.is_dir()
+            && !entry
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(is_ignored_directory)
+        {
             let main = entry.join("main.rs");
             if main.is_file() && !has_target_source(targets, &main) {
                 let Some(main) = confined_canonical(&main, opened_root).ok() else {
