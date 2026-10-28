@@ -420,7 +420,7 @@ pub fn set_project_note_if_absent(
     text: &str,
 ) -> Result<ProjectNoteView, NotesError> {
     let (root, map) = workspace_map(repository_path)?;
-    let notes = set_project_note_for_map_if_absent(&root, &map, block_id, text)?;
+    let notes = set_project_note_if_absent_for_map(&root, &map, block_id, text)?;
     notes
         .into_iter()
         .find(|note| note.block_id == block_id)
@@ -445,7 +445,7 @@ pub fn set_project_note_for_map(
     store.list_for_map(map)
 }
 
-fn set_project_note_for_map_if_absent(
+pub fn set_project_note_if_absent_for_map(
     project_root: impl AsRef<Path>,
     map: &FactMap,
     block_id: &str,
