@@ -2,10 +2,10 @@ use lightwell_core::{
     block_diff_for, commit_changes_for, discover_project_workspace, extract_cargo_map,
     filter_commits_that_are_ancestors, open_target, path_diff_for, project_notes_for_map,
     recent_commits, remove_project_note, resolve_block_target, resolve_block_target_in_map,
-    set_project_note_for_map, update_project_note_text, BlockDiffDocument, CommitChanges,
-    CommitSummary, EditorError, EditorSettings, EditorTarget, EditorTemplatePreset, FactMap,
-    MapExtractionError, MapWatchError, MapWatcher, NotesError, ProjectNoteView,
-    EDITOR_TEMPLATE_PRESETS,
+    set_project_note_for_map_expecting, update_project_note_text_expecting, BlockDiffDocument,
+    CommitChanges, CommitSummary, EditorError, EditorSettings, EditorTarget, EditorTemplatePreset,
+    FactMap, MapExtractionError, MapWatchError, MapWatcher, NoteConflictCurrent,
+    NoteWriteExpectation, NotesError, ProjectNoteView, WatchUpdate, EDITOR_TEMPLATE_PRESETS,
 };
 #[cfg(lightwell_notes_stale_actions)]
 use lightwell_core::{mark_project_note_reviewed, remove_stale_project_notes};
@@ -58,6 +58,33 @@ pub struct SourceFileDocument {
 struct WorkspaceMapUpdate {
     workspace_id: String,
     document: WorkspaceMapDocument,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceNotesUpdate {
+    path: String,
+    project_notes: ProjectNotesState,
+}
+
+enum WorkspaceWatchMessage {
+    Map(WorkspaceMapUpdate),
+    Notes(WorkspaceNotesUpdate),
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub enum NoteCommandError {
+    Conflict(NoteConflictBody),
+    Message(String),
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NoteConflictBody {
+    pub kind: &'static str,
+    pub block_id: String,
+    pub current: NoteConflictCurrent,
 }
 
 #[derive(Clone, Default)]
@@ -279,12 +306,17 @@ pub fn add_workspace_note(
     path: String,
     block_id: String,
     text: String,
-) -> Result<ProjectNotesState, String> {
-    let root = workspace_root(&path)?;
-    let facts = watchers.current_map(&root)?;
-    set_project_note_for_map(&root, &facts, &block_id, &text)
+    expected_revision: Option<String>,
+    expectation: Option<String>,
+) -> Result<ProjectNotesState, NoteCommandError> {
+    let root = workspace_root(&path).map_err(NoteCommandError::Message)?;
+    let facts = watchers
+        .current_map(&root)
+        .map_err(NoteCommandError::Message)?;
+    let expectation = note_expectation(expectation, expected_revision)?;
+    set_project_note_for_map_expecting(&root, &facts, &block_id, &text, expectation)
         .map(|notes| ProjectNotesState::Ready { notes })
-        .map_err(|error| error.to_string())
+        .map_err(note_command_error)
 }
 
 #[tauri::command(async)]
@@ -293,16 +325,27 @@ pub fn edit_workspace_note(
     path: String,
     block_id: String,
     text: String,
-) -> Result<ProjectNotesState, String> {
-    let root = workspace_root(&path)?;
-    let facts = watchers.current_map(&root)?;
-    let notes = match set_project_note_for_map(&root, &facts, &block_id, &text) {
+    expected_revision: Option<String>,
+    expectation: Option<String>,
+) -> Result<ProjectNotesState, NoteCommandError> {
+    let root = workspace_root(&path).map_err(NoteCommandError::Message)?;
+    let facts = watchers
+        .current_map(&root)
+        .map_err(NoteCommandError::Message)?;
+    let expectation = note_expectation(expectation, expected_revision)?;
+    let notes = match set_project_note_for_map_expecting(
+        &root,
+        &facts,
+        &block_id,
+        &text,
+        expectation.clone(),
+    ) {
         Ok(notes) => notes,
         Err(NotesError::BlockNotFound(_)) => {
-            update_project_note_text(&root, &facts, &block_id, &text)
-                .map_err(|error| error.to_string())?
+            update_project_note_text_expecting(&root, &facts, &block_id, &text, expectation)
+                .map_err(note_command_error)?
         }
-        Err(error) => return Err(error.to_string()),
+        Err(error) => return Err(note_command_error(error)),
     };
     Ok(ProjectNotesState::Ready { notes })
 }
@@ -398,8 +441,16 @@ fn start_workspace_watcher(
         .name("lightwell-workspace-watcher".to_owned())
         .spawn(move || {
             forward_map_changes(&mut watcher, &thread_current, &thread_root, |update| {
-                if let Err(error) = thread_app.emit("workspace-map-changed", update) {
-                    eprintln!("Lightwell could not send a workspace map update: {error}");
+                let emitted = match update {
+                    WorkspaceWatchMessage::Map(update) => {
+                        thread_app.emit("workspace-map-changed", update)
+                    }
+                    WorkspaceWatchMessage::Notes(update) => {
+                        thread_app.emit("workspace-notes-changed", update)
+                    }
+                };
+                if let Err(error) = emitted {
+                    eprintln!("Lightwell could not send a workspace update: {error}");
                 }
                 true
             });
@@ -437,11 +488,11 @@ fn forward_map_changes(
     watcher: &mut MapWatcher,
     current: &RwLock<FactMap>,
     root: &Path,
-    mut emit: impl FnMut(WorkspaceMapUpdate) -> bool,
+    mut emit: impl FnMut(WorkspaceWatchMessage) -> bool,
 ) {
     loop {
-        match watcher.next_changed_map() {
-            Ok(facts) => {
+        match watcher.next_update() {
+            Ok(WatchUpdate::Map(facts)) => {
                 match current.write() {
                     Ok(mut cached) => *cached = facts.clone(),
                     Err(_) => {
@@ -453,7 +504,23 @@ fn forward_map_changes(
                     workspace_id: root.to_string_lossy().into_owned(),
                     document: workspace_map_document(root, facts),
                 };
-                if !emit(update) {
+                if !emit(WorkspaceWatchMessage::Map(update)) {
+                    break;
+                }
+            }
+            Ok(WatchUpdate::Notes) => {
+                let facts = match current.read() {
+                    Ok(cached) => cached.clone(),
+                    Err(_) => {
+                        eprintln!("Lightwell could not read the cached workspace map.");
+                        break;
+                    }
+                };
+                let update = WorkspaceNotesUpdate {
+                    path: root.to_string_lossy().into_owned(),
+                    project_notes: notes_state(root, &facts),
+                };
+                if !emit(WorkspaceWatchMessage::Notes(update)) {
                     break;
                 }
             }
@@ -465,6 +532,44 @@ fn forward_map_changes(
                 break;
             }
         }
+    }
+}
+
+fn note_expectation(
+    expectation: Option<String>,
+    expected_revision: Option<String>,
+) -> Result<NoteWriteExpectation, NoteCommandError> {
+    match expectation.as_deref() {
+        None | Some("unconditional") => Ok(NoteWriteExpectation::Unconditional),
+        Some("absent") => Ok(NoteWriteExpectation::Absent),
+        Some("matchesRevision") => Ok(NoteWriteExpectation::MatchesRevision(
+            expected_revision.unwrap_or_default(),
+        )),
+        Some(other) => Err(NoteCommandError::Message(format!(
+            "Unknown note write expectation `{other}`."
+        ))),
+    }
+}
+
+fn note_command_error(error: NotesError) -> NoteCommandError {
+    match error {
+        NotesError::RevisionConflict { block_id, current } => {
+            NoteCommandError::Conflict(NoteConflictBody {
+                kind: "revisionConflict",
+                block_id,
+                current,
+            })
+        }
+        other => NoteCommandError::Message(other.to_string()),
+    }
+}
+
+fn notes_state(root: &Path, facts: &FactMap) -> ProjectNotesState {
+    match project_notes_for_map(root, facts) {
+        Ok(notes) => ProjectNotesState::Ready { notes },
+        Err(error) => ProjectNotesState::Error {
+            message: error.to_string(),
+        },
     }
 }
 
@@ -499,13 +604,8 @@ fn empty_annotations(facts: &FactMap) -> Value {
 }
 
 fn workspace_map_document(root: &Path, facts: FactMap) -> WorkspaceMapDocument {
+    let project_notes = notes_state(root, &facts);
     let annotations = empty_annotations(&facts);
-    let project_notes = match project_notes_for_map(root, &facts) {
-        Ok(notes) => ProjectNotesState::Ready { notes },
-        Err(error) => ProjectNotesState::Error {
-            message: error.to_string(),
-        },
-    };
     WorkspaceMapDocument {
         facts,
         annotations,
@@ -656,7 +756,7 @@ mod tests {
     use super::{
         forward_map_changes, normalize_editor_settings, read_editor_settings,
         read_recent_workspaces, workspace_root, write_editor_settings, write_recent_workspaces,
-        WorkspaceEntry,
+        WorkspaceEntry, WorkspaceWatchMessage,
     };
     use lightwell_core::{extract_cargo_map, EditorSettings, FactBlock, MapWatcher};
     use std::fs;
@@ -830,9 +930,12 @@ mod tests {
             .expect("fixture library should be edited");
 
         let mut updates = Vec::new();
-        forward_map_changes(&mut watcher, &cache, &root, |update| {
-            updates.push(update);
-            false
+        forward_map_changes(&mut watcher, &cache, &root, |update| match update {
+            WorkspaceWatchMessage::Map(update) => {
+                updates.push(update);
+                false
+            }
+            WorkspaceWatchMessage::Notes(_) => true,
         });
 
         assert_eq!(updates.len(), 1);

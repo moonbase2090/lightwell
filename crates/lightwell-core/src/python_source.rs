@@ -1,5 +1,6 @@
 use crate::metadata::CargoDiscoveryError;
 use crate::path_confinement::{confined_canonical, opened_root};
+use crate::workspace_ignore::is_ignored_directory;
 use std::collections::HashSet;
 use std::fs;
 use std::io;
@@ -246,10 +247,11 @@ fn confined_python_path(path: &Path, root: &Path) -> Option<PathBuf> {
 }
 
 fn skipped_directory(name: &str) -> bool {
-    matches!(
-        name,
-        "__pycache__" | "node_modules" | "target" | "dist" | "venv" | ".venv"
-    )
+    is_ignored_directory(name)
+        || matches!(
+            name.to_ascii_lowercase().as_str(),
+            "__pycache__" | "venv" | ".venv"
+        )
 }
 
 fn is_python_file(path: &Path) -> bool {

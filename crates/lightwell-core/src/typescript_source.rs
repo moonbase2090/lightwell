@@ -1,5 +1,6 @@
 use crate::metadata::CargoDiscoveryError;
 use crate::path_confinement::{confined_canonical, opened_root};
+use crate::workspace_ignore::is_ignored_directory;
 use std::collections::HashSet;
 use std::fs;
 use std::io;
@@ -227,7 +228,7 @@ fn confined_typescript_path(path: &Path, root: &Path) -> Option<PathBuf> {
 }
 
 fn skipped_directory(name: &str) -> bool {
-    matches!(name, "node_modules" | "target" | "dist" | ".next" | "out")
+    is_ignored_directory(name)
 }
 
 fn is_web_file(path: &Path) -> bool {

@@ -8,6 +8,7 @@ use crate::extract::{block_base, discover_project_workspace, map_workspace};
 use crate::{FactMap, MapExtractionError};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -15,6 +16,41 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+
+/// SHA-256 hex of the UTF-8 bytes of `text`, one NUL byte, then the UTF-8 bytes of
+/// `source_fingerprint`. The NUL keeps `("ab", "c")` distinct from `("a", "bc")`.
+/// The revision is derived when notes are read. It is not stored in `notes.json`.
+pub fn note_revision(text: &str, source_fingerprint: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(text.as_bytes());
+    hasher.update([0]);
+    hasher.update(source_fingerprint.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+/// What a note write must see in the file it reloads under the notes lock.
+/// The CLI uses [`NoteWriteExpectation::Unconditional`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NoteWriteExpectation {
+    /// Write the note whether or not a saved entry already exists.
+    Unconditional,
+    /// Succeed only when this block has no saved note.
+    Absent,
+    /// Succeed only when the saved note's revision equals this value.
+    MatchesRevision(String),
+}
+
+/// The on-disk note a compare-and-swap write found instead of the expected revision.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum NoteConflictCurrent {
+    Deleted,
+    Present {
+        text: String,
+        source_fingerprint: String,
+        revision: String,
+    },
+}
 
 const NOTES_SCHEMA_VERSION: u32 = 1;
 /// Fallback when Git user.name/email cannot be resolved from the project repository.
@@ -40,6 +76,8 @@ pub struct ProjectNoteView {
     pub author: String,
     pub updated_at: String,
     pub stale: bool,
+    /// SHA-256 revision of `text` and `source_fingerprint`. See [`note_revision`].
+    pub revision: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -98,6 +136,7 @@ impl ProjectNotesStore {
                 stale: current_fingerprints
                     .get(block_id.as_str())
                     .is_none_or(|fingerprint| *fingerprint != note.source_fingerprint.as_str()),
+                revision: note_revision(&note.text, &note.source_fingerprint),
                 block_id,
                 text: note.text,
                 source_fingerprint: note.source_fingerprint,
@@ -115,26 +154,22 @@ impl ProjectNotesStore {
         text: &str,
         source_fingerprint: &str,
     ) -> Result<(), NotesError> {
-        self.set_with_replace(project_root, block_id, text, source_fingerprint, true)
+        self.set_expecting(
+            project_root,
+            block_id,
+            text,
+            source_fingerprint,
+            &NoteWriteExpectation::Unconditional,
+        )
     }
 
-    fn set_if_absent(
+    fn set_expecting(
         &self,
         project_root: &Path,
         block_id: &str,
         text: &str,
         source_fingerprint: &str,
-    ) -> Result<(), NotesError> {
-        self.set_with_replace(project_root, block_id, text, source_fingerprint, false)
-    }
-
-    fn set_with_replace(
-        &self,
-        project_root: &Path,
-        block_id: &str,
-        text: &str,
-        source_fingerprint: &str,
-        replace_existing: bool,
+        expectation: &NoteWriteExpectation,
     ) -> Result<(), NotesError> {
         if text.trim().is_empty() {
             return Err(NotesError::EmptyText);
@@ -142,9 +177,7 @@ impl ProjectNotesStore {
         let author = resolve_note_author(project_root);
         let updated_at = utc_now_rfc3339();
         self.update(true, |document| {
-            if document.notes.contains_key(block_id) && !replace_existing {
-                return Err(NotesError::NoteAlreadyExists(block_id.to_owned()));
-            }
+            expect_note(document, block_id, expectation)?;
             document.notes.insert(
                 block_id.to_owned(),
                 ProjectNote {
@@ -165,12 +198,28 @@ impl ProjectNotesStore {
         block_id: &str,
         text: &str,
     ) -> Result<(), NotesError> {
+        self.update_text_expecting(
+            project_root,
+            block_id,
+            text,
+            &NoteWriteExpectation::Unconditional,
+        )
+    }
+
+    fn update_text_expecting(
+        &self,
+        project_root: &Path,
+        block_id: &str,
+        text: &str,
+        expectation: &NoteWriteExpectation,
+    ) -> Result<(), NotesError> {
         if text.trim().is_empty() {
             return Err(NotesError::EmptyText);
         }
         let author = resolve_note_author(project_root);
         let updated_at = utc_now_rfc3339();
         let updated = self.update(false, |document| {
+            expect_note(document, block_id, expectation)?;
             let note = document
                 .notes
                 .get_mut(block_id)
@@ -186,12 +235,38 @@ impl ProjectNotesStore {
         Ok(())
     }
 
+    #[cfg(test)]
     fn remove(&self, block_id: &str) -> Result<bool, NotesError> {
+        self.remove_expecting(block_id, &NoteWriteExpectation::Unconditional)
+    }
+
+    fn remove_expecting(
+        &self,
+        block_id: &str,
+        expectation: &NoteWriteExpectation,
+    ) -> Result<bool, NotesError> {
         if !self.path.is_file() {
-            return Ok(false);
+            return match expectation {
+                NoteWriteExpectation::MatchesRevision(_) => Err(NotesError::RevisionConflict {
+                    block_id: block_id.to_owned(),
+                    current: NoteConflictCurrent::Deleted,
+                }),
+                NoteWriteExpectation::Unconditional | NoteWriteExpectation::Absent => Ok(false),
+            };
         }
-        self.update(false, |document| {
-            Ok(document.notes.remove(block_id).is_some())
+        self.update(false, |document| match expectation {
+            NoteWriteExpectation::Unconditional => Ok(document.notes.remove(block_id).is_some()),
+            NoteWriteExpectation::Absent => {
+                if document.notes.contains_key(block_id) {
+                    Err(conflict_present(block_id, &document.notes[block_id]))
+                } else {
+                    Ok(false)
+                }
+            }
+            NoteWriteExpectation::MatchesRevision(_) => {
+                expect_note(document, block_id, expectation)?;
+                Ok(document.notes.remove(block_id).is_some())
+            }
         })
     }
 
@@ -319,11 +394,18 @@ impl ProjectNotesStore {
                 });
             }
         };
-        let document: NotesDocument =
-            serde_json::from_slice(&bytes).map_err(|source| NotesError::InvalidJson {
-                path: self.path.clone(),
-                source,
-            })?;
+        let document: NotesDocument = serde_json::from_slice(&bytes).map_err(|source| {
+            if contains_conflict_markers(&bytes) {
+                NotesError::ConflictMarkers {
+                    path: self.path.clone(),
+                }
+            } else {
+                NotesError::InvalidJson {
+                    path: self.path.clone(),
+                    source,
+                }
+            }
+        })?;
         if document.schema_version != NOTES_SCHEMA_VERSION {
             return Err(NotesError::UnsupportedSchema {
                 path: self.path.clone(),
@@ -420,7 +502,20 @@ pub fn set_project_note_if_absent(
     text: &str,
 ) -> Result<ProjectNoteView, NotesError> {
     let (root, map) = workspace_map(repository_path)?;
-    let notes = set_project_note_if_absent_for_map(&root, &map, block_id, text)?;
+    let notes = set_project_note_for_map_expecting(
+        &root,
+        &map,
+        block_id,
+        text,
+        NoteWriteExpectation::Absent,
+    )
+    .map_err(|error| match error {
+        NotesError::RevisionConflict {
+            current: NoteConflictCurrent::Present { .. },
+            ..
+        } => NotesError::NoteAlreadyExists(block_id.to_owned()),
+        error => error,
+    })?;
     notes
         .into_iter()
         .find(|note| note.block_id == block_id)
@@ -433,23 +528,21 @@ pub fn set_project_note_for_map(
     block_id: &str,
     text: &str,
 ) -> Result<Vec<ProjectNoteView>, NotesError> {
-    let block = map
-        .blocks
-        .iter()
-        .find(|block| block_base(block).id == block_id)
-        .ok_or_else(|| NotesError::BlockNotFound(block_id.to_owned()))?;
-    let fingerprint = &block_base(block).fingerprint;
-    let root = project_root.as_ref();
-    let store = ProjectNotesStore::new(root);
-    store.set_with_replace(root, block_id, text, fingerprint, true)?;
-    store.list_for_map(map)
+    set_project_note_for_map_expecting(
+        project_root,
+        map,
+        block_id,
+        text,
+        NoteWriteExpectation::Unconditional,
+    )
 }
 
-pub fn set_project_note_if_absent_for_map(
+pub fn set_project_note_for_map_expecting(
     project_root: impl AsRef<Path>,
     map: &FactMap,
     block_id: &str,
     text: &str,
+    expectation: NoteWriteExpectation,
 ) -> Result<Vec<ProjectNoteView>, NotesError> {
     let block = map
         .blocks
@@ -459,8 +552,30 @@ pub fn set_project_note_if_absent_for_map(
     let fingerprint = &block_base(block).fingerprint;
     let root = project_root.as_ref();
     let store = ProjectNotesStore::new(root);
-    store.set_if_absent(root, block_id, text, fingerprint)?;
+    store.set_expecting(root, block_id, text, fingerprint, &expectation)?;
     store.list_for_map(map)
+}
+
+pub fn set_project_note_if_absent_for_map(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+    block_id: &str,
+    text: &str,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
+    set_project_note_for_map_expecting(
+        project_root,
+        map,
+        block_id,
+        text,
+        NoteWriteExpectation::Absent,
+    )
+    .map_err(|error| match error {
+        NotesError::RevisionConflict {
+            current: NoteConflictCurrent::Present { .. },
+            ..
+        } => NotesError::NoteAlreadyExists(block_id.to_owned()),
+        error => error,
+    })
 }
 
 pub fn update_project_note_text(
@@ -475,12 +590,37 @@ pub fn update_project_note_text(
     store.list_for_map(map)
 }
 
+pub fn update_project_note_text_expecting(
+    project_root: impl AsRef<Path>,
+    map: &FactMap,
+    block_id: &str,
+    text: &str,
+    expectation: NoteWriteExpectation,
+) -> Result<Vec<ProjectNoteView>, NotesError> {
+    let root = project_root.as_ref();
+    let store = ProjectNotesStore::new(root);
+    store.update_text_expecting(root, block_id, text, &expectation)?;
+    store.list_for_map(map)
+}
+
 pub fn remove_project_note(
     repository_path: impl AsRef<Path>,
     block_id: &str,
 ) -> Result<bool, NotesError> {
+    remove_project_note_expecting(
+        repository_path,
+        block_id,
+        NoteWriteExpectation::Unconditional,
+    )
+}
+
+pub fn remove_project_note_expecting(
+    repository_path: impl AsRef<Path>,
+    block_id: &str,
+    expectation: NoteWriteExpectation,
+) -> Result<bool, NotesError> {
     let workspace = discover_project_workspace(repository_path)?;
-    ProjectNotesStore::new(&workspace.root).remove(block_id)
+    ProjectNotesStore::new(&workspace.root).remove_expecting(block_id, &expectation)
 }
 
 /// Update a note's stored fingerprint to the block's current fingerprint.
@@ -603,6 +743,49 @@ fn civil_from_days(days_since_epoch: i64) -> (i32, u32, u32) {
     (y as i32, m as u32, d as u32)
 }
 
+fn expect_note(
+    document: &NotesDocument,
+    block_id: &str,
+    expectation: &NoteWriteExpectation,
+) -> Result<(), NotesError> {
+    match expectation {
+        NoteWriteExpectation::Unconditional => Ok(()),
+        NoteWriteExpectation::Absent => match document.notes.get(block_id) {
+            Some(note) => Err(conflict_present(block_id, note)),
+            None => Ok(()),
+        },
+        NoteWriteExpectation::MatchesRevision(expected) => match document.notes.get(block_id) {
+            None => Err(NotesError::RevisionConflict {
+                block_id: block_id.to_owned(),
+                current: NoteConflictCurrent::Deleted,
+            }),
+            Some(note) if note_revision(&note.text, &note.source_fingerprint) == *expected => {
+                Ok(())
+            }
+            Some(note) => Err(conflict_present(block_id, note)),
+        },
+    }
+}
+
+fn conflict_present(block_id: &str, note: &ProjectNote) -> NotesError {
+    NotesError::RevisionConflict {
+        block_id: block_id.to_owned(),
+        current: NoteConflictCurrent::Present {
+            revision: note_revision(&note.text, &note.source_fingerprint),
+            text: note.text.clone(),
+            source_fingerprint: note.source_fingerprint.clone(),
+        },
+    }
+}
+
+fn contains_conflict_markers(bytes: &[u8]) -> bool {
+    let text = String::from_utf8_lossy(bytes);
+    text.lines().any(|line| {
+        let trimmed = line.trim();
+        trimmed.starts_with("<<<<<<<") || trimmed.starts_with(">>>>>>>")
+    })
+}
+
 #[derive(Debug)]
 pub enum NotesError {
     Extraction(MapExtractionError),
@@ -610,6 +793,10 @@ pub enum NotesError {
     NoteNotFound(String),
     NoteAlreadyExists(String),
     EmptyText,
+    RevisionConflict {
+        block_id: String,
+        current: NoteConflictCurrent,
+    },
     Io {
         path: PathBuf,
         source: io::Error,
@@ -617,6 +804,10 @@ pub enum NotesError {
     InvalidJson {
         path: PathBuf,
         source: serde_json::Error,
+    },
+    /// `notes.json` contains Git conflict markers. The file was not modified.
+    ConflictMarkers {
+        path: PathBuf,
     },
     UnsupportedSchema {
         path: PathBuf,
@@ -642,6 +833,16 @@ impl Display for NotesError {
                 formatter,
                 "Note text cannot be empty. Use `lightwell notes set <block-id> <text...>`."
             ),
+            Self::RevisionConflict { block_id, current } => match current {
+                NoteConflictCurrent::Deleted => write!(
+                    formatter,
+                    "Note `{block_id}` changed on disk and no longer exists."
+                ),
+                NoteConflictCurrent::Present { revision, .. } => write!(
+                    formatter,
+                    "Note `{block_id}` changed on disk (revision {revision})."
+                ),
+            },
             Self::Io { path, source } => write!(
                 formatter,
                 "Could not read or update project notes at {}: {source}",
@@ -649,7 +850,12 @@ impl Display for NotesError {
             ),
             Self::InvalidJson { path, source } => write!(
                 formatter,
-                "Could not parse project notes at {}: {source}",
+                "Could not parse project notes at {}: {source}. Fix the JSON or restore the file from Git. Lightwell left the file unchanged.",
+                path.display()
+            ),
+            Self::ConflictMarkers { path } => write!(
+                formatter,
+                "Project notes at {} contain Git conflict markers. Remove the conflict markers or restore the file from Git (`git checkout -- .lightwell/notes.json`). Lightwell left the file unchanged.",
                 path.display()
             ),
             Self::UnsupportedSchema { path, version } => write!(
@@ -672,6 +878,8 @@ impl Error for NotesError {
             | Self::NoteNotFound(_)
             | Self::NoteAlreadyExists(_)
             | Self::EmptyText
+            | Self::RevisionConflict { .. }
+            | Self::ConflictMarkers { .. }
             | Self::UnsupportedSchema { .. } => None,
         }
     }
@@ -686,9 +894,11 @@ impl From<MapExtractionError> for NotesError {
 #[cfg(test)]
 mod tests {
     use super::{
-        list_project_notes, mark_project_note_reviewed, remove_project_note,
+        list_project_notes, mark_project_note_reviewed, note_revision, remove_project_note,
         remove_stale_project_notes, set_project_note, set_project_note_for_map,
-        update_project_note_text, NotesError, ProjectNotesStore,
+        set_project_note_for_map_expecting, update_project_note_text,
+        update_project_note_text_expecting, NoteConflictCurrent, NoteWriteExpectation, NotesError,
+        ProjectNotesStore,
     };
     use crate::extract::{block_base, extract_cargo_map};
     use crate::facts::{BlockBase, CrateBlock, FactBlock, FactGroup, FactMap, MapStats, Project};
@@ -772,7 +982,7 @@ mod tests {
             )
             .unwrap();
 
-        let notes_path = project.0.join(".lightwell/notes.json");
+        let notes_path = project.0.join(".lightwell").join("notes.json");
         assert!(notes_path.is_file());
         let stale = store.list_for_map(&new_map).unwrap();
         assert_eq!(stale.len(), 1);
@@ -792,8 +1002,17 @@ mod tests {
             .unwrap();
 
         assert!(matches!(
-            store.set_with_replace(&project.0, "crate:core", "Do not replace", "new", false),
-            Err(NotesError::NoteAlreadyExists(block_id)) if block_id == "crate:core"
+            store.set_expecting(
+                &project.0,
+                "crate:core",
+                "Do not replace",
+                "new",
+                &NoteWriteExpectation::Absent,
+            ),
+            Err(NotesError::RevisionConflict {
+                block_id,
+                current: NoteConflictCurrent::Present { .. },
+            }) if block_id == "crate:core"
         ));
         let saved = store.list_for_map(&map("old")).unwrap();
         assert_eq!(saved.len(), 1);
@@ -801,7 +1020,13 @@ mod tests {
         assert_eq!(saved[0].source_fingerprint, "old");
 
         store
-            .set_with_replace(&project.0, "crate:core", "Replace this", "new", true)
+            .set_expecting(
+                &project.0,
+                "crate:core",
+                "Replace this",
+                "new",
+                &NoteWriteExpectation::Unconditional,
+            )
             .unwrap();
         let replaced = store.list_for_map(&map("new")).unwrap();
         assert_eq!(replaced.len(), 1);
@@ -1168,6 +1393,231 @@ mod tests {
         assert!(list_project_notes(root)
             .expect("notes should list after removal")
             .is_empty());
+    }
+
+    #[test]
+    fn note_revision_is_a_stable_hash_of_text_and_fingerprint() {
+        assert_eq!(
+            note_revision("hello", "fp-1"),
+            "dda9741c5b84db79fb1fa2616b07ba1b5dd9f18a63f7de9ef2cbe9e0a1f496af"
+        );
+        assert_ne!(
+            note_revision("hello", "fp-1"),
+            note_revision("hello", "fp-2")
+        );
+        assert_ne!(
+            note_revision("hello", "fp-1"),
+            note_revision("hellp", "fp-1")
+        );
+        assert_ne!(note_revision("ab", "c"), note_revision("a", "bc"));
+    }
+
+    #[test]
+    fn compare_and_swap_writes_only_the_expected_note() {
+        let project = TempProject::new();
+        let current = map("fingerprint");
+        let created = set_project_note_for_map_expecting(
+            &project.0,
+            &current,
+            "crate:core",
+            "First",
+            NoteWriteExpectation::Absent,
+        )
+        .unwrap();
+        assert_eq!(created[0].text, "First");
+        let revision = created[0].revision.clone();
+        let notes_path = project.0.join(".lightwell").join("notes.json");
+        let after_create = fs::read(&notes_path).unwrap();
+
+        let conflict = set_project_note_for_map_expecting(
+            &project.0,
+            &current,
+            "crate:core",
+            "Second",
+            NoteWriteExpectation::Absent,
+        )
+        .unwrap_err();
+        match conflict {
+            NotesError::RevisionConflict {
+                block_id,
+                current:
+                    NoteConflictCurrent::Present {
+                        text,
+                        revision: found,
+                        ..
+                    },
+            } => {
+                assert_eq!(block_id, "crate:core");
+                assert_eq!(text, "First");
+                assert_eq!(found, revision);
+            }
+            other => panic!("expected a present-note conflict, got {other}"),
+        }
+        assert_eq!(fs::read(&notes_path).unwrap(), after_create);
+
+        let updated = update_project_note_text_expecting(
+            &project.0,
+            &current,
+            "crate:core",
+            "Second",
+            NoteWriteExpectation::MatchesRevision(revision.clone()),
+        )
+        .unwrap();
+        assert_eq!(updated[0].text, "Second");
+        assert_ne!(updated[0].revision, revision);
+        let after_update = fs::read(&notes_path).unwrap();
+
+        let stale = update_project_note_text_expecting(
+            &project.0,
+            &current,
+            "crate:core",
+            "Third",
+            NoteWriteExpectation::MatchesRevision(revision),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            stale,
+            NotesError::RevisionConflict {
+                current: NoteConflictCurrent::Present { .. },
+                ..
+            }
+        ));
+        assert_eq!(fs::read(&notes_path).unwrap(), after_update);
+
+        let missing = update_project_note_text_expecting(
+            &project.0,
+            &current,
+            "crate:missing",
+            "Nope",
+            NoteWriteExpectation::MatchesRevision("not-the-revision".to_owned()),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            missing,
+            NotesError::RevisionConflict {
+                current: NoteConflictCurrent::Deleted,
+                ..
+            }
+        ));
+        assert_eq!(fs::read(&notes_path).unwrap(), after_update);
+    }
+
+    #[test]
+    fn conflict_markers_and_malformed_json_fail_closed_with_the_notes_path() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set_expecting(
+                &project.0,
+                "crate:core",
+                "Keep me",
+                "fingerprint",
+                &NoteWriteExpectation::Unconditional,
+            )
+            .unwrap();
+        let notes_path = project.0.join(".lightwell").join("notes.json");
+        let conflicted = b"<<<<<<< HEAD\n{}\n=======\n{}\n>>>>>>> other\n".to_vec();
+        fs::write(&notes_path, &conflicted).unwrap();
+
+        let marked = store.list_for_map(&map("fingerprint")).unwrap_err();
+        let marked_message = marked.to_string();
+        assert!(
+            marked_message.contains(&notes_path.display().to_string()),
+            "{marked_message}"
+        );
+        assert!(
+            marked_message.contains("conflict markers"),
+            "{marked_message}"
+        );
+        assert!(marked_message.contains("Git"), "{marked_message}");
+        assert_eq!(fs::read(&notes_path).unwrap(), conflicted);
+        assert!(matches!(
+            store.set_expecting(
+                &project.0,
+                "crate:core",
+                "Should not write",
+                "fingerprint",
+                &NoteWriteExpectation::Unconditional,
+            ),
+            Err(NotesError::ConflictMarkers { .. })
+        ));
+        assert_eq!(fs::read(&notes_path).unwrap(), conflicted);
+
+        let broken = b"{broken".to_vec();
+        fs::write(&notes_path, &broken).unwrap();
+        let invalid = store.list_for_map(&map("fingerprint")).unwrap_err();
+        let invalid_message = invalid.to_string();
+        assert!(
+            invalid_message.contains("Could not parse project notes"),
+            "{invalid_message}"
+        );
+        assert!(
+            invalid_message.contains(&notes_path.display().to_string()),
+            "{invalid_message}"
+        );
+        assert!(invalid_message.contains("Git"), "{invalid_message}");
+        assert!(invalid_message.contains("unchanged"), "{invalid_message}");
+        assert_eq!(fs::read(&notes_path).unwrap(), broken);
+    }
+
+    #[test]
+    fn concurrent_compare_and_swap_updates_of_different_notes_both_persist() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set_expecting(
+                &project.0,
+                "crate:left",
+                "Left",
+                "left-fingerprint",
+                &NoteWriteExpectation::Unconditional,
+            )
+            .unwrap();
+        store
+            .set_expecting(
+                &project.0,
+                "crate:right",
+                "Right",
+                "right-fingerprint",
+                &NoteWriteExpectation::Unconditional,
+            )
+            .unwrap();
+        let left_revision = note_revision("Left", "left-fingerprint");
+        let right_revision = note_revision("Right", "right-fingerprint");
+        let left = ProjectNotesStore::new(&project.0);
+        let right = ProjectNotesStore::new(&project.0);
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                left.update_text_expecting(
+                    &project.0,
+                    "crate:left",
+                    "Left 2",
+                    &NoteWriteExpectation::MatchesRevision(left_revision),
+                )
+                .unwrap()
+            });
+            scope.spawn(|| {
+                right
+                    .update_text_expecting(
+                        &project.0,
+                        "crate:right",
+                        "Right 2",
+                        &NoteWriteExpectation::MatchesRevision(right_revision),
+                    )
+                    .unwrap()
+            });
+        });
+
+        let notes = store.list_for_map(&map("other")).unwrap();
+        assert_eq!(notes.len(), 2);
+        let text = |id: &str| {
+            notes
+                .iter()
+                .find(|note| note.block_id == id)
+                .map(|note| note.text.as_str())
+        };
+        assert_eq!(text("crate:left"), Some("Left 2"));
+        assert_eq!(text("crate:right"), Some("Right 2"));
     }
 
     #[test]

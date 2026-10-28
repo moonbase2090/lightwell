@@ -12,6 +12,7 @@ import {
   parseSourceFileDocument,
   parseWorkspaceMapUpdate,
   parseResolvedCommitRange,
+  parseWorkspaceNotesUpdate,
 } from "./map-sources/tauri-types.js";
 
 const entry = { id: "/projects/lightwell", label: "Lightwell" };
@@ -39,6 +40,11 @@ test("Tauri map, project notes, and editor IPC responses pass boundary checks", 
     document: { facts: { schemaVersion: 1 }, annotations: {}, projectNotes },
   });
   assert.deepEqual(parseProjectNotesSnapshot(projectNotes), projectNotes);
+  const revised = { ...note, revision: "abc123" };
+  assert.deepEqual(parseProjectNotesSnapshot({ kind: "ready", notes: [revised] }), { kind: "ready", notes: [revised] });
+  assert.throws(() => parseProjectNotesSnapshot({ kind: "ready", notes: [{ ...note, revision: "" }] }), /invalid project note/);
+  assert.deepEqual(parseWorkspaceNotesUpdate({ path: entry.id, projectNotes }), { path: entry.id, projectNotes });
+  assert.throws(() => parseWorkspaceNotesUpdate({ path: "", projectNotes }), /invalid notes update/);
   assert.deepEqual(parseProjectNotesSnapshot({ kind: "error", message: "Could not read notes." }), {
     kind: "error",
     message: "Could not read notes.",

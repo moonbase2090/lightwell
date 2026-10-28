@@ -6,25 +6,25 @@ Lightwell maps Rust workspaces, TypeScript, JavaScript, HTML and CSS projects (i
 
 ## Install
 
-Lightwell v0.1.22 is available for macOS (Apple Silicon and Intel), Linux x86_64 and ARM64, and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [getlightwell.app](https://getlightwell.app/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
+Lightwell v0.1.23 is available for macOS (Apple Silicon and Intel), Linux x86_64 and ARM64, and Windows x64 from [GitHub Releases](https://github.com/moonbase2090/lightwell/releases) and [getlightwell.app](https://getlightwell.app/). Checksums are in [`SHA256SUMS`](https://github.com/moonbase2090/lightwell/releases/latest/download/SHA256SUMS).
 
 ### macOS
 
-Download [`Lightwell_0.1.22_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.22_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
+Download [`Lightwell_0.1.23_aarch64.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.23/Lightwell_0.1.23_aarch64.dmg) for Apple Silicon or [`Lightwell_0.1.23_universal.dmg`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.23/Lightwell_0.1.23_universal.dmg) for Intel and Apple Silicon (macOS 11.0 or later). The disk images are signed with an Apple Developer ID and notarized by Apple. Open it and drag Lightwell to Applications.
 
 ### Linux
 
-Download [`Lightwell_0.1.22_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
+Download [`Lightwell_0.1.23_amd64.deb`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.23/Lightwell_0.1.23_amd64.deb) (x86_64, glibc 2.28 or later) for Debian, Ubuntu, and other apt-based distributions, then install it:
 
 ```sh
-sudo apt install ./Lightwell_0.1.22_amd64.deb
+sudo apt install ./Lightwell_0.1.23_amd64.deb
 ```
 
-Other x86_64 distributions can use [`Lightwell_0.1.22_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_amd64.AppImage), [`Lightwell_0.1.22_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.22_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.22_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_linux_aarch64.tar.gz) carries the command line tool.
+Other x86_64 distributions can use [`Lightwell_0.1.23_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.23/Lightwell_0.1.23_amd64.AppImage), [`Lightwell_0.1.23_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.23/Lightwell_0.1.23_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.23_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.23/Lightwell_0.1.23_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.23_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.23/Lightwell_0.1.23_linux_aarch64.tar.gz) carries the command line tool.
 
 ### Windows
 
-Download [`Lightwell_0.1.22_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.22/Lightwell_0.1.22_x64.msi) (x64) and run it to install Lightwell.
+Download [`Lightwell_0.1.23_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.23/Lightwell_0.1.23_x64.msi) (x64) and run it to install Lightwell.
 
 ### Updates
 
@@ -114,6 +114,8 @@ VITE_ENABLE_PROJECT_NOTES=false npm run tauri:build
 Build with `VITE_ENABLE_MAP_POPOUT=true` to enable the map pop-out. **Pop out** or Ctrl+Shift+M (Cmd+Shift+M on macOS) opens the workspace map in a fullscreen window. Esc or the window close button closes that window and leaves the main window open.
 
 Right-click a block (or press Shift+F10), use **Add note** in the details panel, press **N**, or click **Notes** to add, edit, or remove notes for map blocks. The dialog reads and writes the opened project's `.lightwell/notes.json` file. It marks stale notes and keeps them until you remove them. Build with `VITE_ENABLE_NOTES_STALE_ACTIONS=true` to enable **Mark reviewed** (re-fingerprint without changing text) and **Delete stale** (opt-in bulk remove of stale notes only). That same environment variable gates the matching Tauri IPC commands at compile time. Those controls are off by default.
+
+Per-note save checks are off unless you build with `VITE_ENABLE_NOTES_CAS=true`. That build sends the note's revision when you save, refuses to overwrite a note that changed on disk, and reloads `.lightwell/notes.json` when the file changes. A clean editor takes the new text. An editor with unsaved text keeps the draft and says that notes changed on disk.
 
 Build with `VITE_ENABLE_NOTE_GIT=true npm run tauri:build` to enable the experimental Git sharing controls. They are off by default. After saving a note in this build, its Git status appears below the editor. Choose **Commit this note** to commit that saved note for Git sharing. The action uses your Git identity and signing configuration. Finish any merge, rebase, cherry-pick, revert, or bisect first, and resolve all conflicts. Repositories with active commit or reference hooks require a manual Git commit; the app leaves those hooks intact and does not run or bypass them. It leaves other notes, staged files, and working changes intact and never pushes. Refresh the status after external Git changes. Ignored notes require an explicit ignore-rule change before they can be committed. If a commit fails, the saved note remains on disk.
 

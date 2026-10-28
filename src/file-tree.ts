@@ -1,4 +1,5 @@
 import type { DisplayBlock, FactBlockType, FactConnection } from "./model.js";
+import { pathContainsIgnoredDirectory } from "./workspace-ignore.js";
 
 export type MapView = "modules" | "files";
 export type TreeOrientation = "vertical" | "horizontal";
@@ -38,8 +39,6 @@ export interface DirEntry {
   readonly name: string;
   readonly directory: boolean;
 }
-
-const BUILD_DIRECTORIES = new Set(["target", "node_modules", "dist"]);
 
 export function mapViewStorageKey(workspaceId: string): string {
   return `lightwell.map-view.v1:${encodeURIComponent(workspaceId)}`;
@@ -443,7 +442,7 @@ export function parseGitignore(text: string): readonly string[] {
 export function isIgnoredRepoPath(repoPath: string, rules: readonly string[]): boolean {
   const normalized = normalizeRepoPath(repoPath);
   if (normalized === null || normalized === "") return false;
-  if (normalized.split("/").some((part) => BUILD_DIRECTORIES.has(part))) return true;
+  if (pathContainsIgnoredDirectory(normalized)) return true;
   let ignored = false;
   for (const rule of rules) {
     const matched = ruleEffect(rule, normalized);
@@ -470,7 +469,6 @@ export function collectRepoFiles(
       continue;
     }
     for (const entry of entries) {
-      if (entry.name === ".git") continue;
       const path = dir === "" ? entry.name : `${dir}/${entry.name}`;
       if (isIgnoredRepoPath(path, rules)) continue;
       if (entry.directory) pending.push(path);

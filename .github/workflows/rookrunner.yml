@@ -157,6 +157,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always() && steps.live_refresh_capture.outcome != 'skipped'
         with:
+          retention-days: 1
           name: lightwell-live-refresh-linux-screenshots
           path: lightwell-artifacts/live-refresh/
           if-no-files-found: error
@@ -190,7 +191,7 @@ jobs:
           echo "$RUNNER_TEMP/node-v${node_version}-linux-${node_arch}/bin" >> "$GITHUB_PATH"
       - run: npm ci
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: node_modules/.bin/playwright install --with-deps chromium
       - run: npm run test:e2e
 
   scorecard:
@@ -262,6 +263,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
+          retention-days: 1
           name: scorecard-report
           if-no-files-found: error
           path: |

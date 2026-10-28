@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, ModuleBlock } from "../model.js";
 
 export type GoSymbolKind = "func" | "method" | "type";
@@ -40,7 +41,7 @@ export interface GoPackage {
   readonly files: readonly GoFile[];
 }
 
-const skippedDirectories = new Set(["vendor", "testdata", "node_modules", "target", "dist", ".git"]);
+const skippedDirectories = ["vendor", "testdata"];
 
 export function discoverGoPackages(repositoryPath: string): GoPackage[] {
   const root = path.resolve(repositoryPath);
@@ -274,7 +275,7 @@ function walkGoFiles(
   seen.add(canonical);
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const name = entry.name;
-    if (name.startsWith(".") || skippedDirectories.has(name)) continue;
+    if (name.startsWith(".") || isIgnoredDirectory(name, skippedDirectories)) continue;
     const child = path.join(directory, name);
     if (entry.isDirectory()) {
       walkGoFiles(child, canonicalRoot, seen, packages);

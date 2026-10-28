@@ -1,5 +1,6 @@
 use crate::metadata::CargoDiscoveryError;
 use crate::path_confinement::{confined_canonical, is_confined_to, opened_root};
+use crate::workspace_ignore::is_ignored_directory;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -385,10 +386,11 @@ fn walk_ruby_files(
 }
 
 fn skipped_ruby_directory(name: &str) -> bool {
-    matches!(
-        name,
-        "vendor" | "node_modules" | "tmp" | "log" | ".git" | ".bundle"
-    )
+    is_ignored_directory(name)
+        || matches!(
+            name.to_ascii_lowercase().as_str(),
+            "vendor" | "tmp" | "log" | ".bundle"
+        )
 }
 
 fn ruby_views(source: &str) -> (String, String) {

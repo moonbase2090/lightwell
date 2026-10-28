@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, ModuleBlock } from "../model.js";
 
 export type JvmModuleKind = "maven" | "gradle";
@@ -46,17 +47,11 @@ export interface JvmWorkspace {
   readonly packages: readonly JvmPackage[];
 }
 
-const skippedDirectories = new Set([
+const skippedDirectories = [
   "build",
-  ".gradle",
-  "target",
-  "node_modules",
   "vendor",
   "testdata",
-  ".git",
-  "dist",
-  "out",
-]);
+];
 
 const modifiers = new Set([
   "public", "private", "protected", "internal", "abstract", "final", "open", "sealed", "data",
@@ -298,7 +293,7 @@ function walkJvm(root: string, canonicalRoot: string): Found {
     }
     for (const entry of entries) {
       const name = entry.name;
-      if (name.startsWith(".") || skippedDirectories.has(name.toLowerCase())) continue;
+      if (name.startsWith(".") || isIgnoredDirectory(name, skippedDirectories)) continue;
       const child = path.join(directory, name);
       if (entry.isDirectory()) {
         visit(child);
