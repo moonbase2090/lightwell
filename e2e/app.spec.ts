@@ -78,7 +78,7 @@ test.describe("app shell (ipc)", () => {
     const select = page.getByRole("combobox", { name: "PROJECT" });
     await select.selectOption({ label: "Scorecard" });
     await expect(page.getByLabel("Project summary")).toContainText("Scorecard");
-    const btn = page.getByRole("button", { name: /open.*workspace|choose rust workspace/i }).first();
+    const btn = page.getByRole("button", { name: /open project folder|choose project folder/i }).first();
     await expect(btn).toBeVisible();
     await btn.click();
     // Dialog is stubbed at the IPC layer; open_workspace resolves to the
