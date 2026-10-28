@@ -6,6 +6,10 @@
 
 - The top bar has a Close workspace action that returns to the recent-workspaces chooser without touching disk. The chooser lists recent workspaces so a closed one can be reopened. Closing asks first only when a note draft has unsaved text.
 
+### Fixed
+
+- Human-readable `lightwell notes list` output shows `unknown` for legacy notes without an update timestamp (#204).
+
 ## 0.1.22 - 2026-10-28
 
 ### Changed
