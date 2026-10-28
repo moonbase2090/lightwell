@@ -127,8 +127,12 @@ jobs:
         with:
           targets: aarch64-apple-darwin
       - run: npm ci
+      - name: Prove the bundled CLI lands on PATH
+        run: scripts/ci/test-macos-cli-path.sh
       - name: Build the unsigned Apple Silicon app
         run: npm run tauri:build -- --target aarch64-apple-darwin --bundles app --no-sign
+      - name: Bundle the command line tool
+        run: scripts/ci/bundle-macos-cli.sh target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app aarch64-apple-darwin
       - name: Check the deployment target and unsigned bundle
         run: |
           app='target/aarch64-apple-darwin/release/bundle/macos/Lightwell.app'
@@ -168,6 +172,8 @@ jobs:
       - run: npm ci
       - name: Build the unsigned app for signing
         run: npm run tauri:build -- --target universal-apple-darwin --bundles app --no-sign
+      - name: Bundle the command line tool
+        run: scripts/ci/bundle-macos-cli.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app aarch64-apple-darwin x86_64-apple-darwin
       - name: Sign and verify the universal app
         env:
           APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
@@ -182,6 +188,7 @@ jobs:
       - name: Check both architectures and the deployment target
         run: |
           lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/MacOS/lightwell -verify_arch arm64 x86_64
+          lipo target/universal-apple-darwin/release/bundle/macos/Lightwell.app/Contents/Resources/bin/lightwell -verify_arch arm64 x86_64
           scripts/ci/check-macos-minimum.sh target/universal-apple-darwin/release/bundle/macos/Lightwell.app 11.0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
