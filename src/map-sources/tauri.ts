@@ -21,11 +21,23 @@ import {
 } from "./tauri-types.js";
 import { readNoteRevisionConflict } from "../notes-reload.js";
 
-function noteCommandArgs(input: Pick<ProjectNoteInput, "expectedRevision" | "expectation">): { expectedRevision?: string | null; expectation?: ProjectNoteInput["expectation"] | null } {
-  if (!(typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true")) return {};
+function notesCasFlagEnabled(): boolean {
+  return typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true";
+}
+
+export function noteCommandArgs(input: Pick<ProjectNoteInput, "expectedRevision" | "expectation">, enabled = notesCasFlagEnabled()): { expectedRevision?: string | null; expectation?: ProjectNoteInput["expectation"] | null } {
+  if (!enabled) return {};
   return {
     expectedRevision: input.expectedRevision ?? null,
     expectation: input.expectation ?? null,
+  };
+}
+
+export function removeNoteArgs(input: Omit<ProjectNoteInput, "text">, enabled = notesCasFlagEnabled()) {
+  return {
+    path: input.workspaceId,
+    blockId: input.blockId,
+    ...noteCommandArgs(input, enabled),
   };
 }
 
@@ -68,11 +80,7 @@ const projectNotesApi: ProjectNotesSource = {
     }).then(parseProjectNotesSnapshot, rejectNoteCommand);
   },
   remove(input: Omit<ProjectNoteInput, "text">) {
-    return invoke<unknown>("remove_workspace_note", {
-      path: input.workspaceId,
-      blockId: input.blockId,
-      ...noteCommandArgs(input),
-    }).then(parseProjectNotesSnapshot, rejectNoteCommand);
+    return invoke<unknown>("remove_workspace_note", removeNoteArgs(input)).then(parseProjectNotesSnapshot, rejectNoteCommand);
   },
   ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS) === "true" ? {
     markReviewed(input: Omit<ProjectNoteInput, "text">) {
