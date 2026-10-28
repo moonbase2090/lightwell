@@ -1035,6 +1035,38 @@ mod tests {
     }
 
     #[test]
+    fn removing_with_a_stale_revision_is_refused_and_keeps_the_note() {
+        let project = TempProject::new();
+        let store = ProjectNotesStore::new(&project.0);
+        store
+            .set(&project.0, "crate:core", "Original", "fingerprint")
+            .unwrap();
+        let stale = store.list_for_map(&map("fingerprint")).unwrap()[0]
+            .revision
+            .clone();
+        store
+            .set(&project.0, "crate:core", "Changed elsewhere", "fingerprint")
+            .unwrap();
+
+        assert!(matches!(
+            store.remove_expecting("crate:core", &NoteWriteExpectation::MatchesRevision(stale)),
+            Err(NotesError::RevisionConflict { .. })
+        ));
+        let saved = store.list_for_map(&map("fingerprint")).unwrap();
+        assert_eq!(saved.len(), 1);
+        assert_eq!(saved[0].text, "Changed elsewhere");
+
+        let current = saved[0].revision.clone();
+        assert!(store
+            .remove_expecting(
+                "crate:core",
+                &NoteWriteExpectation::MatchesRevision(current)
+            )
+            .unwrap());
+        assert!(store.list_for_map(&map("fingerprint")).unwrap().is_empty());
+    }
+
+    #[test]
     fn saves_ignore_lock_and_temp_files_without_hiding_or_staging_notes() {
         for existing_rules in [
             None,

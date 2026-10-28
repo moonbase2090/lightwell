@@ -90,6 +90,7 @@ export default function ProjectNotesDialog({
   const [diskBanner, setDiskBanner] = useState("");
   const [diskNotice, setDiskNotice] = useState("");
   const [conflict, setConflict] = useState<NoteRevisionConflict | null>(null);
+  const [conflictAction, setConflictAction] = useState<"save" | "remove">("save");
   const [gitRefresh, setGitRefresh] = useState(0);
   const dialogRef = useRef<HTMLElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -236,6 +237,7 @@ export default function ProjectNotesDialog({
     } catch (cause: unknown) {
       const found = notesCas ? readNoteRevisionConflict(cause) : null;
       if (found !== null) {
+        setConflictAction("save");
         setConflict(found);
         setError("");
       } else {
@@ -313,14 +315,20 @@ export default function ProjectNotesDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleSave]);
 
-  const handleRemove = async () => {
+  const runRemove = async (expectedRevision: string | null, onRemoved?: () => void) => {
     if (editor.kind !== "saved" || saving || committing) return;
     setSaving(true);
     setError("");
     setSavedMessage("");
     try {
-      const updated = await source.remove({ workspaceId, blockId: editor.blockId });
+      const updated = await source.remove({
+        workspaceId,
+        blockId: editor.blockId,
+        expectedRevision,
+        expectation: "matchesRevision",
+      });
       onSnapshot(updated);
+      onRemoved?.();
       if (notesCas && updated.kind === "ready") {
         lastAppliedRef.current = noteRevisionMap(updated.notes);
         snapshotSeen.current = updated;
@@ -333,10 +341,28 @@ export default function ProjectNotesDialog({
       setDiskNotice("");
       setSavedMessage("Note removed");
     } catch (cause: unknown) {
-      setError(noteErrorMessage(cause, "Could not remove this project note."));
+      const found = notesCas ? readNoteRevisionConflict(cause) : null;
+      if (found !== null) {
+        setConflictAction("remove");
+        setConflict(found);
+        setError("");
+      } else {
+        setError(noteErrorMessage(cause, "Could not remove this project note."));
+      }
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleRemove = async () => {
+    if (editor.kind !== "saved") return;
+    await runRemove(editor.loadedRevision);
+  };
+
+  // Retry the delete against the revision now on disk, only after the user has seen it in the conflict panel.
+  const removeConflictVersion = async () => {
+    if (conflict === null || conflict.current.kind !== "present") return;
+    await runRemove(conflict.current.revision, () => setConflict(null));
   };
 
   const handleMarkReviewed = async () => {
@@ -497,7 +523,9 @@ export default function ProjectNotesDialog({
                   ? <p>The saved note was removed.</p>
                   : <p className="notes-conflict-disk">{conflict.current.text}</p>}
                 <div className="notes-disk-banner-actions">
-                  <button className="notes-save-button" type="button" onClick={() => void overwriteConflict()} disabled={saving || committing}>Overwrite</button>
+                  {conflictAction === "save"
+                    ? <button className="notes-save-button" type="button" onClick={() => void overwriteConflict()} disabled={saving || committing}>Overwrite</button>
+                    : conflict.current.kind === "present" && <button className="notes-save-button" type="button" onClick={() => void removeConflictVersion()} disabled={saving || committing}>Delete this version</button>}
                   <button className="notes-new-button" type="button" onClick={discardToDisk} disabled={saving || committing}>Reload</button>
                   <button className="notes-new-button" type="button" onClick={() => setConflict(null)} disabled={saving || committing}>Cancel</button>
                 </div>

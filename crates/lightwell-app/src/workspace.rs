@@ -1,11 +1,12 @@
 use lightwell_core::{
     block_diff_for, commit_changes_for, discover_project_workspace, extract_cargo_map,
     filter_commits_that_are_ancestors, open_target, path_diff_for, project_notes_for_map,
-    recent_commits, remove_project_note, resolve_block_target, resolve_block_target_in_map,
-    set_project_note_for_map_expecting, update_project_note_text_expecting, BlockDiffDocument,
-    CommitChanges, CommitSummary, EditorError, EditorSettings, EditorTarget, EditorTemplatePreset,
-    FactMap, MapExtractionError, MapWatchError, MapWatcher, NoteConflictCurrent,
-    NoteWriteExpectation, NotesError, ProjectNoteView, WatchUpdate, EDITOR_TEMPLATE_PRESETS,
+    recent_commits, remove_project_note_expecting, resolve_block_target,
+    resolve_block_target_in_map, set_project_note_for_map_expecting,
+    update_project_note_text_expecting, BlockDiffDocument, CommitChanges, CommitSummary,
+    EditorError, EditorSettings, EditorTarget, EditorTemplatePreset, FactMap, MapExtractionError,
+    MapWatchError, MapWatcher, NoteConflictCurrent, NoteWriteExpectation, NotesError,
+    ProjectNoteView, WatchUpdate, EDITOR_TEMPLATE_PRESETS,
 };
 #[cfg(lightwell_notes_stale_actions)]
 use lightwell_core::{mark_project_note_reviewed, remove_stale_project_notes};
@@ -355,13 +356,18 @@ pub fn remove_workspace_note(
     watchers: State<'_, WorkspaceWatchers>,
     path: String,
     block_id: String,
-) -> Result<ProjectNotesState, String> {
-    let root = workspace_root(&path)?;
-    let facts = watchers.current_map(&root)?;
-    remove_project_note(&root, &block_id).map_err(|error| error.to_string())?;
+    expected_revision: Option<String>,
+    expectation: Option<String>,
+) -> Result<ProjectNotesState, NoteCommandError> {
+    let root = workspace_root(&path).map_err(NoteCommandError::Message)?;
+    let facts = watchers
+        .current_map(&root)
+        .map_err(NoteCommandError::Message)?;
+    let expectation = note_expectation(expectation, expected_revision)?;
+    remove_project_note_expecting(&root, &block_id, expectation).map_err(note_command_error)?;
     project_notes_for_map(&root, &facts)
         .map(|notes| ProjectNotesState::Ready { notes })
-        .map_err(|error| error.to_string())
+        .map_err(|error| NoteCommandError::Message(error.to_string()))
 }
 
 #[cfg(lightwell_notes_stale_actions)]

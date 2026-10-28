@@ -21,7 +21,7 @@ import {
 } from "./tauri-types.js";
 import { readNoteRevisionConflict } from "../notes-reload.js";
 
-function noteCommandArgs(input: ProjectNoteInput): { expectedRevision?: string | null; expectation?: ProjectNoteInput["expectation"] | null } {
+function noteCommandArgs(input: Pick<ProjectNoteInput, "expectedRevision" | "expectation">): { expectedRevision?: string | null; expectation?: ProjectNoteInput["expectation"] | null } {
   if (!(typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true")) return {};
   return {
     expectedRevision: input.expectedRevision ?? null,
@@ -71,7 +71,8 @@ const projectNotesApi: ProjectNotesSource = {
     return invoke<unknown>("remove_workspace_note", {
       path: input.workspaceId,
       blockId: input.blockId,
-    }).then(parseProjectNotesSnapshot);
+      ...noteCommandArgs(input),
+    }).then(parseProjectNotesSnapshot, rejectNoteCommand);
   },
   ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS) === "true" ? {
     markReviewed(input: Omit<ProjectNoteInput, "text">) {
