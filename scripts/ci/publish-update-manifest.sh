@@ -26,7 +26,7 @@ sign() {
   if [ ! -f "$file" ]; then
     return 0
   fi
-  npx --yes @tauri-apps/cli@2.12.1 signer sign \
+  node_modules/.bin/tauri signer sign \
     --app-version "$version" \
     "$file"
 }
