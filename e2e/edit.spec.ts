@@ -17,7 +17,7 @@ test.describe("source inspector (ipc)", () => {
 
   test("EDIT-02: inspector header closes the inspector", async ({ page }) => {
     await openSource(page);
-    await page.getByRole("button", { name: /close/i }).first().click();
+    await page.getByRole("button", { name: "Close source inspector" }).click();
     await expect(page.getByText("READ-ONLY SOURCE")).toBeHidden();
   });
 
