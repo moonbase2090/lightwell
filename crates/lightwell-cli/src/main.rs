@@ -13,7 +13,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check] [--map <facts.json>]\n  lightwell notes set [-C|--repo <path>] [--replace] [--json] [--map <facts.json>] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--replace] [--json] [--map <facts.json>] <text...>\n  lightwell notes review [-C|--repo <path>] [--json] <block-id>\n  lightwell notes rm-stale [-C|--repo <path>] --yes [--json]\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
+const USAGE: &str = "Usage:\n  lightwell extract <repository> -o <facts.json> [--name <label>]\n  lightwell blocks [--json] [--file <path>]\n  lightwell notes list [-C|--repo <path>] [--json] [--check] [--map <facts.json>]\n  lightwell notes for-file [-C|--repo <path>] <path> [--json]\n  lightwell notes set [-C|--repo <path>] [--replace] [--json] [--map <facts.json>] <block-id> <text...>\n  lightwell notes set [-C|--repo <path>] --file <path> [--replace] [--json] [--map <facts.json>] <text...>\n  lightwell notes review [-C|--repo <path>] [--json] <block-id>\n  lightwell notes rm-stale [-C|--repo <path>] --yes [--json]\n  lightwell notes rm [-C|--repo <path>] [--json] <block-id>\n  lightwell open <block-id>\n  lightwell watch <repository> [--name <label>]\n  lightwell --version\n  lightwell help";
 
 const NOTES_STALE_ACTIONS_ENV: &str = "LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS";
 
@@ -34,6 +34,9 @@ struct BlocksOptions {
 enum NotesCommand {
     List {
         check: bool,
+    },
+    ForFile {
+        path: String,
     },
     Set {
         target: SetTarget,
@@ -328,6 +331,12 @@ fn parse_notes_command(
             return Err("`lightwell notes list` takes no arguments".to_owned());
         }
         NotesCommand::List { check }
+    } else if subcommand == OsStr::new("for-file") {
+        let path = required_utf8(&mut arguments, "a file path")?;
+        if arguments.next().is_some() {
+            return Err("`lightwell notes for-file` takes one file path".to_owned());
+        }
+        NotesCommand::ForFile { path }
     } else if subcommand == OsStr::new("set") {
         let target = match file {
             Some(path) => SetTarget::File(path),
@@ -420,6 +429,16 @@ fn required_utf8(
         .map_err(|_| format!("{description} must use UTF-8"))
 }
 
+fn require_notes_stale_actions() -> Result<(), Box<dyn Error>> {
+    match env::var(NOTES_STALE_ACTIONS_ENV) {
+        Ok(value) if value == "true" => Ok(()),
+        _ => Err(format!(
+            "`notes review` and `notes rm-stale` require {NOTES_STALE_ACTIONS_ENV}=true (off by default)."
+        )
+        .into()),
+    }
+}
+
 fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> {
     let repository = match options.repository_path {
         Some(path) => path,
@@ -460,6 +479,37 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                 let noun = if stale_count == 1 { "note" } else { "notes" };
                 eprintln!("lightwell: {stale_count} stale project {noun} found.");
                 return Ok(ExitCode::from(5));
+            }
+        }
+        NotesCommand::ForFile { path } => {
+            let (root, map) = current_workspace_map(&repository)?;
+            let wanted = normalized_workspace_path(&root, &path);
+            let matching_ids = block_views(&map)
+                .into_iter()
+                .filter(|block| {
+                    block
+                        .source_path
+                        .as_deref()
+                        .is_some_and(|source| normalized_source_path(source) == wanted)
+                })
+                .map(|block| block.id)
+                .collect::<Vec<_>>();
+            let mut notes = project_notes_for_map(&root, &map)?;
+            notes.retain(|note| matching_ids.contains(&note.block_id));
+            match options.output {
+                NotesOutput::Json => write_notes_json(serde_json::to_value(&notes)?)?,
+                NotesOutput::Human => {
+                    if notes.is_empty() {
+                        println!("No project notes for file `{path}`.");
+                    }
+                    for note in notes {
+                        let status = if note.stale { "stale" } else { "current" };
+                        println!(
+                            "[{status}] {} (source fingerprint {}): {}",
+                            note.block_id, note.source_fingerprint, note.text
+                        );
+                    }
+                }
             }
         }
         NotesCommand::Set {
@@ -592,16 +642,6 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
         }
     }
     Ok(ExitCode::SUCCESS)
-}
-
-fn require_notes_stale_actions() -> Result<(), Box<dyn Error>> {
-    match env::var(NOTES_STALE_ACTIONS_ENV) {
-        Ok(value) if value == "true" => Ok(()),
-        _ => Err(format!(
-            "`notes review` and `notes rm-stale` require {NOTES_STALE_ACTIONS_ENV}=true (off by default)."
-        )
-        .into()),
-    }
 }
 
 fn write_notes_json(value: serde_json::Value) -> Result<(), Box<dyn Error>> {

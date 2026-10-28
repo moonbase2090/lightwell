@@ -2,9 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- The top bar shows the Local map indicator before Settings, the Notes button matches the size and colors of the map controls beside it, and the commit diff banner uses the amber accent in the Blueprint theme.
+
 ### Added
 
 - Note revision checks are opt-in: a note write or delete can carry the revision it loaded and is refused when the saved note changed on disk. The project-notes dialog reloads notes changed on disk instead of overwriting them. Build with `VITE_ENABLE_NOTES_CAS=true` to enable it.
+- `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).
 - `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
 
 ### Fixed

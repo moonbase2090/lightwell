@@ -79,7 +79,9 @@ XDG_CONFIG_HOME="$config_home" EDITOR_LOG_PATH="$editor_log" xvfb-run -a --serve
       printf "Could not read the Lightwell window width.\n" >&2
       exit 1
     fi
-    settings_x=$((window_width - 164))
+    # Settings is the rightmost top-bar control: a 25px margin, then an 87px button.
+    # Its centre is about 68px from the right edge.
+    settings_x=$((window_width - 68))
     xdotool key ctrl+k
     xdotool type --clearmodifiers --delay 45 inspector_target
     sleep 2
