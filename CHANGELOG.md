@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Note revision checks are opt-in: a note write or delete can carry the revision it loaded and is refused when the saved note changed on disk. The project-notes dialog reloads notes changed on disk instead of overwriting them. Build with `VITE_ENABLE_NOTES_CAS=true` to enable it.
+
 ## 0.1.23 - 2026-10-28
 
 ### Changed
@@ -22,6 +28,7 @@
 ### Changed
 
 - The Windows release build registers the PowerShell Gallery before signing, so the signing step can install its module again (#214).
+
 
 ## 0.1.21 - 2026-10-27
 

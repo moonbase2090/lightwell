@@ -10,6 +10,20 @@ export interface ProjectNoteView {
   readonly author: string;
   readonly updatedAt: string;
   readonly stale: boolean;
+  /** Present when the snapshot includes a per-note revision. */
+  readonly revision?: string;
+}
+
+export type NoteWriteExpectationMode = "unconditional" | "absent" | "matchesRevision";
+
+export type NoteConflictCurrent =
+  | { readonly kind: "deleted" }
+  | { readonly kind: "present"; readonly text: string; readonly sourceFingerprint: string; readonly revision: string };
+
+export interface NoteRevisionConflict {
+  readonly kind: "revisionConflict";
+  readonly blockId: string;
+  readonly current: NoteConflictCurrent;
 }
 
 export type ProjectNotesSnapshot =
@@ -26,6 +40,8 @@ export interface ProjectNoteInput {
   readonly workspaceId: string;
   readonly blockId: string;
   readonly text: string;
+  readonly expectedRevision?: string | null;
+  readonly expectation?: NoteWriteExpectationMode;
 }
 
 export type NotesGitStatus =
@@ -173,6 +189,7 @@ export interface MapSource {
     id: string,
     onChange: (document: MapSourceDocument) => void,
     onError: (error: unknown) => void,
+    onNotes?: (snapshot: ProjectNotesSnapshot) => void,
   ): Promise<() => void>;
   readonly projectNotes?: ProjectNotesSource;
   readonly editor?: MapEditorSource;
