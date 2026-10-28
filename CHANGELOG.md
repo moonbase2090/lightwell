@@ -4,11 +4,8 @@
 
 ### Added
 
-<<<<<<< HEAD
 - `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).
-=======
 - `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
->>>>>>> origin/main
 
 ### Fixed
 
