@@ -5,6 +5,7 @@
 ### Added
 
 - `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).
+
 ## 0.1.22 - 2026-10-28
 
 ### Changed
