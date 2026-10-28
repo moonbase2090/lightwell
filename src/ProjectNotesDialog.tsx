@@ -20,6 +20,8 @@ interface ProjectNotesDialogProps {
   readonly onClose: () => void;
   /** Close the dialog and reveal the note's block on the map. */
   readonly onShowOnMap?: (blockId: string) => void;
+  /** Reports whether the draft has unsaved text, so the workspace can confirm before closing. */
+  readonly onDirtyChange?: (dirty: boolean) => void;
 }
 
 function noteEditorForBlock(blockId: string, notes: readonly ProjectNoteView[]): NoteEditor {
@@ -64,6 +66,7 @@ export default function ProjectNotesDialog({
   onSnapshot,
   onClose,
   onShowOnMap,
+  onDirtyChange,
 }: ProjectNotesDialogProps) {
   const notes = useMemo(() => snapshot.kind === "ready"
     ? [...snapshot.notes].sort((left, right) => Number(left.stale) - Number(right.stale)
@@ -110,6 +113,10 @@ export default function ProjectNotesDialog({
   const isDirty = editor.kind === "new"
     ? editor.text.length > 0
     : selectedNote === undefined || selectedNote.text !== editor.text;
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   const editorBlock = map.blockById.get(editor.blockId);
   const staleCount = notes.filter((note) => note.stale).length;
   const staleActionsEnabled = source.markReviewed !== undefined && source.removeStale !== undefined;
