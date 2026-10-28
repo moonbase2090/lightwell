@@ -142,6 +142,7 @@ jobs:
           ditto -c -k --keepParent "$app" "$RUNNER_TEMP/Lightwell-macos-arm64.zip"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
+          retention-days: 3
           name: lightwell-macos-arm64-unsigned
           path: ${{ runner.temp }}/Lightwell-macos-arm64.zip
           if-no-files-found: error
@@ -211,6 +212,7 @@ jobs:
         run: scripts/ci/notarize-macos-app.sh "$RUNNER_TEMP/Lightwell-macos-universal.dmg"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
+          retention-days: 3
           name: lightwell-macos-universal-signed
           path: ${{ runner.temp }}/Lightwell-macos-universal.dmg
           if-no-files-found: error
@@ -246,6 +248,7 @@ jobs:
         run: scripts/ci/capture-open-workspace.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-open-workspace.png"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
+          retention-days: 3
           name: lightwell-open-workspace-linux-screenshot
           path: ${{ runner.temp }}/lightwell-open-workspace.png
           if-no-files-found: error
@@ -255,6 +258,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always() && steps.live_refresh_capture.outcome != 'skipped'
         with:
+          retention-days: 3
           name: lightwell-live-refresh-linux-screenshots
           path: ${{ runner.temp }}/lightwell-live-refresh/
           if-no-files-found: error
@@ -265,12 +269,14 @@ jobs:
         if: failure() && steps.notes_capture.outcome == 'failure'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
+          retention-days: 3
           name: lightwell-project-notes-failure-debug
           path: ${{ runner.temp }}/lightwell-project-notes/
           if-no-files-found: ignore
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: steps.notes_capture.outcome == 'success'
         with:
+          retention-days: 3
           name: lightwell-project-notes-linux-screenshots
           path: ${{ runner.temp }}/lightwell-project-notes/*.png
           if-no-files-found: error
@@ -280,6 +286,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: steps.source_inspector_capture.outcome == 'success'
         with:
+          retention-days: 3
           name: lightwell-source-inspector-linux-screenshots
           path: ${{ runner.temp }}/lightwell-source-inspector/*.png
           if-no-files-found: error
@@ -289,6 +296,7 @@ jobs:
         run: scripts/ci/capture-theme-picker.sh target/x86_64-unknown-linux-gnu/release/lightwell "$RUNNER_TEMP/lightwell-theme-picker" "$CAPTURE_SPLITTERS"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
+          retention-days: 3
           name: lightwell-theme-picker-linux-screenshots
           path: ${{ runner.temp }}/lightwell-theme-picker/*.png
           if-no-files-found: error
@@ -298,6 +306,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always() && startsWith(github.head_ref, 'm2/draggable-rails')
         with:
+          retention-days: 3
           name: lightwell-splitters-linux-screenshots
           path: ${{ runner.temp }}/lightwell-splitters/*.png
           if-no-files-found: error
@@ -328,6 +337,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: startsWith(github.head_ref, 'm2/compact-header')
         with:
+          retention-days: 3
           name: lightwell-compact-header-linux-screenshots
           path: ${{ runner.temp }}/lightwell-compact-header/*.png
           if-no-files-found: error
@@ -363,6 +373,7 @@ jobs:
           scripts/check-release-text.sh --root "$GITHUB_WORKSPACE" --artifact "$RUNNER_TEMP/text-check"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
+          retention-days: 3
           name: lightwell-linux-x86_64-glibc-2.28
           path: ${{ runner.temp }}/dist-linux/*
           if-no-files-found: error
