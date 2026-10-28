@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- The top bar shows the Local map indicator before Settings, the Notes button matches the size and colors of the map controls beside it, and the commit diff banner uses the amber accent in the Blueprint theme.
+
 ### Added
 
 - `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).

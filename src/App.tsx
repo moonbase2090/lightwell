@@ -2334,10 +2334,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <SearchResults query={search} nodes={nodeSearch} onChoose={selectSearchNode} />
         </div>
         <div className="top-status">
+          <span className="local-map-indicator"><span className="live-dot" />LOCAL MAP</span>
           <button className="editor-settings-button" type="button" onClick={() => setSettingsOpen(true)}>
             <Settings2 size={13} />Settings
           </button>
-          <span className="local-map-indicator"><span className="live-dot" />LOCAL MAP</span>
         </div>
       </header>
 
