@@ -5,6 +5,11 @@
 ### Added
 
 - `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).
+## 0.1.22 - 2026-10-28
+
+### Changed
+
+- The Windows release build registers the PowerShell Gallery before signing, so the signing step can install its module again (#214).
 
 ## 0.1.21 - 2026-10-27
 
