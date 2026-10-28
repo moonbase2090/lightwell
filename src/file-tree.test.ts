@@ -292,6 +292,7 @@ test("gitignore and build directories are left out of a fixture repo", () => {
       "Cargo.toml",
       "crates/demo/Cargo.toml",
       "crates/demo/src/lib.rs",
+      "packages/app/src/app.ts",
       "pkg/demo.py",
       "secret/keep.rs",
       "src/lib.rs",
@@ -307,6 +308,8 @@ test("gitignore and build directories are left out of a fixture repo", () => {
     const childIds = files.concat([
       "target/debug/demo.rs",
       "node_modules/left-pad/index.js",
+      "packages/app/node_modules/example/index.js",
+      "packages/app/.pnpm/store/package.js",
       "dist/bundle.js",
       "notes.log",
       "secret/hidden.rs",
@@ -389,6 +392,12 @@ function writeFixture(root: string): void {
   writeFileSync(path.join(root, "crates", "demo", "src", "lib.rs"), "pub fn demo() {}\n");
   mkdirSync(path.join(root, "web", "src"), { recursive: true });
   writeFileSync(path.join(root, "web", "src", "app.tsx"), "export {}\n");
+  mkdirSync(path.join(root, "packages", "app", "src"), { recursive: true });
+  writeFileSync(path.join(root, "packages", "app", "src", "app.ts"), "export {}\n");
+  mkdirSync(path.join(root, "packages", "app", "node_modules", "example"), { recursive: true });
+  writeFileSync(path.join(root, "packages", "app", "node_modules", "example", "index.js"), "");
+  mkdirSync(path.join(root, "packages", "app", ".pnpm", "store"), { recursive: true });
+  writeFileSync(path.join(root, "packages", "app", ".pnpm", "store", "package.js"), "");
   mkdirSync(path.join(root, "pkg"));
   writeFileSync(path.join(root, "pkg", "demo.py"), "def demo():\n    return 1\n");
   mkdirSync(path.join(root, "target", "debug"), { recursive: true });

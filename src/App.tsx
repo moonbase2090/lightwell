@@ -248,12 +248,16 @@ function MapSourceState({
   openWorkspace,
   opening,
   error = false,
+  recent,
+  onChooseRecent,
 }: {
   readonly message: string;
   readonly title: string;
   readonly openWorkspace?: () => void;
   readonly opening?: boolean;
   readonly error?: boolean;
+  readonly recent?: readonly { readonly id: string; readonly label: string }[];
+  readonly onChooseRecent?: (id: string) => void;
 }) {
   const Icon = error ? CircleAlert : Activity;
   return (
@@ -262,10 +266,19 @@ function MapSourceState({
         <div className="workspace-glyph"><FolderOpen size={18} /></div>
         <h1>{title}</h1>
         <p role={error ? "alert" : undefined}>{message}</p>
+        {recent !== undefined && recent.length > 0 && onChooseRecent !== undefined && (
+          <ul className="recent-workspaces" aria-label="Recent workspaces">
+            {recent.map((entry) => (
+              <li key={entry.id}>
+                <button type="button" onClick={() => onChooseRecent(entry.id)}>{entry.label}</button>
+              </li>
+            ))}
+          </ul>
+        )}
         {openWorkspace !== undefined && (
           <button className="open-workspace-primary" type="button" onClick={openWorkspace} disabled={opening}>
             {opening ? <Activity size={15} /> : <FolderOpen size={15} />}
-            {opening ? "Opening workspace…" : "Choose workspace folder"}
+            {opening ? "Opening project…" : "Choose project folder"}
           </button>
         )}
         {openWorkspace === undefined && <Icon className="source-state-status" size={15} />}
@@ -688,6 +701,10 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [workspaceError, setWorkspaceError] = useState("");
   const [openingWorkspace, setOpeningWorkspace] = useState(false);
   const [notesDialog, setNotesDialog] = useState<{ readonly blockId: string | null; readonly initialText: string } | null>(null);
+  const notesDirtyRef = useRef(false);
+  const reportNotesDirty = useCallback((dirty: boolean) => {
+    notesDirtyRef.current = dirty;
+  }, []);
   const [noteMenu, setNoteMenu] = useState<NoteMenuTarget | null>(null);
   const [noteActionError, setNoteActionError] = useState("");
   const [mapRequestVersion, setMapRequestVersion] = useState(0);
@@ -866,7 +883,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       setInspectedBlockId(null);
       setMapRequestVersion((version) => version + 1);
     } catch (error: unknown) {
-      setWorkspaceError(describeError(error, "Could not open this workspace."));
+      setWorkspaceError(describeError(error, "Could not open this project."));
     } finally {
       setOpeningWorkspace(false);
     }
@@ -968,11 +985,19 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
           const watchMap = mapSource.watchMap;
           if (watchMap !== undefined) {
+            const onNotes = typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true"
+              ? (snapshot: ProjectNotesSnapshot) => {
+                  if (cancelled) return;
+                  setLoadedMap((current) => current.kind === "ready" && current.id === mapKey
+                    ? { ...current, projectNotes: snapshot }
+                    : current);
+                }
+              : undefined;
             void watchMap.call(mapSource, mapKey, acceptUpdate, (error) => {
               if (!cancelled) {
                 setWorkspaceError(`Live refresh failed: ${describeError(error, "The workspace watcher stopped.")}`);
               }
-            }).then((cleanup) => {
+            }, onNotes).then((cleanup) => {
               if (cancelled) cleanup();
               else unwatch = cleanup;
             }).catch((error: unknown) => {
@@ -1002,6 +1027,19 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     ? mapCatalog.entries.find((entry) => entry.id === mapKey)
     : undefined;
   const openWorkspaceAction = mapSource.openWorkspace === undefined ? undefined : handleOpenWorkspace;
+  const closeWorkspace = useCallback(() => {
+    if (notesDirtyRef.current && !window.confirm("Discard unsaved note changes and close this workspace?")) return;
+    notesDirtyRef.current = false;
+    setNotesDialog(null);
+    setInspectedBlockId(null);
+    setActiveFeatureId(null);
+    setActiveNodeId(null);
+    setMapKey(null);
+  }, []);
+  const chooseRecentWorkspace = useCallback((id: string) => {
+    setMapKey(id);
+    setInspectedBlockId(null);
+  }, []);
   const map = loadedMap.kind === "ready" && loadedMap.id === mapKey ? loadedMap.map : null;
   const history = mapSource.history;
 
@@ -1813,6 +1851,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     />;
   }
   if (mapKey === null) {
+    if (mapCatalog.entries.length > 0) {
+      return <MapSourceState title="Workspace closed" message="Pick a recent workspace, or choose another folder. Nothing on disk was changed." openWorkspace={openWorkspaceAction} opening={openingWorkspace} recent={mapCatalog.entries} onChooseRecent={chooseRecentWorkspace} />;
+    }
     return <MapSourceState title="Selecting a workspace" message="Preparing the workspace map…" openWorkspace={openWorkspaceAction} opening={openingWorkspace} />;
   }
   if (source === undefined) {
@@ -2264,6 +2305,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           initialText={notesDialog.initialText}
           onSnapshot={acceptProjectNotes}
           onClose={closeProjectNotes}
+          onDirtyChange={reportNotesDirty}
           onShowOnMap={(blockId) => {
             const block = map.blockById.get(blockId);
             if (block === undefined) return;
@@ -2316,7 +2358,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         </div>
         {openWorkspaceAction !== undefined && (
           <button className="open-workspace-button" type="button" onClick={handleOpenWorkspace} disabled={openingWorkspace}>
-            <FolderOpen size={14} />{openingWorkspace ? "Opening…" : "Open workspace"}
+            <FolderOpen size={14} />{openingWorkspace ? "Opening…" : "Open project folder"}
           </button>
         )}
         <div className="global-search-wrap">
@@ -2334,10 +2376,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <SearchResults query={search} nodes={nodeSearch} onChoose={selectSearchNode} />
         </div>
         <div className="top-status">
+          <span className="local-map-indicator"><span className="live-dot" />LOCAL MAP</span>
+          <button className="close-workspace-button" type="button" onClick={closeWorkspace} title="Close this workspace. Nothing on disk is changed; it stays in recent workspaces.">
+            Close workspace
+          </button>
           <button className="editor-settings-button" type="button" onClick={() => setSettingsOpen(true)}>
             <Settings2 size={13} />Settings
           </button>
-          <span className="local-map-indicator"><span className="live-dot" />LOCAL MAP</span>
         </div>
       </header>
 

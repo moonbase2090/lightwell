@@ -1,5 +1,6 @@
 use crate::metadata::CargoDiscoveryError;
 use crate::path_confinement::{confined_canonical, opened_root};
+use crate::workspace_ignore::is_ignored_directory;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
@@ -284,10 +285,7 @@ fn confined_go_path(path: &Path, root: &Path) -> Option<PathBuf> {
 }
 
 fn skipped_directory(name: &str) -> bool {
-    matches!(
-        name,
-        "vendor" | "testdata" | "node_modules" | "target" | "dist" | ".git"
-    )
+    is_ignored_directory(name) || matches!(name, "vendor" | "testdata")
 }
 
 fn is_go_file(path: &Path) -> bool {

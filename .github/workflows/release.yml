@@ -592,6 +592,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: npm ci
       - name: Sign updater artifacts
         env:
           LIGHTWELL_RELEASE_REQUIRE_UPDATER_SIGNING: "1"

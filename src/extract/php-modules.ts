@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, ModuleBlock } from "../model.js";
 
 export type PhpSymbolKind = "class" | "interface" | "trait" | "enum" | "function";
@@ -35,7 +36,7 @@ export interface PhpPackage {
   readonly files: readonly PhpFile[];
 }
 
-const skippedDirectories = new Set(["vendor", "node_modules", "target", "dist", ".git"]);
+const skippedDirectories = ["vendor"];
 
 export function discoverPhpPackages(repositoryPath: string): PhpPackage[] {
   const root = path.resolve(repositoryPath);
@@ -316,7 +317,7 @@ function walkPhpFiles(directory: string, canonicalRoot: string, seen: Set<string
   if (!isConfined(canonicalRoot, canonical) || seen.has(canonical)) return;
   seen.add(canonical);
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    if (entry.name.startsWith(".") || skippedDirectories.has(entry.name)) continue;
+    if (entry.name.startsWith(".") || isIgnoredDirectory(entry.name, skippedDirectories)) continue;
     const child = path.join(directory, entry.name);
     if (entry.isDirectory()) {
       walkPhpFiles(child, canonicalRoot, seen, files);

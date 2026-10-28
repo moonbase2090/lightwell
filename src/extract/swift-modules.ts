@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
+import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { FactConnection, ModuleBlock } from "../model.js";
 
 export type SwiftSymbolKind =
@@ -39,16 +40,10 @@ export interface SwiftTarget {
   readonly files: readonly SwiftFile[];
 }
 
-const skippedDirectories = new Set([
-  ".build",
-  "DerivedData",
-  ".git",
-  "node_modules",
-  "target",
-  "dist",
+const skippedDirectories = [
+  "deriveddata",
   "vendor",
-  ".swiftpm",
-]);
+];
 
 export function discoverSwiftTargets(repositoryPath: string): SwiftTarget[] {
   const root = path.resolve(repositoryPath);
@@ -325,7 +320,7 @@ function collectSwiftFiles(directory: string, canonicalRoot: string, out: string
   }
   for (const entry of entries) {
     const name = entry.name;
-    if (name.startsWith(".") || skippedDirectories.has(name)) continue;
+    if (name.startsWith(".") || isIgnoredDirectory(name, skippedDirectories)) continue;
     const child = path.join(directory, name);
     if (entry.isDirectory()) {
       collectSwiftFiles(child, canonicalRoot, out);
@@ -363,7 +358,7 @@ function walkSwiftFiles(directory: string, canonicalRoot: string, packages: Map<
   }
   for (const entry of entries) {
     const name = entry.name;
-    if (name.startsWith(".") || skippedDirectories.has(name) || name.endsWith(".xcodeproj")) continue;
+    if (name.startsWith(".") || isIgnoredDirectory(name, skippedDirectories) || name.endsWith(".xcodeproj")) continue;
     const child = path.join(directory, name);
     if (entry.isDirectory()) {
       walkSwiftFiles(child, canonicalRoot, packages);

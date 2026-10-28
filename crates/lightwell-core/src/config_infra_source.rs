@@ -1,5 +1,6 @@
 use crate::metadata::CargoDiscoveryError;
 use crate::path_confinement::{confined_canonical, opened_root};
+use crate::workspace_ignore::is_ignored_directory;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io;
@@ -459,19 +460,11 @@ fn confined_config_path(path: &Path, root: &Path) -> Option<PathBuf> {
 }
 
 fn skipped_directory(name: &str) -> bool {
-    matches!(
-        name.to_ascii_lowercase().as_str(),
-        ".git"
-            | ".terraform"
-            | "node_modules"
-            | "target"
-            | "build"
-            | "dist"
-            | "out"
-            | "vendor"
-            | "testdata"
-            | "fixtures"
-    )
+    is_ignored_directory(name)
+        || matches!(
+            name.to_ascii_lowercase().as_str(),
+            ".terraform" | "build" | "vendor" | "testdata" | "fixtures"
+        )
 }
 
 fn is_config_file(path: &Path) -> bool {
