@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
+
 ## 0.1.21 - 2026-10-27
 
 ### Added
