@@ -2,11 +2,6 @@
 set -eu
 cd "$(git rev-parse --show-toplevel)"
 
-if ! command -v rustfmt >/dev/null 2>&1; then
-  echo "pre-commit: rustfmt is not installed (try: rustup component add rustfmt)" >&2
-  exit 1
-fi
-
 found=0
 failed=0
 while IFS= read -r file; do
@@ -15,6 +10,10 @@ while IFS= read -r file; do
     *.rs) ;;
     *) continue ;;
   esac
+  if [ "$found" -eq 0 ] && ! command -v rustfmt >/dev/null 2>&1; then
+    echo "pre-commit: rustfmt is not installed (try: rustup component add rustfmt)" >&2
+    exit 1
+  fi
   found=1
   [ -f "$file" ] || continue
   if ! rustfmt --check "$file"; then
