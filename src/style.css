@@ -167,8 +167,8 @@ button { color: inherit; }
 .legend-line { width: 20px; height: 0; border-top: 1px solid #6991fc; }
 .dependency-line { border-color: #59d8c0; border-top-style: dashed; }
 .stale-count { display: flex; align-items: center; gap: 5px; color: #e4b473; }
-.project-notes-open-button { height: 44px; padding: 0 9px; display: flex; align-items: center; gap: 6px; flex: none; border: 1px solid #344a65; border-radius: 6px; color: #b9cae2; background: #172333; font-size: calc(10px * var(--lw-ui-scale, 1)); font-weight: 600; cursor: pointer; }
-.project-notes-open-button:hover { border-color: #6686b4; background: #213349; color: #e0eafb; }
+.project-notes-open-button { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; flex: none; border: 1px solid #2c3946; border-radius: 7px; color: #aab9cb; background: #141d26; font-size: calc(10px * var(--lw-ui-scale, 1)); font-family: var(--mono); font-weight: 600; cursor: pointer; white-space: nowrap; }
+.project-notes-open-button:hover { border-color: #526d90; background: #1a2837; color: #e4edf8; }
 .project-notes-open-button span { min-width: 17px; height: 17px; padding: 0 4px; display: grid; place-items: center; border-radius: 9px; color: #c5d4ed; background: #26384e; font-size: calc(12px * var(--lw-ui-scale, 1)); font-family: var(--mono); }
 .map-rotate, .map-popout-button { height: 28px; padding: 0 8px; display: inline-flex; align-items: center; gap: 6px; flex: none; border: 1px solid #2c3946; border-radius: 7px; color: #aab9cb; background: #141d26; font-size: calc(10px * var(--lw-ui-scale, 1)); font-family: var(--mono); cursor: pointer; white-space: nowrap; }
 .map-rotate:hover, .map-popout-button:hover { border-color: #526d90; color: #e4edf8; background: #1a2837; }
@@ -739,6 +739,8 @@ a.update-download { display: inline-flex; align-items: center; text-decoration: 
 .workspace-shell[data-theme="blueprint"] .statusbar,
 .workspace-shell[data-theme="blueprint"] .statusbar svg { color: #9FB6D6; }
 /* Tier 1: sub-bars and code */
+.workspace-shell[data-theme="blueprint"] .commit-diff-banner { background: rgba(255,181,71,.08); border-bottom-color: #24406A; }
+.workspace-shell[data-theme="blueprint"] .commit-diff-banner code { color: var(--bp-accent-text); }
 .workspace-shell[data-theme="blueprint"] .overview-row,
 .workspace-shell[data-theme="blueprint"] .map-toolbar,
 .workspace-shell[data-theme="blueprint"] .inspector-position,

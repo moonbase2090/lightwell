@@ -2,10 +2,15 @@
 
 ## Unreleased
 
+### Changed
+
+- Use project-folder wording in the open-project actions (#217, fixes #154).
+- The top bar shows the Local map indicator before Settings, the Notes button matches the size and colors of the map controls beside it, and the commit diff banner uses the amber accent in the Blueprint theme.
+
 ### Added
 
 - The top bar has a Close workspace action that returns to the recent-workspaces chooser without touching disk. The chooser lists recent workspaces so a closed one can be reopened. Closing asks first only when a note draft has unsaved text.
-
+- `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).
 - `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
 
 ### Fixed

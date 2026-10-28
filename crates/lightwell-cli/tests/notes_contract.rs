@@ -552,3 +552,53 @@ fn notes_set_leaves_notes_unstaged_so_documented_git_add_is_required() {
         "documented `git add .lightwell/notes.json` must stage the saved notes file: {after:?}"
     );
 }
+
+#[test]
+fn for_file_returns_only_notes_for_matching_source_and_marks_stale_notes() {
+    let project = Project::new();
+    fs::write(
+        project.0.join("src/lib.rs"),
+        "pub mod extra;\npub fn before() -> u8 { 1 }\n",
+    )
+    .unwrap();
+    fs::write(
+        project.0.join("src/extra.rs"),
+        "pub fn extra() -> u8 { 2 }\n",
+    )
+    .unwrap();
+    let extra = "module:notes-contracts:crate root::extra";
+    project.json(&["notes", "set", BLOCK, "Root note", "--json"]);
+    project.json(&["notes", "set", extra, "Extra note", "--json"]);
+
+    let root_notes = project.json(&["notes", "for-file", "src/lib.rs", "--json"]);
+    assert_eq!(root_notes.as_array().unwrap().len(), 1);
+    assert_eq!(root_notes[0]["blockId"], BLOCK);
+    assert_eq!(root_notes[0]["text"], "Root note");
+    assert_eq!(root_notes[0]["stale"], false);
+
+    let extra_notes = project.json(&["notes", "for-file", "src/extra.rs", "--json"]);
+    assert_eq!(extra_notes.as_array().unwrap().len(), 1);
+    assert_eq!(extra_notes[0]["blockId"], extra);
+    assert_eq!(extra_notes[0]["text"], "Extra note");
+
+    fs::write(
+        project.0.join("src/extra.rs"),
+        "pub fn extra() -> u8 { 3 }\n",
+    )
+    .unwrap();
+    let stale = project.json(&["notes", "for-file", "src/extra.rs", "--json"]);
+    assert_eq!(stale[0]["blockId"], extra);
+    assert_eq!(stale[0]["text"], "Extra note");
+    assert_eq!(stale[0]["stale"], true);
+
+    assert_eq!(
+        project.json(&["notes", "for-file", "src/missing.rs", "--json"]),
+        json!([])
+    );
+    assert_eq!(
+        project
+            .run(&["notes", "for-file", "src/missing.rs"], 0)
+            .stdout,
+        b"No project notes for file `src/missing.rs`.\n"
+    );
+}
