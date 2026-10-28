@@ -54,7 +54,7 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always() && steps.live_refresh_capture.outcome != 'skipped'
         with:
-          retention-days: 3
+          retention-days: 1
           name: lightwell-live-refresh-linux-screenshots
           path: ${{ runner.temp }}/lightwell-live-refresh/
           if-no-files-found: error
