@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Human-readable `lightwell notes list` output shows `unknown` for legacy notes without an update timestamp (#204).
+
 ## 0.1.22 - 2026-10-28
 
 ### Changed
