@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Note revision checks are opt-in: a note write or delete can carry the revision it loaded and is refused when the saved note changed on disk. The project-notes dialog reloads notes changed on disk instead of overwriting them. Build with `VITE_ENABLE_NOTES_CAS=true` to enable it.
+
 ## 0.1.23 - 2026-10-28
 
 ### Changed
@@ -9,7 +15,6 @@
 
 ### Added
 
-- Note revision checks are opt-in: a note write or delete can carry the revision it loaded and is refused when the saved note changed on disk. The project-notes dialog reloads notes changed on disk instead of overwriting them. Build with `VITE_ENABLE_NOTES_CAS=true` to enable it.
 - The top bar has a Close workspace action that returns to the recent-workspaces chooser without touching disk. The chooser lists recent workspaces so a closed one can be reopened. Closing asks first only when a note draft has unsaved text.
 - `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).
 - `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
