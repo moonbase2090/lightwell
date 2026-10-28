@@ -7,5 +7,8 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "vite": "6.4.4"
+  },
+  "overrides": {
+    "postcss": "8.5.32"
   }
 }
