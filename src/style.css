@@ -80,6 +80,12 @@ button { color: inherit; }
   border: 1px solid #344a65; border-radius: 8px; color: #c2d0e5; background: #172333; font-size: calc(11px * var(--lw-ui-scale, 1)); font-weight: 600; cursor: pointer;
 }
 .open-workspace-button:hover { border-color: #6686b4; background: #213349; color: #e0eafb; }
+.close-workspace-button { height: 32px; padding: 0 10px; flex: none; border: 1px solid #2c3946; border-radius: 7px; color: #aab9cb; background: #141d26; font-family: var(--mono); font-size: calc(11px * var(--lw-ui-scale, 1)); cursor: pointer; white-space: nowrap; }
+.close-workspace-button:hover { border-color: #526d90; background: #1a2837; color: #e4edf8; }
+.close-workspace-button:focus-visible, .recent-workspaces button:focus-visible { outline: 2px solid #89aaff; outline-offset: 2px; }
+.recent-workspaces { margin: 14px 0 0; padding: 0; width: 100%; list-style: none; display: grid; gap: 6px; }
+.recent-workspaces button { width: 100%; min-height: 34px; padding: 0 10px; text-align: left; border: 1px solid #344a65; border-radius: 8px; color: #c2d0e5; background: #172333; font: inherit; font-size: calc(12px * var(--lw-ui-scale, 1)); cursor: pointer; }
+.recent-workspaces button:hover { border-color: #6686b4; background: #213349; color: #e0eafb; }
 .open-workspace-button:disabled { cursor: progress; opacity: .7; }
 .workspace-error { min-height: 38px; padding: 6px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #684535; color: #f0c28a; background: #251a16; font-size: calc(11px * var(--lw-ui-scale, 1)); }
 .workspace-error > span { display: flex; align-items: center; gap: 8px; }
