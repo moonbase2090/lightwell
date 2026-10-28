@@ -80,6 +80,45 @@ PLIST
     "$script_dir/check-unsigned-macos-app.sh" "$work/plist11.app"
   expect_refusal "missing app is refused" "App bundle does not exist" \
     "$script_dir/check-unsigned-macos-app.sh" "$work/absent.app"
+
+  bundle_app="$work/Bundle.app"
+  mkdir -p "$bundle_app/Contents/MacOS"
+  cp "$work/min11" "$bundle_app/Contents/MacOS/lightwell"
+  chmod 755 "$bundle_app/Contents/MacOS/lightwell"
+  gui_sum=$(shasum -a 256 "$bundle_app/Contents/MacOS/lightwell" | awk '{print $1}')
+  expect_pass "bundle script installs the CLI beside the desktop binary" "Bundled lightwell CLI" \
+    "$script_dir/bundle-macos-cli.sh" --from "$work/min11" "$bundle_app"
+  if [[ ! -x "$bundle_app/Contents/Resources/bin/lightwell" ]]; then
+    printf 'FAIL bundled CLI is missing from Contents/Resources/bin\n' >&2
+    failures=$((failures + 1))
+  elif ! cmp -s "$work/min11" "$bundle_app/Contents/Resources/bin/lightwell"; then
+    printf 'FAIL bundled CLI bytes differ from the source binary\n' >&2
+    failures=$((failures + 1))
+  else
+    after=$(shasum -a 256 "$bundle_app/Contents/MacOS/lightwell" | awk '{print $1}')
+    if [[ "$after" != "$gui_sum" ]]; then
+      printf 'FAIL bundle script replaced the desktop binary\n' >&2
+      failures=$((failures + 1))
+    else
+      printf 'ok   bundled CLI is a separate file from the desktop binary\n'
+    fi
+  fi
+  bad_app="$work/BundleBad.app"
+  mkdir -p "$bad_app/Contents/MacOS"
+  cp "$work/min11" "$bad_app/Contents/MacOS/lightwell"
+  chmod 755 "$bad_app/Contents/MacOS/lightwell"
+  expect_refusal "bundle script refuses a CLI built for macOS 12" "expected a macOS 11.0 minimum, found 12.0" \
+    "$script_dir/bundle-macos-cli.sh" --from "$work/min12" "$bad_app"
+  if [[ -e "$bad_app/Contents/Resources/bin/lightwell" ]]; then
+    printf 'FAIL refused CLI was still copied into the app\n' >&2
+    failures=$((failures + 1))
+  else
+    printf 'ok   refused CLI was not copied into the app\n'
+  fi
+  expect_refusal "bundle script refuses a missing app" "Lightwell.app is missing" \
+    "$script_dir/bundle-macos-cli.sh" --from "$work/min11" "$work/absent.app"
+  expect_refusal "bundle script refuses a missing CLI" "CLI binary missing or not executable" \
+    "$script_dir/bundle-macos-cli.sh" --from "$work/absent-cli" "$bundle_app"
 }
 
 test_linux() {

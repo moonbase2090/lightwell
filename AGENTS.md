@@ -13,6 +13,8 @@ cargo test -p lightwell-core --lib --locked
 cargo test -p lightwell-app --bin lightwell --locked
 ```
 
+On macOS, `scripts/ci/test-macos-cli-path.sh` checks that a fresh shell resolves the bundled `lightwell` command. `scripts/ci/bundle-macos-cli.sh` copies that command into `Lightwell.app` after `tauri build` and before signing.
+
 ## Tests
 
 No tautological tests. A test must fail when the behavior it covers breaks. Don't write tests that:

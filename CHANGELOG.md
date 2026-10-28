@@ -6,6 +6,10 @@
 
 - `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).
 
+### Fixed
+
+- Human-readable `lightwell notes list` output shows `unknown` for legacy notes without an update timestamp (#204).
+
 ## 0.1.22 - 2026-10-28
 
 ### Changed

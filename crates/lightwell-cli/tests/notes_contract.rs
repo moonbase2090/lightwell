@@ -130,6 +130,22 @@ fn json_notes_roundtrip_reports_persisted_text_and_removal() {
 }
 
 #[test]
+fn legacy_note_without_updated_at_lists_unknown_timestamp() {
+    let project = Project::new();
+    project.json(&["notes", "set", "--json", BLOCK, "Legacy note"]);
+    let notes_path = project.0.join(".lightwell/notes.json");
+    let mut document: Value = serde_json::from_slice(&fs::read(&notes_path).unwrap()).unwrap();
+    let note = document["notes"][BLOCK].as_object_mut().unwrap();
+    note.remove("author");
+    note.remove("updatedAt");
+    fs::write(&notes_path, serde_json::to_vec(&document).unwrap()).unwrap();
+
+    let listed = String::from_utf8(project.run(&["notes", "list"], 0).stdout).unwrap();
+    assert!(listed.contains("; author unknown; updated unknown): Legacy note"));
+    assert!(!listed.contains("updated )"));
+}
+
+#[test]
 fn human_success_output_remains_unchanged() {
     let project = Project::new();
     assert_eq!(

@@ -435,12 +435,17 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                     }
                     for note in notes {
                         let status = if note.stale { "stale" } else { "current" };
+                        let updated_at = if note.updated_at.is_empty() {
+                            "unknown"
+                        } else {
+                            note.updated_at.as_str()
+                        };
                         println!(
                             "[{status}] {} (source fingerprint {}; author {}; updated {}): {}",
                             note.block_id,
                             note.source_fingerprint,
                             note.author,
-                            note.updated_at,
+                            updated_at,
                             note.text
                         );
                     }
