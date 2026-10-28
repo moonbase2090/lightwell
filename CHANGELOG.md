@@ -8,7 +8,6 @@
 
 - `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
 
-
 ### Fixed
 
 - Human-readable `lightwell notes list` output shows `unknown` for legacy notes without an update timestamp (#204).
