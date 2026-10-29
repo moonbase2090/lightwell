@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.24 - 2026-10-28
+
+### Changed
+
+- Tighter spacing between blocks in the Modules view (#215).
 
 ### Added
 
@@ -8,7 +12,9 @@
 
 ### Fixed
 
-- Deleting a note that changed on disk asks whether to delete the current version instead of removing it silently.
+- Deleting a note that changed on disk asks whether to delete the current version instead of removing it silently (#227).
+- The workspace watcher and scanners skip the same generated directories, such as `node_modules`, so the map no longer watches them (#226).
+- Updated npm dependencies with known vulnerabilities (#222).
 
 
 ## 0.1.23 - 2026-10-28
