@@ -7,6 +7,11 @@ export function projectNotesEnabled(value: string | undefined): boolean {
   return value !== "false";
 }
 
+/** The compound dependency layout stays off until its rendering slice lands. */
+export function compoundLayoutEnabled(value: string | undefined): boolean {
+  return value === "true";
+}
+
 /**
  * Mark reviewed and bulk delete of stale notes stay off unless the build sets
  * VITE_ENABLE_NOTES_STALE_ACTIONS to the exact string "true".

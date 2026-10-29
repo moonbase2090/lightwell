@@ -7,4 +7,5 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_COMMIT_DIFF?: string;
   readonly VITE_ENABLE_MAP_POPOUT?: string;
   readonly VITE_ENABLE_NOTES_CAS?: string;
+  readonly VITE_ENABLE_COMPOUND_LAYOUT?: string;
 }
