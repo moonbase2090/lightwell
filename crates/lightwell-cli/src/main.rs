@@ -1,9 +1,10 @@
 use lightwell_core::{
-    discover_project_workspace, extract_cargo_map, extract_project_map, mark_project_note_reviewed,
-    merge_project_notes_files, open_block, project_notes_for_map, remove_project_note,
-    remove_stale_project_notes, set_project_note_for_map, set_project_note_if_absent_for_map,
-    BlockBase, EditorSettings, FactBlock, FactMap, MapStats, MapWatchError, MapWatcher, NotesError,
-    Project, WorkspaceBlock, MAP_SCHEMA_VERSION,
+    configure_project_notes_merge_driver, discover_project_workspace, extract_cargo_map,
+    extract_project_map, mark_project_note_reviewed, merge_project_notes_files, open_block,
+    project_notes_for_map, remove_project_note, remove_stale_project_notes,
+    set_project_note_for_map, set_project_note_if_absent_for_map, BlockBase, EditorSettings,
+    FactBlock, FactMap, MapStats, MapWatchError, MapWatcher, NotesError, Project, WorkspaceBlock,
+    MAP_SCHEMA_VERSION,
 };
 use std::env;
 use std::error::Error;
@@ -588,6 +589,7 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                     return Err(error.into());
                 }
             };
+            configure_cli_notes_merge_driver(&root);
             match options.output {
                 NotesOutput::Human => {
                     println!("Saved note for `{block_id}` in `.lightwell/notes.json`.");
@@ -608,6 +610,7 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
             let (root, map) = current_workspace_map(&repository)?;
             match mark_project_note_reviewed(&root, &map, &block_id) {
                 Ok(notes) => {
+                    configure_cli_notes_merge_driver(&root);
                     let note = notes
                         .iter()
                         .find(|note| note.block_id == block_id)
@@ -635,9 +638,10 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
             }
         }
         NotesCommand::Remove { block_id } => {
-            if !remove_project_note(repository, &block_id)? {
+            if !remove_project_note(&repository, &block_id)? {
                 return Err(NotesError::NoteNotFound(block_id).into());
             }
+            configure_cli_notes_merge_driver(&repository);
             match options.output {
                 NotesOutput::Human => println!("Removed note for `{block_id}`."),
                 NotesOutput::Json => write_notes_json(serde_json::json!({
@@ -652,6 +656,7 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
             let before = project_notes_for_map(&root, &map)?;
             let stale_before = before.iter().filter(|note| note.stale).count();
             let (removed, notes) = remove_stale_project_notes(&root, &map)?;
+            configure_cli_notes_merge_driver(&root);
             match options.output {
                 NotesOutput::Human => {
                     let noun = if removed == 1 { "note" } else { "notes" };
@@ -671,6 +676,10 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
         }
     }
     Ok(ExitCode::SUCCESS)
+}
+
+fn configure_cli_notes_merge_driver(repository: &Path) {
+    configure_project_notes_merge_driver(repository, env::current_exe().ok().as_deref());
 }
 
 fn write_notes_json(value: serde_json::Value) -> Result<(), Box<dyn Error>> {

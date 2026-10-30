@@ -497,6 +497,21 @@ fn corrupt_storage_reports_errors_on_stderr_without_success_json() {
     }
 }
 
+#[test]
+fn hidden_merge_file_requires_exactly_three_paths() {
+    let project = Project::new();
+    project.error(
+        &["notes", "merge-file", "base", "current"],
+        2,
+        "the other notes path is required",
+    );
+    project.error(
+        &["notes", "merge-file", "base", "current", "other", "extra"],
+        2,
+        "takes three file paths",
+    );
+}
+
 fn git_output(root: &std::path::Path, args: &[&str]) -> Output {
     let binary_dir = std::path::Path::new(env!("CARGO_BIN_EXE_lightwell"))
         .parent()
@@ -518,6 +533,29 @@ fn git_output(root: &std::path::Path, args: &[&str]) -> Output {
         ])
         .args(args)
         .env("PATH", std::env::join_paths(search_paths).unwrap())
+        .output()
+        .unwrap()
+}
+
+fn git_output_without_lightwell(root: &std::path::Path, args: &[&str]) -> Output {
+    let git = std::env::split_paths(&std::env::var_os("PATH").unwrap_or_default())
+        .flat_map(|directory| [directory.join("git"), directory.join("git.exe")])
+        .find(|candidate| candidate.is_file())
+        .expect("git must be on PATH for the notes merge tests");
+    let git_directory = git.parent().unwrap();
+    Command::new(&git)
+        .arg("-C")
+        .arg(root)
+        .args([
+            "-c",
+            "user.name=Lightwell Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+        ])
+        .args(args)
+        .env("PATH", git_directory)
         .output()
         .unwrap()
 }
@@ -577,10 +615,29 @@ fn git_merges_notes_added_for_different_blocks() {
 }
 
 #[test]
-fn git_leaves_same_note_edits_conflicted_without_rewriting_the_note() {
+fn git_conflict_preserves_both_same_note_edits_and_unrelated_changes() {
     let project = Project::new();
+    fs::write(
+        project.0.join("src/lib.rs"),
+        "pub mod extra;\npub mod third;\npub fn before() -> u8 { 1 }\n",
+    )
+    .unwrap();
+    fs::write(
+        project.0.join("src/extra.rs"),
+        "pub fn extra() -> u8 { 2 }\n",
+    )
+    .unwrap();
+    fs::write(
+        project.0.join("src/third.rs"),
+        "pub fn third() -> u8 { 3 }\n",
+    )
+    .unwrap();
+    let extra = "module:notes-contracts:crate root::extra";
+    let third = "module:notes-contracts:crate root::third";
+
     git(&project.0, &["init", "-q"]);
-    project.json(&["notes", "set", "--json", BLOCK, "Base note"]);
+    project.json(&["notes", "set", "--json", BLOCK, "Base root note"]);
+    project.json(&["notes", "set", "--json", extra, "Base extra note"]);
     git(&project.0, &["add", "-A"]);
     git(&project.0, &["commit", "-q", "-m", "Base"]);
     let base = String::from_utf8(git(&project.0, &["rev-parse", "HEAD"]).stdout)
@@ -589,28 +646,135 @@ fn git_leaves_same_note_edits_conflicted_without_rewriting_the_note() {
         .to_owned();
 
     git(&project.0, &["switch", "-q", "-c", "left-edit"]);
-    project.json(&["notes", "set", "--json", "--replace", BLOCK, "Left note"]);
+    project.json(&[
+        "notes",
+        "set",
+        "--json",
+        "--replace",
+        BLOCK,
+        "Left root note",
+    ]);
     git(&project.0, &["add", ".lightwell/notes.json"]);
     git(&project.0, &["commit", "-q", "-m", "Edit left"]);
 
     git(&project.0, &["switch", "-q", "-c", "right-edit", &base]);
-    project.json(&["notes", "set", "--json", "--replace", BLOCK, "Right note"]);
+    project.json(&[
+        "notes",
+        "set",
+        "--json",
+        "--replace",
+        BLOCK,
+        "Right root note",
+    ]);
+    project.json(&[
+        "notes",
+        "set",
+        "--json",
+        "--replace",
+        extra,
+        "Right extra note",
+    ]);
+    project.json(&["notes", "set", "--json", third, "Right third note"]);
     git(&project.0, &["add", ".lightwell/notes.json"]);
     git(&project.0, &["commit", "-q", "-m", "Edit right"]);
     let notes_path = project.0.join(".lightwell/notes.json");
-    let right = fs::read(&notes_path).unwrap();
 
     let merge = git_output(&project.0, &["merge", "-q", "--no-edit", "left-edit"]);
     assert!(!merge.status.success());
     let diagnostic = String::from_utf8_lossy(&merge.stderr);
     assert!(diagnostic.contains(BLOCK), "{diagnostic}");
     assert!(diagnostic.contains("Both branches changed"), "{diagnostic}");
-    assert_eq!(fs::read(&notes_path).unwrap(), right);
+    let conflicted = fs::read_to_string(&notes_path).unwrap();
+    for expected in [
+        "<<<<<<< current",
+        "Left root note",
+        "Right root note",
+        "Right extra note",
+        "Right third note",
+        ">>>>>>> other",
+    ] {
+        assert!(
+            conflicted.contains(expected),
+            "missing {expected:?}: {conflicted}"
+        );
+    }
+    project.error(&["notes", "list"], 1, "contain Git conflict markers");
     assert_eq!(
         String::from_utf8(git(&project.0, &["diff", "--name-only", "--diff-filter=U"]).stdout)
             .unwrap(),
         ".lightwell/notes.json\n"
     );
+}
+
+#[test]
+fn git_falls_back_to_its_text_driver_when_lightwell_is_not_on_path() {
+    let project = Project::new();
+    fs::write(
+        project.0.join("src/lib.rs"),
+        "pub mod extra;\npub fn before() -> u8 { 1 }\n",
+    )
+    .unwrap();
+    fs::write(
+        project.0.join("src/extra.rs"),
+        "pub fn extra() -> u8 { 2 }\n",
+    )
+    .unwrap();
+    let extra = "module:notes-contracts:crate root::extra";
+
+    git(&project.0, &["init", "-q"]);
+    project.json(&["notes", "set", "--json", BLOCK, "Base root note"]);
+    project.json(&["notes", "set", "--json", extra, "Base extra note"]);
+    git(&project.0, &["add", "-A"]);
+    git(&project.0, &["commit", "-q", "-m", "Base"]);
+    let base = String::from_utf8(git(&project.0, &["rev-parse", "HEAD"]).stdout)
+        .unwrap()
+        .trim()
+        .to_owned();
+
+    git(&project.0, &["switch", "-q", "-c", "root-edit"]);
+    project.json(&[
+        "notes",
+        "set",
+        "--json",
+        "--replace",
+        BLOCK,
+        "Edited root note",
+    ]);
+    git(&project.0, &["add", ".lightwell/notes.json"]);
+    git(&project.0, &["commit", "-q", "-m", "Edit root"]);
+
+    git(&project.0, &["switch", "-q", "-c", "extra-edit", &base]);
+    project.json(&[
+        "notes",
+        "set",
+        "--json",
+        "--replace",
+        extra,
+        "Edited extra note",
+    ]);
+    git(&project.0, &["add", ".lightwell/notes.json"]);
+    git(&project.0, &["commit", "-q", "-m", "Edit extra"]);
+
+    git(
+        &project.0,
+        &[
+            "config",
+            "--local",
+            "merge.lightwell-notes.driver",
+            "if test -x '/missing/lightwell'; then '/missing/lightwell' notes merge-file %O %A %B; else git merge-file %A %O %B; fi",
+        ],
+    );
+
+    let merge =
+        git_output_without_lightwell(&project.0, &["merge", "-q", "--no-edit", "root-edit"]);
+    assert!(
+        merge.status.success(),
+        "fallback merge failed: {}",
+        String::from_utf8_lossy(&merge.stderr)
+    );
+    let notes = project.json(&["notes", "list", "--json"]);
+    assert_eq!(notes[0]["text"], "Edited root note");
+    assert_eq!(notes[1]["text"], "Edited extra note");
 }
 
 #[test]
@@ -626,16 +790,23 @@ fn notes_set_leaves_notes_unstaged_so_documented_git_add_is_required() {
         fs::read_to_string(project.0.join(".git/info/attributes")).unwrap(),
         "*.txt diff=custom\n.lightwell/notes.json merge=lightwell-notes\n"
     );
-    assert_eq!(
-        String::from_utf8(
-            git(
-                &project.0,
-                &["config", "--local", "--get", "merge.lightwell-notes.driver"]
-            )
-            .stdout
+    let driver = String::from_utf8(
+        git(
+            &project.0,
+            &["config", "--local", "--get", "merge.lightwell-notes.driver"],
         )
-        .unwrap(),
-        "lightwell notes merge-file %O %A %B\n"
+        .stdout,
+    )
+    .unwrap();
+    let cli = env!("CARGO_BIN_EXE_lightwell").replace('\\', "/");
+    assert!(driver.contains(&format!("test -x '{cli}'")), "{driver}");
+    assert!(
+        driver.contains(&format!("'{cli}' notes merge-file %O %A %B")),
+        "{driver}"
+    );
+    assert!(
+        driver.contains("else git merge-file %A %O %B; fi"),
+        "{driver}"
     );
     project.json(&[
         "notes",

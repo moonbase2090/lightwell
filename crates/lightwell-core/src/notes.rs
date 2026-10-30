@@ -54,7 +54,7 @@ pub enum NoteConflictCurrent {
 
 const NOTES_SCHEMA_VERSION: u32 = 1;
 const NOTES_MERGE_DRIVER: &str = "lightwell-notes";
-const NOTES_MERGE_COMMAND: &str = "lightwell notes merge-file %O %A %B";
+const NOTES_MERGE_FALLBACK: &str = "git merge-file %A %O %B";
 const NOTES_ATTRIBUTE: &str = ".lightwell/notes.json merge=lightwell-notes";
 /// Fallback when Git user.name/email cannot be resolved from the project repository.
 pub const DEFAULT_NOTE_AUTHOR: &str = "unknown";
@@ -353,7 +353,7 @@ impl ProjectNotesStore {
         let _lock = ExclusiveLock(lock_file);
 
         Self::ensure_artifact_ignores(parent)?;
-        self.configure_merge_driver();
+        self.configure_merge_driver(NOTES_MERGE_FALLBACK);
 
         let mut document = self.read_document()?;
         let changed = update_document(&mut document)?;
@@ -451,10 +451,32 @@ impl ProjectNotesStore {
     }
 
     fn write_document_at(path: &Path, document: &NotesDocument) -> Result<(), NotesError> {
-        let parent = path.parent().unwrap_or_else(|| Path::new("."));
         let mut contents = serde_json::to_vec_pretty(document).map_err(NotesError::Serialize)?;
         contents.push(b'\n');
+        Self::write_contents_at(path, &contents)
+    }
 
+    fn write_conflict_at(
+        path: &Path,
+        base: &NotesDocument,
+        current: &NotesDocument,
+        other: &NotesDocument,
+    ) -> Result<(), NotesError> {
+        let mut contents = b"<<<<<<< current\n".to_vec();
+        for (document, separator) in [
+            (current, b"||||||| base\n".as_slice()),
+            (base, b"=======\n".as_slice()),
+            (other, b">>>>>>> other\n".as_slice()),
+        ] {
+            contents.extend(serde_json::to_vec_pretty(document).map_err(NotesError::Serialize)?);
+            contents.push(b'\n');
+            contents.extend(separator);
+        }
+        Self::write_contents_at(path, &contents)
+    }
+
+    fn write_contents_at(path: &Path, contents: &[u8]) -> Result<(), NotesError> {
+        let parent = path.parent().unwrap_or_else(|| Path::new("."));
         let (temporary_path, mut temporary_file) = loop {
             let sequence = NEXT_TEMP_FILE_ID.fetch_add(1, Ordering::Relaxed);
             let temporary_path =
@@ -477,7 +499,7 @@ impl ProjectNotesStore {
 
         let result = (|| {
             temporary_file
-                .write_all(&contents)
+                .write_all(contents)
                 .and_then(|()| temporary_file.sync_all())
                 .map_err(|source| NotesError::Io {
                     path: temporary_path.clone(),
@@ -495,7 +517,7 @@ impl ProjectNotesStore {
         result
     }
 
-    fn configure_merge_driver(&self) {
+    fn configure_merge_driver(&self, command: &str) {
         let Some(project_root) = self.path.parent().and_then(Path::parent) else {
             return;
         };
@@ -507,10 +529,7 @@ impl ProjectNotesStore {
                 format!("merge.{NOTES_MERGE_DRIVER}.name"),
                 "Lightwell project notes",
             ),
-            (
-                format!("merge.{NOTES_MERGE_DRIVER}.driver"),
-                NOTES_MERGE_COMMAND,
-            ),
+            (format!("merge.{NOTES_MERGE_DRIVER}.driver"), command),
         ] {
             let configured = std::process::Command::new("git")
                 .args(["-C"])
@@ -572,6 +591,32 @@ impl ProjectNotesStore {
     }
 }
 
+/// Configure the repository-local notes merge driver.
+///
+/// CLI callers should provide their executable so future merges can use the semantic
+/// block-ID merge. Desktop-only installations pass `None` and use Git's built-in text
+/// merge instead of depending on a CLI command that may not be installed.
+pub fn configure_project_notes_merge_driver(
+    repository_path: impl AsRef<Path>,
+    cli_executable: Option<&Path>,
+) {
+    let command = cli_executable
+        .and_then(shell_quoted_executable)
+        .map(|executable| {
+            format!(
+                "if test -x {executable}; then {executable} notes merge-file %O %A %B; else {NOTES_MERGE_FALLBACK}; fi"
+            )
+        })
+        .unwrap_or_else(|| NOTES_MERGE_FALLBACK.to_owned());
+    let store = ProjectNotesStore::new(repository_path.as_ref());
+    store.configure_merge_driver(&command);
+}
+
+fn shell_quoted_executable(path: &Path) -> Option<String> {
+    let path = path.to_str()?.replace('\\', "/");
+    Some(format!("'{}'", path.replace('\'', "'\\''")))
+}
+
 #[derive(Debug, Eq, PartialEq)]
 enum NoteMerge {
     Resolved(Option<ProjectNote>),
@@ -596,8 +641,8 @@ fn merge_note(
 
 /// Merge three Git versions of `.lightwell/notes.json` by block ID.
 ///
-/// `current_path` is replaced only when every note resolves. A conflicting edit to the
-/// same note returns an error and leaves the current file unchanged for Git to mark.
+/// A conflicting edit to the same note writes diff3-style markers containing both
+/// complete merge candidates before returning an error for Git to mark unresolved.
 pub fn merge_project_notes_files(
     base_path: impl AsRef<Path>,
     current_path: impl AsRef<Path>,
@@ -629,6 +674,24 @@ pub fn merge_project_notes_files(
         }
     }
     if !conflicts.is_empty() {
+        let merge_candidate = |side: &NotesDocument| {
+            let mut notes = merged.clone();
+            for block_id in &conflicts {
+                if let Some(note) = side.notes.get(block_id) {
+                    notes.insert(block_id.clone(), note.clone());
+                }
+            }
+            NotesDocument {
+                schema_version: NOTES_SCHEMA_VERSION,
+                notes,
+            }
+        };
+        ProjectNotesStore::write_conflict_at(
+            current_path.as_ref(),
+            &base,
+            &merge_candidate(&current),
+            &merge_candidate(&other),
+        )?;
         return Err(NotesError::MergeConflict {
             block_ids: conflicts,
         });
@@ -1044,7 +1107,7 @@ impl Display for NotesError {
             ),
             Self::MergeConflict { block_ids } => write!(
                 formatter,
-                "Both branches changed the same project {}: {}. Choose which note text to keep, then stage `.lightwell/notes.json` and continue the merge.",
+                "Both branches changed the same project {}: {}. Lightwell wrote conflict markers containing both complete versions. Resolve the markers in `.lightwell/notes.json`, verify every note you want to keep, then stage the file and continue the merge.",
                 if block_ids.len() == 1 { "note" } else { "notes" },
                 block_ids
                     .iter()
