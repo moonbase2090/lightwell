@@ -9,6 +9,7 @@ const GROUP_HEADER = 28;
 const GROUP_PADDING = 16;
 const SIBLING_GAP = 16;
 const LAYER_GAP = 36;
+const MAX_LAYOUT_CACHE_ENTRIES = 256;
 
 export const DEFAULT_COMPOUND_LAYOUT_LIMITS: CompoundLayoutLimits = Object.freeze({
   maxBlocks: 800,
@@ -88,6 +89,7 @@ export interface CompoundLayoutStats {
   readonly omittedEdges: number;
   readonly cacheHits: number;
   readonly cacheMisses: number;
+  readonly cacheEntries: number;
 }
 
 export interface CompoundLayoutResult {
@@ -202,6 +204,7 @@ export function createCompoundLayoutEngine(elk: ElkApi): CompoundLayoutEngine {
           omittedEdges: bounded.inputEdges - bounded.selectedEdges,
           cacheHits: stats.cacheHits,
           cacheMisses: stats.cacheMisses,
+          cacheEntries: cache.size,
         },
       };
     },
@@ -226,9 +229,11 @@ function buildBoundedGraph(input: CompoundLayoutInput): BoundedGraph {
   const summaries: SelectedSummary[] = [];
   const representativeByBlockId = new Map<string, string>();
   const pending: CompoundLayoutBlock[] = [rootBlock];
+  let pendingIndex = 0;
 
-  while (pending.length > 0 && selectedBlocks.length + summaries.length < limits.maxBlocks) {
-    const parent = pending.shift();
+  while (pendingIndex < pending.length && selectedBlocks.length + summaries.length < limits.maxBlocks) {
+    const parent = pending[pendingIndex];
+    pendingIndex += 1;
     if (parent === undefined) break;
     const children = orderedChildren(parent, blockById, reachableIds, dependencyEndpoints);
     const remaining = limits.maxBlocks - selectedBlocks.length - summaries.length;
@@ -310,8 +315,10 @@ function reachableBlocks(
   const result: CompoundLayoutBlock[] = [];
   const seen = new Set<string>();
   const pending = [root];
-  while (pending.length > 0) {
-    const current = pending.shift();
+  let pendingIndex = 0;
+  while (pendingIndex < pending.length) {
+    const current = pending[pendingIndex];
+    pendingIndex += 1;
     if (current === undefined || seen.has(current.id)) continue;
     seen.add(current.id);
     result.push(current);
@@ -356,8 +363,10 @@ function mapSubtreeToRepresentative(
   representativeByBlockId: Map<string, string>,
 ): void {
   const pending = [root];
-  while (pending.length > 0) {
-    const current = pending.shift();
+  let pendingIndex = 0;
+  while (pendingIndex < pending.length) {
+    const current = pending[pendingIndex];
+    pendingIndex += 1;
     if (current === undefined || representativeByBlockId.has(current.id)) continue;
     representativeByBlockId.set(current.id, representativeId);
     for (const childId of current.children) {
@@ -381,8 +390,10 @@ function countSelectedSubtree(
   let count = 0;
   const seen = new Set<string>();
   const pending = [rootId];
-  while (pending.length > 0) {
-    const id = pending.shift();
+  let pendingIndex = 0;
+  while (pendingIndex < pending.length) {
+    const id = pending[pendingIndex];
+    pendingIndex += 1;
     if (id === undefined || seen.has(id) || !selectedIds.has(id)) continue;
     seen.add(id);
     count += 1;
@@ -546,6 +557,8 @@ async function layoutNode(args: {
   const key = cacheKey(args.node, childLayouts, projectedEdges);
   const cached = args.cache.get(key);
   if (cached !== undefined) {
+    args.cache.delete(key);
+    args.cache.set(key, cached);
     args.stats.cacheHits += 1;
     return cached;
   }
@@ -555,6 +568,11 @@ async function layoutNode(args: {
     ? packGroup(args.node, childLayouts)
     : await layoutLayeredGroup(args.node, childLayouts, projectedEdges, args.elk);
   args.cache.set(key, layout);
+  while (args.cache.size > MAX_LAYOUT_CACHE_ENTRIES) {
+    const oldest = args.cache.keys().next();
+    if (oldest.done) break;
+    args.cache.delete(oldest.value);
+  }
   return layout;
 }
 

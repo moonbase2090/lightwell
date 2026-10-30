@@ -212,6 +212,26 @@ test("the engine reuses unchanged group layouts and invalidates their changed an
   assert.ok(retyped.stats.cacheMisses > 0);
 });
 
+test("the engine bounds cached group layouts across distinct workspaces", async () => {
+  const engine = createTestEngine();
+  let result: CompoundLayoutResult | undefined;
+  for (let index = 0; index < 320; index += 1) {
+    const rootId = `workspace:cache-${index}`;
+    result = await engine.layout({
+      rootId,
+      blocks: [
+        block(rootId, null, "workspace", [`module:${index}`]),
+        block(`module:${index}`, rootId, "module"),
+      ],
+      connections: [],
+      limits: DEFAULT_COMPOUND_LAYOUT_LIMITS,
+    });
+  }
+
+  assert.ok(result !== undefined);
+  assert.ok(result.stats.cacheEntries <= 256);
+});
+
 test("a 5,000-block workspace stays inside the block budget and finishes within five seconds", async () => {
   const childIds = Array.from({ length: 4_999 }, (_, index) => `module:${index}`);
   const input: CompoundLayoutInput = {

@@ -10,6 +10,15 @@ export interface CompoundLayoutClient {
   dispose(): void;
 }
 
+export interface CompoundLayoutWorker {
+  onmessage: ((event: MessageEvent<CompoundLayoutWorkerResponse>) => void) | null;
+  onerror: ((event: ErrorEvent) => void) | null;
+  postMessage(request: CompoundLayoutWorkerRequest): void;
+  terminate(): void;
+}
+
+export type CompoundLayoutWorkerFactory = () => CompoundLayoutWorker;
+
 export type CompoundLayoutFeature = {
   readonly kind: "disabled";
 } | {
@@ -23,22 +32,33 @@ interface PendingRequest {
   readonly timer: ReturnType<typeof setTimeout>;
 }
 
+class CompoundLayoutTimeoutError extends Error {
+  constructor() {
+    super("Compound layout exceeded its two-second limit.");
+    this.name = "CompoundLayoutTimeoutError";
+  }
+}
+
 export function createCompoundLayoutFeature(flag: string | undefined): CompoundLayoutFeature {
   if (!compoundLayoutEnabled(flag)) return { kind: "disabled" };
   return { kind: "enabled", client: createCompoundLayoutClient() };
 }
 
-function createCompoundLayoutClient(): CompoundLayoutClient {
+export function createCompoundLayoutClient(
+  createWorker: CompoundLayoutWorkerFactory = newLayoutWorker,
+): CompoundLayoutClient {
   let generation = 0;
-  let worker = newLayoutWorker();
+  let worker = createWorker();
   let pending: PendingRequest | null = null;
+  let disposed = false;
 
   const replaceWorker = () => {
     worker.terminate();
-    worker = newLayoutWorker();
+    if (!disposed) worker = createWorker();
   };
 
   const run = (input: CompoundLayoutInput): Promise<CompoundLayoutResult> => {
+    if (disposed) return Promise.reject(new Error("Compound layout client was disposed."));
     generation += 1;
     const requestGeneration = generation;
     if (pending !== null) {
@@ -53,7 +73,7 @@ function createCompoundLayoutClient(): CompoundLayoutClient {
         if (pending?.generation !== requestGeneration) return;
         pending = null;
         replaceWorker();
-        reject(new Error("Compound layout exceeded its two-second limit."));
+        reject(new CompoundLayoutTimeoutError());
       }, LAYOUT_TIMEOUT_MS);
       pending = { generation: requestGeneration, reject, timer };
       worker.onmessage = (event: MessageEvent<CompoundLayoutWorkerResponse>) => {
@@ -90,7 +110,7 @@ function createCompoundLayoutClient(): CompoundLayoutClient {
       try {
         return await run(input);
       } catch (error: unknown) {
-        if (!(error instanceof Error) || !error.message.includes("two-second limit")) throw error;
+        if (!(error instanceof CompoundLayoutTimeoutError)) throw error;
         return run({
           ...input,
           limits: {
@@ -101,6 +121,8 @@ function createCompoundLayoutClient(): CompoundLayoutClient {
       }
     },
     dispose() {
+      if (disposed) return;
+      disposed = true;
       if (pending !== null) {
         clearTimeout(pending.timer);
         pending.reject(new Error("Compound layout client was disposed."));
@@ -111,6 +133,6 @@ function createCompoundLayoutClient(): CompoundLayoutClient {
   };
 }
 
-function newLayoutWorker(): Worker {
+function newLayoutWorker(): CompoundLayoutWorker {
   return new Worker(new URL("./compound-layout-worker.ts", import.meta.url), { type: "module" });
 }
