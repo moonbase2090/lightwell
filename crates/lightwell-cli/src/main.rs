@@ -1,9 +1,9 @@
 use lightwell_core::{
     discover_project_workspace, extract_cargo_map, extract_project_map, mark_project_note_reviewed,
-    open_block, project_notes_for_map, remove_project_note, remove_stale_project_notes,
-    set_project_note_for_map, set_project_note_if_absent_for_map, BlockBase, EditorSettings,
-    FactBlock, FactMap, MapStats, MapWatchError, MapWatcher, NotesError, Project, WorkspaceBlock,
-    MAP_SCHEMA_VERSION,
+    merge_project_notes_files, open_block, project_notes_for_map, remove_project_note,
+    remove_stale_project_notes, set_project_note_for_map, set_project_note_if_absent_for_map,
+    BlockBase, EditorSettings, FactBlock, FactMap, MapStats, MapWatchError, MapWatcher, NotesError,
+    Project, WorkspaceBlock, MAP_SCHEMA_VERSION,
 };
 use std::env;
 use std::error::Error;
@@ -50,6 +50,11 @@ enum NotesCommand {
         block_id: String,
     },
     RemoveStale,
+    MergeFile {
+        base: PathBuf,
+        current: PathBuf,
+        other: PathBuf,
+    },
 }
 
 enum SetTarget {
@@ -379,6 +384,18 @@ fn parse_notes_command(
             );
         }
         NotesCommand::RemoveStale
+    } else if subcommand == OsStr::new("merge-file") {
+        let base = PathBuf::from(required_utf8(&mut arguments, "the base notes path")?);
+        let current = PathBuf::from(required_utf8(&mut arguments, "the current notes path")?);
+        let other = PathBuf::from(required_utf8(&mut arguments, "the other notes path")?);
+        if arguments.next().is_some() {
+            return Err("`lightwell notes merge-file` takes three file paths".to_owned());
+        }
+        NotesCommand::MergeFile {
+            base,
+            current,
+            other,
+        }
     } else {
         return Err(format!(
             "unknown notes command `{}`",
@@ -440,6 +457,15 @@ fn require_notes_stale_actions() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> {
+    if let NotesCommand::MergeFile {
+        base,
+        current,
+        other,
+    } = &options.command
+    {
+        merge_project_notes_files(base, current, other)?;
+        return Ok(ExitCode::SUCCESS);
+    }
     let repository = match options.repository_path {
         Some(path) => path,
         None => env::current_dir()?,
@@ -639,6 +665,9 @@ fn run_notes_command(options: NotesOptions) -> Result<ExitCode, Box<dyn Error>> 
                     "notes": notes,
                 }))?,
             }
+        }
+        NotesCommand::MergeFile { .. } => {
+            unreachable!("merge-file returns before workspace discovery")
         }
     }
     Ok(ExitCode::SUCCESS)

@@ -46,8 +46,8 @@ pub use metadata::{
     RustModule,
 };
 pub use notes::{
-    commit_project_note, list_project_notes, mark_project_note_reviewed, note_revision,
-    project_note_git_status, project_notes_for_map, remove_project_note,
+    commit_project_note, list_project_notes, mark_project_note_reviewed, merge_project_notes_files,
+    note_revision, project_note_git_status, project_notes_for_map, remove_project_note,
     remove_project_note_expecting, remove_stale_project_notes, set_project_note,
     set_project_note_for_map, set_project_note_for_map_expecting, set_project_note_if_absent,
     set_project_note_if_absent_for_map, update_project_note_text,
