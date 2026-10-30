@@ -10,7 +10,7 @@ For Rust, a machine starts with an enum whose variants are plain states. The det
 
 For TypeScript and JavaScript, a machine starts with an `enum`. The detector records transitions only when a `switch` case names a source member and the case returns or assigns another member from that enum. String unions and arbitrary string assignments are out of scope because the type name is not present at runtime and matching them across a file would create plausible but false transitions.
 
-The detector ignores comments, strings, test-only examples, transitions between different enums, and enum declarations with no transition evidence. It keeps the source line for each state and transition. Duplicate transitions merge only when their machine, source, target, and label match.
+The detector ignores comments, strings, examples written inside them, transitions between different enums, and enum declarations with no transition evidence. It keeps the source line for each state and transition. Duplicate transitions merge only when their machine, source, target, and label match.
 
 This is intentionally conservative. A chart with missing transitions is more useful than a confident chart assembled from unrelated identifiers.
 

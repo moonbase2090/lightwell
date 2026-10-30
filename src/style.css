@@ -178,6 +178,40 @@ button { color: inherit; }
 
 .graph-canvas { position: relative; min-height: 0; flex: 1; overflow: hidden; background-color: #0c1117; background-image: radial-gradient(circle at 1px 1px, rgba(111,132,153,.12) 1px, transparent 0); background-size: 26px 26px; }
 .graph-canvas::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 40%, transparent 12%, rgba(9,13,18,.14) 80%); z-index: 0; }
+.state-chart-host { display: flex; }
+.state-chart-view { position: relative; z-index: 1; display: flex; flex: 1; min-width: 0; min-height: 0; flex-direction: column; color: #dce8f8; background: #0d2646; }
+.state-chart-header { min-height: 56px; padding: 9px 16px 9px 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid #315b89; background: rgba(8, 27, 51, .94); }
+.state-chart-header > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.state-chart-header strong { overflow: hidden; color: #eaf3ff; font: 600 calc(12px * var(--lw-ui-scale, 1)) var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.state-chart-kicker { color: #8eb5df; font: 700 calc(10px * var(--lw-ui-scale, 1)) var(--mono); letter-spacing: .16em; }
+.state-chart-header button { height: 30px; padding: 0 10px; flex: none; border: 1px solid #4d77a5; border-radius: 5px; color: #dcecff; background: #14385f; font-size: calc(11px * var(--lw-ui-scale, 1)); }
+.state-chart-header button:hover { border-color: #8bb8e8; background: #1a4878; }
+.state-chart-header button:focus-visible { outline: 2px solid #ffb547; outline-offset: 2px; }
+.state-chart-empty { min-height: 0; flex: 1; display: grid; place-items: center; padding: 32px; color: #acc4df; font-size: calc(12px * var(--lw-ui-scale, 1)); text-align: center; }
+.state-chart-empty [role="alert"] { color: #ffc07a; }
+.state-chart-scroll { min-width: 0; min-height: 0; flex: 1; overflow: auto; padding: 16px; scrollbar-color: #4778a8 transparent; }
+.state-chart-canvas { display: block; min-width: 100%; min-height: 100%; margin: auto; font-family: var(--mono); }
+.state-chart-grid-background { fill: #123e73; }
+#state-chart-grid path { fill: none; stroke: rgba(197, 221, 250, .12); stroke-width: 1; }
+.state-chart-region { fill: rgba(8, 37, 70, .64); stroke: #75a6d7; stroke-width: 1.5; stroke-dasharray: 7 5; }
+.state-chart-region-label { fill: #e8f3ff; font-size: 12px; font-weight: 700; letter-spacing: .07em; }
+.state-chart-language { fill: #86acd3; font-size: 10px; }
+.state-chart-edge { fill: none; stroke: #a7c9ec; stroke-width: 1.5; stroke-linejoin: round; }
+#state-chart-arrow path { fill: #a7c9ec; }
+.state-chart-edge-label { fill: #c7dcf3; paint-order: stroke; stroke: #123e73; stroke-width: 4px; font-size: 10px; }
+.state-chart-node rect { fill: #0b2b52; stroke: #86b6e6; stroke-width: 1.5; }
+.state-chart-node.is-initial rect { fill: #113d66; stroke: #ffb547; }
+.state-chart-node.is-terminal rect { stroke-width: 3; }
+.state-chart-node.is-summary rect { fill: #173a5e; stroke-dasharray: 4 3; }
+.state-chart-initial-dot { fill: #ffb547; }
+.state-chart-node-label { fill: #eef6ff; font-size: 12px; font-weight: 700; }
+.state-chart-node-meta { fill: #9cbadb; font-size: 10px; }
+.state-chart-legend { min-height: 36px; padding: 0 18px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; border-top: 1px solid #315b89; color: #a9c5e1; background: rgba(8, 27, 51, .94); font: 10px var(--mono); }
+.state-chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.state-chart-legend i { width: 13px; height: 9px; display: inline-block; border: 1px solid #86b6e6; }
+.state-chart-legend .legend-initial { border-color: #ffb547; background: #113d66; }
+.state-chart-legend .legend-terminal { border-width: 2px; }
+.state-chart-legend .legend-transition { height: 0; border-width: 1px 0 0; }
 .canvas-watermark { position: absolute; top: 15px; left: 22px; right: 20px; z-index: 2; display: flex; justify-content: space-between; align-items: center; pointer-events: none; color: #526170; font-size: calc(11px * var(--lw-ui-scale, 1)); font-family: var(--mono); letter-spacing: .13em; }
 .canvas-watermark .child-count { color: #5e6d7d; letter-spacing: .04em; }
 .map-depth-controls { display: inline-flex; align-items: center; gap: 12px; }
@@ -187,6 +221,7 @@ button { color: inherit; }
 .map-view button { height: 18px; padding: 0 6px; border: 1px solid currentColor; background: transparent; color: inherit; font-size: calc(11px * var(--lw-ui-scale, 1)); font-family: var(--mono); letter-spacing: 0; cursor: pointer; }
 .map-view button + button { margin-left: -1px; }
 .map-view button[aria-pressed="true"] { font-weight: 700; text-decoration: underline; }
+.map-view button:disabled { cursor: not-allowed; opacity: .45; }
 .react-flow { background: transparent !important; z-index: 1; }
 .react-flow__pane { cursor: grab; }
 .react-flow__edge-path { transition: opacity .16s ease, stroke-width .16s ease; }
@@ -600,6 +635,28 @@ a.update-download { display: inline-flex; align-items: center; text-decoration: 
 .workspace-shell[data-theme="light"] .react-flow__controls-button:hover { background: #ebe7e2; }
 .workspace-shell[data-theme="light"] .react-flow__attribution { color: #6b6560 !important; background: rgba(253,251,249,.8) !important; }
 .workspace-shell[data-theme="light"] .graph-message { color: #6b6560; }
+.workspace-shell[data-theme="light"] .state-chart-view { color: #3a4d61; background: #edf1f3; }
+.workspace-shell[data-theme="light"] .state-chart-header,
+.workspace-shell[data-theme="light"] .state-chart-legend { border-color: #b8c5d0; background: rgba(247, 249, 250, .96); }
+.workspace-shell[data-theme="light"] .state-chart-header strong { color: #293b4d; }
+.workspace-shell[data-theme="light"] .state-chart-kicker,
+.workspace-shell[data-theme="light"] .state-chart-language,
+.workspace-shell[data-theme="light"] .state-chart-node-meta,
+.workspace-shell[data-theme="light"] .state-chart-legend,
+.workspace-shell[data-theme="light"] .state-chart-empty { color: #526a89; }
+.workspace-shell[data-theme="light"] .state-chart-header button { border-color: #9eafbf; color: #3a4d61; background: #e2e8ec; }
+.workspace-shell[data-theme="light"] .state-chart-grid-background { fill: #edf1f3; }
+.workspace-shell[data-theme="light"] #state-chart-grid path { stroke: rgba(82, 106, 137, .16); }
+.workspace-shell[data-theme="light"] .state-chart-region { fill: rgba(245, 248, 250, .72); stroke: #7790a9; }
+.workspace-shell[data-theme="light"] .state-chart-region-label,
+.workspace-shell[data-theme="light"] .state-chart-node-label { fill: #293b4d; }
+.workspace-shell[data-theme="light"] .state-chart-edge { stroke: #607d9b; }
+.workspace-shell[data-theme="light"] #state-chart-arrow path { fill: #607d9b; }
+.workspace-shell[data-theme="light"] .state-chart-edge-label { fill: #526a89; stroke: #edf1f3; }
+.workspace-shell[data-theme="light"] .state-chart-node rect { fill: #fdfbf9; stroke: #7790a9; }
+.workspace-shell[data-theme="light"] .state-chart-node.is-initial rect { fill: #f5ead9; stroke: #b5792e; }
+.workspace-shell[data-theme="light"] .state-chart-node.is-summary rect { fill: #e6ecef; }
+.workspace-shell[data-theme="light"] .state-chart-initial-dot { fill: #b5792e; }
 .workspace-shell[data-theme="light"] .block-node { border-color: #c8bdb2; color: #3a3530; background: linear-gradient(145deg, rgba(253,251,249,.98), rgba(239,235,230,.98)); box-shadow: 0 7px 15px rgba(66,53,41,.12), inset 0 1px rgba(255,255,255,.75); }
 .workspace-shell[data-theme="light"] .block-node:hover,
 .workspace-shell[data-theme="light"] .block-node.selected { border-color: #6b85a8; box-shadow: 0 0 0 2px rgba(107,133,168,.16), 0 9px 18px rgba(66,53,41,.14); }
