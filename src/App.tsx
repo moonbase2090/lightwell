@@ -86,6 +86,7 @@ import NoteContextMenu, {
 } from "./NoteContextMenu.js";
 import Splitter from "./Splitter.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
+import { createCompoundLayoutFeature } from "./viewer/compound-layout-client.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
 import {
   DEFAULT_MAP_DEPTH,
@@ -693,6 +694,13 @@ function RestoreViewport({
 }
 
 function App({ mapSource }: { readonly mapSource: MapSource }) {
+  useEffect(() => {
+    if (import.meta.env.VITE_ENABLE_COMPOUND_LAYOUT !== "true") return undefined;
+    const feature = createCompoundLayoutFeature("true");
+    return () => {
+      if (feature.kind === "enabled") feature.client.dispose();
+    };
+  }, []);
   const popoutWorkspaceId = import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isMapPopoutSearch(window.location.search)
     ? workspaceFromPopoutSearch(window.location.search)
     : null;

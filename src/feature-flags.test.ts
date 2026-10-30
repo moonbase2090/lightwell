@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { commitDiffEnabled, mapPopoutEnabled, notesCasEnabled, notesStaleActionsEnabled, projectNotesEnabled } from "./feature-flags.js";
+import { commitDiffEnabled, compoundLayoutEnabled, mapPopoutEnabled, notesCasEnabled, notesStaleActionsEnabled, projectNotesEnabled } from "./feature-flags.js";
+
+test("compound layout stays off unless VITE_ENABLE_COMPOUND_LAYOUT is exactly true", () => {
+  assert.equal(compoundLayoutEnabled(undefined), false);
+  assert.equal(compoundLayoutEnabled(""), false);
+  assert.equal(compoundLayoutEnabled("false"), false);
+  assert.equal(compoundLayoutEnabled("TRUE"), false);
+  assert.equal(compoundLayoutEnabled(" true "), false);
+  assert.equal(compoundLayoutEnabled("true"), true);
+});
+
+test("the app starts the compound layout worker only behind the exact true flag", () => {
+  const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+  assert.match(app, /import\.meta\.env\.VITE_ENABLE_COMPOUND_LAYOUT !== "true"/);
+  assert.match(app, /createCompoundLayoutFeature\("true"\)/);
+});
 
 test("project notes are on when the build sets no flag", () => {
   assert.equal(projectNotesEnabled(undefined), true);
