@@ -1,6 +1,101 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { detectStateChart, layoutStateChart } from "./state-chart.js";
+import {
+  detectStateChart,
+  layoutStateChart,
+  type ChartPoint,
+  type StateChartEdge,
+  type StateChartNode,
+} from "./state-chart.js";
+
+function segments(points: readonly ChartPoint[]): readonly (readonly [ChartPoint, ChartPoint])[] {
+  return points.slice(1).flatMap((point, index) => {
+    const previous = points[index];
+    return previous === undefined ? [] : [[previous, point] as const];
+  });
+}
+
+function segmentCrossesNodeInterior(start: ChartPoint, end: ChartPoint, node: StateChartNode): boolean {
+  if (start.x === end.x) {
+    return start.x > node.x && start.x < node.x + node.width
+      && Math.max(start.y, end.y) > node.y
+      && Math.min(start.y, end.y) < node.y + node.height;
+  }
+  return start.y > node.y && start.y < node.y + node.height
+    && Math.max(start.x, end.x) > node.x
+    && Math.min(start.x, end.x) < node.x + node.width;
+}
+
+function assertEdgesAvoidOtherNodes(edges: readonly StateChartEdge[], nodes: readonly StateChartNode[]): void {
+  for (const edge of edges) {
+    for (const node of nodes) {
+      if (node.id === edge.source || node.id === edge.target) continue;
+      for (const [start, end] of segments(edge.points)) {
+        assert.equal(segmentCrossesNodeInterior(start, end, node), false, `${edge.id} crosses ${node.id}`);
+      }
+    }
+  }
+}
+
+function collinearOverlap(
+  left: readonly [ChartPoint, ChartPoint],
+  right: readonly [ChartPoint, ChartPoint],
+): number {
+  const [leftStart, leftEnd] = left;
+  const [rightStart, rightEnd] = right;
+  if (leftStart.x === leftEnd.x && rightStart.x === rightEnd.x && leftStart.x === rightStart.x) {
+    return Math.min(Math.max(leftStart.y, leftEnd.y), Math.max(rightStart.y, rightEnd.y))
+      - Math.max(Math.min(leftStart.y, leftEnd.y), Math.min(rightStart.y, rightEnd.y));
+  }
+  if (leftStart.y === leftEnd.y && rightStart.y === rightEnd.y && leftStart.y === rightStart.y) {
+    return Math.min(Math.max(leftStart.x, leftEnd.x), Math.max(rightStart.x, rightEnd.x))
+      - Math.max(Math.min(leftStart.x, leftEnd.x), Math.min(rightStart.x, rightEnd.x));
+  }
+  return 0;
+}
+
+function assertEdgesDoNotShareSegments(edges: readonly StateChartEdge[]): void {
+  for (const [index, edge] of edges.entries()) {
+    for (const other of edges.slice(index + 1)) {
+      for (const segment of segments(edge.points)) {
+        for (const otherSegment of segments(other.points)) {
+          assert.ok(collinearOverlap(segment, otherSegment) <= 0, `${edge.id} shares a path with ${other.id}`);
+        }
+      }
+    }
+  }
+}
+
+function segmentsCross(
+  left: readonly [ChartPoint, ChartPoint],
+  right: readonly [ChartPoint, ChartPoint],
+): boolean {
+  const [leftStart, leftEnd] = left;
+  const [rightStart, rightEnd] = right;
+  const leftVertical = leftStart.x === leftEnd.x;
+  const rightVertical = rightStart.x === rightEnd.x;
+  if (leftVertical === rightVertical) return false;
+  const vertical = leftVertical ? left : right;
+  const horizontal = leftVertical ? right : left;
+  const x = vertical[0].x;
+  const y = horizontal[0].y;
+  return x > Math.min(horizontal[0].x, horizontal[1].x)
+    && x < Math.max(horizontal[0].x, horizontal[1].x)
+    && y > Math.min(vertical[0].y, vertical[1].y)
+    && y < Math.max(vertical[0].y, vertical[1].y);
+}
+
+function assertEdgesDoNotCross(edges: readonly StateChartEdge[]): void {
+  for (const [index, edge] of edges.entries()) {
+    for (const other of edges.slice(index + 1)) {
+      for (const segment of segments(edge.points)) {
+        for (const otherSegment of segments(other.points)) {
+          assert.equal(segmentsCross(segment, otherSegment), false, `${edge.id} crosses ${other.id}`);
+        }
+      }
+    }
+  }
+}
 
 test("detects Rust enum transitions and the explicit default state", () => {
   const chart = detectStateChart({
@@ -58,7 +153,7 @@ function next(state: Session): Session {
       state = Session.Ready;
       return state;
     default:
-      return state;
+      return Session.SignedOut;
   }
 }`,
   });
@@ -120,11 +215,11 @@ fn next(value: Player, resume: bool) -> Player {
   ]);
 });
 
-test("keeps Rust lifetimes and ignores enum mentions that are not transitions", () => {
+test("keeps a Rust lifetime from masking the rest of the file and ignores enum mentions that are not transitions", () => {
   const chart = detectStateChart({
     path: "src/lifetime.rs",
     content: `enum Mode { A, B, C }
-fn next<'a>(value: Mode, label: &'a str) -> Mode {
+fn next<'a>(value: Mode, label: &str) -> Mode {
   match value {
     Mode::A => { let compared = Mode::C; Mode::B },
     Mode::B => { if label.is_empty() { return Mode::C; } Mode::B },
@@ -161,7 +256,7 @@ test("detects assignment to the matched Rust state and merges duplicate transiti
 fn next(mut value: Mode) -> Mode {
   match value {
     Mode::A => { value = Mode::B; value },
-    Mode::A => Mode::B,
+    Mode::A => { value = Mode::B; value },
     Mode::B => Mode::B,
   }
 }`,
@@ -200,6 +295,104 @@ test("caps transition evidence independently of the state cap", () => {
   assert.equal(chart.machines[0]?.transitions.length, 240);
   assert.equal(chart.omittedStates, 0);
   assert.equal(chart.omittedTransitions, 5);
+});
+
+test("omitted counts include machines after a budget is exhausted", () => {
+  const arms = Array.from({ length: 245 }, (_, index) => `Mode::A if event_${index} => Mode::B,`);
+  const chart = detectStateChart({
+    path: "src/events.rs",
+    content: `enum Mode { A, B }
+fn next(value: Mode) -> Mode { match value { ${arms.join("\n")} } }
+enum Later { X, Y }
+fn later(value: Later) -> Later { match value { Later::X => Later::Y, } }`,
+  });
+
+  assert.equal(chart.machines.length, 1);
+  assert.equal(chart.omittedStates, 2);
+  assert.equal(chart.omittedTransitions, 6);
+});
+
+test("ranks an acyclic chain into rows and keeps a strongly connected cycle together", () => {
+  const chain = layoutStateChart(detectStateChart({
+    path: "src/chain.rs",
+    content: `enum Chain { A, B, C }
+fn next(value: Chain) -> Chain { match value {
+  Chain::A => Chain::B,
+  Chain::B => Chain::C,
+} }`,
+  }));
+  const chainY = new Map(chain.nodes.map((node) => [node.label, node.y]));
+  assert.ok((chainY.get("A") ?? 0) < (chainY.get("B") ?? 0));
+  assert.ok((chainY.get("B") ?? 0) < (chainY.get("C") ?? 0));
+
+  const cycle = layoutStateChart(detectStateChart({
+    path: "src/cycle.rs",
+    content: `enum Cycle { A, B, C }
+fn next(value: Cycle) -> Cycle { match value {
+  Cycle::A => Cycle::B,
+  Cycle::B => Cycle::C,
+  Cycle::C => Cycle::A,
+} }`,
+  }));
+  assert.deepEqual(new Set(cycle.nodes.map((node) => node.y)).size, 1);
+});
+
+test("routes shortcuts and cycle back-edges around non-endpoint states", () => {
+  const shortcut = layoutStateChart(detectStateChart({
+    path: "src/shortcut.rs",
+    content: `enum Shortcut { A, B, C }
+fn next(value: Shortcut) -> Shortcut { match value {
+  Shortcut::A => { if direct { return Shortcut::C; } Shortcut::B },
+  Shortcut::B => Shortcut::C,
+} }`,
+  }));
+  assertEdgesAvoidOtherNodes(shortcut.edges, shortcut.nodes);
+  assertEdgesDoNotShareSegments(shortcut.edges);
+  assertEdgesDoNotCross(shortcut.edges);
+
+  const cycle = layoutStateChart(detectStateChart({
+    path: "src/cycle.rs",
+    content: `enum Cycle { A, B, C }
+fn next(value: Cycle) -> Cycle { match value {
+  Cycle::A => Cycle::B,
+  Cycle::B => Cycle::C,
+  Cycle::C => Cycle::A,
+} }`,
+  }));
+  assertEdgesAvoidOtherNodes(cycle.edges, cycle.nodes);
+  assertEdgesDoNotShareSegments(cycle.edges);
+  assertEdgesDoNotCross(cycle.edges);
+});
+
+test("routes two-way transitions on distinct paths", () => {
+  const layout = layoutStateChart(detectStateChart({
+    path: "src/two-way.rs",
+    content: `enum Pair { A, B }
+fn next(value: Pair) -> Pair { match value {
+  Pair::A => Pair::B,
+  Pair::B => Pair::A,
+} }`,
+  }));
+
+  assertEdgesDoNotShareSegments(layout.edges);
+  assertEdgesDoNotCross(layout.edges);
+  const first = layout.edges[0];
+  const second = layout.edges[1];
+  assert.ok(first !== undefined && second !== undefined);
+  assert.ok(Math.abs(first.labelX - second.labelX) >= 40 || Math.abs(first.labelY - second.labelY) >= 12);
+});
+
+test("routes a self-loop outside its state card", () => {
+  const layout = layoutStateChart(detectStateChart({
+    path: "src/self-loop.rs",
+    content: `enum Loop { A }
+fn next(value: Loop) -> Loop { match value { Loop::A => Loop::A, } }`,
+  }));
+  const node = layout.nodes[0];
+  const edge = layout.edges[0];
+  assert.ok(node !== undefined && edge !== undefined);
+  assert.ok(edge.points.length >= 5);
+  assert.ok(edge.points.some((point) => point.x > node.x + node.width || point.y < node.y));
 });
 
 test("lays out cycles and disconnected states deterministically without overlaps", () => {

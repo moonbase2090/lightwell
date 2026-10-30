@@ -90,11 +90,44 @@ const MAX_TRANSITIONS = 240;
 const NODE_WIDTH = 180;
 const NODE_HEIGHT = 56;
 const COLUMN_GAP = 32;
-const ROW_GAP = 72;
+const MIN_ROW_GAP = 32;
 const REGION_X = 24;
 const REGION_TOP = 44;
 const REGION_PADDING = 24;
 const REGION_GAP = 32;
+const ROUTE_CLEARANCE = 12;
+const ROUTE_PITCH = 16;
+
+interface ChannelRoute {
+  readonly kind: "channel";
+  readonly transition: StateChartTransition;
+  readonly source: StateChartNode;
+  readonly target: StateChartNode;
+  readonly sourcePortX: number;
+  readonly targetPortX: number;
+  readonly sourceChannelY: number;
+  readonly targetChannelY: number;
+}
+
+interface LoopRoute {
+  readonly kind: "loop";
+  readonly transition: StateChartTransition;
+  readonly node: StateChartNode;
+  readonly slot: number;
+}
+
+interface ShelfRoute {
+  readonly kind: "shelf";
+  readonly transition: StateChartTransition;
+  readonly source: StateChartNode;
+  readonly target: StateChartNode;
+  readonly sourcePortX: number;
+  readonly targetPortX: number;
+  readonly channelY: number;
+  readonly side: "above" | "below";
+}
+
+type PendingRoute = ChannelRoute | LoopRoute | ShelfRoute;
 
 function languageFor(path: string): StateChartLanguage | null {
   const normalized = path.toLowerCase();
@@ -235,7 +268,6 @@ function enumDeclarations(source: string, language: StateChartLanguage): readonl
       });
     }
     declarations.push({ name, language, states });
-    pattern.lastIndex = closing + 1;
   }
   return declarations;
 }
@@ -289,7 +321,6 @@ function rustTransitions(source: string, declaration: EnumDeclaration): readonly
         });
       }
     }
-    matchPattern.lastIndex = closing + 1;
   }
   return transitions;
 }
@@ -338,7 +369,6 @@ function typescriptTransitions(source: string, declaration: EnumDeclaration): re
         });
       }
     }
-    switchPattern.lastIndex = closing + 1;
   }
   return transitions;
 }
@@ -367,10 +397,20 @@ export function detectStateChart(input: StateChartSource): StateChart {
       ? rustTransitions(source, declaration)
       : typescriptTransitions(source, declaration));
     if (detected.length === 0) continue;
+    if (stateBudget === 0 || transitionBudget === 0) {
+      omittedStates += declaration.states.length;
+      omittedTransitions += detected.length;
+      continue;
+    }
     const keptStates = declaration.states.slice(0, stateBudget);
     const keptIds = new Set(keptStates.map((state) => state.id));
     const eligibleTransitions = detected.filter((transition) => keptIds.has(transition.source) && keptIds.has(transition.target));
     const keptTransitions = eligibleTransitions.slice(0, transitionBudget);
+    if (keptTransitions.length === 0) {
+      omittedStates += declaration.states.length;
+      omittedTransitions += detected.length;
+      continue;
+    }
     const declarationOmittedStates = declaration.states.length - keptStates.length;
     omittedStates += declarationOmittedStates;
     omittedTransitions += detected.length - keptTransitions.length;
@@ -393,7 +433,6 @@ export function detectStateChart(input: StateChartSource): StateChart {
     });
     stateBudget -= keptStates.length;
     transitionBudget -= keptTransitions.length;
-    if (stateBudget === 0 || transitionBudget === 0) break;
   }
   return { sourcePath: input.path, machines, omittedStates, omittedTransitions };
 }
@@ -467,28 +506,81 @@ function ranksFor(states: readonly StateChartState[], transitions: readonly Stat
   return new Map(states.map((state) => [state.id, componentRanks[componentByState.get(state.id) ?? 0] ?? 0]));
 }
 
-function routeEdge(source: StateChartNode, target: StateChartNode): readonly ChartPoint[] {
-  if (source.id === target.id) {
-    const right = source.x + source.width;
-    return [
-      { x: right, y: source.y + source.height / 2 },
-      { x: right + 22, y: source.y + source.height / 2 },
-      { x: right + 22, y: source.y - 16 },
-      { x: source.x + source.width / 2, y: source.y - 16 },
-      { x: source.x + source.width / 2, y: source.y },
-    ];
+function channelExtent(count: number): number {
+  return count === 0 ? 0 : ROUTE_CLEARANCE + (count - 1) * ROUTE_PITCH;
+}
+
+function portX(node: StateChartNode, index: number, count: number): number {
+  return node.x + node.width * (index + 1) / (count + 1);
+}
+
+function shelfPortX(node: StateChartNode, side: "left" | "right", index: number, count: number): number {
+  const fraction = (index + 1) / (count + 1);
+  const start = side === "left" ? 0.12 : 0.58;
+  return node.x + node.width * (start + fraction * 0.3);
+}
+
+function channelLanes(routes: readonly ChannelRoute[]): ReadonlyMap<string, number> {
+  const laneIntervals: Array<Array<readonly [number, number]>> = [];
+  const lanes = new Map<string, number>();
+  const ordered = [...routes].sort((left, right) => {
+    const leftStart = Math.min(left.sourceChannelY, left.targetChannelY);
+    const rightStart = Math.min(right.sourceChannelY, right.targetChannelY);
+    const leftEnd = Math.max(left.sourceChannelY, left.targetChannelY);
+    const rightEnd = Math.max(right.sourceChannelY, right.targetChannelY);
+    return leftEnd - leftStart - (rightEnd - rightStart)
+      || leftStart - rightStart
+      || left.transition.id.localeCompare(right.transition.id);
+  });
+  for (const route of ordered) {
+    const start = Math.min(route.sourceChannelY, route.targetChannelY);
+    const end = Math.max(route.sourceChannelY, route.targetChannelY);
+    const reusable = laneIntervals.findIndex((intervals) => intervals.every(([otherStart, otherEnd]) => (
+      end + ROUTE_PITCH < otherStart || otherEnd + ROUTE_PITCH < start
+    )));
+    const lane = reusable < 0 ? laneIntervals.length : reusable;
+    const intervals = laneIntervals[lane] ?? [];
+    intervals.push([start, end]);
+    laneIntervals[lane] = intervals;
+    lanes.set(route.transition.id, lane);
   }
-  if (source.y === target.y) {
-    const leftToRight = source.x < target.x;
-    return [
-      { x: leftToRight ? source.x + source.width : source.x, y: source.y + source.height / 2 },
-      { x: leftToRight ? target.x : target.x + target.width, y: target.y + target.height / 2 },
-    ];
-  }
-  const start = { x: source.x + source.width / 2, y: source.y + source.height };
-  const end = { x: target.x + target.width / 2, y: target.y };
-  const middleY = start.y + (end.y - start.y) / 2;
-  return [start, { x: start.x, y: middleY }, { x: end.x, y: middleY }, end];
+  return lanes;
+}
+
+function routeLoop(route: LoopRoute): readonly ChartPoint[] {
+  const right = route.node.x + route.node.width;
+  const startY = route.node.y + route.node.height / 2 + route.slot * 3;
+  const outerX = right + 22 + route.slot * ROUTE_PITCH;
+  const topY = route.node.y - 16 - route.slot * ROUTE_PITCH;
+  const targetX = route.node.x + route.node.width / 2 + route.slot * ROUTE_PITCH;
+  return [
+    { x: right, y: startY },
+    { x: outerX, y: startY },
+    { x: outerX, y: topY },
+    { x: targetX, y: topY },
+    { x: targetX, y: route.node.y },
+  ];
+}
+
+function routeChannel(route: ChannelRoute, laneX: number): readonly ChartPoint[] {
+  return [
+    { x: route.sourcePortX, y: route.source.y + route.source.height },
+    { x: route.sourcePortX, y: route.sourceChannelY },
+    { x: laneX, y: route.sourceChannelY },
+    { x: laneX, y: route.targetChannelY },
+    { x: route.targetPortX, y: route.targetChannelY },
+    { x: route.targetPortX, y: route.target.y },
+  ];
+}
+
+function routeShelf(route: ShelfRoute): readonly ChartPoint[] {
+  const nodeY = route.side === "above" ? route.source.y : route.source.y + route.source.height;
+  return [
+    { x: route.sourcePortX, y: nodeY },
+    { x: route.sourcePortX, y: route.channelY },
+    { x: route.targetPortX, y: route.channelY },
+    { x: route.targetPortX, y: nodeY },
+  ];
 }
 
 export function layoutStateChart(chart: StateChart): StateChartLayout {
@@ -508,9 +600,195 @@ export function layoutStateChart(chart: StateChart): StateChartLayout {
       rows.set(rank, row);
     }
     const rowEntries = [...rows.entries()].sort(([left], [right]) => left - right);
+    const rowByState = new Map<string, number>();
+    const columnByState = new Map<string, number>();
+    rowEntries.forEach(([, row], rowIndex) => row.forEach((state, columnIndex) => {
+      rowByState.set(state.id, rowIndex);
+      columnByState.set(state.id, columnIndex);
+    }));
+    const channelsAbove = rowEntries.map(() => 0);
+    const channelsBelow = rowEntries.map(() => 0);
+    for (const transition of machine.transitions) {
+      if (transition.source === transition.target) continue;
+      const sourceRow = rowByState.get(transition.source);
+      const targetRow = rowByState.get(transition.target);
+      if (sourceRow === undefined || targetRow === undefined) continue;
+      if (sourceRow === targetRow) {
+        const sourceColumn = columnByState.get(transition.source) ?? 0;
+        const targetColumn = columnByState.get(transition.target) ?? 0;
+        if (sourceColumn < targetColumn) {
+          channelsBelow[sourceRow] = (channelsBelow[sourceRow] ?? 0) + 1;
+        } else {
+          channelsAbove[sourceRow] = (channelsAbove[sourceRow] ?? 0) + 1;
+        }
+      } else {
+        channelsBelow[sourceRow] = (channelsBelow[sourceRow] ?? 0) + 1;
+        channelsAbove[targetRow] = (channelsAbove[targetRow] ?? 0) + 1;
+      }
+    }
+    const rowY: number[] = [];
+    for (let rowIndex = 0; rowIndex < rowEntries.length; rowIndex += 1) {
+      if (rowIndex === 0) {
+        rowY.push(regionY + REGION_TOP + channelExtent(channelsAbove[rowIndex] ?? 0));
+        continue;
+      }
+      const previousY = rowY[rowIndex - 1] ?? regionY + REGION_TOP;
+      rowY.push(
+        previousY
+        + NODE_HEIGHT
+        + channelExtent(channelsBelow[rowIndex - 1] ?? 0)
+        + MIN_ROW_GAP
+        + channelExtent(channelsAbove[rowIndex] ?? 0),
+      );
+    }
     const widest = Math.max(...rowEntries.map(([, row]) => row.length));
-    const regionWidth = REGION_PADDING * 2 + widest * NODE_WIDTH + Math.max(0, widest - 1) * COLUMN_GAP;
-    const regionHeight = REGION_TOP + REGION_PADDING + rowEntries.length * NODE_HEIGHT + Math.max(0, rowEntries.length - 1) * ROW_GAP;
+    const nodeAreaWidth = REGION_PADDING * 2 + widest * NODE_WIDTH + Math.max(0, widest - 1) * COLUMN_GAP;
+    const outgoing = new Set(machine.transitions.map((transition) => transition.source));
+    rowEntries.forEach(([, row], rowIndex) => {
+      row.forEach((state, columnIndex) => {
+        nodes.push({
+          ...state,
+          machineId: machine.id,
+          terminal: state.kind === "state" && !outgoing.has(state.id),
+          x: REGION_X + REGION_PADDING + columnIndex * (NODE_WIDTH + COLUMN_GAP),
+          y: rowY[rowIndex] ?? regionY + REGION_TOP,
+          width: NODE_WIDTH,
+          height: NODE_HEIGHT,
+        });
+      });
+    });
+    const nodeById = new Map(nodes.filter((node) => node.machineId === machine.id).map((node) => [node.id, node]));
+    const channelIncidentCount = new Map<string, number>();
+    const loopCount = new Map<string, number>();
+    const shelfPortCount = new Map<string, number>();
+    for (const transition of machine.transitions) {
+      if (transition.source === transition.target) {
+        loopCount.set(transition.source, (loopCount.get(transition.source) ?? 0) + 1);
+      } else {
+        const sourceRow = rowByState.get(transition.source);
+        const targetRow = rowByState.get(transition.target);
+        if (sourceRow === targetRow) {
+          const below = (columnByState.get(transition.source) ?? 0) < (columnByState.get(transition.target) ?? 0);
+          const sourceSide = below ? "right" : "left";
+          const targetSide = below ? "left" : "right";
+          const sourceKey = `${transition.source}\0${sourceSide}`;
+          const targetKey = `${transition.target}\0${targetSide}`;
+          shelfPortCount.set(sourceKey, (shelfPortCount.get(sourceKey) ?? 0) + 1);
+          shelfPortCount.set(targetKey, (shelfPortCount.get(targetKey) ?? 0) + 1);
+        } else {
+          channelIncidentCount.set(transition.source, (channelIncidentCount.get(transition.source) ?? 0) + 1);
+          channelIncidentCount.set(transition.target, (channelIncidentCount.get(transition.target) ?? 0) + 1);
+        }
+      }
+    }
+    const transitionOrder = new Map(machine.transitions.map((transition, index) => [transition.id, index]));
+    const belowSlotByTransition = new Map<string, number>();
+    const aboveSlotByTransition = new Map<string, number>();
+    for (let rowIndex = 0; rowIndex < rowEntries.length; rowIndex += 1) {
+      const belowRoutes = machine.transitions
+        .filter((transition) => {
+          if (transition.source === transition.target || rowByState.get(transition.source) !== rowIndex) return false;
+          const targetRow = rowByState.get(transition.target);
+          return targetRow !== rowIndex
+            || (columnByState.get(transition.source) ?? 0) < (columnByState.get(transition.target) ?? 0);
+        })
+        .sort((left, right) => (
+          (nodeById.get(right.source)?.x ?? 0) - (nodeById.get(left.source)?.x ?? 0)
+          || (transitionOrder.get(left.id) ?? 0) - (transitionOrder.get(right.id) ?? 0)
+        ));
+      belowRoutes.forEach((transition, slot) => belowSlotByTransition.set(transition.id, slot));
+      const aboveRoutes = machine.transitions
+        .filter((transition) => {
+          if (transition.source === transition.target) return false;
+          const sourceRow = rowByState.get(transition.source);
+          const targetRow = rowByState.get(transition.target);
+          if (sourceRow === rowIndex && targetRow === rowIndex) {
+            return (columnByState.get(transition.source) ?? 0) > (columnByState.get(transition.target) ?? 0);
+          }
+          return targetRow === rowIndex;
+        })
+        .sort((left, right) => (
+          (nodeById.get(right.source)?.x ?? nodeById.get(right.target)?.x ?? 0)
+          - (nodeById.get(left.source)?.x ?? nodeById.get(left.target)?.x ?? 0)
+          || (transitionOrder.get(left.id) ?? 0) - (transitionOrder.get(right.id) ?? 0)
+        ));
+      aboveRoutes.forEach((transition, slot) => aboveSlotByTransition.set(transition.id, slot));
+    }
+    const channelPortSlots = new Map<string, number>();
+    const shelfPortSlots = new Map<string, number>();
+    const loopSlots = new Map<string, number>();
+    const pendingRoutes: PendingRoute[] = [];
+    for (const transition of machine.transitions) {
+      const source = nodeById.get(transition.source);
+      const target = nodeById.get(transition.target);
+      if (source === undefined || target === undefined) continue;
+      if (source.id === target.id) {
+        const slot = loopSlots.get(source.id) ?? 0;
+        loopSlots.set(source.id, slot + 1);
+        pendingRoutes.push({ kind: "loop", transition, node: source, slot });
+        continue;
+      }
+      const sourceRow = rowByState.get(source.id);
+      const targetRow = rowByState.get(target.id);
+      if (sourceRow === undefined || targetRow === undefined) continue;
+      if (sourceRow === targetRow) {
+        const below = source.x < target.x;
+        const slot = below
+          ? belowSlotByTransition.get(transition.id) ?? 0
+          : aboveSlotByTransition.get(transition.id) ?? 0;
+        const sourceSide = below ? "right" : "left";
+        const targetSide = below ? "left" : "right";
+        const sourceKey = `${source.id}\0${sourceSide}`;
+        const targetKey = `${target.id}\0${targetSide}`;
+        const sourcePortSlot = shelfPortSlots.get(sourceKey) ?? 0;
+        const targetPortSlot = shelfPortSlots.get(targetKey) ?? 0;
+        shelfPortSlots.set(sourceKey, sourcePortSlot + 1);
+        shelfPortSlots.set(targetKey, targetPortSlot + 1);
+        pendingRoutes.push({
+          kind: "shelf",
+          transition,
+          source,
+          target,
+          sourcePortX: shelfPortX(source, sourceSide, sourcePortSlot, shelfPortCount.get(sourceKey) ?? 1),
+          targetPortX: shelfPortX(target, targetSide, targetPortSlot, shelfPortCount.get(targetKey) ?? 1),
+          channelY: below
+            ? source.y + source.height + ROUTE_CLEARANCE + slot * ROUTE_PITCH
+            : source.y - ROUTE_CLEARANCE - slot * ROUTE_PITCH,
+          side: below ? "below" : "above",
+        });
+        continue;
+      }
+      const sourceRowSlot = belowSlotByTransition.get(transition.id) ?? 0;
+      const targetRowSlot = aboveSlotByTransition.get(transition.id) ?? 0;
+      const sourcePortSlot = channelPortSlots.get(source.id) ?? 0;
+      const targetPortSlot = channelPortSlots.get(target.id) ?? 0;
+      channelPortSlots.set(source.id, sourcePortSlot + 1);
+      channelPortSlots.set(target.id, targetPortSlot + 1);
+      const sourcePortCount = channelIncidentCount.get(source.id) ?? 1;
+      const targetPortCount = channelIncidentCount.get(target.id) ?? 1;
+      pendingRoutes.push({
+        kind: "channel",
+        transition,
+        source,
+        target,
+        sourcePortX: portX(source, sourcePortCount - sourcePortSlot - 1, sourcePortCount),
+        targetPortX: portX(target, targetPortCount - targetPortSlot - 1, targetPortCount),
+        sourceChannelY: source.y + source.height + ROUTE_CLEARANCE + sourceRowSlot * ROUTE_PITCH,
+        targetChannelY: target.y - ROUTE_CLEARANCE - targetRowSlot * ROUTE_PITCH,
+      });
+    }
+    const channelRoutes = pendingRoutes.filter((route): route is ChannelRoute => route.kind === "channel");
+    const lanes = channelLanes(channelRoutes);
+    const laneCount = Math.max(0, ...lanes.values()) + (lanes.size === 0 ? 0 : 1);
+    const maxLoops = Math.max(0, ...loopCount.values());
+    const loopMargin = Math.max(0, 22 + Math.max(0, maxLoops - 1) * ROUTE_PITCH - REGION_PADDING);
+    const laneMargin = laneCount === 0 ? 0 : ROUTE_CLEARANCE + laneCount * ROUTE_PITCH;
+    const regionWidth = nodeAreaWidth + Math.max(loopMargin, laneMargin);
+    const lastRowY = rowY.at(-1) ?? regionY + REGION_TOP;
+    const regionHeight = lastRowY + NODE_HEIGHT
+      + channelExtent(channelsBelow.at(-1) ?? 0)
+      + REGION_PADDING
+      - regionY;
     const region: StateChartRegion = {
       id: machine.id,
       label: machine.label,
@@ -521,28 +799,39 @@ export function layoutStateChart(chart: StateChart): StateChartLayout {
       height: regionHeight,
     };
     regions.push(region);
-    const outgoing = new Set(machine.transitions.map((transition) => transition.source));
-    rowEntries.forEach(([, row], rowIndex) => {
-      row.forEach((state, columnIndex) => {
-        nodes.push({
-          ...state,
-          machineId: machine.id,
-          terminal: state.kind === "state" && !outgoing.has(state.id),
-          x: region.x + REGION_PADDING + columnIndex * (NODE_WIDTH + COLUMN_GAP),
-          y: region.y + REGION_TOP + rowIndex * (NODE_HEIGHT + ROW_GAP),
-          width: NODE_WIDTH,
-          height: NODE_HEIGHT,
-        });
-      });
-    });
-    const nodeById = new Map(nodes.filter((node) => node.machineId === machine.id).map((node) => [node.id, node]));
-    for (const transition of machine.transitions) {
-      const source = nodeById.get(transition.source);
-      const target = nodeById.get(transition.target);
-      if (source === undefined || target === undefined) continue;
-      const points = routeEdge(source, target);
-      const middle = points[Math.floor(points.length / 2)] ?? points[0] ?? { x: 0, y: 0 };
-      edges.push({ ...transition, points, labelX: middle.x + 5, labelY: middle.y - 5 });
+    for (const route of pendingRoutes) {
+      let points: readonly ChartPoint[];
+      let labelX: number;
+      let labelY: number;
+      switch (route.kind) {
+        case "loop": {
+          points = routeLoop(route);
+          const middle = points[Math.floor(points.length / 2)] ?? points[0] ?? { x: 0, y: 0 };
+          labelX = middle.x + 5;
+          labelY = middle.y - 5;
+          break;
+        }
+        case "channel": {
+          const lane = lanes.get(route.transition.id) ?? 0;
+          const laneX = region.x + nodeAreaWidth + ROUTE_CLEARANCE + lane * ROUTE_PITCH;
+          points = routeChannel(route, laneX);
+          labelX = route.sourcePortX + 5;
+          labelY = route.sourceChannelY - 5;
+          break;
+        }
+        case "shelf":
+          points = routeShelf(route);
+          labelX = route.sourcePortX + 5;
+          labelY = route.channelY - 5;
+          break;
+        default: {
+          const exhaustive: never = route;
+          points = exhaustive;
+          labelX = exhaustive;
+          labelY = exhaustive;
+        }
+      }
+      edges.push({ ...route.transition, points, labelX, labelY });
     }
     regionY += regionHeight + REGION_GAP;
     chartWidth = Math.max(chartWidth, region.x + region.width + 24);
