@@ -9,7 +9,7 @@ use crate::{FactMap, MapExtractionError};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::{self, File, OpenOptions};
@@ -53,6 +53,9 @@ pub enum NoteConflictCurrent {
 }
 
 const NOTES_SCHEMA_VERSION: u32 = 1;
+const NOTES_MERGE_DRIVER: &str = "lightwell-notes";
+const NOTES_MERGE_FALLBACK: &str = "git merge-file %A %O %B";
+const NOTES_ATTRIBUTE: &str = ".lightwell/notes.json merge=lightwell-notes";
 /// Fallback when Git user.name/email cannot be resolved from the project repository.
 pub const DEFAULT_NOTE_AUTHOR: &str = "unknown";
 /// Empty `updatedAt` means unknown/legacy (note written before this field existed).
@@ -350,6 +353,7 @@ impl ProjectNotesStore {
         let _lock = ExclusiveLock(lock_file);
 
         Self::ensure_artifact_ignores(parent)?;
+        self.configure_merge_driver(NOTES_MERGE_FALLBACK);
 
         let mut document = self.read_document()?;
         let changed = update_document(&mut document)?;
@@ -382,33 +386,60 @@ impl ProjectNotesStore {
     }
 
     fn read_document(&self) -> Result<NotesDocument, NotesError> {
-        let bytes = match fs::read(&self.path) {
+        Self::read_document_at(&self.path)
+    }
+
+    fn read_document_at(path: &Path) -> Result<NotesDocument, NotesError> {
+        let bytes = match fs::read(path) {
             Ok(bytes) => bytes,
             Err(source) if source.kind() == io::ErrorKind::NotFound => {
                 return Ok(NotesDocument::default());
             }
             Err(source) => {
                 return Err(NotesError::Io {
-                    path: self.path.clone(),
+                    path: path.to_owned(),
                     source,
                 });
             }
         };
-        let document: NotesDocument = serde_json::from_slice(&bytes).map_err(|source| {
-            if contains_conflict_markers(&bytes) {
+        Self::decode_document(path, &bytes)
+    }
+
+    fn read_merge_document_at(path: &Path) -> Result<NotesDocument, NotesError> {
+        let bytes = match fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(source) if source.kind() == io::ErrorKind::NotFound => {
+                return Ok(NotesDocument::default());
+            }
+            Err(source) => {
+                return Err(NotesError::Io {
+                    path: path.to_owned(),
+                    source,
+                });
+            }
+        };
+        if bytes.is_empty() {
+            return Ok(NotesDocument::default());
+        }
+        Self::decode_document(path, &bytes)
+    }
+
+    fn decode_document(path: &Path, bytes: &[u8]) -> Result<NotesDocument, NotesError> {
+        let document: NotesDocument = serde_json::from_slice(bytes).map_err(|source| {
+            if contains_conflict_markers(bytes) {
                 NotesError::ConflictMarkers {
-                    path: self.path.clone(),
+                    path: path.to_owned(),
                 }
             } else {
                 NotesError::InvalidJson {
-                    path: self.path.clone(),
+                    path: path.to_owned(),
                     source,
                 }
             }
         })?;
         if document.schema_version != NOTES_SCHEMA_VERSION {
             return Err(NotesError::UnsupportedSchema {
-                path: self.path.clone(),
+                path: path.to_owned(),
                 version: document.schema_version,
             });
         }
@@ -416,10 +447,36 @@ impl ProjectNotesStore {
     }
 
     fn write_document(&self, document: &NotesDocument) -> Result<(), NotesError> {
-        let parent = self.path.parent().unwrap_or_else(|| Path::new("."));
+        Self::write_document_at(&self.path, document)
+    }
+
+    fn write_document_at(path: &Path, document: &NotesDocument) -> Result<(), NotesError> {
         let mut contents = serde_json::to_vec_pretty(document).map_err(NotesError::Serialize)?;
         contents.push(b'\n');
+        Self::write_contents_at(path, &contents)
+    }
 
+    fn write_conflict_at(
+        path: &Path,
+        base: &NotesDocument,
+        current: &NotesDocument,
+        other: &NotesDocument,
+    ) -> Result<(), NotesError> {
+        let mut contents = b"<<<<<<< current\n".to_vec();
+        for (document, separator) in [
+            (current, b"||||||| base\n".as_slice()),
+            (base, b"=======\n".as_slice()),
+            (other, b">>>>>>> other\n".as_slice()),
+        ] {
+            contents.extend(serde_json::to_vec_pretty(document).map_err(NotesError::Serialize)?);
+            contents.push(b'\n');
+            contents.extend(separator);
+        }
+        Self::write_contents_at(path, &contents)
+    }
+
+    fn write_contents_at(path: &Path, contents: &[u8]) -> Result<(), NotesError> {
+        let parent = path.parent().unwrap_or_else(|| Path::new("."));
         let (temporary_path, mut temporary_file) = loop {
             let sequence = NEXT_TEMP_FILE_ID.fetch_add(1, Ordering::Relaxed);
             let temporary_path =
@@ -442,15 +499,15 @@ impl ProjectNotesStore {
 
         let result = (|| {
             temporary_file
-                .write_all(&contents)
+                .write_all(contents)
                 .and_then(|()| temporary_file.sync_all())
                 .map_err(|source| NotesError::Io {
                     path: temporary_path.clone(),
                     source,
                 })?;
             drop(temporary_file);
-            fs::rename(&temporary_path, &self.path).map_err(|source| NotesError::Io {
-                path: self.path.clone(),
+            fs::rename(&temporary_path, path).map_err(|source| NotesError::Io {
+                path: path.to_owned(),
                 source,
             })
         })();
@@ -459,6 +516,193 @@ impl ProjectNotesStore {
         }
         result
     }
+
+    fn configure_merge_driver(&self, command: &str) {
+        let Some(project_root) = self.path.parent().and_then(Path::parent) else {
+            return;
+        };
+        if !git_is_inside_work_tree(project_root) {
+            return;
+        }
+        for (key, value) in [
+            (
+                format!("merge.{NOTES_MERGE_DRIVER}.name"),
+                "Lightwell project notes",
+            ),
+            (format!("merge.{NOTES_MERGE_DRIVER}.driver"), command),
+        ] {
+            let configured = std::process::Command::new("git")
+                .args(["-C"])
+                .arg(project_root)
+                .args(["config", "--local", &key, value])
+                .output()
+                .is_ok_and(|output| output.status.success());
+            if !configured {
+                return;
+            }
+        }
+
+        let Ok(output) = std::process::Command::new("git")
+            .args(["-C"])
+            .arg(project_root)
+            .args(["rev-parse", "--git-path", "info/attributes"])
+            .output()
+        else {
+            return;
+        };
+        if !output.status.success() {
+            return;
+        }
+        let raw_path = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+        if raw_path.is_empty() {
+            return;
+        }
+        let reported_path = PathBuf::from(raw_path);
+        let attributes_path = if reported_path.is_absolute() {
+            reported_path
+        } else {
+            project_root.join(reported_path)
+        };
+        let contents = match fs::read_to_string(&attributes_path) {
+            Ok(contents) => contents,
+            Err(source) if source.kind() == io::ErrorKind::NotFound => String::new(),
+            Err(_) => return,
+        };
+        if contents.lines().any(|line| line.trim() == NOTES_ATTRIBUTE) {
+            return;
+        }
+        let Some(parent) = attributes_path.parent() else {
+            return;
+        };
+        if fs::create_dir_all(parent).is_err() {
+            return;
+        }
+        let Ok(mut file) = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(attributes_path)
+        else {
+            return;
+        };
+        if !contents.is_empty() && !contents.ends_with('\n') && file.write_all(b"\n").is_err() {
+            return;
+        }
+        let _ = writeln!(file, "{NOTES_ATTRIBUTE}");
+    }
+}
+
+/// Configure the repository-local notes merge driver.
+///
+/// CLI callers should provide their executable so future merges can use the semantic
+/// block-ID merge. Desktop-only installations pass `None` and use Git's built-in text
+/// merge instead of depending on a CLI command that may not be installed.
+pub fn configure_project_notes_merge_driver(
+    repository_path: impl AsRef<Path>,
+    cli_executable: Option<&Path>,
+) {
+    let command = cli_executable
+        .and_then(shell_quoted_executable)
+        .map(|executable| {
+            format!(
+                "if test -x {executable}; then {executable} notes merge-file %O %A %B; else {NOTES_MERGE_FALLBACK}; fi"
+            )
+        })
+        .unwrap_or_else(|| NOTES_MERGE_FALLBACK.to_owned());
+    let store = ProjectNotesStore::new(repository_path.as_ref());
+    store.configure_merge_driver(&command);
+}
+
+fn shell_quoted_executable(path: &Path) -> Option<String> {
+    let path = path.to_str()?.replace('\\', "/");
+    Some(format!("'{}'", path.replace('\'', "'\\''")))
+}
+
+#[derive(Debug, Eq, PartialEq)]
+enum NoteMerge {
+    Resolved(Option<ProjectNote>),
+    Conflict,
+}
+
+fn merge_note(
+    base: Option<&ProjectNote>,
+    current: Option<&ProjectNote>,
+    other: Option<&ProjectNote>,
+) -> NoteMerge {
+    if current == other {
+        NoteMerge::Resolved(current.cloned())
+    } else if current == base {
+        NoteMerge::Resolved(other.cloned())
+    } else if other == base {
+        NoteMerge::Resolved(current.cloned())
+    } else {
+        NoteMerge::Conflict
+    }
+}
+
+/// Merge three Git versions of `.lightwell/notes.json` by block ID.
+///
+/// A conflicting edit to the same note writes diff3-style markers containing both
+/// complete merge candidates before returning an error for Git to mark unresolved.
+pub fn merge_project_notes_files(
+    base_path: impl AsRef<Path>,
+    current_path: impl AsRef<Path>,
+    other_path: impl AsRef<Path>,
+) -> Result<(), NotesError> {
+    let base = ProjectNotesStore::read_merge_document_at(base_path.as_ref())?;
+    let current = ProjectNotesStore::read_merge_document_at(current_path.as_ref())?;
+    let other = ProjectNotesStore::read_merge_document_at(other_path.as_ref())?;
+    let block_ids = base
+        .notes
+        .keys()
+        .chain(current.notes.keys())
+        .chain(other.notes.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+    let mut merged = BTreeMap::new();
+    let mut conflicts = Vec::new();
+    for block_id in block_ids {
+        match merge_note(
+            base.notes.get(&block_id),
+            current.notes.get(&block_id),
+            other.notes.get(&block_id),
+        ) {
+            NoteMerge::Resolved(Some(note)) => {
+                merged.insert(block_id, note);
+            }
+            NoteMerge::Resolved(None) => {}
+            NoteMerge::Conflict => conflicts.push(block_id),
+        }
+    }
+    if !conflicts.is_empty() {
+        let merge_candidate = |side: &NotesDocument| {
+            let mut notes = merged.clone();
+            for block_id in &conflicts {
+                if let Some(note) = side.notes.get(block_id) {
+                    notes.insert(block_id.clone(), note.clone());
+                }
+            }
+            NotesDocument {
+                schema_version: NOTES_SCHEMA_VERSION,
+                notes,
+            }
+        };
+        ProjectNotesStore::write_conflict_at(
+            current_path.as_ref(),
+            &base,
+            &merge_candidate(&current),
+            &merge_candidate(&other),
+        )?;
+        return Err(NotesError::MergeConflict {
+            block_ids: conflicts,
+        });
+    }
+    ProjectNotesStore::write_document_at(
+        current_path.as_ref(),
+        &NotesDocument {
+            schema_version: NOTES_SCHEMA_VERSION,
+            notes: merged,
+        },
+    )
 }
 
 struct ExclusiveLock(File);
@@ -809,6 +1053,9 @@ pub enum NotesError {
     ConflictMarkers {
         path: PathBuf,
     },
+    MergeConflict {
+        block_ids: Vec<String>,
+    },
     UnsupportedSchema {
         path: PathBuf,
         version: u32,
@@ -858,6 +1105,16 @@ impl Display for NotesError {
                 "Project notes at {} contain Git conflict markers. Remove the conflict markers or restore the file from Git (`git checkout -- .lightwell/notes.json`). Lightwell left the file unchanged.",
                 path.display()
             ),
+            Self::MergeConflict { block_ids } => write!(
+                formatter,
+                "Both branches changed the same project {}: {}. Lightwell wrote conflict markers containing both complete versions. Resolve the markers in `.lightwell/notes.json`, verify every note you want to keep, then stage the file and continue the merge.",
+                if block_ids.len() == 1 { "note" } else { "notes" },
+                block_ids
+                    .iter()
+                    .map(|block_id| format!("`{block_id}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
             Self::UnsupportedSchema { path, version } => write!(
                 formatter,
                 "Project notes at {} use unsupported schema version {version}.",
@@ -880,6 +1137,7 @@ impl Error for NotesError {
             | Self::EmptyText
             | Self::RevisionConflict { .. }
             | Self::ConflictMarkers { .. }
+            | Self::MergeConflict { .. }
             | Self::UnsupportedSchema { .. } => None,
         }
     }
@@ -894,11 +1152,11 @@ impl From<MapExtractionError> for NotesError {
 #[cfg(test)]
 mod tests {
     use super::{
-        list_project_notes, mark_project_note_reviewed, note_revision, remove_project_note,
-        remove_stale_project_notes, set_project_note, set_project_note_for_map,
-        set_project_note_for_map_expecting, update_project_note_text,
-        update_project_note_text_expecting, NoteConflictCurrent, NoteWriteExpectation, NotesError,
-        ProjectNotesStore,
+        list_project_notes, mark_project_note_reviewed, merge_note, merge_project_notes_files,
+        note_revision, remove_project_note, remove_stale_project_notes, set_project_note,
+        set_project_note_for_map, set_project_note_for_map_expecting, update_project_note_text,
+        update_project_note_text_expecting, NoteConflictCurrent, NoteMerge, NoteWriteExpectation,
+        NotesError, ProjectNote, ProjectNotesStore,
     };
     use crate::extract::{block_base, extract_cargo_map};
     use crate::facts::{BlockBase, CrateBlock, FactBlock, FactGroup, FactMap, MapStats, Project};
@@ -908,6 +1166,80 @@ mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static NEXT_TEMP_DIR_ID: AtomicU64 = AtomicU64::new(0);
+
+    fn stored_note(text: &str) -> ProjectNote {
+        ProjectNote {
+            text: text.to_owned(),
+            source_fingerprint: "fingerprint".to_owned(),
+            author: "author".to_owned(),
+            updated_at: "2026-10-30T00:00:00Z".to_owned(),
+        }
+    }
+
+    #[test]
+    fn three_way_note_merge_resolves_unchanged_sides_and_rejects_divergence() {
+        let base = stored_note("Base");
+        let current = stored_note("Current");
+        let other = stored_note("Other");
+
+        assert_eq!(
+            merge_note(Some(&base), Some(&current), Some(&current)),
+            NoteMerge::Resolved(Some(current.clone()))
+        );
+        assert_eq!(
+            merge_note(Some(&base), Some(&base), Some(&other)),
+            NoteMerge::Resolved(Some(other.clone()))
+        );
+        assert_eq!(
+            merge_note(Some(&base), Some(&current), Some(&base)),
+            NoteMerge::Resolved(Some(current.clone()))
+        );
+        assert_eq!(
+            merge_note(Some(&base), None, Some(&base)),
+            NoteMerge::Resolved(None)
+        );
+        assert_eq!(
+            merge_note(Some(&base), Some(&base), None),
+            NoteMerge::Resolved(None)
+        );
+        assert_eq!(
+            merge_note(Some(&base), Some(&current), Some(&other)),
+            NoteMerge::Conflict
+        );
+    }
+
+    #[test]
+    fn file_merge_treats_an_empty_base_as_absent_and_never_overwrites_on_parse_error() {
+        let project = TempProject::new();
+        let base = project.0.join("base.json");
+        let current = project.0.join("current.json");
+        let other = project.0.join("other.json");
+        fs::write(&base, []).unwrap();
+        fs::write(
+            &current,
+            r#"{"schemaVersion":1,"notes":{"crate:left":{"text":"Left","sourceFingerprint":"left"}}}"#,
+        )
+        .unwrap();
+        fs::write(
+            &other,
+            r#"{"schemaVersion":1,"notes":{"crate:right":{"text":"Right","sourceFingerprint":"right"}}}"#,
+        )
+        .unwrap();
+
+        merge_project_notes_files(&base, &current, &other).unwrap();
+        let merged: serde_json::Value =
+            serde_json::from_slice(&fs::read(&current).unwrap()).unwrap();
+        assert_eq!(merged["notes"]["crate:left"]["text"], "Left");
+        assert_eq!(merged["notes"]["crate:right"]["text"], "Right");
+
+        let before = fs::read(&current).unwrap();
+        fs::write(&other, "{broken").unwrap();
+        assert!(matches!(
+            merge_project_notes_files(&base, &current, &other),
+            Err(NotesError::InvalidJson { path, .. }) if path == other
+        ));
+        assert_eq!(fs::read(&current).unwrap(), before);
+    }
 
     struct TempProject(PathBuf);
 
@@ -1590,6 +1922,13 @@ mod tests {
         assert!(invalid_message.contains("Git"), "{invalid_message}");
         assert!(invalid_message.contains("unchanged"), "{invalid_message}");
         assert_eq!(fs::read(&notes_path).unwrap(), broken);
+
+        fs::write(&notes_path, []).unwrap();
+        assert!(matches!(
+            store.list_for_map(&map("fingerprint")),
+            Err(NotesError::InvalidJson { .. })
+        ));
+        assert!(fs::read(&notes_path).unwrap().is_empty());
     }
 
     #[test]
