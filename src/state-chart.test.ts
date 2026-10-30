@@ -391,8 +391,58 @@ fn next(value: Loop) -> Loop { match value { Loop::A => Loop::A, } }`,
   const node = layout.nodes[0];
   const edge = layout.edges[0];
   assert.ok(node !== undefined && edge !== undefined);
-  assert.ok(edge.points.length >= 5);
+  assert.ok(edge.points.length >= 4);
   assert.ok(edge.points.some((point) => point.x > node.x + node.width || point.y < node.y));
+});
+
+test("keeps a self-loop separate from an incoming transition", () => {
+  const layout = layoutStateChart(detectStateChart({
+    path: "src/incoming-loop.rs",
+    content: `enum Cycle { A, B }
+fn next(value: Cycle) -> Cycle { match value {
+  Cycle::A => Cycle::B,
+  Cycle::B => Cycle::B,
+} }`,
+  }));
+
+  assertEdgesDoNotShareSegments(layout.edges);
+  assertEdgesDoNotCross(layout.edges);
+});
+
+test("contains multiple self-loops without crossing a neighboring state", () => {
+  const layout = layoutStateChart({
+    sourcePath: "src/multiple-loops.rs",
+    machines: [{
+      id: "Loop",
+      label: "Loop",
+      language: "rust",
+      states: [
+        { kind: "state", id: "Loop::A", label: "A", line: 1, initial: true },
+        { kind: "state", id: "Loop::B", label: "B", line: 1, initial: false },
+      ],
+      transitions: [0, 1, 2, 3].map((index) => ({
+        id: `loop-${index}`,
+        source: "Loop::A",
+        target: "Loop::A",
+        label: `loop ${index}`,
+        line: index + 2,
+      })),
+    }],
+    omittedStates: 0,
+    omittedTransitions: 0,
+  });
+
+  assertEdgesAvoidOtherNodes(layout.edges, layout.nodes);
+  assertEdgesDoNotShareSegments(layout.edges);
+  assertEdgesDoNotCross(layout.edges);
+  const region = layout.regions[0];
+  assert.ok(region !== undefined);
+  for (const edge of layout.edges) {
+    for (const point of edge.points) {
+      assert.ok(point.x >= region.x && point.x <= region.x + region.width, `${edge.id} leaves the region horizontally`);
+      assert.ok(point.y >= region.y && point.y <= region.y + region.height, `${edge.id} leaves the region vertically`);
+    }
+  }
 });
 
 test("lays out cycles and disconnected states deterministically without overlaps", () => {
