@@ -401,11 +401,10 @@ fn setup_py_entry_points(source: &str) -> Vec<PythonEntryPoint> {
     }) else {
         return Vec::new();
     };
-    let assignment = &source[name_index + "entry_points".len()..];
-    let Some(equals) = assignment.find('=') else {
+    let assignment = source[name_index + "entry_points".len()..].trim_start();
+    let Some(value) = assignment.strip_prefix('=') else {
         return Vec::new();
     };
-    let value = &assignment[equals + 1..];
     let Some(open) = value.find('{') else {
         return Vec::new();
     };
@@ -1351,14 +1350,14 @@ def load_widget():
         fs::create_dir_all(&poetry_root).expect("poetry root");
         fs::write(
             poetry_root.join("pyproject.toml"),
-            "[tool.poetry]\nname = \"poetry-sample\"\n\n[tool.poetry.scripts]\npoetry-cli = \"poetry_pkg.cli:main\"\n",
+            "[tool.poetry]\nname = 'poetry-sample'\n\n[tool.poetry.scripts]\n\"poetry cli\" = 'poetry_pkg.cli:main'\n",
         )
         .expect("pyproject.toml");
         let poetry = discover_python_project(&poetry_root)
             .expect("poetry project")
             .expect("present");
         assert_eq!(poetry.name, "poetry-sample");
-        assert_eq!(poetry.entry_points[0].name, "poetry-cli");
+        assert_eq!(poetry.entry_points[0].name, "poetry cli");
         assert_eq!(poetry.entry_points[0].object_ref, "poetry_pkg.cli:main");
         let _ = fs::remove_dir_all(&poetry_root);
 

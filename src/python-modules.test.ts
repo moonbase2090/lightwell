@@ -142,10 +142,10 @@ test("python project discovery supports Poetry, setup.cfg, and setup.py entry po
     writeFileSync(
       path.join(poetryRoot, "pyproject.toml"),
       `[tool.poetry]
-name = "poetry-sample"
+name = 'poetry-sample'
 
 [tool.poetry.scripts]
-poetry-cli = "poetry_pkg.cli:main"
+"poetry cli" = 'poetry_pkg.cli:main'
 `,
     );
     const poetry = discoverPythonProject(poetryRoot);
@@ -153,7 +153,7 @@ poetry-cli = "poetry_pkg.cli:main"
       name: "poetry-sample",
       manifestPath: path.join(poetryRoot, "pyproject.toml"),
       kind: "pyproject.toml",
-      entryPoints: [{ name: "poetry-cli", objectRef: "poetry_pkg.cli:main", group: "console_scripts" }],
+      entryPoints: [{ name: "poetry cli", objectRef: "poetry_pkg.cli:main", group: "console_scripts" }],
     });
 
     writeFileSync(

@@ -883,8 +883,8 @@ function tomlString(source: string, keys: readonly string[]): string | null {
   if (table === null) return null;
   const key = keys[keys.length - 1];
   if (key === undefined) return null;
-  const match = table.match(new RegExp(`^${escapeRegExp(key)}\\s*=\\s*"([^"]*)"`, "mu"));
-  return match?.[1] ?? null;
+  const match = table.match(new RegExp(`^${escapeRegExp(key)}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "mu"));
+  return match?.[1] ?? match?.[2] ?? null;
 }
 
 function tomlTableEntries(source: string, keys: readonly string[]): Array<[string, string]> {
@@ -892,8 +892,8 @@ function tomlTableEntries(source: string, keys: readonly string[]): Array<[strin
   if (body === null) return [];
   const entries: Array<[string, string]> = [];
   for (const line of body.split(/\r?\n/)) {
-    const match = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*"([^"]*)"/u);
-    if (match?.[1] && match[2] !== undefined) entries.push([match[1], match[2]]);
+    const entry = tomlStringEntry(line);
+    if (entry !== null) entries.push(entry);
   }
   return entries;
 }
@@ -909,13 +909,20 @@ function tomlEntryPointGroups(source: string): PythonEntryPoint[] {
     const next = source.slice(start).search(/^\[/mu);
     const body = next < 0 ? source.slice(start) : source.slice(start, start + next);
     for (const line of body.split(/\r?\n/)) {
-      const lineMatch = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*"([^"]*)"/u);
-      if (lineMatch?.[1] && lineMatch[2] !== undefined) {
-        entries.push({ name: lineMatch[1], objectRef: lineMatch[2], group });
-      }
+      const entry = tomlStringEntry(line);
+      if (entry !== null) entries.push({ name: entry[0], objectRef: entry[1], group });
     }
   }
   return entries;
+}
+
+function tomlStringEntry(line: string): [string, string] | null {
+  const match = line.match(
+    /^(?:([A-Za-z0-9_.-]+)|"([^"]+)"|'([^']+)')\s*=\s*(?:"([^"]*)"|'([^']*)')/u,
+  );
+  const key = match?.[1] ?? match?.[2] ?? match?.[3];
+  const value = match?.[4] ?? match?.[5];
+  return key === undefined || value === undefined ? null : [key, value];
 }
 
 function tomlTableBody(source: string, keys: readonly string[]): string | null {
