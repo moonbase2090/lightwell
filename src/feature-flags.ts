@@ -12,6 +12,11 @@ export function compoundLayoutEnabled(value: string | undefined): boolean {
   return value === "true";
 }
 
+/** Source-derived state charts stay off unless the build opts in exactly. */
+export function stateChartEnabled(value: string | undefined): boolean {
+  return value === "true";
+}
+
 /**
  * Mark reviewed and bulk delete of stale notes stay off unless the build sets
  * VITE_ENABLE_NOTES_STALE_ACTIONS to the exact string "true".

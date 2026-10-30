@@ -87,6 +87,7 @@ import NoteContextMenu, {
 import Splitter from "./Splitter.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import { createCompoundLayoutFeature } from "./viewer/compound-layout-client.js";
+import StateChartFeature from "./StateChartFeature.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
 import {
   DEFAULT_MAP_DEPTH,
@@ -752,6 +753,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [activeGroupId, setActiveGroupId] = useState("");
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
+  const [stateChartOpen, setStateChartOpen] = useState(false);
   const [inspectedBlockId, setInspectedBlockId] = useState<string | null>(null);
   const [inspection, setInspection] = useState<SourceInspectionState>({ kind: "loading" });
   const [openingEditor, setOpeningEditor] = useState(false);
@@ -1959,6 +1961,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   ) : null;
   const selectedNoteAction = notesAvailable && !selected.virtual ? noteButtonLabel(notedBlockIds.has(selected.id)) : undefined;
   const inspectedNoteAction = notesAvailable && inspectedBlockId !== null && !inspectingHistoricalBlock ? noteButtonLabel(notedBlockIds.has(inspectedBlockId)) : undefined;
+  const stateChartTarget = !selected.virtual && selected.sourcePath !== null ? selected : null;
 
   const verticalFiles = mapView === "files" && orientation === "vertical" && fileTree !== null && fileRoot !== undefined;
   const selectedTreeNode = mapView === "files" && fileTree !== null ? fileTree.nodeById.get(selectedId) : undefined;
@@ -1971,6 +1974,15 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <div className="map-view" role="group" aria-label="Map view">
             <button type="button" aria-pressed={mapView === "modules"} onClick={() => chooseMapView("modules")}>Modules</button>
             <button type="button" aria-pressed={mapView === "files"} onClick={() => chooseMapView("files")}>Files</button>
+            {import.meta.env.VITE_ENABLE_STATE_CHART === "true" && (
+              <button
+                type="button"
+                aria-pressed={stateChartOpen}
+                disabled={stateChartTarget === null || mapSource.editor === undefined}
+                title={stateChartTarget === null ? "Select a source-backed block" : "Chart explicit states in this source file"}
+                onClick={() => setStateChartOpen(true)}
+              >States</button>
+            )}
           </div>
           <label className="map-depth">
             Depth
@@ -2086,7 +2098,28 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       onFeatureHover={(id) => { setActiveFeatureId(id); if (id !== null) setActiveNodeId(null); }}
     />
   );
-  const mapContent = (
+  const stateChartCanvas = import.meta.env.VITE_ENABLE_STATE_CHART === "true" && stateChartOpen ? (
+    <div className="graph-canvas state-chart-host">
+      {stateChartTarget !== null && mapSource.editor !== undefined && mapKey !== null ? (
+        <StateChartFeature
+          editor={mapSource.editor}
+          workspaceId={mapKey}
+          blockId={stateChartTarget.id}
+          blockLabel={stateChartTarget.label}
+          onClose={() => setStateChartOpen(false)}
+        />
+      ) : (
+        <div className="state-chart-view">
+          <header className="state-chart-header">
+            <div><span className="state-chart-kicker">STATE CHART</span><strong>Source-derived states</strong></div>
+            <button type="button" onClick={() => setStateChartOpen(false)}>Back to map</button>
+          </header>
+          <div className="state-chart-empty">Select a source-backed block to chart its explicit transitions.</div>
+        </div>
+      )}
+    </div>
+  ) : null;
+  const mapContent = stateChartCanvas ?? (
     <Splitter
       projectId={mapKey}
       splitterId="map-features"

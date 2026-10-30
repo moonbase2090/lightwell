@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { commitDiffEnabled, compoundLayoutEnabled, mapPopoutEnabled, notesCasEnabled, notesStaleActionsEnabled, projectNotesEnabled } from "./feature-flags.js";
+import { commitDiffEnabled, compoundLayoutEnabled, mapPopoutEnabled, notesCasEnabled, notesStaleActionsEnabled, projectNotesEnabled, stateChartEnabled } from "./feature-flags.js";
 
 test("compound layout stays off unless VITE_ENABLE_COMPOUND_LAYOUT is exactly true", () => {
   assert.equal(compoundLayoutEnabled(undefined), false);
@@ -16,6 +16,30 @@ test("the app starts the compound layout worker only behind the exact true flag"
   const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
   assert.match(app, /import\.meta\.env\.VITE_ENABLE_COMPOUND_LAYOUT !== "true"/);
   assert.match(app, /createCompoundLayoutFeature\("true"\)/);
+});
+
+test("state charts stay off unless VITE_ENABLE_STATE_CHART is exactly true", () => {
+  assert.equal(stateChartEnabled(undefined), false);
+  assert.equal(stateChartEnabled(""), false);
+  assert.equal(stateChartEnabled("false"), false);
+  assert.equal(stateChartEnabled("TRUE"), false);
+  assert.equal(stateChartEnabled(" true "), false);
+  assert.equal(stateChartEnabled("true"), true);
+});
+
+test("the app loads and shows state charts only behind the exact true flag", () => {
+  const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
+  assert.match(app, /import StateChartFeature from "\.\/StateChartFeature\.js"/);
+  assert.match(app, /import\.meta\.env\.VITE_ENABLE_STATE_CHART === "true" &&/);
+  assert.equal(app.includes("import(\"./StateChartFeature.js\")"), false);
+  assert.equal(app.includes("stateChartEnabled"), false);
+});
+
+test("state charts add no runtime package or module loader", () => {
+  const feature = readFileSync(new URL("./StateChartFeature.tsx", import.meta.url), "utf8");
+  const detector = readFileSync(new URL("./state-chart.ts", import.meta.url), "utf8");
+  assert.equal(feature.includes("import("), false);
+  assert.equal(detector.includes(" from \""), false);
 });
 
 test("project notes are on when the build sets no flag", () => {
