@@ -4,6 +4,7 @@ import { registerCppHighlighter } from "../highlighters/cpp.js";
 /** C/C++ facts are appended by the Rust workspace extractor (`extractCargoMap`). */
 export const CPP_LANGUAGE_PACK: LanguagePack = {
   id: "cpp",
+  packVersion: "1.0.0",
   extensions: [".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"],
   monacoLanguageId: "cpp",
   extractor: {

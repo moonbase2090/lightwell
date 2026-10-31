@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lightwell.dev/schemas/language-pack-v1.json",
+  "title": "Lightwell language pack manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "packVersion",
+    "extensions",
+    "basenames",
+    "basenamePrefixes",
+    "monaco",
+    "extractors",
+    "fixtures"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "packVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "extensions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^\\.[a-z0-9][a-z0-9.+-]*$"
+      }
+    },
+    "basenames": { "$ref": "#/$defs/basenames" },
+    "basenamePrefixes": { "$ref": "#/$defs/basenames" },
+    "monaco": { "$ref": "#/$defs/monaco" },
+    "extractors": { "$ref": "#/$defs/extractors" },
+    "fixtures": {
+      "oneOf": [
+        { "$ref": "#/$defs/nonEmptyString" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "anyOf": [
+    { "properties": { "extensions": { "minItems": 1 } } },
+    { "properties": { "basenames": { "minItems": 1 } } },
+    { "properties": { "basenamePrefixes": { "minItems": 1 } } }
+  ],
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "nullableHook": {
+      "oneOf": [
+        { "$ref": "#/$defs/nonEmptyString" },
+        { "type": "null" }
+      ]
+    },
+    "basenames": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^/\\\\]+$"
+      }
+    },
+    "languageMap": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/nonEmptyString" }
+    },
+    "monaco": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "highlighter", "byExtension", "byBasename", "byBasenamePrefix"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nonEmptyString" },
+        "highlighter": { "$ref": "#/$defs/nullableHook" },
+        "byExtension": {
+          "allOf": [
+            { "$ref": "#/$defs/languageMap" },
+            { "propertyNames": { "pattern": "^\\.[a-z0-9][a-z0-9.+-]*$" } }
+          ]
+        },
+        "byBasename": { "$ref": "#/$defs/languageMap" },
+        "byBasenamePrefix": { "$ref": "#/$defs/languageMap" }
+      }
+    },
+    "extractors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "workspace"],
+      "properties": {
+        "source": { "$ref": "#/$defs/nullableHook" },
+        "workspace": { "$ref": "#/$defs/nullableHook" }
+      }
+    }
+  }
+}

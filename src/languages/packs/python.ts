@@ -4,6 +4,7 @@ import { registerPythonHighlighter } from "../highlighters/python.js";
 /** Python facts are appended by the Rust workspace extractor (`extractCargoMap`). */
 export const PYTHON_LANGUAGE_PACK: LanguagePack = {
   id: "python",
+  packVersion: "1.0.0",
   extensions: [".py", ".pyi"],
   monacoLanguageId: "python",
   basenameFiles: ["pyproject.toml", "setup.cfg", "setup.py"],

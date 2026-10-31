@@ -3,6 +3,7 @@ import { registerConfigInfraHighlighters } from "../highlighters/config-infra.js
 
 export const CONFIG_INFRA_LANGUAGE_PACK: LanguagePack = {
   id: "config-infra",
+  packVersion: "1.0.0",
   extensions: [".yaml", ".yml", ".tf", ".tfvars", ".hcl"],
   basenameFiles: ["Dockerfile"],
   basenamePrefixes: ["Dockerfile."],

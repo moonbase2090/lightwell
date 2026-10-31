@@ -4,6 +4,7 @@ import { registerWebHighlighters } from "../highlighters/web.js";
 /** Web front-end sources (TS/JS/JSX/TSX/HTML/CSS) appended by workspace extraction. */
 export const WEB_LANGUAGE_PACK: LanguagePack = {
   id: "web",
+  packVersion: "1.0.0",
   extensions: [
     ".ts",
     ".tsx",

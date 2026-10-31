@@ -13,8 +13,8 @@ import { TOML_LANGUAGE_PACK } from "./packs/toml.js";
 import { WEB_LANGUAGE_PACK } from "./packs/web.js";
 
 /**
- * Built-in language packs shipped with Lightwell. A future plugin loader merges
- * additional packs into the active registry using the same `LanguagePack` shape.
+ * Built-in language packs shipped with Lightwell. The loader merges validated
+ * external manifests into the active registry using the same `LanguagePack` shape.
  */
 export const BUILTIN_LANGUAGE_PACKS: readonly LanguagePack[] = [
   RUST_LANGUAGE_PACK,

@@ -4,6 +4,7 @@ import { registerSwiftHighlighter } from "../highlighters/swift.js";
 /** Swift facts are appended by the Rust workspace extractor (`extractCargoMap`). */
 export const SWIFT_LANGUAGE_PACK: LanguagePack = {
   id: "swift",
+  packVersion: "1.0.0",
   extensions: [".swift"],
   monacoLanguageId: "swift",
   extractor: {

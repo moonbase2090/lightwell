@@ -1,7 +1,12 @@
 import type * as Monaco from "monaco-editor-core";
 import type { FactMap } from "../model.js";
 
-export type LanguagePackId = "rust" | "toml" | "web" | "python" | "go" | "dotnet" | "php" | "ruby" | "cpp" | "jvm" | "config-infra" | "swift";
+export const LANGUAGE_PACK_SCHEMA_VERSION = 1;
+
+export type BuiltinLanguagePackId = "rust" | "toml" | "web" | "python" | "go" | "dotnet" | "php" | "ruby" | "cpp" | "jvm" | "config-infra" | "swift";
+declare const externalLanguagePackIdBrand: unique symbol;
+export type ExternalLanguagePackId = string & { readonly [externalLanguagePackIdBrand]: "ExternalLanguagePackId" };
+export type LanguagePackId = BuiltinLanguagePackId | ExternalLanguagePackId;
 
 export interface WorkspaceExtractArgs {
   readonly repositoryPath: string;
@@ -10,7 +15,7 @@ export interface WorkspaceExtractArgs {
 
 export type WorkspaceExtractor = (args: WorkspaceExtractArgs) => FactMap;
 
-/** How map extraction is implemented for a pack (plugin loader will register the same shape). */
+/** How map extraction is implemented for a pack. Manifest hook names resolve to these installed shapes. */
 export type LanguagePackExtractor =
   | {
       readonly kind: "rust-workspace";
@@ -76,12 +81,45 @@ export interface LanguagePackFixtures {
 
 export type MonacoHighlighterRegistrar = (monaco: typeof Monaco) => void;
 
+export interface LanguagePackMonacoManifest {
+  readonly id: string;
+  readonly highlighter: string | null;
+  readonly byExtension: Readonly<Record<string, string>>;
+  readonly byBasename: Readonly<Record<string, string>>;
+  readonly byBasenamePrefix: Readonly<Record<string, string>>;
+}
+
+export interface LanguagePackExtractorManifest {
+  readonly source: string | null;
+  readonly workspace: string | null;
+}
+
+/** Version 1 JSON manifest. Hook names resolve through a host-provided table. */
+export interface LanguagePackManifestV1 {
+  readonly schemaVersion: typeof LANGUAGE_PACK_SCHEMA_VERSION;
+  readonly id: LanguagePackId;
+  readonly packVersion: string;
+  readonly extensions: readonly string[];
+  readonly basenames: readonly string[];
+  readonly basenamePrefixes: readonly string[];
+  readonly monaco: LanguagePackMonacoManifest;
+  readonly extractors: LanguagePackExtractorManifest;
+  readonly fixtures: string | null;
+}
+
+export interface LanguagePackHookRegistry {
+  readonly highlighters: ReadonlyMap<string, MonacoHighlighterRegistrar>;
+  readonly sourceExtractors: ReadonlyMap<string, LanguagePackExtractor>;
+  readonly workspaceExtractors: ReadonlyMap<string, WorkspaceExtractor>;
+}
+
 /**
  * One installable language surface: file extensions, extraction, inspector highlighting, and tests.
- * Built-in packs ship in `builtin-packs.ts`; a future loader appends plugin packs to the same list.
+ * Built-in packs ship in `builtin-packs.ts`; validated external packs join the same runtime registry.
  */
 export interface LanguagePack {
   readonly id: LanguagePackId;
+  readonly packVersion: string;
   readonly extensions: readonly string[];
   /** Default Monaco id when `monacoIdForPath` has no extension match. */
   readonly monacoLanguageId: string;
