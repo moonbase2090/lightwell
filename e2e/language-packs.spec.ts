@@ -22,7 +22,11 @@ test.describe("language pack settings", () => {
     await expect(loaded.getByRole("button", { name: "Uninstall demo" })).toBeVisible();
     await expect.poll(() => page.evaluate(() => (
       (window as unknown as Record<string, unknown>).__LW_LANGUAGE_PACK_INSTALL_INPUT__
-    ))).toEqual({ source: { kind: "catalog", id: "demo" }, replace: false });
+    ))).toEqual({
+      source: { kind: "catalog", id: "demo" },
+      replace: false,
+      workspaceId: "workspace:prismattyc",
+    });
 
     page.once("dialog", (dialog) => dialog.accept());
     await loaded.getByRole("button", { name: "Uninstall demo" }).click();

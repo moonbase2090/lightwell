@@ -155,7 +155,8 @@ export async function gotoIpc(page: Page, overrides: {
         case "install_language_pack": {
           const source = args.source;
           if (typeof source !== "object" || source === null || !("kind" in source) || !("id" in source)
-            || source.kind !== "catalog" || source.id !== "demo" || args.replace !== false) {
+            || source.kind !== "catalog" || source.id !== "demo" || args.replace !== false
+            || args.workspaceId !== "workspace:prismattyc") {
             throw new Error("Invalid captured language pack install request");
           }
           w.__LW_LANGUAGE_PACK_INSTALL_INPUT__ = args;

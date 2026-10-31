@@ -138,14 +138,14 @@ const languagePacksApi: LanguagePackSource = {
   catalog(workspaceId) {
     return invoke<unknown>("language_pack_catalog", { workspaceId }).then(parseLanguagePackCatalog);
   },
-  install(source, replace) {
-    return invoke<unknown>("install_language_pack", { source, replace }).then(parseLanguagePackCatalog);
+  install(source, replace, workspaceId) {
+    return invoke<unknown>("install_language_pack", { source, replace, workspaceId }).then(parseLanguagePackCatalog);
   },
   reload(workspaceId) {
     return invoke<unknown>("reload_language_packs", { workspaceId }).then(parseLanguagePackCatalog);
   },
-  remove(id) {
-    return invoke<unknown>("remove_language_pack", { id }).then(parseLanguagePackCatalog);
+  remove(id, workspaceId) {
+    return invoke<unknown>("remove_language_pack", { id, workspaceId }).then(parseLanguagePackCatalog);
   },
   openDirectory() {
     return invoke<void>("open_language_packs_directory");

@@ -182,7 +182,7 @@ export default function LanguagePacksSettings({
     setBusyId(`catalog:${id}`);
     setActionError("");
     try {
-      replaceSnapshot(await source.install(action.source, action.replace));
+      replaceSnapshot(await source.install(action.source, action.replace, workspaceId));
     } catch (error: unknown) {
       setActionError(describeError(error, `Could not ${action.kind} ${id}.`));
     } finally {
@@ -195,7 +195,7 @@ export default function LanguagePacksSettings({
     setBusyId(`remove:${id}`);
     setActionError("");
     try {
-      replaceSnapshot(await source.remove(id));
+      replaceSnapshot(await source.remove(id, workspaceId));
     } catch (error: unknown) {
       setActionError(describeError(error, `Could not uninstall ${id}.`));
     } finally {
