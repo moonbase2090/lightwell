@@ -19,7 +19,7 @@ import { discoverGoPackages, goFactBlocks } from "./go-modules.js";
 import { discoverPhpPackages, phpFactBlocks } from "./php-modules.js";
 import { discoverJvm, jvmFactBlocks, jvmFingerprintInputs } from "./jvm-modules.js";
 import { configInfraFactBlocks, discoverConfigInfra } from "./config-infra.js";
-import { discoverPythonModules, pythonFactBlocks } from "./python-modules.js";
+import { discoverPythonModules, discoverPythonProject, pythonFactBlocks } from "./python-modules.js";
 import { discoverRubyPackages, rubyFactBlocks } from "./ruby-modules.js";
 import { discoverSwiftTargets, swiftFactBlocks } from "./swift-modules.js";
 import { moduleDirectoryForSource, readModuleSource, resolveModuleSource, rustModuleDeclarations } from "./rust-modules.js";
@@ -405,7 +405,13 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
     blocks[crateIndex] = { ...crate, fingerprint: hashText([hashFile(pkg.manifestPath), ...sourceFingerprints].join("\n")) };
   }
   const pythonModules = discoverPythonModules(rootPath);
-  const pythonFacts = pythonFactBlocks({ modules: pythonModules, rootPath, workspaceId: projectId });
+  const pythonProject = discoverPythonProject(rootPath);
+  const pythonFacts = pythonFactBlocks({
+    modules: pythonModules,
+    project: pythonProject,
+    rootPath,
+    workspaceId: projectId,
+  });
   blocks.push(...pythonFacts.blocks);
   connections.push(...pythonFacts.connections);
   const webModules = discoverWebModules(rootPath);
@@ -449,6 +455,9 @@ export function extractCargoMap(args: { readonly repositoryPath: string; readonl
       const crate = blocks.find((block) => block.id === `crate:${slug(pkg.name)}`);
       return `${pkg.name}:${crate?.fingerprint ?? hashFile(pkg.manifestPath)}`;
     }),
+    ...(pythonProject === null
+      ? []
+      : [`python-project:${pythonProject.name}:${hashFile(pythonProject.manifestPath)}`]),
     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
     ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
     ...dotnet.projects.map((project) => `dotnet:${project.name}:${hashFile(project.path)}`),
@@ -525,6 +534,9 @@ const namedProjectMarkers = [
   "go.work",
   "composer.json",
   "Gemfile",
+  "pyproject.toml",
+  "setup.cfg",
+  "setup.py",
   "package.json",
   "tsconfig.json",
   "jsconfig.json",
@@ -583,7 +595,13 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
   const projectLabel = args.projectName ?? path.basename(rootPath);
   const projectId = `workspace:${slug(projectLabel)}`;
   const pythonModules = discoverPythonModules(rootPath);
-  const pythonFacts = pythonFactBlocks({ modules: pythonModules, rootPath, workspaceId: projectId });
+  const pythonProject = discoverPythonProject(rootPath);
+  const pythonFacts = pythonFactBlocks({
+    modules: pythonModules,
+    project: pythonProject,
+    rootPath,
+    workspaceId: projectId,
+  });
   const webModules = discoverWebModules(rootPath);
   const webFacts = webFactBlocks({ modules: webModules, rootPath, workspaceId: projectId });
   const dotnet = discoverDotnet(rootPath);
@@ -603,6 +621,9 @@ function extractWithoutCargo(args: { readonly rootPath: string; readonly markerP
   const swiftTargets = discoverSwiftTargets(rootPath);
   const swiftFacts = swiftFactBlocks({ targets: swiftTargets, rootPath, workspaceId: projectId });
   const fingerprint = hashText([
+    ...(pythonProject === null
+      ? []
+      : [`python-project:${pythonProject.name}:${hashFile(pythonProject.manifestPath)}`]),
     ...pythonModules.map((module) => `python:${module.name}:${hashFile(module.path)}`),
     ...webModules.map((module) => `web:${module.name}:${hashFile(module.path)}`),
     ...dotnet.projects.map((project) => `dotnet:${project.name}:${hashFile(project.path)}`),

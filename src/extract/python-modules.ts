@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { isIgnoredDirectory } from "../workspace-ignore.js";
-import type { FactConnection, ModuleBlock } from "../model.js";
+import type { AppBlock, FactBlock, FactConnection, ModuleBlock } from "../model.js";
 
 export type PythonSymbolKind = "def" | "async def" | "class";
+export type PythonManifestKind = "pyproject.toml" | "setup.cfg" | "setup.py";
 
 export interface PythonImportedName {
   readonly name: string;
@@ -34,6 +35,19 @@ export interface PythonModule {
   readonly symbols: readonly PythonSymbol[];
 }
 
+export interface PythonEntryPoint {
+  readonly name: string;
+  readonly objectRef: string;
+  readonly group: string;
+}
+
+export interface PythonProject {
+  readonly name: string;
+  readonly manifestPath: string;
+  readonly kind: PythonManifestKind;
+  readonly entryPoints: readonly PythonEntryPoint[];
+}
+
 const skippedDirectories = ["__pycache__", "venv", ".venv"];
 
 type Quote = "single" | "double" | "tripleSingle" | "tripleDouble";
@@ -59,6 +73,37 @@ export function discoverPythonModules(repositoryPath: string): PythonModule[] {
     return 0;
   });
   return modules;
+}
+
+export function discoverPythonProject(repositoryPath: string): PythonProject | null {
+  const root = path.resolve(repositoryPath);
+  const pyproject = path.join(root, "pyproject.toml");
+  if (existsSync(pyproject)) return readPyproject(pyproject);
+  const setupCfg = path.join(root, "setup.cfg");
+  if (existsSync(setupCfg)) return readSetupCfg(setupCfg);
+  const setupPy = path.join(root, "setup.py");
+  if (existsSync(setupPy)) return readSetupPy(setupPy);
+  return null;
+}
+
+export function resolvePythonImport(
+  from: PythonModule,
+  item: PythonImport,
+  knownModules: ReadonlySet<string>,
+): string | null {
+  let candidate: string;
+  if (item.relativeLevel > 0) {
+    const packageName = containingPackage(from);
+    if (packageName === null) return null;
+    const resolved = resolveRelativeImport(packageName, item.relativeLevel, item.module);
+    if (resolved === null) return null;
+    candidate = resolved;
+  } else if (item.module.length === 0) {
+    return null;
+  } else {
+    candidate = item.module;
+  }
+  return longestKnownModule(candidate, knownModules);
 }
 
 export function parsePythonSource(source: string): { readonly imports: PythonImport[]; readonly symbols: PythonSymbol[] } {
@@ -115,16 +160,70 @@ export function pythonImportStatement(item: PythonImport): string {
 
 export function pythonFactBlocks(args: {
   readonly modules: readonly PythonModule[];
+  readonly project?: PythonProject | null;
   readonly rootPath: string;
   readonly workspaceId: string;
-}): { readonly blocks: ModuleBlock[]; readonly connections: FactConnection[] } {
-  const blocks: ModuleBlock[] = [];
+}): { readonly blocks: FactBlock[]; readonly connections: FactConnection[] } {
+  const blocks: FactBlock[] = [];
   const connections: FactConnection[] = [];
+  let projectParent = args.workspaceId;
+  if (args.project) {
+    const project = args.project;
+    const projectId = `module:python:project:${slug(project.name)}`;
+    const relative = toSlash(path.relative(args.rootPath, project.manifestPath));
+    const fingerprint = hashFile(project.manifestPath);
+    blocks.push({
+      id: projectId,
+      label: project.name,
+      type: "module",
+      packageName: project.name,
+      modulePath: project.name,
+      declaredByPath: relative,
+      cfgAttributes: ["project", project.kind],
+      unresolved: false,
+      language: "python",
+      parentId: args.workspaceId,
+      children: [],
+      sourcePath: relative,
+      fingerprint,
+    } satisfies ModuleBlock);
+    connections.push(containsConnection(args.workspaceId, projectId));
+    for (const entry of project.entryPoints) {
+      const appId = `app:python:${slug(project.name)}:${slug(entry.name)}`;
+      const entryModule = entry.objectRef.split(":")[0] ?? entry.objectRef;
+      const modulePath = args.modules.find((module) => module.name === entryModule)?.path ?? project.manifestPath;
+      const sourcePath = toSlash(path.relative(args.rootPath, modulePath));
+      blocks.push({
+        id: appId,
+        label: entry.name,
+        type: "app",
+        packageName: project.name,
+        targetName: entry.name,
+        entryPath: sourcePath,
+        targetKind: entry.group,
+        parentId: projectId,
+        children: [],
+        sourcePath,
+        fingerprint: hashFile(modulePath),
+      } satisfies AppBlock);
+      connections.push(containsConnection(projectId, appId));
+    }
+    projectParent = projectId;
+  }
+
+  const moduleIds = new Map(args.modules.map((module) => [module.name, pythonBlockId(module.name, module.stub, null)]));
+  const knownModules = new Set(moduleIds.keys());
   for (const module of args.modules) {
-    const id = pythonBlockId(module.name, module.stub, null);
+    const id = moduleIds.get(module.name);
+    if (id === undefined) continue;
     const relative = toSlash(path.relative(args.rootPath, module.path));
     const fingerprint = hashFile(module.path);
     const packageName = module.packageName ?? module.name;
+    const packageParent =
+      module.packageName !== null && module.packageName !== module.name
+        ? moduleIds.get(module.packageName)
+        : undefined;
+    const parentId = packageParent ?? projectParent;
     blocks.push({
       id,
       label: moduleLabel(module.name),
@@ -135,12 +234,12 @@ export function pythonFactBlocks(args: {
       cfgAttributes: module.imports.map(pythonImportStatement),
       unresolved: module.unreadable,
       language: "python",
-      parentId: args.workspaceId,
+      parentId,
       children: [],
       sourcePath: relative,
       fingerprint,
     });
-    connections.push(containsConnection(args.workspaceId, id));
+    connections.push(containsConnection(parentId, id));
     for (const symbol of module.symbols) {
       const modulePath = `${module.name}.${symbol.name}`;
       const symbolId = pythonBlockId(modulePath, module.stub, symbol.kind);
@@ -160,6 +259,28 @@ export function pythonFactBlocks(args: {
         fingerprint,
       });
       connections.push(containsConnection(id, symbolId));
+    }
+  }
+
+  const importEdges = new Set<string>();
+  for (const module of args.modules) {
+    const sourceId = moduleIds.get(module.name);
+    if (sourceId === undefined) continue;
+    for (const item of module.imports) {
+      const targetName = resolvePythonImport(module, item, knownModules);
+      if (targetName === null) continue;
+      const targetId = moduleIds.get(targetName);
+      if (targetId === undefined || targetId === sourceId) continue;
+      const edgeId = `depends_on:${sourceId}->${targetId}`;
+      if (importEdges.has(edgeId)) continue;
+      importEdges.add(edgeId);
+      connections.push({
+        id: edgeId,
+        source: sourceId,
+        target: targetId,
+        kind: "depends_on",
+        dependencyScope: "normal",
+      });
     }
   }
   return { blocks, connections };
@@ -516,4 +637,305 @@ function readPythonSource(filePath: string): string | null {
   } catch {
     return null;
   }
+}
+
+function containingPackage(module: PythonModule): string | null {
+  if (path.parse(module.path).name === "__init__") return module.name;
+  const index = module.name.lastIndexOf(".");
+  return index < 0 ? null : module.name.slice(0, index);
+}
+
+function resolveRelativeImport(packageName: string, level: number, module: string): string | null {
+  if (level <= 0) return null;
+  const parts = packageName.split(".").filter((part) => part.length > 0);
+  const up = level - 1;
+  if (up > parts.length) return null;
+  parts.length -= up;
+  if (module.length > 0) parts.push(...module.split(".").filter((part) => part.length > 0));
+  return parts.length === 0 ? null : parts.join(".");
+}
+
+function longestKnownModule(candidate: string, known: ReadonlySet<string>): string | null {
+  const parts = candidate.split(".");
+  while (parts.length > 0) {
+    const joined = parts.join(".");
+    if (known.has(joined)) return joined;
+    parts.pop();
+  }
+  return null;
+}
+
+function readPyproject(manifestPath: string): PythonProject {
+  const source = readFileSync(manifestPath, "utf8");
+  const name =
+    tomlString(source, ["project", "name"]) ??
+    tomlString(source, ["tool", "poetry", "name"]) ??
+    "python-project";
+  const entryPoints: PythonEntryPoint[] = [
+    ...tomlTableEntries(source, ["project", "scripts"]).map(([script, objectRef]) => ({
+      name: script,
+      objectRef,
+      group: "console_scripts",
+    })),
+    ...tomlTableEntries(source, ["project", "gui-scripts"]).map(([script, objectRef]) => ({
+      name: script,
+      objectRef,
+      group: "gui_scripts",
+    })),
+    ...tomlEntryPointGroups(source),
+    ...tomlTableEntries(source, ["tool", "poetry", "scripts"]).map(([script, objectRef]) => ({
+      name: script,
+      objectRef,
+      group: "console_scripts",
+    })),
+  ];
+  entryPoints.sort((left, right) =>
+    left.group.localeCompare(right.group) ||
+    left.name.localeCompare(right.name) ||
+    left.objectRef.localeCompare(right.objectRef),
+  );
+  return { name, manifestPath, kind: "pyproject.toml", entryPoints };
+}
+
+function readSetupCfg(manifestPath: string): PythonProject {
+  const source = readFileSync(manifestPath, "utf8");
+  let name = "python-project";
+  const entryPoints: PythonEntryPoint[] = [];
+  let section = "";
+  let entryGroup: string | null = null;
+  for (const raw of source.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line.length === 0 || line.startsWith("#") || line.startsWith(";")) continue;
+    if (line.startsWith("[") && line.endsWith("]")) {
+      section = line.slice(1, -1);
+      entryGroup = null;
+      continue;
+    }
+    if (section === "metadata" && line.startsWith("name")) {
+      const value = line.replace(/^name\s*=\s*/u, "").trim();
+      if (value.length > 0) name = value;
+      continue;
+    }
+    if (section !== "options.entry_points") continue;
+    const indented = raw.startsWith(" ") || raw.startsWith("\t");
+    if (!indented) {
+      const splitAt = line.indexOf("=");
+      const group = (splitAt < 0 ? line : line.slice(0, splitAt)).trim();
+      const rest = splitAt < 0 ? "" : line.slice(splitAt + 1).trim();
+      entryGroup = group;
+      if (rest.length > 0) {
+        const entrySplit = rest.indexOf("=");
+        if (entrySplit >= 0) {
+          entryPoints.push({
+            name: rest.slice(0, entrySplit).trim(),
+            objectRef: rest.slice(entrySplit + 1).trim(),
+            group,
+          });
+        }
+      }
+      continue;
+    }
+    if (entryGroup === null) continue;
+    const entrySplit = line.indexOf("=");
+    if (entrySplit < 0) continue;
+    entryPoints.push({
+      name: line.slice(0, entrySplit).trim(),
+      objectRef: line.slice(entrySplit + 1).trim(),
+      group: entryGroup,
+    });
+  }
+  entryPoints.sort((left, right) => left.group.localeCompare(right.group) || left.name.localeCompare(right.name));
+  return { name, manifestPath, kind: "setup.cfg", entryPoints };
+}
+
+function readSetupPy(manifestPath: string): PythonProject {
+  const source = readFileSync(manifestPath, "utf8");
+  const match = source.match(/\bname\s*=\s*["']([^"']+)["']/u);
+  return {
+    name: match?.[1] && match[1].length > 0 ? match[1] : "python-project",
+    manifestPath,
+    kind: "setup.py",
+    entryPoints: setupPyEntryPoints(source),
+  };
+}
+
+function setupPyEntryPoints(source: string): PythonEntryPoint[] {
+  const nameMatch = /\bentry_points\b\s*=/u.exec(source);
+  if (nameMatch === null) return [];
+  const open = source.indexOf("{", nameMatch.index + nameMatch[0].length);
+  if (open < 0) return [];
+  const dictionary = balancedBody(source, open, "{", "}");
+  if (dictionary === null) return [];
+
+  const entryPoints: PythonEntryPoint[] = [];
+  let cursor = 0;
+  while (cursor < dictionary.body.length) {
+    const quoteStart = findQuote(dictionary.body, cursor);
+    if (quoteStart < 0) break;
+    const group = quotedString(dictionary.body, quoteStart);
+    if (group === null) break;
+    const afterGroup: string = dictionary.body.slice(group.after);
+    const leadingWhitespace: number = afterGroup.length - afterGroup.trimStart().length;
+    const colon = group.after + leadingWhitespace;
+    if (dictionary.body[colon] !== ":") {
+      cursor = group.after;
+      continue;
+    }
+    const listStart = dictionary.body.indexOf("[", colon + 1);
+    if (listStart < 0) {
+      cursor = group.after;
+      continue;
+    }
+    const list = balancedBody(dictionary.body, listStart, "[", "]");
+    if (list === null) {
+      cursor = group.after;
+      continue;
+    }
+    let listCursor = 0;
+    while (listCursor < list.body.length) {
+      const entryStart = findQuote(list.body, listCursor);
+      if (entryStart < 0) break;
+      const entry = quotedString(list.body, entryStart);
+      if (entry === null) break;
+      const splitAt = entry.value.indexOf("=");
+      if (splitAt >= 0) {
+        const name = entry.value.slice(0, splitAt).trim();
+        const objectRef = entry.value.slice(splitAt + 1).trim();
+        if (name.length > 0 && objectRef.length > 0) {
+          entryPoints.push({ name, objectRef, group: group.value });
+        }
+      }
+      listCursor = entry.after;
+    }
+    cursor = list.after;
+  }
+  entryPoints.sort((left, right) =>
+    left.group.localeCompare(right.group) ||
+    left.name.localeCompare(right.name) ||
+    left.objectRef.localeCompare(right.objectRef),
+  );
+  return entryPoints;
+}
+
+function balancedBody(
+  source: string,
+  openIndex: number,
+  open: string,
+  close: string,
+): { readonly body: string; readonly after: number } | null {
+  if (source[openIndex] !== open) return null;
+  let depth = 0;
+  let quote: string | null = null;
+  let escaped = false;
+  for (let index = openIndex; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === undefined) break;
+    if (quote !== null) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === "'" || character === '"') quote = character;
+    else if (character === open) depth += 1;
+    else if (character === close) {
+      depth -= 1;
+      if (depth === 0) return { body: source.slice(openIndex + 1, index), after: index + 1 };
+    }
+  }
+  return null;
+}
+
+function findQuote(source: string, start: number): number {
+  for (let index = start; index < source.length; index += 1) {
+    if (source[index] === "'" || source[index] === '"') return index;
+  }
+  return -1;
+}
+
+function quotedString(
+  source: string,
+  start: number,
+): { readonly value: string; readonly after: number } | null {
+  const quote = source[start];
+  if (quote !== "'" && quote !== '"') return null;
+  let value = "";
+  let escaped = false;
+  for (let index = start + 1; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === undefined) break;
+    if (escaped) {
+      value += character;
+      escaped = false;
+    } else if (character === "\\") {
+      escaped = true;
+    } else if (character === quote) {
+      return { value, after: index + 1 };
+    } else {
+      value += character;
+    }
+  }
+  return null;
+}
+
+function tomlString(source: string, keys: readonly string[]): string | null {
+  const table = tomlTableBody(source, keys.slice(0, -1));
+  if (table === null) return null;
+  const key = keys[keys.length - 1];
+  if (key === undefined) return null;
+  const match = table.match(new RegExp(`^${escapeRegExp(key)}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "mu"));
+  return match?.[1] ?? match?.[2] ?? null;
+}
+
+function tomlTableEntries(source: string, keys: readonly string[]): Array<[string, string]> {
+  const body = tomlTableBody(source, keys);
+  if (body === null) return [];
+  const entries: Array<[string, string]> = [];
+  for (const line of body.split(/\r?\n/)) {
+    const entry = tomlStringEntry(line);
+    if (entry !== null) entries.push(entry);
+  }
+  return entries;
+}
+
+function tomlEntryPointGroups(source: string): PythonEntryPoint[] {
+  const entries: PythonEntryPoint[] = [];
+  const pattern = /^\[project\.entry-points(?:\."([^"]+)"|\.([^\]]+))\]\s*$/gmu;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(source)) !== null) {
+    const group = match[1] ?? match[2];
+    if (group === undefined) continue;
+    const start = match.index + match[0].length;
+    const next = source.slice(start).search(/^\[/mu);
+    const body = next < 0 ? source.slice(start) : source.slice(start, start + next);
+    for (const line of body.split(/\r?\n/)) {
+      const entry = tomlStringEntry(line);
+      if (entry !== null) entries.push({ name: entry[0], objectRef: entry[1], group });
+    }
+  }
+  return entries;
+}
+
+function tomlStringEntry(line: string): [string, string] | null {
+  const match = line.match(
+    /^(?:([A-Za-z0-9_.-]+)|"([^"]+)"|'([^']+)')\s*=\s*(?:"([^"]*)"|'([^']*)')/u,
+  );
+  const key = match?.[1] ?? match?.[2] ?? match?.[3];
+  const value = match?.[4] ?? match?.[5];
+  return key === undefined || value === undefined ? null : [key, value];
+}
+
+function tomlTableBody(source: string, keys: readonly string[]): string | null {
+  if (keys.length === 0) return source;
+  const header = `[${keys.join(".")}]`;
+  const start = source.indexOf(header);
+  if (start < 0) return null;
+  const bodyStart = start + header.length;
+  const rest = source.slice(bodyStart);
+  const next = rest.search(/^\[/mu);
+  return next < 0 ? rest : rest.slice(0, next);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }

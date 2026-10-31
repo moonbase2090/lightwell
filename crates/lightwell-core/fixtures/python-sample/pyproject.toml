@@ -1,0 +1,11 @@
+[project]
+name = "sample-pkg"
+version = "0.1.0"
+description = "Lightwell Python fixture"
+requires-python = ">=3.10"
+
+[project.scripts]
+sample-cli = "sample_pkg.api:load_widget"
+
+[project.entry-points."sample.hooks"]
+on-refresh = "sample_pkg.api:refresh"
