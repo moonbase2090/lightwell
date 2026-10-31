@@ -57,6 +57,7 @@ Note on APP-02: the native folder dialog is a real OS dialog. On the `ipc` layer
 | MAP-12 | Feature group tabs | Feature footer in `App` (`FeatureFooter`) | One tab per annotation group, labelled with its feature count. The first group is active by default. Switching tabs clears any active feature tracing. | web |
 | MAP-13 | Feature cards | Feature footer in `App` (`FeatureFooter`) | Each card shows "FEATURE", a status mark, the feature name, and its block count. Hovering or focusing a card draws connector curves to its member blocks on the canvas and highlights them. A card for a changed feature gets the changed styling. A group with no features reads "No feature notes in this group." | web |
 | MAP-14 | Feature card selection | Feature footer in `App` (`FeatureFooter`) | Clicking a card selects the feature group itself. The inspector then lists its connected blocks (INSP-04) instead of a single block. | web |
+| MAP-15 | Compound dependency chart | Modules canvas in `App`, when `VITE_ENABLE_COMPOUND_LAYOUT=true` | Replaces the flat module layout with bounded nested workspace, crate, and module regions. Dependency edges use orthogonal routes and show their label where it fits. A legend identifies block kinds and reports rendered versus input blocks and layout time. Large groups render a summary node that opens the group. The flag is off by default, which preserves the flat graph. | web |
 
 ## File tree
 
@@ -188,10 +189,10 @@ Every ID above carries exactly one Coverage value: `web`, `ipc`, or `ipc, app`. 
 
 | Coverage | IDs |
 | --- | --- |
-| web | 64 |
+| web | 65 |
 | ipc | 33 |
 | ipc, app | 5 |
-| Total | 102 |
+| Total | 103 |
 
 No ID is `app` on its own: each `app` flow is also covered on the `ipc` layer, so the five `app` IDs carry `ipc, app`.
 
@@ -263,6 +264,7 @@ Playwright test titles mapped to the feature IDs they prove. APP-10 is not cover
 | MAP-12 | MAP-12: feature group tabs are listed | web |
 | MAP-13 | MAP-13: feature cards show FEATURE entries | web |
 | MAP-14 | MAP-14: clicking a feature card selects the group | web |
+| MAP-15 | MAP-15: compound dependency chart follows its feature flag | web |
 | TREE-01 | TREE-01: filter input keeps matching rows | web |
 | TREE-02 | TREE-02: tree copy of the view toggle is present | web |
 | TREE-03 | TREE-03: Expand all shows nested rows | web |

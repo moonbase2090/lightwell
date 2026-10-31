@@ -1,0 +1,50 @@
+[
+  {
+    "label": "Lightwell",
+    "sourceBlocks": 840,
+    "sourceConnections": 883,
+    "detailBlockId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+    "overview": {
+      "legend": "800/838 blocks · 15 ms",
+      "groupNodes": 116,
+      "leafNodes": 683,
+      "summaryNodes": 1,
+      "dimmedNodes": 0,
+      "edges": 22,
+      "screenshot": "lightwell-overview.png"
+    },
+    "detail": {
+      "legend": "11/11 blocks · 51 ms",
+      "groupNodes": 1,
+      "leafNodes": 10,
+      "summaryNodes": 0,
+      "dimmedNodes": 0,
+      "edges": 17,
+      "screenshot": "lightwell-detail.png"
+    }
+  },
+  {
+    "label": "Large workspace",
+    "sourceBlocks": 502,
+    "sourceConnections": 533,
+    "detailBlockId": "module:config-infra:_2e_github_2f_workflows_2f_release_2e_yml",
+    "overview": {
+      "legend": "502/502 blocks · 20 ms",
+      "groupNodes": 80,
+      "leafNodes": 422,
+      "summaryNodes": 0,
+      "dimmedNodes": 0,
+      "edges": 32,
+      "screenshot": "large-workspace-overview.png"
+    },
+    "detail": {
+      "legend": "7/7 blocks · 35 ms",
+      "groupNodes": 1,
+      "leafNodes": 6,
+      "summaryNodes": 0,
+      "dimmedNodes": 0,
+      "edges": 9,
+      "screenshot": "large-workspace-detail.png"
+    }
+  }
+]
