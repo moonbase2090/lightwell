@@ -67,6 +67,15 @@ test.describe("map canvas (web)", () => {
     await expect(card).toHaveClass(/chosen/);
     await expect(page.getByText("CONNECTED BLOCKS")).toBeVisible();
   });
+
+  test("MAP-15: compound dependency chart follows its feature flag", async ({ page }) => {
+    const enabled = process.env.VITE_ENABLE_COMPOUND_LAYOUT === "true";
+    await expect(page.getByLabel("Dependency chart legend")).toHaveCount(enabled ? 1 : 0);
+    const compoundGroups = page.locator(".react-flow__node-compoundGroup");
+    if (enabled) await expect(compoundGroups.first()).toBeVisible();
+    else await expect(compoundGroups).toHaveCount(0);
+    await expect(page.locator(".react-flow__node-codeBlock").first()).toBeVisible();
+  });
 });
 
 test.describe("map canvas (ipc)", () => {
@@ -76,7 +85,9 @@ test.describe("map canvas (ipc)", () => {
     await expect(page.getByLabel(/Source inspector for/)).toHaveCount(0);
     const node = page.locator(".react-flow__node").first();
     await expect(node).toBeVisible();
-    await node.click();
+    const groupHeader = node.locator(".compound-group-header");
+    if (await groupHeader.count() > 0) await groupHeader.click();
+    else await node.click();
     // The click selects the workspace root block and opens its inspector.
     // A dead click handler opens nothing, so neither state holds pre-action.
     await expect(page.getByLabel("Source inspector for Prismattyc")).toBeVisible();
@@ -87,7 +98,10 @@ test.describe("map canvas (ipc)", () => {
     await gotoIpc(page);
     // No notes exist yet, so no badge is rendered.
     await expect(page.locator(".node-note-badge")).toHaveCount(0);
-    await page.locator(".react-flow__node").first().click();
+    const node = page.locator(".react-flow__node").first();
+    const groupHeader = node.locator(".compound-group-header");
+    if (await groupHeader.count() > 0) await groupHeader.click();
+    else await node.click();
     await page.keyboard.press("n");
     await page.getByLabel("Project note text").fill("map badge note");
     await page.keyboard.press("Control+Enter");

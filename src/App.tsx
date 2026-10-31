@@ -36,6 +36,7 @@ import {
   Controls,
   ReactFlow,
   useReactFlow,
+  type Edge,
   type Viewport,
   type NodeMouseHandler,
 } from "@xyflow/react";
@@ -86,7 +87,23 @@ import NoteContextMenu, {
 } from "./NoteContextMenu.js";
 import Splitter from "./Splitter.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
-import { createCompoundLayoutFeature } from "./viewer/compound-layout-client.js";
+import {
+  createCompoundLayoutFeature,
+  type CompoundLayoutFeature,
+} from "./viewer/compound-layout-client.js";
+import {
+  buildCompoundGraph,
+  buildCompoundLayoutInput,
+  type CompoundGraphNode,
+  type OrthogonalEdge,
+} from "./viewer/compound-graph.js";
+import {
+  CompoundGroupNode,
+  CompoundSummaryNode,
+  DependencyLegend,
+  OrthogonalEdge as OrthogonalEdgeView,
+} from "./viewer/CompoundGraphView.js";
+import type { CompoundLayoutStats } from "./viewer/compound-layout.js";
 import StateChartFeature from "./StateChartFeature.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
 import {
@@ -122,9 +139,26 @@ import {
   type TreeOrientation,
 } from "./file-tree.js";
 
-const nodeTypes = { codeBlock: BlockNodeView };
+const nodeTypes = {
+  codeBlock: BlockNodeView,
+  compoundGroup: CompoundGroupNode,
+  compoundSummary: CompoundSummaryNode,
+};
+const edgeTypes = { orthogonal: OrthogonalEdgeView };
 const featureColors = ["#88a8ff", "#5ed7c0", "#d19af5", "#efba78", "#80c7f2", "#f08db4", "#a8d989", "#e4cf73"];
 const emptyProjectNotes: ProjectNotesSnapshot = { kind: "ready", notes: [] };
+
+type BaseGraph = {
+  readonly kind: "flat";
+  readonly nodes: MapNode[];
+  readonly edges: Edge[];
+} | {
+  readonly kind: "compound";
+  readonly nodes: CompoundGraphNode[];
+  readonly edges: OrthogonalEdge[];
+  readonly stats: CompoundLayoutStats;
+  readonly durationMs: number;
+};
 
 type MapCatalogState =
   | { readonly kind: "loading" }
@@ -695,13 +729,17 @@ function RestoreViewport({
 }
 
 function App({ mapSource }: { readonly mapSource: MapSource }) {
+  const [compoundLayoutFeature] = useState<CompoundLayoutFeature>(() => (
+    import.meta.env.VITE_ENABLE_COMPOUND_LAYOUT === "true"
+      ? createCompoundLayoutFeature("true")
+      : { kind: "disabled" }
+  ));
   useEffect(() => {
     if (import.meta.env.VITE_ENABLE_COMPOUND_LAYOUT !== "true") return undefined;
-    const feature = createCompoundLayoutFeature("true");
     return () => {
-      if (feature.kind === "enabled") feature.client.dispose();
+      if (compoundLayoutFeature.kind === "enabled") compoundLayoutFeature.client.dispose();
     };
-  }, []);
+  }, [compoundLayoutFeature]);
   const popoutWorkspaceId = import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isMapPopoutSearch(window.location.search)
     ? workspaceFromPopoutSearch(window.location.search)
     : null;
@@ -808,7 +846,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [systemTheme, setSystemTheme] = useState<"dark" | "light">(() => (
     window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
   ));
-  const [baseGraph, setBaseGraph] = useState<{ readonly nodes: MapNode[]; readonly edges: ReturnType<typeof emphasizeGraph>["edges"] }>({ nodes: [], edges: [] });
+  const [baseGraph, setBaseGraph] = useState<BaseGraph>({ kind: "flat", nodes: [], edges: [] });
   const [layoutRevision, setLayoutRevision] = useState(0);
   const [graphError, setGraphError] = useState("");
   const shellRef = useRef<HTMLDivElement | null>(null);
@@ -1466,19 +1504,49 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   useEffect(() => {
     let cancelled = false;
     if (map === null || scope === undefined) {
-      setBaseGraph({ nodes: [], edges: [] });
+      setBaseGraph({ kind: "flat", nodes: [], edges: [] });
       return;
     }
     if (mapView === "files" && orientation === "vertical") {
-      setBaseGraph({ nodes: [], edges: [] });
+      setBaseGraph({ kind: "flat", nodes: [], edges: [] });
       setGraphError("");
       return;
     }
     setGraphError("");
+    if (mapView === "modules" && compoundLayoutFeature.kind === "enabled") {
+      const input = buildCompoundLayoutInput({
+        rootId: scopeId,
+        blocks: scopedVisibleBlocks,
+        connections: graphConnections,
+      });
+      const startedAt = performance.now();
+      compoundLayoutFeature.client.layout(input)
+        .then((layout) => {
+          if (!cancelled) {
+            const graph = buildCompoundGraph({
+              rootId: scopeId,
+              blocks: scopedVisibleBlocks,
+              layout,
+              labelScale: textSize.labels,
+            });
+            setBaseGraph({
+              kind: "compound",
+              ...graph,
+              stats: layout.stats,
+              durationMs: performance.now() - startedAt,
+            });
+            setLayoutRevision((revision) => revision + 1);
+          }
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
+        });
+      return () => { cancelled = true; };
+    }
     layoutBlocks({ blocks: scopedVisibleBlocks, connections: graphConnections, labelScale: textSize.labels })
       .then((graph) => {
         if (!cancelled) {
-          setBaseGraph(graph);
+          setBaseGraph({ kind: "flat", ...graph });
           setLayoutRevision((revision) => revision + 1);
         }
       })
@@ -1486,7 +1554,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
       });
     return () => { cancelled = true; };
-  }, [graphConnections, map, mapView, orientation, scopeId, scopedVisibleBlocks, textSize.labels]);
+  }, [compoundLayoutFeature, graphConnections, map, mapView, orientation, scope, scopeId, scopedVisibleBlocks, textSize.labels]);
 
   const selectTreeNode = useCallback((id: string) => {
     setSelectedId(id);
@@ -1600,20 +1668,29 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     () => (commitDiff.kind === "ready" ? connectionChangesById(commitDiff.changes) : undefined),
     [commitDiff],
   );
-  const graph = useMemo(() => emphasizeGraph({
-    nodes: baseGraph.nodes,
-    edges: baseGraph.edges,
-    activeNodeId,
-    activeFeatureMemberIds: activeFeatureMembers,
-    onHover: setHoverNode,
-    onActivate: openBlockInspector,
-    notedBlockIds,
-    noteTextById,
-    onOpenNote: openNoteFor,
-    onContextMenu: showBlockMenu,
-    ...(graphChanges === undefined ? {} : { changes: graphChanges }),
-    ...(graphConnectionChanges === undefined ? {} : { connectionChanges: graphConnectionChanges }),
-  }), [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, noteTextById, openNoteFor, showBlockMenu, graphChanges, graphConnectionChanges]);
+  const graph = useMemo(() => {
+    const common = {
+      activeNodeId,
+      activeFeatureMemberIds: activeFeatureMembers,
+      onHover: setHoverNode,
+      onActivate: openBlockInspector,
+      notedBlockIds,
+      noteTextById,
+      onOpenNote: openNoteFor,
+      onContextMenu: showBlockMenu,
+      ...(graphChanges === undefined ? {} : { changes: graphChanges }),
+      ...(graphConnectionChanges === undefined ? {} : { connectionChanges: graphConnectionChanges }),
+    };
+    if (baseGraph.kind === "compound") {
+      return emphasizeGraph({
+        ...common,
+        nodes: baseGraph.nodes,
+        edges: baseGraph.edges,
+        connectionIds: (edge) => edge.data?.sourceEdgeIds ?? [edge.id],
+      });
+    }
+    return emphasizeGraph({ ...common, nodes: baseGraph.nodes, edges: baseGraph.edges });
+  }, [baseGraph, activeNodeId, activeFeatureMembers, setHoverNode, openBlockInspector, notedBlockIds, noteTextById, openNoteFor, showBlockMenu, graphChanges, graphConnectionChanges]);
 
   const noteTargetId = inspectedBlockId ?? (map?.blockById.has(selectedId) === true ? selectedId : null);
   useEffect(() => {
@@ -1664,9 +1741,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setFocusRequest((current) => ({ blockId: node.id, sequence: (current?.sequence ?? 0) + 1 }));
   }, [map, mapSource.editor]);
 
-  const onNodeClick: NodeMouseHandler<MapNode> = useCallback((_event, node) => {
+  const onNodeClick: NodeMouseHandler<CompoundGraphNode> = useCallback((_event, node) => {
+    if (node.type === "compoundSummary") {
+      activateBlock(node.data.block);
+      return;
+    }
     openBlockInspector(node.data.block);
-  }, [openBlockInspector]);
+  }, [activateBlock, openBlockInspector]);
   const chooseMapView = useCallback((next: MapView) => {
     setMapView(next);
     if (mapKey !== null) writeMapView(mapDepthStorage(), mapKey, next);
@@ -2054,10 +2135,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       ) : graph.nodes.length === 0 && !verticalFiles ? (
         <div className="graph-message"><Activity size={18} />Preparing graph layout…</div>
       ) : (
-        <ReactFlow
+        <ReactFlow<CompoundGraphNode, Edge>
           nodes={graph.nodes}
           edges={graph.edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onNodeClick={onNodeClick}
           onMove={(_event, viewport) => { savedViewportRef.current = viewport; }}
           nodesDraggable={false}
@@ -2084,6 +2166,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <Background color={theme === "blueprint" ? "rgba(227,238,255,.22)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
           <Controls showInteractive={false} position="bottom-left" />
         </ReactFlow>
+      )}
+      {!verticalFiles && baseGraph.kind === "compound" && (
+        <DependencyLegend stats={baseGraph.stats} durationMs={baseGraph.durationMs} />
       )}
     </div>
   );

@@ -1,7 +1,7 @@
 import ELK from "elkjs/lib/elk.bundled.js";
 import type { BlockDiff } from "../commit-diff.js";
 import type { ConnectionChangeState } from "../map-source.js";
-import { MarkerType, type Edge } from "@xyflow/react";
+import { MarkerType, type Edge, type Node } from "@xyflow/react";
 import type { FactConnection, DisplayBlock } from "../model.js";
 import { edgeLabelFontSize } from "../type-scale.js";
 import type { MapNode, BlockNodeData } from "./BlockNode.js";
@@ -67,9 +67,9 @@ export async function layoutBlocks(args: {
   return { nodes, edges };
 }
 
-export function emphasizeGraph(args: {
-  readonly nodes: readonly MapNode[];
-  readonly edges: readonly Edge[];
+interface EmphasizeGraphArgs<TNode extends Node<BlockNodeData>, TEdge extends Edge> {
+  readonly nodes: readonly TNode[];
+  readonly edges: readonly TEdge[];
   readonly activeNodeId: string | null;
   readonly activeFeatureMemberIds: ReadonlySet<string> | null;
   readonly onHover: (id: string | null) => void;
@@ -82,7 +82,16 @@ export function emphasizeGraph(args: {
   /** A commit's changed blocks and their ancestors. Everything else dims while no block is hovered. */
   readonly changes?: ReadonlyMap<string, BlockDiff>;
   readonly connectionChanges?: ReadonlyMap<string, ConnectionChangeState>;
-}): { readonly nodes: MapNode[]; readonly edges: Edge[] } {
+  readonly connectionIds?: (edge: TEdge) => readonly string[];
+}
+
+export function emphasizeGraph(args: EmphasizeGraphArgs<MapNode, Edge>): { readonly nodes: MapNode[]; readonly edges: Edge[] };
+export function emphasizeGraph<TNode extends Node<BlockNodeData>, TEdge extends Edge>(
+  args: EmphasizeGraphArgs<TNode, TEdge>,
+): { readonly nodes: TNode[]; readonly edges: TEdge[] };
+export function emphasizeGraph<TNode extends Node<BlockNodeData>, TEdge extends Edge>(
+  args: EmphasizeGraphArgs<TNode, TEdge>,
+): { readonly nodes: TNode[]; readonly edges: TEdge[] } {
   const changedIds = args.changes === undefined ? null : new Set(args.changes.keys());
   const directNeighbors = args.activeNodeId === null
     ? new Set<string>()
@@ -110,7 +119,10 @@ export function emphasizeGraph(args: {
   const edges = args.edges.map((edge) => {
     const source = typeof edge.source === "string" ? edge.source : "";
     const target = typeof edge.target === "string" ? edge.target : "";
-    const connectionChange = args.connectionChanges?.get(edge.id);
+    const connectionChange = firstConnectionChange(
+      args.connectionIds?.(edge) ?? [edge.id],
+      args.connectionChanges,
+    );
     const highlighted = highlightedIds === null
       || (args.activeNodeId !== null && (source === args.activeNodeId || target === args.activeNodeId))
       || (args.activeFeatureMemberIds !== null && args.activeFeatureMemberIds.has(source) && args.activeFeatureMemberIds.has(target))
@@ -136,4 +148,16 @@ export function emphasizeGraph(args: {
     };
   });
   return { nodes, edges };
+}
+
+function firstConnectionChange(
+  ids: readonly string[],
+  changes: ReadonlyMap<string, ConnectionChangeState> | undefined,
+): ConnectionChangeState | undefined {
+  if (changes === undefined) return undefined;
+  for (const id of ids) {
+    const change = changes.get(id);
+    if (change !== undefined) return change;
+  }
+  return undefined;
 }
