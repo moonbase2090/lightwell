@@ -26,7 +26,7 @@
 
 ### Added
 
-- The top bar has a Close workspace action that returns to the recent-workspaces chooser without touching disk. The chooser lists recent workspaces so a closed one can be reopened. Closing asks first only when a note draft has unsaved text.
+- The top bar has a Close workspace action that returns to the recent-workspaces chooser without touching disk. The chooser lists recent workspaces so a closed one can be reopened. Closing asks first only when a note draft has unsaved text (#207).
 - `lightwell notes for-file <path>` lists notes for a source file and marks stale fingerprints (#200).
 - `lightwell notes list` and `notes set` accept `--map` to reuse a precomputed workspace map (#201).
 
