@@ -404,7 +404,7 @@ fn validate_manifest(manifest: &LanguagePackManifest) -> Result<(), String> {
         ("basenamePrefixes", &manifest.basename_prefixes),
     ] {
         for (index, value) in values.iter().enumerate() {
-            if value.is_empty() || value.contains('/') || value.contains('\\') {
+            if value.trim().is_empty() || value.contains('/') || value.contains('\\') {
                 return Err(format!(
                     "{field}[{index}] must be non-empty and contain no path separators."
                 ));
@@ -417,7 +417,7 @@ fn validate_manifest(manifest: &LanguagePackManifest) -> Result<(), String> {
     {
         return Err("at least one extension, basename, or basename prefix is required.".into());
     }
-    if manifest.monaco.id.is_empty() {
+    if manifest.monaco.id.trim().is_empty() {
         return Err("monaco.id must be a non-empty string.".into());
     }
     validate_hook(
@@ -438,7 +438,7 @@ fn validate_manifest(manifest: &LanguagePackManifest) -> Result<(), String> {
     if manifest
         .fixtures
         .as_ref()
-        .is_some_and(|value| value.is_empty())
+        .is_some_and(|value| value.trim().is_empty())
     {
         return Err("fixtures must be null or a non-empty string.".into());
     }
@@ -448,7 +448,7 @@ fn validate_manifest(manifest: &LanguagePackManifest) -> Result<(), String> {
                 "monaco.byExtension key {extension:?} must be a lowercase extension beginning with a dot."
             ));
         }
-        if language_id.is_empty() {
+        if language_id.trim().is_empty() {
             return Err(format!(
                 "monaco.byExtension.{extension} must be a non-empty string."
             ));
@@ -545,7 +545,7 @@ fn validate_unique(values: &[String], field: &str, case_insensitive: bool) -> Re
 
 fn validate_hook(value: &Option<String>, field: &str, installed: &[&str]) -> Result<(), String> {
     if let Some(hook) = value {
-        if hook.is_empty() {
+        if hook.trim().is_empty() {
             return Err(format!("{field} must be null or a non-empty string."));
         }
         if !installed.contains(&hook.as_str()) {
@@ -580,7 +580,7 @@ fn validate_monaco_map(
         if !allowed.contains(&comparable) {
             return Err(format!("{field} key {key:?} is not declared by this pack."));
         }
-        if value.is_empty() {
+        if value.trim().is_empty() {
             return Err(format!("{field}.{key} must be a non-empty string."));
         }
     }
@@ -728,6 +728,16 @@ mod tests {
         assert_eq!(
             validate_manifest(&invalid).unwrap_err(),
             "extensions[0] must be a lowercase extension beginning with a dot."
+        );
+    }
+
+    #[test]
+    fn whitespace_only_strings_are_validation_errors() {
+        let mut invalid = manifest("broken", ".broken");
+        invalid.monaco.id = "   ".into();
+        assert_eq!(
+            validate_manifest(&invalid).unwrap_err(),
+            "monaco.id must be a non-empty string."
         );
     }
 

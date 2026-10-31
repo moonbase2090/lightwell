@@ -12,6 +12,7 @@
     "build": "tsc --noEmit && vite build",
     "test": "tsx --test src/*.test.ts",
     "generate:language-packs": "tsx scripts/generate-language-pack-catalog.ts",
+    "check:language-packs": "node scripts/check-language-pack-parity.mjs",
     "extract": "tsx src/cli.ts extract",
     "lightwell": "tsx src/cli.ts",
     "check:licenses": "node scripts/check-dependency-licenses.mjs",

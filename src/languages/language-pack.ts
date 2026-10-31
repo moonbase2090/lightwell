@@ -15,7 +15,7 @@ export interface WorkspaceExtractArgs {
 
 export type WorkspaceExtractor = (args: WorkspaceExtractArgs) => FactMap;
 
-/** How map extraction is implemented for a pack (plugin loader will register the same shape). */
+/** How map extraction is implemented for a pack. Manifest hook names resolve to these installed shapes. */
 export type LanguagePackExtractor =
   | {
       readonly kind: "rust-workspace";
@@ -115,7 +115,7 @@ export interface LanguagePackHookRegistry {
 
 /**
  * One installable language surface: file extensions, extraction, inspector highlighting, and tests.
- * Built-in packs ship in `builtin-packs.ts`; a future loader appends plugin packs to the same list.
+ * Built-in packs ship in `builtin-packs.ts`; validated external packs join the same runtime registry.
  */
 export interface LanguagePack {
   readonly id: LanguagePackId;

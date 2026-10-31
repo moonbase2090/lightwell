@@ -338,12 +338,7 @@ fn copy_manifest_atomic(source: &Path, destination: &Path, replace: bool) -> Res
         ));
     }
     if backup.exists() {
-        fs::remove_file(&backup).map_err(|error| {
-            format!(
-                "Language pack installed, but its backup {} could not be removed: {error}",
-                backup.display()
-            )
-        })?;
+        let _ = fs::remove_file(&backup);
     }
     Ok(())
 }
