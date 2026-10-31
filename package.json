@@ -11,6 +11,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "test": "tsx --test src/*.test.ts",
+    "generate:language-packs": "tsx scripts/generate-language-pack-catalog.ts",
     "extract": "tsx src/cli.ts extract",
     "lightwell": "tsx src/cli.ts",
     "check:licenses": "node scripts/check-dependency-licenses.mjs",

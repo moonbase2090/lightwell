@@ -4,6 +4,7 @@ import { registerPhpHighlighter } from "../highlighters/php.js";
 /** PHP facts are appended by the Rust workspace extractor (`extractCargoMap`). */
 export const PHP_LANGUAGE_PACK: LanguagePack = {
   id: "php",
+  packVersion: "1.0.0",
   extensions: [".php"],
   monacoLanguageId: "php",
   extractor: {

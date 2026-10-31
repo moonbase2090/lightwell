@@ -1,0 +1,338 @@
+[
+  {
+    "schemaVersion": 1,
+    "id": "rust",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".rs"
+    ],
+    "basenames": [],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "rust",
+      "highlighter": "rust",
+      "byExtension": {},
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "rust-workspace",
+      "workspace": "rust"
+    },
+    "fixtures": "crates/lightwell-core/fixtures"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "toml",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".toml"
+    ],
+    "basenames": [],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "toml",
+      "highlighter": null,
+      "byExtension": {},
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": null,
+      "workspace": null
+    },
+    "fixtures": null
+  },
+  {
+    "schemaVersion": 1,
+    "id": "web",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".ts",
+      ".tsx",
+      ".mts",
+      ".cts",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".cjs",
+      ".html",
+      ".htm",
+      ".css",
+      ".scss"
+    ],
+    "basenames": [
+      "package.json",
+      "tsconfig.json",
+      "jsconfig.json"
+    ],
+    "basenamePrefixes": [
+      "vite.config.",
+      "next.config."
+    ],
+    "monaco": {
+      "id": "typescript",
+      "highlighter": "web",
+      "byExtension": {
+        ".ts": "typescript",
+        ".tsx": "typescript",
+        ".mts": "typescript",
+        ".cts": "typescript",
+        ".js": "javascript",
+        ".jsx": "javascript",
+        ".mjs": "javascript",
+        ".cjs": "javascript",
+        ".html": "html",
+        ".htm": "html",
+        ".css": "css",
+        ".scss": "scss",
+        ".json": "json"
+      },
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "web-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/web-sample"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "python",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".py",
+      ".pyi"
+    ],
+    "basenames": [
+      "pyproject.toml",
+      "setup.cfg",
+      "setup.py"
+    ],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "python",
+      "highlighter": "python",
+      "byExtension": {},
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "python-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/python-sample"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "go",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".go"
+    ],
+    "basenames": [],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "go",
+      "highlighter": "go",
+      "byExtension": {},
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "go-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/go-sample"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "dotnet",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".cs",
+      ".vb"
+    ],
+    "basenames": [],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "csharp",
+      "highlighter": "dotnet",
+      "byExtension": {
+        ".cs": "csharp",
+        ".vb": "vb"
+      },
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "dotnet-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/dotnet-sample"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "php",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".php"
+    ],
+    "basenames": [],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "php",
+      "highlighter": "php",
+      "byExtension": {},
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "php-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/php-sample"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "ruby",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".rb"
+    ],
+    "basenames": [],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "ruby",
+      "highlighter": "ruby",
+      "byExtension": {},
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "ruby-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/ruby-sample"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "jvm",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".java",
+      ".kt",
+      ".kts"
+    ],
+    "basenames": [],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "java",
+      "highlighter": "jvm",
+      "byExtension": {
+        ".java": "java",
+        ".kt": "kotlin",
+        ".kts": "kotlin"
+      },
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "jvm-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/jvm-sample"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "swift",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".swift"
+    ],
+    "basenames": [],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "swift",
+      "highlighter": "swift",
+      "byExtension": {},
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "swift-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/swift-sample"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "cpp",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".c",
+      ".cc",
+      ".cpp",
+      ".cxx",
+      ".h",
+      ".hh",
+      ".hpp",
+      ".hxx"
+    ],
+    "basenames": [],
+    "basenamePrefixes": [],
+    "monaco": {
+      "id": "cpp",
+      "highlighter": "cpp",
+      "byExtension": {},
+      "byBasename": {},
+      "byBasenamePrefix": {}
+    },
+    "extractors": {
+      "source": "cpp-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/cpp-sample"
+  },
+  {
+    "schemaVersion": 1,
+    "id": "config-infra",
+    "packVersion": "1.0.0",
+    "extensions": [
+      ".yaml",
+      ".yml",
+      ".tf",
+      ".tfvars",
+      ".hcl"
+    ],
+    "basenames": [
+      "Dockerfile"
+    ],
+    "basenamePrefixes": [
+      "Dockerfile."
+    ],
+    "monaco": {
+      "id": "yaml",
+      "highlighter": "config-infra",
+      "byExtension": {
+        ".yaml": "yaml",
+        ".yml": "yaml",
+        ".tf": "terraform",
+        ".tfvars": "terraform",
+        ".hcl": "terraform"
+      },
+      "byBasename": {
+        "dockerfile": "dockerfile"
+      },
+      "byBasenamePrefix": {
+        "dockerfile.": "dockerfile"
+      }
+    },
+    "extractors": {
+      "source": "config-infra-module",
+      "workspace": null
+    },
+    "fixtures": "crates/lightwell-core/fixtures/config-infra-sample"
+  }
+]

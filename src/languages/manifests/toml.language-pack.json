@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "toml",
+  "packVersion": "1.0.0",
+  "extensions": [".toml"],
+  "basenames": [],
+  "basenamePrefixes": [],
+  "monaco": {
+    "id": "toml",
+    "highlighter": null,
+    "byExtension": {},
+    "byBasename": {},
+    "byBasenamePrefix": {}
+  },
+  "extractors": {
+    "source": null,
+    "workspace": null
+  },
+  "fixtures": null
+}

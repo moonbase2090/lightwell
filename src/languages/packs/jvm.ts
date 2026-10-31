@@ -4,6 +4,7 @@ import { registerJvmHighlighters } from "../highlighters/jvm.js";
 /** Java and Kotlin facts are appended by the workspace extractor (`extractCargoMap`). */
 export const JVM_LANGUAGE_PACK: LanguagePack = {
   id: "jvm",
+  packVersion: "1.0.0",
   extensions: [".java", ".kt", ".kts"],
   monacoLanguageId: "java",
   monacoIdByExtension: {

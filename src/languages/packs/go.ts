@@ -4,6 +4,7 @@ import { registerGoHighlighter } from "../highlighters/go.js";
 /** Go facts are appended by the Rust workspace extractor (`extractCargoMap`). */
 export const GO_LANGUAGE_PACK: LanguagePack = {
   id: "go",
+  packVersion: "1.0.0",
   extensions: [".go"],
   monacoLanguageId: "go",
   extractor: {

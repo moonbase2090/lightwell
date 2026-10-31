@@ -1,9 +1,7 @@
 import type * as Monaco from "monaco-editor-core";
 import { BUILTIN_LANGUAGE_PACKS } from "./builtin-packs.js";
 import type { LanguagePack, LanguagePackId } from "./language-pack.js";
-
-/** Active packs (built-ins today; plugin loader will append here later). */
-export const LANGUAGE_PACKS: readonly LanguagePack[] = BUILTIN_LANGUAGE_PACKS;
+import { validateLanguagePackConflicts } from "./manifest.js";
 
 export type SourceLanguageId = LanguagePackId;
 
@@ -15,14 +13,54 @@ export interface LanguageRegistration {
 }
 
 /** @deprecated Use `LANGUAGE_PACKS`. */
-export const LANGUAGE_REGISTRY: readonly LanguageRegistration[] = LANGUAGE_PACKS.map((pack) => ({
-  sourceLanguageId: pack.id,
-  monacoLanguageId: pack.monacoLanguageId,
-  extensions: pack.extensions,
-}));
+export interface LanguagePackRegistry {
+  readonly packs: readonly LanguagePack[];
+  readonly registrations: readonly LanguageRegistration[];
+  readonly languagePackById: (id: LanguagePackId | string) => LanguagePack | undefined;
+  readonly languagePackForPath: (filePath: string) => LanguagePack | null;
+  readonly monacoLanguageIdForPath: (filePath: string) => string;
+  readonly registerHighlighters: (monaco: typeof Monaco) => void;
+}
 
-export function languagePackById(id: LanguagePackId): LanguagePack | undefined {
-  return LANGUAGE_PACKS.find((pack) => pack.id === id);
+export function createLanguagePackRegistry(packs: readonly LanguagePack[]): LanguagePackRegistry {
+  validateLanguagePackConflicts(packs);
+  const activePacks = [...packs];
+  const registrations = activePacks.map((pack) => ({
+    sourceLanguageId: pack.id,
+    monacoLanguageId: pack.monacoLanguageId,
+    extensions: pack.extensions,
+  }));
+  const packForPath = (filePath: string): LanguagePack | null => languagePackForPathIn(activePacks, filePath);
+  return {
+    packs: activePacks,
+    registrations,
+    languagePackById: (id) => activePacks.find((pack) => pack.id === id),
+    languagePackForPath: packForPath,
+    monacoLanguageIdForPath: (filePath) => monacoLanguageIdForPathIn(packForPath(filePath), filePath),
+    registerHighlighters: (monaco) => {
+      for (const pack of activePacks) pack.registerHighlighter?.(monaco);
+    },
+  };
+}
+
+let activeRegistry = createLanguagePackRegistry(BUILTIN_LANGUAGE_PACKS);
+
+/** Live list used by legacy callers. Reassigned when a loader installs a registry. */
+export let LANGUAGE_PACKS: readonly LanguagePack[] = activeRegistry.packs;
+
+/** @deprecated Use `LanguagePackRegistry.registrations`. */
+export let LANGUAGE_REGISTRY: readonly LanguageRegistration[] = activeRegistry.registrations;
+
+export function replaceLanguagePacks(packs: readonly LanguagePack[]): LanguagePackRegistry {
+  const registry = createLanguagePackRegistry(packs);
+  activeRegistry = registry;
+  LANGUAGE_PACKS = registry.packs;
+  LANGUAGE_REGISTRY = registry.registrations;
+  return registry;
+}
+
+export function languagePackById(id: LanguagePackId | string): LanguagePack | undefined {
+  return activeRegistry.languagePackById(id);
 }
 
 function packMatchesBasename(pack: LanguagePack, basename: string): boolean {
@@ -39,11 +77,15 @@ function baseName(filePath: string): string {
 }
 
 export function languagePackForPath(filePath: string): LanguagePack | null {
+  return activeRegistry.languagePackForPath(filePath);
+}
+
+function languagePackForPathIn(packs: readonly LanguagePack[], filePath: string): LanguagePack | null {
   const lower = filePath.toLowerCase();
   const basename = baseName(filePath);
   let match: LanguagePack | null = null;
   let matchedExtensionLength = 0;
-  for (const pack of LANGUAGE_PACKS) {
+  for (const pack of packs) {
     if (packMatchesBasename(pack, basename)) {
       match = pack;
       matchedExtensionLength = Number.MAX_SAFE_INTEGER;
@@ -80,7 +122,10 @@ export function sourceLanguageIdForPath(filePath: string): SourceLanguageId | nu
 
 /** Monaco editor language id; paths without a registered tokenizer fall back to Rust (TOML via the Rust pack). */
 export function monacoLanguageIdForPath(filePath: string): string {
-  const pack = languagePackForPath(filePath);
+  return activeRegistry.monacoLanguageIdForPath(filePath);
+}
+
+function monacoLanguageIdForPathIn(pack: LanguagePack | null, filePath: string): string {
   if (!pack) {
     return "rust";
   }
@@ -95,17 +140,9 @@ export function monacoLanguageIdForPath(filePath: string): string {
   if (mapped !== undefined) {
     return mapped;
   }
-  if (pack.registerHighlighter !== null) {
-    return pack.monacoLanguageId;
-  }
-  if (pack.id === "toml") {
-    return "toml";
-  }
-  return "rust";
+  return pack.monacoLanguageId;
 }
 
 export function registerLanguagePackHighlighters(monaco: typeof Monaco): void {
-  for (const pack of LANGUAGE_PACKS) {
-    pack.registerHighlighter?.(monaco);
-  }
+  activeRegistry.registerHighlighters(monaco);
 }

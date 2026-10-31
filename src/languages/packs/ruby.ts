@@ -4,6 +4,7 @@ import { registerRubyHighlighter } from "../highlighters/ruby.js";
 /** Ruby facts are appended by the Rust workspace extractor (`extractCargoMap`). */
 export const RUBY_LANGUAGE_PACK: LanguagePack = {
   id: "ruby",
+  packVersion: "1.0.0",
   extensions: [".rb"],
   monacoLanguageId: "ruby",
   extractor: {

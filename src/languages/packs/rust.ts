@@ -11,6 +11,7 @@ function registerRustWorkspaceHighlighters(monaco: Parameters<typeof registerRus
 /** Built-in Rust workspace pack: `extract_cargo_map` / `rust_source` parity and Cargo manifest TOML highlighting. */
 export const RUST_LANGUAGE_PACK: LanguagePack = {
   id: "rust",
+  packVersion: "1.0.0",
   extensions: [".rs"],
   monacoLanguageId: "rust",
   extractor: {

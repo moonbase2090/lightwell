@@ -39,7 +39,13 @@ pub use facts::{
     AppBlock, BlockBase, CargoFeatureBlock, Connection, CrateBlock, DependencyScope, FactBlock,
     FactGroup, FactMap, MapStats, ModuleBlock, Project, WorkspaceBlock, MAP_SCHEMA_VERSION,
 };
-pub use language_pack::RUST_WORKSPACE_PACK_ID;
+pub use language_pack::{
+    builtin_language_pack_manifests, default_user_language_packs_directory, load_language_packs,
+    load_language_packs_with_builtins, LanguagePackCatalog, LanguagePackCatalogEntry,
+    LanguagePackErrorCode, LanguagePackExtractorManifest, LanguagePackLoaderError,
+    LanguagePackManifest, LanguagePackMonacoManifest, LanguagePackOrigin, LoadedLanguagePacks,
+    LANGUAGE_PACK_SCHEMA_VERSION, RUST_WORKSPACE_PACK_ID,
+};
 pub use metadata::{
     discover_cargo_workspace, discover_cargo_workspace_manifest_only, CargoDependency,
     CargoDependencyKind, CargoDiscoveryError, CargoPackage, CargoTarget, CargoWorkspace,
