@@ -132,6 +132,12 @@ test("python fixture project lists entry points and import edges", () => {
   assert.ok(apiId);
   assert.ok(workerId);
   assert.ok(map.connections.some((connection) => connection.kind === "depends_on" && connection.source === apiId && connection.target === workerId));
+  const packageBlock = map.blocks.find((block) => block.type === "module" && block.modulePath === "sample_pkg");
+  const apiBlock = map.blocks.find((block) => block.type === "module" && block.modulePath === "sample_pkg.api");
+  assert.ok(packageBlock);
+  assert.ok(apiBlock);
+  assert.equal(apiBlock.parentId, packageBlock.id);
+  assert.ok(map.connections.every((connection) => connection.kind !== "depends_on" || connection.source !== connection.target));
 });
 
 test("python project discovery supports Poetry, setup.cfg, and setup.py entry points", () => {
@@ -194,6 +200,135 @@ setup(
     rmSync(poetryRoot, { recursive: true, force: true });
     rmSync(cfgRoot, { recursive: true, force: true });
     rmSync(setupRoot, { recursive: true, force: true });
+  }
+});
+
+test("python metadata handles valid TOML forms, cfg colons, comments, ordering, and unique app ids", () => {
+  const tomlRoot = mkdtempSync(path.join(os.tmpdir(), "lightwell-python-toml-"));
+  const cfgRoot = mkdtempSync(path.join(os.tmpdir(), "lightwell-python-cfg-colon-"));
+  const setupRoot = mkdtempSync(path.join(os.tmpdir(), "lightwell-python-setup-comments-"));
+  try {
+    writeFileSync(
+      path.join(tomlRoot, "pyproject.toml"),
+      `[project]
+name = "forms"
+scripts = { inline-cli = "pkg.cli:main", A = "pkg.a:main", a_cli = "pkg.a:other", 'single key' = "pkg.single:main" }
+gui-scripts.gui-app = "pkg.gui:run"
+gui-scripts.a-cli = "pkg.gui:other"
+gui-scripts.B-cli = "pkg.gui:b"
+`,
+    );
+    const toml = discoverPythonProject(tomlRoot);
+    assert.ok(toml);
+    assert.deepEqual(toml.entryPoints.map((entry) => [entry.group, entry.name, entry.objectRef]), [
+      ["console_scripts", "A", "pkg.a:main"],
+      ["console_scripts", "a_cli", "pkg.a:other"],
+      ["console_scripts", "inline-cli", "pkg.cli:main"],
+      ["console_scripts", "single key", "pkg.single:main"],
+      ["gui_scripts", "B-cli", "pkg.gui:b"],
+      ["gui_scripts", "a-cli", "pkg.gui:other"],
+      ["gui_scripts", "gui-app", "pkg.gui:run"],
+    ]);
+    const tomlMap = extractCargoMap({ repositoryPath: tomlRoot, projectName: "Forms" });
+    const appIds = tomlMap.blocks.filter((block) => block.type === "app").map((block) => block.id);
+    assert.equal(new Set(appIds).size, appIds.length);
+
+    writeFileSync(
+      path.join(cfgRoot, "setup.cfg"),
+      `[metadata]
+name: colon-sample
+
+[options.entry_points]
+gui_scripts = gui = cfg_pkg.main:gui
+`,
+    );
+    const cfg = discoverPythonProject(cfgRoot);
+    assert.equal(cfg?.name, "colon-sample");
+    assert.deepEqual(cfg?.entryPoints, [
+      { name: "gui", objectRef: "cfg_pkg.main:gui", group: "gui_scripts" },
+    ]);
+
+    writeFileSync(
+      path.join(setupRoot, "setup.py"),
+      `# name = "commented-out"
+# entry_points = {"console_scripts": ["bad = bad.cli:main"]}
+from setuptools import setup
+setup(
+    package_name="not-the-project",
+    name="real-project",
+    entry_points={"metadata": "not-a-list", "console_scripts": ["real = real_pkg.cli:main"]},
+)
+`,
+    );
+    const setup = discoverPythonProject(setupRoot);
+    assert.equal(setup?.name, "real-project");
+    assert.deepEqual(setup?.entryPoints, [
+      { name: "real", objectRef: "real_pkg.cli:main", group: "console_scripts" },
+    ]);
+  } finally {
+    rmSync(tomlRoot, { recursive: true, force: true });
+    rmSync(cfgRoot, { recursive: true, force: true });
+    rmSync(setupRoot, { recursive: true, force: true });
+  }
+});
+
+test("malformed pyproject metadata does not stop module extraction", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "lightwell-python-malformed-"));
+  try {
+    mkdirSync(path.join(root, "pkg"));
+    writeFileSync(path.join(root, "pyproject.toml"), "[project\nname = \"broken\"\n");
+    writeFileSync(path.join(root, "pkg/__init__.py"), "");
+    assert.equal(discoverPythonProject(root), null);
+    const map = extractCargoMap({ repositoryPath: root, projectName: "Malformed" });
+    assert.ok(map.blocks.some((block) => block.type === "module" && block.modulePath === "pkg"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("python import resolution covers submodules, depth guards, and longest known prefixes", () => {
+  const module = {
+    name: "pkg.deep.current",
+    path: path.join(os.tmpdir(), "pkg/deep/current.py"),
+    packageName: "pkg.deep",
+    stub: false,
+    unreadable: false,
+    imports: [],
+    symbols: [],
+  };
+  const submodule = parsePythonSource("from . import gui\n").imports[0];
+  const tooDeep = parsePythonSource("from ....outside import value\n").imports[0];
+  const longest = parsePythonSource("import pkg.deep.missing\n").imports[0];
+  assert.ok(submodule);
+  assert.ok(tooDeep);
+  assert.ok(longest);
+  assert.equal(resolvePythonImport(module, submodule, new Set(["pkg.deep", "pkg.deep.gui"])), "pkg.deep.gui");
+  assert.equal(resolvePythonImport(module, tooDeep, new Set(["outside"])), null);
+  assert.equal(resolvePythonImport(module, longest, new Set(["pkg", "pkg.deep"])), "pkg.deep");
+});
+
+test("src-layout packages resolve absolute imports and entry points", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "lightwell-python-src-layout-"));
+  try {
+    mkdirSync(path.join(root, "src/pkg"), { recursive: true });
+    writeFileSync(path.join(root, "pyproject.toml"), `[project]\nname = "src-layout"\n[project.scripts]\ncli = "pkg.cli:main"\n`);
+    writeFileSync(path.join(root, "src/pkg/__init__.py"), "");
+    writeFileSync(path.join(root, "src/pkg/hooks.py"), "def run():\n    return None\n");
+    writeFileSync(path.join(root, "src/pkg/cli.py"), "import pkg.hooks\ndef main():\n    return None\n");
+    const modules = discoverPythonModules(root);
+    assert.ok(modules.some((module) => module.name === "pkg.cli"));
+    assert.ok(modules.every((module) => !module.name.startsWith("src.")));
+    const map = extractCargoMap({ repositoryPath: root, projectName: "Src Layout" });
+    const app = map.blocks.find((block) => block.type === "app" && block.targetName === "cli");
+    const cli = map.blocks.find((block) => block.type === "module" && block.modulePath === "pkg.cli");
+    const hooks = map.blocks.find((block) => block.type === "module" && block.modulePath === "pkg.hooks");
+    assert.ok(app?.type === "app");
+    assert.ok(cli);
+    assert.ok(hooks);
+    assert.equal(app.entryPath, "src/pkg/cli.py");
+    assert.ok(map.connections.some((connection) => connection.kind === "depends_on" && connection.source === cli.id && connection.target === hooks.id));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

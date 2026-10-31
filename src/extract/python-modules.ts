@@ -103,7 +103,20 @@ export function resolvePythonImport(
   } else {
     candidate = item.module;
   }
-  return longestKnownModule(candidate, knownModules);
+  const baseTarget = longestKnownModule(candidate, knownModules);
+  const fromImport =
+    item.relativeLevel > 0 ||
+    item.names.length !== 1 ||
+    item.names[0]?.name !== item.module;
+  if (fromImport) {
+    for (const name of item.names) {
+      if (name.name === "*") continue;
+      const child = candidate.length === 0 ? name.name : `${candidate}.${name.name}`;
+      const target = longestKnownModule(child, knownModules);
+      if (target !== null && target !== baseTarget) return target;
+    }
+  }
+  return baseTarget;
 }
 
 export function parsePythonSource(source: string): { readonly imports: PythonImport[]; readonly symbols: PythonSymbol[] } {
@@ -189,7 +202,13 @@ export function pythonFactBlocks(args: {
     } satisfies ModuleBlock);
     connections.push(containsConnection(args.workspaceId, projectId));
     for (const entry of project.entryPoints) {
-      const appId = `app:python:${slug(project.name)}:${slug(entry.name)}`;
+      const appId = [
+        "app:python",
+        pythonIdEncode(project.name),
+        pythonIdEncode(entry.group),
+        pythonIdEncode(entry.name),
+        pythonIdEncode(entry.objectRef),
+      ].join(":");
       const entryModule = entry.objectRef.split(":")[0] ?? entry.objectRef;
       const modulePath = args.modules.find((module) => module.name === entryModule)?.path ?? project.manifestPath;
       const sourcePath = toSlash(path.relative(args.rootPath, modulePath));
@@ -352,9 +371,10 @@ function packageDirectories(files: readonly string[]): Set<string> {
 }
 
 function nearestPackage(root: string, filePath: string, packages: ReadonlySet<string>): string | null {
+  const importRoot = pythonImportRoot(root, filePath);
   let directory = path.dirname(filePath);
   while (true) {
-    if (packages.has(directory)) return dottedDirectory(root, directory);
+    if (packages.has(directory)) return dottedDirectory(importRoot, directory);
     if (directory === root) return null;
     const parent = path.dirname(directory);
     if (parent === directory) return null;
@@ -363,12 +383,20 @@ function nearestPackage(root: string, filePath: string, packages: ReadonlySet<st
 }
 
 function moduleName(root: string, filePath: string): string {
-  const parts = path.relative(root, filePath).split(path.sep).filter((part) => part.length > 0);
+  const parts = path.relative(pythonImportRoot(root, filePath), filePath).split(path.sep).filter((part) => part.length > 0);
   const fileName = parts.pop() ?? "";
   const extension = path.extname(fileName);
   const stem = extension.length === 0 ? fileName : fileName.slice(0, -extension.length);
   if (stem !== "__init__") parts.push(stem);
   return parts.join(".");
+}
+
+function pythonImportRoot(root: string, filePath: string): string {
+  const src = path.join(root, "src");
+  const relative = path.relative(src, filePath);
+  const underSrc = relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+  const srcIsNotPackage = !existsSync(path.join(src, "__init__.py")) && !existsSync(path.join(src, "__init__.pyi"));
+  return underSrc && srcIsNotPackage ? src : root;
 }
 
 function dottedDirectory(root: string, directory: string): string {
@@ -616,6 +644,16 @@ function slug(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+function pythonIdEncode(value: string): string {
+  let encoded = "";
+  for (const character of value) {
+    encoded += /^[A-Za-z0-9]$/u.test(character)
+      ? character
+      : `_${character.codePointAt(0)?.toString(16) ?? ""}_`;
+  }
+  return encoded;
+}
+
 function toSlash(value: string): string {
   return value.split(path.sep).join("/");
 }
@@ -665,36 +703,33 @@ function longestKnownModule(candidate: string, known: ReadonlySet<string>): stri
   return null;
 }
 
-function readPyproject(manifestPath: string): PythonProject {
+function readPyproject(manifestPath: string): PythonProject | null {
   const source = readFileSync(manifestPath, "utf8");
+  const values = parseTomlStrings(source);
+  if (values === null) return null;
   const name =
-    tomlString(source, ["project", "name"]) ??
-    tomlString(source, ["tool", "poetry", "name"]) ??
+    tomlString(values, ["project", "name"]) ??
+    tomlString(values, ["tool", "poetry", "name"]) ??
     "python-project";
   const entryPoints: PythonEntryPoint[] = [
-    ...tomlTableEntries(source, ["project", "scripts"]).map(([script, objectRef]) => ({
+    ...tomlTableEntries(values, ["project", "scripts"]).map(([script, objectRef]) => ({
       name: script,
       objectRef,
       group: "console_scripts",
     })),
-    ...tomlTableEntries(source, ["project", "gui-scripts"]).map(([script, objectRef]) => ({
+    ...tomlTableEntries(values, ["project", "gui-scripts"]).map(([script, objectRef]) => ({
       name: script,
       objectRef,
       group: "gui_scripts",
     })),
-    ...tomlEntryPointGroups(source),
-    ...tomlTableEntries(source, ["tool", "poetry", "scripts"]).map(([script, objectRef]) => ({
+    ...tomlEntryPointGroups(values),
+    ...tomlTableEntries(values, ["tool", "poetry", "scripts"]).map(([script, objectRef]) => ({
       name: script,
       objectRef,
       group: "console_scripts",
     })),
   ];
-  entryPoints.sort((left, right) =>
-    left.group.localeCompare(right.group) ||
-    left.name.localeCompare(right.name) ||
-    left.objectRef.localeCompare(right.objectRef),
-  );
-  return { name, manifestPath, kind: "pyproject.toml", entryPoints };
+  return { name, manifestPath, kind: "pyproject.toml", entryPoints: sortedUniqueEntryPoints(entryPoints) };
 }
 
 function readSetupCfg(manifestPath: string): PythonProject {
@@ -711,17 +746,17 @@ function readSetupCfg(manifestPath: string): PythonProject {
       entryGroup = null;
       continue;
     }
-    if (section === "metadata" && line.startsWith("name")) {
-      const value = line.replace(/^name\s*=\s*/u, "").trim();
-      if (value.length > 0) name = value;
+    if (section === "metadata") {
+      const property = cfgProperty(line);
+      if (property?.[0] === "name" && property[1].length > 0) name = property[1];
       continue;
     }
     if (section !== "options.entry_points") continue;
     const indented = raw.startsWith(" ") || raw.startsWith("\t");
     if (!indented) {
-      const splitAt = line.indexOf("=");
-      const group = (splitAt < 0 ? line : line.slice(0, splitAt)).trim();
-      const rest = splitAt < 0 ? "" : line.slice(splitAt + 1).trim();
+      const property = cfgProperty(line);
+      const group = property?.[0] ?? line;
+      const rest = property?.[1] ?? "";
       entryGroup = group;
       if (rest.length > 0) {
         const entrySplit = rest.indexOf("=");
@@ -744,27 +779,26 @@ function readSetupCfg(manifestPath: string): PythonProject {
       group: entryGroup,
     });
   }
-  entryPoints.sort((left, right) => left.group.localeCompare(right.group) || left.name.localeCompare(right.name));
-  return { name, manifestPath, kind: "setup.cfg", entryPoints };
+  return { name, manifestPath, kind: "setup.cfg", entryPoints: sortedUniqueEntryPoints(entryPoints) };
 }
 
 function readSetupPy(manifestPath: string): PythonProject {
   const source = readFileSync(manifestPath, "utf8");
-  const match = source.match(/\bname\s*=\s*["']([^"']+)["']/u);
+  const call = setupCallBody(source) ?? "";
+  const nameValue = pythonKeywordAssignment(call, "name")?.trimStart() ?? "";
+  const name = quotedString(nameValue, 0)?.value;
   return {
-    name: match?.[1] && match[1].length > 0 ? match[1] : "python-project",
+    name: name && name.length > 0 ? name : "python-project",
     manifestPath,
     kind: "setup.py",
-    entryPoints: setupPyEntryPoints(source),
+    entryPoints: setupPyEntryPoints(call),
   };
 }
 
 function setupPyEntryPoints(source: string): PythonEntryPoint[] {
-  const nameMatch = /\bentry_points\b\s*=/u.exec(source);
-  if (nameMatch === null) return [];
-  const open = source.indexOf("{", nameMatch.index + nameMatch[0].length);
-  if (open < 0) return [];
-  const dictionary = balancedBody(source, open, "{", "}");
+  const value = pythonKeywordAssignment(source, "entry_points")?.trimStart();
+  if (value?.[0] !== "{") return [];
+  const dictionary = balancedBody(value, 0, "{", "}");
   if (dictionary === null) return [];
 
   const entryPoints: PythonEntryPoint[] = [];
@@ -781,8 +815,10 @@ function setupPyEntryPoints(source: string): PythonEntryPoint[] {
       cursor = group.after;
       continue;
     }
-    const listStart = dictionary.body.indexOf("[", colon + 1);
-    if (listStart < 0) {
+    const afterColon: string = dictionary.body.slice(colon + 1);
+    const valueWhitespace: number = afterColon.length - afterColon.trimStart().length;
+    const listStart = colon + 1 + valueWhitespace;
+    if (dictionary.body[listStart] !== "[") {
       cursor = group.after;
       continue;
     }
@@ -809,12 +845,117 @@ function setupPyEntryPoints(source: string): PythonEntryPoint[] {
     }
     cursor = list.after;
   }
-  entryPoints.sort((left, right) =>
-    left.group.localeCompare(right.group) ||
-    left.name.localeCompare(right.name) ||
-    left.objectRef.localeCompare(right.objectRef),
+  return sortedUniqueEntryPoints(entryPoints);
+}
+
+function cfgProperty(line: string): readonly [string, string] | null {
+  const equals = line.indexOf("=");
+  const colon = line.indexOf(":");
+  const indexes = [equals, colon].filter((index) => index >= 0);
+  if (indexes.length === 0) return null;
+  const separator = Math.min(...indexes);
+  return [line.slice(0, separator).trim(), line.slice(separator + 1).trim()];
+}
+
+function sortedUniqueEntryPoints(entryPoints: readonly PythonEntryPoint[]): PythonEntryPoint[] {
+  const sorted = [...entryPoints].sort((left, right) =>
+    byteCompare(left.group, right.group) ||
+    byteCompare(left.name, right.name) ||
+    byteCompare(left.objectRef, right.objectRef),
   );
-  return entryPoints;
+  return sorted.filter((entry, index) => {
+    const previous = sorted[index - 1];
+    return previous === undefined ||
+      entry.group !== previous.group ||
+      entry.name !== previous.name ||
+      entry.objectRef !== previous.objectRef;
+  });
+}
+
+function byteCompare(left: string, right: string): number {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
+}
+
+function setupCallBody(source: string): string | null {
+  const mask = pythonCodeMask(source);
+  const pattern = /\bsetup\b/gu;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(mask)) !== null) {
+    const rest = mask.slice(match.index + match[0].length);
+    const whitespace = rest.length - rest.trimStart().length;
+    const open = match.index + match[0].length + whitespace;
+    if (mask[open] !== "(") continue;
+    const call = balancedBody(mask, open, "(", ")");
+    if (call === null) return null;
+    return source.slice(open + 1, call.after - 1);
+  }
+  return null;
+}
+
+function pythonKeywordAssignment(source: string, keyword: string): string | null {
+  const mask = pythonCodeMask(source);
+  let cursor = 0;
+  while (cursor < mask.length) {
+    const index = mask.indexOf(keyword, cursor);
+    if (index < 0) return null;
+    cursor = index + keyword.length;
+    const before = mask[index - 1];
+    const after = mask[index + keyword.length];
+    if ((before !== undefined && /[A-Za-z0-9_]/u.test(before)) ||
+        (after !== undefined && /[A-Za-z0-9_]/u.test(after))) continue;
+    const rest = mask.slice(index + keyword.length);
+    const whitespace = rest.length - rest.trimStart().length;
+    const equals = index + keyword.length + whitespace;
+    if (mask[equals] !== "=") continue;
+    return source.slice(equals + 1);
+  }
+  return null;
+}
+
+function pythonCodeMask(source: string): string {
+  const masked = source.split("");
+  let quote: "'" | '"' | null = null;
+  let triple = false;
+  let comment = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === undefined) break;
+    if (comment) {
+      if (character === "\n") comment = false;
+      else masked[index] = " ";
+      continue;
+    }
+    if (quote !== null) {
+      masked[index] = character === "\n" ? "\n" : " ";
+      if (!triple && character === "\\") {
+        if (index + 1 < source.length) masked[index + 1] = " ";
+        index += 1;
+      } else if (triple && source.slice(index, index + 3) === quote.repeat(3)) {
+        masked[index + 1] = " ";
+        masked[index + 2] = " ";
+        index += 2;
+        quote = null;
+        triple = false;
+      } else if (!triple && character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === "#") {
+      masked[index] = " ";
+      comment = true;
+    } else if (character === "'" || character === '"') {
+      quote = character;
+      triple = source.slice(index, index + 3) === character.repeat(3);
+      masked[index] = " ";
+      if (triple) {
+        masked[index + 1] = " ";
+        masked[index + 2] = " ";
+        index += 2;
+      }
+    }
+  }
+  return masked.join("");
 }
 
 function balancedBody(
@@ -878,64 +1019,175 @@ function quotedString(
   return null;
 }
 
-function tomlString(source: string, keys: readonly string[]): string | null {
-  const table = tomlTableBody(source, keys.slice(0, -1));
-  if (table === null) return null;
-  const key = keys[keys.length - 1];
-  if (key === undefined) return null;
-  const match = table.match(new RegExp(`^${escapeRegExp(key)}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "mu"));
-  return match?.[1] ?? match?.[2] ?? null;
+interface TomlStringValue {
+  readonly path: readonly string[];
+  readonly value: string;
 }
 
-function tomlTableEntries(source: string, keys: readonly string[]): Array<[string, string]> {
-  const body = tomlTableBody(source, keys);
-  if (body === null) return [];
-  const entries: Array<[string, string]> = [];
-  for (const line of body.split(/\r?\n/)) {
-    const entry = tomlStringEntry(line);
-    if (entry !== null) entries.push(entry);
+function parseTomlStrings(source: string): TomlStringValue[] | null {
+  const values: TomlStringValue[] = [];
+  let table: readonly string[] = [];
+  for (const rawLine of source.split(/\r?\n/u)) {
+    const line = stripTomlComment(rawLine).trim();
+    if (line.length === 0) continue;
+    if (line.startsWith("[")) {
+      const arrayTable = line.startsWith("[[");
+      const expectedEnd = arrayTable ? "]]" : "]";
+      if (!line.endsWith(expectedEnd)) return null;
+      const parsed = parseTomlKey(line.slice(arrayTable ? 2 : 1, arrayTable ? -2 : -1));
+      if (parsed === null || parsed.length === 0) return null;
+      table = parsed;
+      continue;
+    }
+    const equals = findTomlTopLevel(line, "=");
+    if (equals < 0) continue;
+    const key = parseTomlKey(line.slice(0, equals));
+    if (key === null || key.length === 0) return null;
+    parseTomlValue(line.slice(equals + 1).trim(), [...table, ...key], values);
   }
-  return entries;
+  return values;
 }
 
-function tomlEntryPointGroups(source: string): PythonEntryPoint[] {
-  const entries: PythonEntryPoint[] = [];
-  const pattern = /^\[project\.entry-points(?:\."([^"]+)"|\.([^\]]+))\]\s*$/gmu;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(source)) !== null) {
-    const group = match[1] ?? match[2];
-    if (group === undefined) continue;
-    const start = match.index + match[0].length;
-    const next = source.slice(start).search(/^\[/mu);
-    const body = next < 0 ? source.slice(start) : source.slice(start, start + next);
-    for (const line of body.split(/\r?\n/)) {
-      const entry = tomlStringEntry(line);
-      if (entry !== null) entries.push({ name: entry[0], objectRef: entry[1], group });
+function parseTomlValue(value: string, keyPath: readonly string[], values: TomlStringValue[]): void {
+  const quoted = parseTomlQuoted(value, 0);
+  if (quoted !== null && value.slice(quoted.after).trim().length === 0) {
+    values.push({ path: keyPath, value: quoted.value });
+    return;
+  }
+  if (!value.startsWith("{") || !value.endsWith("}")) return;
+  for (const item of splitTomlTopLevel(value.slice(1, -1), ",")) {
+    if (item.trim().length === 0) continue;
+    const equals = findTomlTopLevel(item, "=");
+    if (equals < 0) continue;
+    const child = parseTomlKey(item.slice(0, equals));
+    if (child === null || child.length === 0) continue;
+    parseTomlValue(item.slice(equals + 1).trim(), [...keyPath, ...child], values);
+  }
+}
+
+function tomlString(values: readonly TomlStringValue[], keys: readonly string[]): string | null {
+  return values.find((entry) => sameTomlPath(entry.path, keys))?.value ?? null;
+}
+
+function tomlTableEntries(values: readonly TomlStringValue[], keys: readonly string[]): Array<[string, string]> {
+  return values.flatMap((entry) =>
+    entry.path.length === keys.length + 1 && sameTomlPath(entry.path.slice(0, -1), keys)
+      ? [[entry.path[entry.path.length - 1] ?? "", entry.value] as [string, string]]
+      : []
+  );
+}
+
+function tomlEntryPointGroups(values: readonly TomlStringValue[]): PythonEntryPoint[] {
+  return values.flatMap((entry) =>
+    entry.path.length === 4 && sameTomlPath(entry.path.slice(0, 2), ["project", "entry-points"])
+      ? [{ group: entry.path[2] ?? "", name: entry.path[3] ?? "", objectRef: entry.value }]
+      : []
+  );
+}
+
+function sameTomlPath(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((part, index) => part === right[index]);
+}
+
+function parseTomlKey(source: string): string[] | null {
+  const parts = splitTomlTopLevel(source, ".");
+  const keys: string[] = [];
+  for (const raw of parts) {
+    const part = raw.trim();
+    if (part.length === 0) return null;
+    const quoted = parseTomlQuoted(part, 0);
+    if (quoted !== null && quoted.after === part.length) keys.push(quoted.value);
+    else if (/^[A-Za-z0-9_-]+$/u.test(part)) keys.push(part);
+    else return null;
+  }
+  return keys;
+}
+
+function parseTomlQuoted(source: string, start: number): { readonly value: string; readonly after: number } | null {
+  const quote = source[start];
+  if (quote !== "'" && quote !== '"') return null;
+  let escaped = false;
+  for (let index = start + 1; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === undefined) break;
+    if (quote === '"' && !escaped && character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (!escaped && character === quote) {
+      const raw = source.slice(start, index + 1);
+      if (quote === "'") return { value: raw.slice(1, -1), after: index + 1 };
+      try {
+        return { value: JSON.parse(raw) as string, after: index + 1 };
+      } catch {
+        return null;
+      }
+    }
+    escaped = false;
+  }
+  return null;
+}
+
+function stripTomlComment(source: string): string {
+  let quote: string | null = null;
+  let escaped = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === undefined) break;
+    if (quote !== null) {
+      if (escaped) escaped = false;
+      else if (quote === '"' && character === "\\") escaped = true;
+      else if (character === quote) quote = null;
+    } else if (character === "'" || character === '"') quote = character;
+    else if (character === "#") return source.slice(0, index);
+  }
+  return source;
+}
+
+function findTomlTopLevel(source: string, needle: string): number {
+  let quote: string | null = null;
+  let escaped = false;
+  let braces = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === undefined) break;
+    if (quote !== null) {
+      if (escaped) escaped = false;
+      else if (quote === '"' && character === "\\") escaped = true;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === "'" || character === '"') quote = character;
+    else if (character === "{") braces += 1;
+    else if (character === "}") braces -= 1;
+    else if (character === needle && braces === 0) return index;
+  }
+  return -1;
+}
+
+function splitTomlTopLevel(source: string, separator: string): string[] {
+  const parts: string[] = [];
+  let start = 0;
+  let quote: string | null = null;
+  let escaped = false;
+  let braces = 0;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === undefined) break;
+    if (quote !== null) {
+      if (escaped) escaped = false;
+      else if (quote === '"' && character === "\\") escaped = true;
+      else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === "'" || character === '"') quote = character;
+    else if (character === "{") braces += 1;
+    else if (character === "}") braces -= 1;
+    else if (character === separator && braces === 0) {
+      parts.push(source.slice(start, index));
+      start = index + 1;
     }
   }
-  return entries;
-}
-
-function tomlStringEntry(line: string): [string, string] | null {
-  const match = line.match(
-    /^(?:([A-Za-z0-9_.-]+)|"([^"]+)"|'([^']+)')\s*=\s*(?:"([^"]*)"|'([^']*)')/u,
-  );
-  const key = match?.[1] ?? match?.[2] ?? match?.[3];
-  const value = match?.[4] ?? match?.[5];
-  return key === undefined || value === undefined ? null : [key, value];
-}
-
-function tomlTableBody(source: string, keys: readonly string[]): string | null {
-  if (keys.length === 0) return source;
-  const header = `[${keys.join(".")}]`;
-  const start = source.indexOf(header);
-  if (start < 0) return null;
-  const bodyStart = start + header.length;
-  const rest = source.slice(bodyStart);
-  const next = rest.search(/^\[/mu);
-  return next < 0 ? rest : rest.slice(0, next);
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  parts.push(source.slice(start));
+  return parts;
 }

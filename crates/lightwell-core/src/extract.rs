@@ -2969,6 +2969,18 @@ pub(crate) fn jvm_id_encode(value: &str) -> String {
     out
 }
 
+fn python_id_encode(value: &str) -> String {
+    let mut out = String::new();
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            out.push(character);
+        } else {
+            out.push_str(&format!("_{:x}_", character as u32));
+        }
+    }
+    out
+}
+
 fn append_python_blocks(
     modules: &[PythonModule],
     project: Option<&PythonProject>,
@@ -3001,7 +3013,13 @@ fn append_python_blocks(
         }));
         connections.push(contains_connection(workspace_id, &project_id));
         for entry in &project.entry_points {
-            let app_id = format!("app:python:{}:{}", slug(&project.name), slug(&entry.name));
+            let app_id = format!(
+                "app:python:{}:{}:{}:{}",
+                python_id_encode(&project.name),
+                python_id_encode(&entry.group),
+                python_id_encode(&entry.name),
+                python_id_encode(&entry.object_ref),
+            );
             let entry_module = entry
                 .object_ref
                 .split_once(':')

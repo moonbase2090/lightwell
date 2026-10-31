@@ -144,7 +144,11 @@ pub(crate) fn discover_python_project(
     let _canonical_root = opened_root(repository_path)?;
     let pyproject = repository_path.join("pyproject.toml");
     if pyproject.is_file() {
-        return Ok(Some(read_pyproject(&pyproject)?));
+        return match read_pyproject(&pyproject) {
+            Ok(project) => Ok(Some(project)),
+            Err(CargoDiscoveryError::InvalidManifestToml { .. }) => Ok(None),
+            Err(error) => Err(error),
+        };
     }
     let setup_cfg = repository_path.join("setup.cfg");
     if setup_cfg.is_file() {
@@ -171,7 +175,31 @@ pub(crate) fn resolve_python_import(
     } else {
         import.module.clone()
     };
-    longest_known_module(&candidate, known_modules)
+    let base_target = longest_known_module(&candidate, known_modules);
+    let from_import = import.relative_level > 0
+        || import.names.len() != 1
+        || import
+            .names
+            .first()
+            .is_some_and(|name| name.name != import.module);
+    if from_import {
+        for name in &import.names {
+            if name.name == "*" {
+                continue;
+            }
+            let child = if candidate.is_empty() {
+                name.name.clone()
+            } else {
+                format!("{candidate}.{}", name.name)
+            };
+            if let Some(target) = longest_known_module(&child, known_modules) {
+                if Some(target.as_str()) != base_target.as_deref() {
+                    return Some(target);
+                }
+            }
+        }
+    }
+    base_target
 }
 
 fn containing_package(module: &PythonModule) -> Option<String> {
@@ -276,6 +304,7 @@ fn read_pyproject(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
             .then(left.name.cmp(&right.name))
             .then(left.object_ref.cmp(&right.object_ref))
     });
+    entry_points.dedup();
     Ok(PythonProject {
         name,
         manifest_path: path.to_owned(),
@@ -324,9 +353,8 @@ fn read_setup_cfg(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
             continue;
         }
         if section == "metadata" {
-            if let Some(value) = line.strip_prefix("name") {
-                let value = value.trim().trim_start_matches('=').trim();
-                if !value.is_empty() {
+            if let Some((key, value)) = cfg_property(line) {
+                if key == "name" && !value.is_empty() {
                     name = value.to_owned();
                 }
             }
@@ -337,10 +365,7 @@ fn read_setup_cfg(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
         }
         let indented = raw.starts_with(' ') || raw.starts_with('\t');
         if !indented {
-            let (group, rest) = match line.split_once('=') {
-                Some((group, rest)) => (group.trim(), rest.trim()),
-                None => (line, ""),
-            };
+            let (group, rest) = cfg_property(line).unwrap_or((line, ""));
             entry_group = Some(group.to_owned());
             if !rest.is_empty() {
                 if let Some((script, object_ref)) = rest.split_once('=') {
@@ -369,7 +394,9 @@ fn read_setup_cfg(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
         left.group
             .cmp(&right.group)
             .then(left.name.cmp(&right.name))
+            .then(left.object_ref.cmp(&right.object_ref))
     });
+    entry_points.dedup();
     Ok(PythonProject {
         name,
         manifest_path: path.to_owned(),
@@ -383,32 +410,36 @@ fn read_setup_py(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
         path: path.to_owned(),
         source,
     })?;
-    let name = setup_py_name(&source).unwrap_or_else(|| "python-project".to_owned());
+    let call = setup_call_body(&source).unwrap_or("");
+    let name = setup_py_name(call).unwrap_or_else(|| "python-project".to_owned());
     Ok(PythonProject {
         name,
         manifest_path: path.to_owned(),
         kind: PythonManifestKind::SetupPy,
-        entry_points: setup_py_entry_points(&source),
+        entry_points: setup_py_entry_points(call),
     })
 }
 
+fn cfg_property(line: &str) -> Option<(&str, &str)> {
+    let equals = line.find('=');
+    let colon = line.find(':');
+    let separator = match (equals, colon) {
+        (Some(left), Some(right)) => left.min(right),
+        (Some(index), None) | (None, Some(index)) => index,
+        (None, None) => return None,
+    };
+    Some((line[..separator].trim(), line[separator + 1..].trim()))
+}
+
 fn setup_py_entry_points(source: &str) -> Vec<PythonEntryPoint> {
-    let Some((name_index, _)) = source.match_indices("entry_points").find(|(index, _)| {
-        let before = source[..*index].chars().next_back();
-        let after = source[*index + "entry_points".len()..].chars().next();
-        !before.is_some_and(|character| character.is_alphanumeric() || character == '_')
-            && !after.is_some_and(|character| character.is_alphanumeric() || character == '_')
-    }) else {
+    let Some(value) = python_keyword_assignment(source, "entry_points") else {
         return Vec::new();
     };
-    let assignment = source[name_index + "entry_points".len()..].trim_start();
-    let Some(value) = assignment.strip_prefix('=') else {
+    let value = value.trim_start();
+    if !value.starts_with('{') {
         return Vec::new();
-    };
-    let Some(open) = value.find('{') else {
-        return Vec::new();
-    };
-    let Some((body, _)) = balanced_body(value, open, '{', '}') else {
+    }
+    let Some((body, _)) = balanced_body(value, 0, '{', '}') else {
         return Vec::new();
     };
 
@@ -424,12 +455,14 @@ fn setup_py_entry_points(source: &str) -> Vec<PythonEntryPoint> {
             cursor = after_group;
             continue;
         }
-        let Some(list_offset) = after[1..].find('[') else {
+        let list_value = after[1..].trim_start();
+        if !list_value.starts_with('[') {
             cursor = after_group;
             continue;
-        };
+        }
         let leading_whitespace = body[after_group..].len() - after.len();
-        let list_start = after_group + leading_whitespace + 1 + list_offset;
+        let value_whitespace = after[1..].len() - list_value.len();
+        let list_start = after_group + leading_whitespace + 1 + value_whitespace;
         let Some((list, after_list)) = balanced_body(body, list_start, '[', ']') else {
             cursor = after_group;
             continue;
@@ -461,7 +494,112 @@ fn setup_py_entry_points(source: &str) -> Vec<PythonEntryPoint> {
             .then(left.name.cmp(&right.name))
             .then(left.object_ref.cmp(&right.object_ref))
     });
+    entry_points.dedup();
     entry_points
+}
+
+fn setup_call_body(source: &str) -> Option<&str> {
+    let mask = python_code_mask(source);
+    for (index, _) in mask.match_indices("setup") {
+        if !identifier_boundary(&mask, index, "setup".len()) {
+            continue;
+        }
+        let after = mask[index + "setup".len()..].trim_start();
+        if !after.starts_with('(') {
+            continue;
+        }
+        let whitespace = mask[index + "setup".len()..].len() - after.len();
+        let open = index + "setup".len() + whitespace;
+        let (_, close) = balanced_body(&mask, open, '(', ')')?;
+        return Some(&source[open + 1..close - 1]);
+    }
+    None
+}
+
+fn python_keyword_assignment<'a>(source: &'a str, keyword: &str) -> Option<&'a str> {
+    let mask = python_code_mask(source);
+    for (index, _) in mask.match_indices(keyword) {
+        if !identifier_boundary(&mask, index, keyword.len()) {
+            continue;
+        }
+        let after = mask[index + keyword.len()..].trim_start();
+        let Some(rest) = after.strip_prefix('=') else {
+            continue;
+        };
+        let whitespace = mask[index + keyword.len()..].len() - after.len();
+        let value_index = index + keyword.len() + whitespace + 1;
+        return Some(&source[value_index..value_index + rest.len()]);
+    }
+    None
+}
+
+fn identifier_boundary(source: &str, index: usize, length: usize) -> bool {
+    let before = source[..index].chars().next_back();
+    let after = source[index + length..].chars().next();
+    !before.is_some_and(|character| character.is_alphanumeric() || character == '_')
+        && !after.is_some_and(|character| character.is_alphanumeric() || character == '_')
+}
+
+fn python_code_mask(source: &str) -> String {
+    let bytes = source.as_bytes();
+    let mut masked = bytes.to_vec();
+    let mut index = 0;
+    let mut quote: Option<(u8, bool)> = None;
+    let mut comment = false;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if comment {
+            if byte == b'\n' {
+                comment = false;
+            } else {
+                masked[index] = b' ';
+            }
+            index += 1;
+            continue;
+        }
+        if let Some((delimiter, triple)) = quote {
+            masked[index] = if byte == b'\n' { b'\n' } else { b' ' };
+            if byte == b'\\' && !triple {
+                if index + 1 < bytes.len() {
+                    masked[index + 1] = b' ';
+                    index += 2;
+                    continue;
+                }
+            }
+            if triple {
+                if bytes[index..].starts_with(&[delimiter, delimiter, delimiter]) {
+                    for offset in 0..3.min(bytes.len() - index) {
+                        masked[index + offset] = b' ';
+                    }
+                    quote = None;
+                    index += 3;
+                    continue;
+                }
+            } else if byte == delimiter {
+                quote = None;
+            }
+            index += 1;
+            continue;
+        }
+        if byte == b'#' {
+            comment = true;
+            masked[index] = b' ';
+            index += 1;
+            continue;
+        }
+        if byte == b'\'' || byte == b'"' {
+            let triple = bytes[index..].starts_with(&[byte, byte, byte]);
+            let count = if triple { 3 } else { 1 };
+            for offset in 0..count {
+                masked[index + offset] = b' ';
+            }
+            quote = Some((byte, triple));
+            index += count;
+            continue;
+        }
+        index += 1;
+    }
+    String::from_utf8(masked).expect("mask preserves UTF-8")
 }
 
 fn balanced_body(
@@ -528,23 +666,15 @@ fn quoted_string(source: &str, start: usize) -> Option<(String, usize)> {
 }
 
 fn setup_py_name(source: &str) -> Option<String> {
-    for (index, _) in source.match_indices("name") {
-        let rest = source[index + 4..].trim_start();
-        let Some(rest) = rest.strip_prefix('=').map(str::trim_start) else {
-            continue;
-        };
-        let quote = rest.chars().next()?;
-        if quote != '"' && quote != '\'' {
-            continue;
-        }
-        let body = &rest[1..];
-        let end = body.find(quote)?;
-        let name = &body[..end];
-        if !name.is_empty() {
-            return Some(name.to_owned());
-        }
+    let rest = python_keyword_assignment(source, "name")?.trim_start();
+    let quote = rest.chars().next()?;
+    if quote != '"' && quote != '\'' {
+        return None;
     }
-    None
+    let body = &rest[1..];
+    let end = body.find(quote)?;
+    let name = &body[..end];
+    (!name.is_empty()).then(|| name.to_owned())
 }
 
 pub(crate) fn parse_python_source(source: &str) -> (Vec<PythonImport>, Vec<PythonSymbol>) {
@@ -718,10 +848,11 @@ fn package_directories(files: &[PathBuf]) -> HashSet<PathBuf> {
 }
 
 fn nearest_package(root: &Path, path: &Path, packages: &HashSet<PathBuf>) -> Option<String> {
+    let import_root = python_import_root(root, path);
     let mut directory = path.parent()?;
     loop {
         if packages.contains(directory) {
-            return Some(dotted_directory(root, directory));
+            return Some(dotted_directory(&import_root, directory));
         }
         if directory == root {
             return None;
@@ -731,7 +862,8 @@ fn nearest_package(root: &Path, path: &Path, packages: &HashSet<PathBuf>) -> Opt
 }
 
 fn module_name(root: &Path, path: &Path) -> String {
-    let relative = path.strip_prefix(root).unwrap_or(path);
+    let import_root = python_import_root(root, path);
+    let relative = path.strip_prefix(&import_root).unwrap_or(path);
     let mut parts = relative
         .components()
         .filter_map(|component| component.as_os_str().to_str())
@@ -747,6 +879,18 @@ fn module_name(root: &Path, path: &Path) -> String {
         }
     }
     parts.join(".")
+}
+
+fn python_import_root(root: &Path, path: &Path) -> PathBuf {
+    let src = root.join("src");
+    if path.starts_with(&src)
+        && !src.join("__init__.py").is_file()
+        && !src.join("__init__.pyi").is_file()
+    {
+        src
+    } else {
+        root.to_owned()
+    }
 }
 
 fn dotted_directory(root: &Path, directory: &Path) -> String {
@@ -1050,7 +1194,7 @@ fn split_top_level(value: &str, separator: char) -> Vec<String> {
 mod tests {
     use super::{
         discover_python_modules, discover_python_project, parse_python_source,
-        resolve_python_import, PythonManifestKind, PythonSymbolKind,
+        resolve_python_import, PythonManifestKind, PythonModule, PythonSymbolKind,
     };
     use crate::extract::extract_cargo_map;
     use crate::facts::{Connection, FactBlock};
@@ -1335,6 +1479,27 @@ def load_widget():
             Connection::DependsOn { source, target, .. }
                 if source == &api_id && target == &worker_id
         )));
+        let package_id = map.blocks.iter().find_map(|block| match block {
+            FactBlock::Module(module)
+                if module.language == "python" && module.module_path == "sample_pkg" =>
+            {
+                Some(module.base.id.clone())
+            }
+            _ => None,
+        });
+        let api_parent = map.blocks.iter().find_map(|block| match block {
+            FactBlock::Module(module)
+                if module.language == "python" && module.module_path == "sample_pkg.api" =>
+            {
+                module.base.parent_id.clone()
+            }
+            _ => None,
+        });
+        assert_eq!(api_parent, package_id);
+        assert!(map.connections.iter().all(|connection| !matches!(
+            connection,
+            Connection::DependsOn { source, target, .. } if source == target
+        )));
         assert!(modules
             .iter()
             .any(|module| module.name == "sample_pkg.__main__"));
@@ -1393,5 +1558,210 @@ def load_widget():
         assert_eq!(setup.entry_points[0].object_ref, "setup_pkg.cli:main");
         assert_eq!(setup.entry_points[1].group, "sample.hooks");
         let _ = fs::remove_dir_all(&py_root);
+    }
+
+    #[test]
+    fn malformed_pyproject_does_not_stop_extraction() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("lightwell-python-malformed-{unique}"));
+        fs::create_dir_all(root.join("pkg")).expect("package");
+        fs::write(root.join("pyproject.toml"), "[project\nname = \"broken\"\n").expect("pyproject");
+        fs::write(root.join("pkg/__init__.py"), "").expect("init");
+        let map = extract_cargo_map(&root, Some("Malformed")).expect("extraction continues");
+        assert!(map.blocks.iter().any(|block| matches!(
+            block,
+            FactBlock::Module(module)
+                if module.language == "python" && module.module_path == "pkg"
+        )));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn metadata_forms_comments_order_and_app_ids_are_stable() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let toml_root = std::env::temp_dir().join(format!("lightwell-python-forms-{unique}"));
+        fs::create_dir_all(&toml_root).expect("toml root");
+        fs::write(
+            toml_root.join("pyproject.toml"),
+            "[project]\nname = \"forms\"\nscripts = { inline-cli = \"pkg.cli:main\", A = \"pkg.a:main\", a_cli = \"pkg.a:other\", 'single key' = \"pkg.single:main\" }\ngui-scripts.gui-app = \"pkg.gui:run\"\ngui-scripts.a-cli = \"pkg.gui:other\"\ngui-scripts.B-cli = \"pkg.gui:b\"\n",
+        )
+        .expect("pyproject");
+        let project = discover_python_project(&toml_root)
+            .expect("project")
+            .expect("present");
+        assert_eq!(
+            project
+                .entry_points
+                .iter()
+                .map(|entry| {
+                    (
+                        entry.group.as_str(),
+                        entry.name.as_str(),
+                        entry.object_ref.as_str(),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            vec![
+                ("console_scripts", "A", "pkg.a:main"),
+                ("console_scripts", "a_cli", "pkg.a:other"),
+                ("console_scripts", "inline-cli", "pkg.cli:main"),
+                ("console_scripts", "single key", "pkg.single:main"),
+                ("gui_scripts", "B-cli", "pkg.gui:b"),
+                ("gui_scripts", "a-cli", "pkg.gui:other"),
+                ("gui_scripts", "gui-app", "pkg.gui:run"),
+            ]
+        );
+        let map = extract_cargo_map(&toml_root, Some("Forms")).expect("extract");
+        let app_ids = map
+            .blocks
+            .iter()
+            .filter_map(|block| match block {
+                FactBlock::App(app) => Some(app.base.id.clone()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(app_ids.iter().collect::<HashSet<_>>().len(), app_ids.len());
+        let _ = fs::remove_dir_all(&toml_root);
+
+        let cfg_root = std::env::temp_dir().join(format!("lightwell-python-colon-{unique}"));
+        fs::create_dir_all(&cfg_root).expect("cfg root");
+        fs::write(
+            cfg_root.join("setup.cfg"),
+            "[metadata]\nname: colon-sample\n\n[options.entry_points]\ngui_scripts = gui = cfg_pkg.main:gui\n",
+        )
+        .expect("setup.cfg");
+        let cfg = discover_python_project(&cfg_root)
+            .expect("cfg")
+            .expect("present");
+        assert_eq!(cfg.name, "colon-sample");
+        assert_eq!(cfg.entry_points[0].name, "gui");
+        assert_eq!(cfg.entry_points[0].group, "gui_scripts");
+        let _ = fs::remove_dir_all(&cfg_root);
+
+        let setup_root = std::env::temp_dir().join(format!("lightwell-python-comments-{unique}"));
+        fs::create_dir_all(&setup_root).expect("setup root");
+        fs::write(
+            setup_root.join("setup.py"),
+            "# name = \"commented-out\"\n# entry_points = {\"console_scripts\": [\"bad = bad.cli:main\"]}\nfrom setuptools import setup\nsetup(\n    package_name=\"not-the-project\",\n    name=\"real-project\",\n    entry_points={\"metadata\": \"not-a-list\", \"console_scripts\": [\"real = real_pkg.cli:main\"]},\n)\n",
+        )
+        .expect("setup.py");
+        let setup = discover_python_project(&setup_root)
+            .expect("setup")
+            .expect("present");
+        assert_eq!(setup.name, "real-project");
+        assert_eq!(setup.entry_points.len(), 1);
+        assert_eq!(setup.entry_points[0].name, "real");
+        let _ = fs::remove_dir_all(&setup_root);
+    }
+
+    #[test]
+    fn import_resolution_covers_submodules_depth_and_longest_prefix() {
+        let module = PythonModule {
+            name: "pkg.deep.current".to_owned(),
+            path: PathBuf::from("pkg/deep/current.py"),
+            package: Some("pkg.deep".to_owned()),
+            stub: false,
+            unreadable: false,
+            imports: Vec::new(),
+            symbols: Vec::new(),
+        };
+        let (submodule, _) = parse_python_source("from . import gui\n");
+        let (too_deep, _) = parse_python_source("from ....outside import value\n");
+        let (longest, _) = parse_python_source("import pkg.deep.missing\n");
+        assert_eq!(
+            resolve_python_import(
+                &module,
+                &submodule[0],
+                &["pkg.deep", "pkg.deep.gui"]
+                    .into_iter()
+                    .map(str::to_owned)
+                    .collect(),
+            )
+            .as_deref(),
+            Some("pkg.deep.gui")
+        );
+        assert_eq!(
+            resolve_python_import(
+                &module,
+                &too_deep[0],
+                &["outside"].into_iter().map(str::to_owned).collect(),
+            ),
+            None
+        );
+        assert_eq!(
+            resolve_python_import(
+                &module,
+                &longest[0],
+                &["pkg", "pkg.deep"].into_iter().map(str::to_owned).collect(),
+            )
+            .as_deref(),
+            Some("pkg.deep")
+        );
+    }
+
+    #[test]
+    fn src_layout_resolves_imports_and_entry_points() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("lightwell-python-src-layout-{unique}"));
+        fs::create_dir_all(root.join("src/pkg")).expect("package");
+        fs::write(
+            root.join("pyproject.toml"),
+            "[project]\nname = \"src-layout\"\n[project.scripts]\ncli = \"pkg.cli:main\"\n",
+        )
+        .expect("pyproject");
+        fs::write(root.join("src/pkg/__init__.py"), "").expect("init");
+        fs::write(
+            root.join("src/pkg/hooks.py"),
+            "def run():\n    return None\n",
+        )
+        .expect("hooks");
+        fs::write(
+            root.join("src/pkg/cli.py"),
+            "import pkg.hooks\ndef main():\n    return None\n",
+        )
+        .expect("cli");
+        let modules = discover_python_modules(&root).expect("modules");
+        assert!(modules.iter().any(|module| module.name == "pkg.cli"));
+        assert!(modules
+            .iter()
+            .all(|module| !module.name.starts_with("src.")));
+        let map = extract_cargo_map(&root, Some("Src Layout")).expect("extract");
+        let app = map.blocks.iter().find_map(|block| match block {
+            FactBlock::App(app) if app.target_name == "cli" => Some(app),
+            _ => None,
+        });
+        let cli = map.blocks.iter().find_map(|block| match block {
+            FactBlock::Module(module)
+                if module.language == "python" && module.module_path == "pkg.cli" =>
+            {
+                Some(module)
+            }
+            _ => None,
+        });
+        let hooks = map.blocks.iter().find_map(|block| match block {
+            FactBlock::Module(module)
+                if module.language == "python" && module.module_path == "pkg.hooks" =>
+            {
+                Some(module)
+            }
+            _ => None,
+        });
+        let (app, cli, hooks) = (app.expect("app"), cli.expect("cli"), hooks.expect("hooks"));
+        assert_eq!(app.entry_path, "src/pkg/cli.py");
+        assert!(map.connections.iter().any(|connection| matches!(
+            connection,
+            Connection::DependsOn { source, target, .. }
+                if source == &cli.base.id && target == &hooks.base.id
+        )));
+        let _ = fs::remove_dir_all(&root);
     }
 }
