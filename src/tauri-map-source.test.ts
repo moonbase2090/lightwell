@@ -91,7 +91,17 @@ test("language pack IPC parses loaded and invalid entries", () => {
         packVersion: "1.0.0",
         origin: "user",
         manifestPath: "/redacted/language-packs/demo/language-pack.json",
-        manifest: { extensions: [".demo"], basenames: ["DemoFile"], basenamePrefixes: [] },
+        manifest: {
+          schemaVersion: 1,
+          id: "demo",
+          packVersion: "1.0.0",
+          extensions: [".demo"],
+          basenames: ["DemoFile"],
+          basenamePrefixes: [],
+          monaco: { id: "plaintext", highlighter: null, byExtension: {}, byBasename: {}, byBasenamePrefix: {} },
+          extractors: { source: null, workspace: null },
+          fixtures: null,
+        },
       },
       {
         kind: "error",
@@ -108,7 +118,7 @@ test("language pack IPC parses loaded and invalid entries", () => {
   assert.throws(() => parseLanguagePackCatalog({ ...catalog, entries: [{ ...catalog.entries[0], origin: "remote" }] }), /invalid loaded language pack/);
   assert.throws(() => parseLanguagePackCatalog({ ...catalog, entries: [{ ...catalog.entries[0], packVersion: "latest" }] }), /invalid loaded language pack/);
   assert.throws(() => parseLanguagePackCatalog({ ...catalog, entries: [{ ...catalog.entries[1], code: "missing" }] }), /invalid language pack error/);
-  assert.throws(() => parseLanguagePackCatalog({ ...catalog, entries: [{ ...catalog.entries[0], manifest: { extensions: ".demo", basenames: [], basenamePrefixes: [] } }] }), /invalid language pack manifest/);
+  assert.throws(() => parseLanguagePackCatalog({ ...catalog, entries: [{ ...catalog.entries[0], manifest: { extensions: ".demo", basenames: [], basenamePrefixes: [] } }] }), /Invalid language pack manifest/);
 });
 
 

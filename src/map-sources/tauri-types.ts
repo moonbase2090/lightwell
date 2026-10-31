@@ -21,10 +21,10 @@ import type {
   InvalidLanguagePackEntry,
   LanguagePackCatalogSnapshot,
   LanguagePackErrorCode,
-  LanguagePackManifestSummary,
   LanguagePackOrigin,
   LoadedLanguagePackEntry,
 } from "../language-pack-source.js";
+import { parseLanguagePackManifest } from "../languages/manifest.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -68,7 +68,7 @@ function parseLanguagePackEntry(value: unknown): LoadedLanguagePackEntry | Inval
       packVersion: value.packVersion,
       origin: value.origin,
       manifestPath: value.manifestPath,
-      manifest: parseLanguagePackManifestSummary(value.manifest),
+      manifest: parseLanguagePackManifest(value.manifest, `desktop catalog:${value.id}`),
     };
   }
   if (
@@ -90,22 +90,6 @@ function parseLanguagePackEntry(value: unknown): LoadedLanguagePackEntry | Inval
     code: value.code,
     message: value.message,
   };
-}
-
-function parseLanguagePackManifestSummary(value: unknown): LanguagePackManifestSummary {
-  if (!isRecord(value)) throw new Error("The desktop app returned an invalid language pack manifest.");
-  return {
-    extensions: parseStringList(value.extensions),
-    basenames: parseStringList(value.basenames),
-    basenamePrefixes: parseStringList(value.basenamePrefixes),
-  };
-}
-
-function parseStringList(value: unknown): readonly string[] {
-  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
-    throw new Error("The desktop app returned an invalid language pack manifest.");
-  }
-  return value;
 }
 
 function isLanguagePackOrigin(value: unknown): value is LanguagePackOrigin {

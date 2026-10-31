@@ -745,6 +745,21 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     : null;
   const [mapCatalog, setMapCatalog] = useState<MapCatalogState>({ kind: "loading" });
   const [mapKey, setMapKey] = useState<string | null>(popoutWorkspaceId);
+  useEffect(() => {
+    const languagePacks = mapSource.languagePacks;
+    if (languagePacks === undefined) return;
+    let cancelled = false;
+    let unlisten: () => void = () => undefined;
+    void languagePacks.catalog(mapKey).catch(() => undefined);
+    void languagePacks.watch(
+      () => undefined,
+      () => undefined,
+    ).then((stop) => {
+      if (cancelled) stop();
+      else unlisten = stop;
+    }, () => undefined);
+    return () => { cancelled = true; unlisten(); };
+  }, [mapKey, mapSource.languagePacks]);
   const [loadedMap, setLoadedMap] = useState<LoadedMapState>({ kind: "loading", id: null });
   const [workspaceError, setWorkspaceError] = useState("");
   const [openingWorkspace, setOpeningWorkspace] = useState(false);

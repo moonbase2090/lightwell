@@ -98,7 +98,17 @@ export async function gotoIpc(page: Page, overrides: {
       packVersion: "1.0.0",
       origin: "builtin",
       manifestPath: null,
-      manifest: { extensions: [".rs"], basenames: ["Cargo.toml"], basenamePrefixes: [] },
+      manifest: {
+        schemaVersion: 1,
+        id: "rust",
+        packVersion: "1.0.0",
+        extensions: [".rs"],
+        basenames: ["Cargo.toml"],
+        basenamePrefixes: [],
+        monaco: { id: "rust", highlighter: "rust", byExtension: {}, byBasename: {}, byBasenamePrefix: {} },
+        extractors: { source: "rust-workspace", workspace: "rust" },
+        fixtures: null,
+      },
     }];
     const languagePackSnapshot = () => ({
       revision: languagePackRevision,
@@ -167,7 +177,17 @@ export async function gotoIpc(page: Page, overrides: {
             packVersion: "1.0.0",
             origin: "user",
             manifestPath: "/redacted/language-packs/demo/language-pack.json",
-            manifest: { extensions: [".demo"], basenames: ["DemoFile"], basenamePrefixes: [] },
+            manifest: {
+              schemaVersion: 1,
+              id: "demo",
+              packVersion: "1.0.0",
+              extensions: [".demo"],
+              basenames: ["DemoFile"],
+              basenamePrefixes: [],
+              monaco: { id: "plaintext", highlighter: null, byExtension: {}, byBasename: {}, byBasenamePrefix: {} },
+              extractors: { source: null, workspace: null },
+              fixtures: null,
+            },
           }];
           return languagePackSnapshot();
         }

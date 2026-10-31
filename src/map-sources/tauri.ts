@@ -136,30 +136,49 @@ const historyApi: MapHistorySource = {
 
 const languagePacksApi: LanguagePackSource = {
   catalog(workspaceId) {
-    return invoke<unknown>("language_pack_catalog", { workspaceId }).then(parseLanguagePackCatalog);
+    const request = nextLanguagePackActivationRequest();
+    return invoke<unknown>("language_pack_catalog", { workspaceId })
+      .then((value) => parseAndActivateLanguagePackCatalog(value, request));
   },
   install(source, replace, workspaceId) {
-    return invoke<unknown>("install_language_pack", { source, replace, workspaceId }).then(parseLanguagePackCatalog);
+    const request = nextLanguagePackActivationRequest();
+    return invoke<unknown>("install_language_pack", { source, replace, workspaceId })
+      .then((value) => parseAndActivateLanguagePackCatalog(value, request));
   },
   reload(workspaceId) {
-    return invoke<unknown>("reload_language_packs", { workspaceId }).then(parseLanguagePackCatalog);
+    const request = nextLanguagePackActivationRequest();
+    return invoke<unknown>("reload_language_packs", { workspaceId })
+      .then((value) => parseAndActivateLanguagePackCatalog(value, request));
   },
   remove(id, workspaceId) {
-    return invoke<unknown>("remove_language_pack", { id, workspaceId }).then(parseLanguagePackCatalog);
+    const request = nextLanguagePackActivationRequest();
+    return invoke<unknown>("remove_language_pack", { id, workspaceId })
+      .then((value) => parseAndActivateLanguagePackCatalog(value, request));
   },
   openDirectory() {
     return invoke<void>("open_language_packs_directory");
   },
   async watch(onChange, onError) {
     return listen<unknown>("language-pack-catalog-changed", (event) => {
-      try {
-        onChange(parseLanguagePackCatalog(event.payload));
-      } catch (error: unknown) {
-        onError(error);
-      }
+      const request = nextLanguagePackActivationRequest();
+      void parseAndActivateLanguagePackCatalog(event.payload, request).then(onChange, onError);
     });
   },
 };
+
+let languagePackActivationRequest = 0;
+
+function nextLanguagePackActivationRequest(): number {
+  languagePackActivationRequest += 1;
+  return languagePackActivationRequest;
+}
+
+async function parseAndActivateLanguagePackCatalog(value: unknown, request: number) {
+  const catalog = parseLanguagePackCatalog(value);
+  const { activateLanguagePackCatalog } = await import("../language-pack-activation.js");
+  if (request === languagePackActivationRequest) activateLanguagePackCatalog(catalog);
+  return catalog;
+}
 
 export const tauriMapSource: MapSource = {
   ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_LANGUAGE_PACKS) === "true"

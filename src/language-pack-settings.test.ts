@@ -5,6 +5,24 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { LanguagePackCatalogView } from "./LanguagePacksSettings.js";
 import { REPOSITORY_LANGUAGE_PACK_CATALOG } from "./language-pack-catalog.js";
 import type { LanguagePackCatalogSnapshot } from "./language-pack-source.js";
+import { activateLanguagePackCatalog } from "./language-pack-activation.js";
+import { parseLanguagePackManifest } from "./languages/manifest.js";
+import { BUILTIN_LANGUAGE_PACKS } from "./languages/builtin-packs.js";
+import { monacoLanguageIdForPath, replaceLanguagePacks, sourceLanguageIdForPath } from "./languages/registry.js";
+
+function manifest(id: string, extension: string, basename: string) {
+  return parseLanguagePackManifest({
+    schemaVersion: 1,
+    id,
+    packVersion: id === "demo" ? "0.9.0" : "1.0.0",
+    extensions: [extension],
+    basenames: [basename],
+    basenamePrefixes: [],
+    monaco: { id: id === "demo" ? "plaintext" : id, highlighter: null, byExtension: {}, byBasename: {}, byBasenamePrefix: {} },
+    extractors: { source: null, workspace: null },
+    fixtures: null,
+  }, `test:${id}`);
+}
 
 const snapshot: LanguagePackCatalogSnapshot = {
   revision: 4,
@@ -16,7 +34,7 @@ const snapshot: LanguagePackCatalogSnapshot = {
       packVersion: "1.0.0",
       origin: "builtin",
       manifestPath: null,
-      manifest: { extensions: [".rs"], basenames: ["Cargo.toml"], basenamePrefixes: [] },
+      manifest: manifest("rust", ".rs", "Cargo.toml"),
     },
     {
       kind: "loaded",
@@ -24,7 +42,7 @@ const snapshot: LanguagePackCatalogSnapshot = {
       packVersion: "0.9.0",
       origin: "user",
       manifestPath: "/redacted/language-packs/demo/language-pack.json",
-      manifest: { extensions: [".demo"], basenames: ["DemoFile"], basenamePrefixes: [] },
+      manifest: manifest("demo", ".demo", "DemoFile"),
     },
     {
       kind: "error",
@@ -67,4 +85,18 @@ test("clearing an invalid-pack error hides only that error", () => {
   assert.equal(html.includes("Expected a JSON object."), false);
   assert.match(html, /<code>demo<\/code>/);
   assert.match(html, />Update<\/button>/);
+});
+
+test("catalog activation hot-reloads installed selectors and removes them without restart", () => {
+  try {
+    activateLanguagePackCatalog(snapshot);
+    assert.equal(sourceLanguageIdForPath("examples/hello.demo"), "demo");
+    assert.equal(monacoLanguageIdForPath("examples/hello.demo"), "plaintext");
+
+    activateLanguagePackCatalog({ ...snapshot, revision: 5, entries: snapshot.entries.filter((entry) => entry.kind !== "loaded" || entry.id !== "demo") });
+    assert.equal(sourceLanguageIdForPath("examples/hello.demo"), null);
+    assert.equal(monacoLanguageIdForPath("examples/hello.demo"), "rust");
+  } finally {
+    replaceLanguagePacks(BUILTIN_LANGUAGE_PACKS);
+  }
 });
