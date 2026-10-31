@@ -16,13 +16,23 @@ const BUILTIN_LANGUAGE_PACK_HOOKS: LanguagePackHookRegistry = {
   ))),
 };
 
-export function activateLanguagePackCatalog(catalog: LanguagePackCatalogSnapshot): void {
-  const installed = catalog.entries
-    .filter((entry): entry is LoadedLanguagePackEntry => entry.kind === "loaded" && entry.origin !== "builtin")
-    .map((entry) => languagePackFromManifest({
-      manifest: entry.manifest,
-      hooks: BUILTIN_LANGUAGE_PACK_HOOKS,
-      source: entry.manifestPath ?? `${entry.origin}:${entry.id}`,
-    }));
-  replaceLanguagePacks([...BUILTIN_LANGUAGE_PACKS, ...installed]);
+export type LanguagePackCatalogActivator = (catalog: LanguagePackCatalogSnapshot) => boolean;
+
+export function createLanguagePackCatalogActivator(): LanguagePackCatalogActivator {
+  let activeRevision = -1;
+  return (catalog) => {
+    if (catalog.revision < activeRevision) return false;
+    const installed = catalog.entries
+      .filter((entry): entry is LoadedLanguagePackEntry => entry.kind === "loaded" && entry.origin !== "builtin")
+      .map((entry) => languagePackFromManifest({
+        manifest: entry.manifest,
+        hooks: BUILTIN_LANGUAGE_PACK_HOOKS,
+        source: entry.manifestPath ?? `${entry.origin}:${entry.id}`,
+      }));
+    replaceLanguagePacks([...BUILTIN_LANGUAGE_PACKS, ...installed]);
+    activeRevision = catalog.revision;
+    return true;
+  };
 }
+
+export const activateLanguagePackCatalog = createLanguagePackCatalogActivator();

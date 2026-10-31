@@ -317,7 +317,7 @@ function insertUnique(
   field: LanguagePackConflictError["field"],
 ): void {
   const existing = values.get(value);
-  if (existing !== undefined && existing !== packId) throw conflict(field, value, existing, packId);
+  if (existing !== undefined) throw conflict(field, value, existing, packId);
   values.set(value, packId);
 }
 

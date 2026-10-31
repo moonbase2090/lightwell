@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { LanguagePackCatalogView } from "./LanguagePacksSettings.js";
 import { REPOSITORY_LANGUAGE_PACK_CATALOG } from "./language-pack-catalog.js";
 import type { LanguagePackCatalogSnapshot } from "./language-pack-source.js";
-import { activateLanguagePackCatalog } from "./language-pack-activation.js";
+import { createLanguagePackCatalogActivator } from "./language-pack-activation.js";
 import { parseLanguagePackManifest } from "./languages/manifest.js";
 import { BUILTIN_LANGUAGE_PACKS } from "./languages/builtin-packs.js";
 import { monacoLanguageIdForPath, replaceLanguagePacks, sourceLanguageIdForPath } from "./languages/registry.js";
@@ -88,6 +88,7 @@ test("clearing an invalid-pack error hides only that error", () => {
 });
 
 test("catalog activation hot-reloads installed selectors and removes them without restart", () => {
+  const activateLanguagePackCatalog = createLanguagePackCatalogActivator();
   try {
     activateLanguagePackCatalog(snapshot);
     assert.equal(sourceLanguageIdForPath("examples/hello.demo"), "demo");
@@ -96,6 +97,46 @@ test("catalog activation hot-reloads installed selectors and removes them withou
     activateLanguagePackCatalog({ ...snapshot, revision: 5, entries: snapshot.entries.filter((entry) => entry.kind !== "loaded" || entry.id !== "demo") });
     assert.equal(sourceLanguageIdForPath("examples/hello.demo"), null);
     assert.equal(monacoLanguageIdForPath("examples/hello.demo"), "rust");
+  } finally {
+    replaceLanguagePacks(BUILTIN_LANGUAGE_PACKS);
+  }
+});
+
+test("catalog activation ignores an older revision delivered after a newer catalog", () => {
+  const activateLanguagePackCatalog = createLanguagePackCatalogActivator();
+  try {
+    const newer = {
+      ...snapshot,
+      revision: 5,
+      entries: snapshot.entries.filter((entry) => entry.kind !== "loaded" || entry.id !== "demo"),
+    };
+    assert.equal(activateLanguagePackCatalog(newer), true);
+    assert.equal(activateLanguagePackCatalog(snapshot), false);
+    assert.equal(sourceLanguageIdForPath("examples/hello.demo"), null);
+  } finally {
+    replaceLanguagePacks(BUILTIN_LANGUAGE_PACKS);
+  }
+});
+
+test("catalog activation rejects an installed pack that repeats a built-in id", () => {
+  const activateLanguagePackCatalog = createLanguagePackCatalogActivator();
+  try {
+    assert.throws(() => activateLanguagePackCatalog({
+      ...snapshot,
+      entries: [
+        ...snapshot.entries,
+        {
+          kind: "loaded",
+          id: "rust",
+          packVersion: "1.0.0",
+          origin: "user",
+          manifestPath: "/redacted/language-packs/rust/language-pack.json",
+          manifest: manifest("rust", ".shadow", "ShadowFile"),
+        },
+      ],
+    }), /id conflict for "rust" between rust and rust/);
+    assert.equal(sourceLanguageIdForPath("examples/file.shadow"), null);
+    assert.equal(sourceLanguageIdForPath("src/lib.rs"), "rust");
   } finally {
     replaceLanguagePacks(BUILTIN_LANGUAGE_PACKS);
   }
