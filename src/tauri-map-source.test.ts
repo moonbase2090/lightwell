@@ -13,6 +13,7 @@ import {
   parseWorkspaceMapUpdate,
   parseResolvedCommitRange,
   parseWorkspaceNotesUpdate,
+  parseLanguagePackCatalog,
 } from "./map-sources/tauri-types.js";
 
 const entry = { id: "/projects/lightwell", label: "Lightwell" };
@@ -77,6 +78,37 @@ test("Tauri map, project notes, and editor IPC responses pass boundary checks", 
   assert.throws(() => parseSourceFileDocument({ path: "src/lib.rs", content: "", line: 0, column: 1 }), /invalid source file/);
   assert.throws(() => parseEditorSettings({ commandTemplate: 3 }), /invalid editor settings/);
   assert.throws(() => parseEditorTemplatePresets([{}]), /invalid editor preset/);
+});
+
+test("language pack IPC parses loaded and invalid entries", () => {
+  const catalog = {
+    revision: 3,
+    userPacksDirectory: "/redacted/language-packs",
+    entries: [
+      {
+        kind: "loaded",
+        id: "demo",
+        packVersion: "1.0.0",
+        origin: "user",
+        manifestPath: "/redacted/language-packs/demo/language-pack.json",
+        manifest: { extensions: [".demo"], basenames: ["DemoFile"], basenamePrefixes: [] },
+      },
+      {
+        kind: "error",
+        errorId: "user:broken",
+        origin: "user",
+        manifestPath: "/redacted/language-packs/broken/language-pack.json",
+        code: "parse",
+        message: "Expected a JSON object.",
+      },
+    ],
+  };
+  assert.deepEqual(parseLanguagePackCatalog(catalog), catalog);
+  assert.throws(() => parseLanguagePackCatalog({ ...catalog, revision: -1 }), /invalid language pack catalog/);
+  assert.throws(() => parseLanguagePackCatalog({ ...catalog, entries: [{ ...catalog.entries[0], origin: "remote" }] }), /invalid loaded language pack/);
+  assert.throws(() => parseLanguagePackCatalog({ ...catalog, entries: [{ ...catalog.entries[0], packVersion: "latest" }] }), /invalid loaded language pack/);
+  assert.throws(() => parseLanguagePackCatalog({ ...catalog, entries: [{ ...catalog.entries[1], code: "missing" }] }), /invalid language pack error/);
+  assert.throws(() => parseLanguagePackCatalog({ ...catalog, entries: [{ ...catalog.entries[0], manifest: { extensions: ".demo", basenames: [], basenamePrefixes: [] } }] }), /invalid language pack manifest/);
 });
 
 

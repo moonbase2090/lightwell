@@ -91,6 +91,20 @@ export async function gotoIpc(page: Page, overrides: {
     };
     const committedNotes = new Map<string, string>();
     let notesRevision = 0;
+    let languagePackRevision = 1;
+    let languagePackEntries: Array<Record<string, unknown>> = [{
+      kind: "loaded",
+      id: "rust",
+      packVersion: "1.0.0",
+      origin: "builtin",
+      manifestPath: null,
+      manifest: { extensions: [".rs"], basenames: ["Cargo.toml"], basenamePrefixes: [] },
+    }];
+    const languagePackSnapshot = () => ({
+      revision: languagePackRevision,
+      userPacksDirectory: "/redacted/language-packs",
+      entries: languagePackEntries,
+    });
     const gitStatus = (blockId: string) => {
       if (typeof w.__LW_NOTES_GIT_STATE__ === "string") return { kind: w.__LW_NOTES_GIT_STATE__ };
       return { kind: "ready", state: "modified", revision: `saved-revision-${notesRevision}`, noteChanged: committedNotes.get(blockId) !== notesState.notes.find((note) => note.blockId === blockId)?.text };
@@ -135,6 +149,33 @@ export async function gotoIpc(page: Page, overrides: {
           return args.settings ?? { commandTemplate: null };
         case "editor_template_presets":
           return caps.presets;
+        case "language_pack_catalog":
+        case "reload_language_packs":
+          return languagePackSnapshot();
+        case "install_language_pack": {
+          const source = args.source;
+          if (typeof source !== "object" || source === null || !("kind" in source) || !("id" in source)
+            || source.kind !== "catalog" || source.id !== "demo" || args.replace !== false) {
+            throw new Error("Invalid captured language pack install request");
+          }
+          w.__LW_LANGUAGE_PACK_INSTALL_INPUT__ = args;
+          languagePackRevision += 1;
+          languagePackEntries = [...languagePackEntries, {
+            kind: "loaded",
+            id: "demo",
+            packVersion: "1.0.0",
+            origin: "user",
+            manifestPath: "/redacted/language-packs/demo/language-pack.json",
+            manifest: { extensions: [".demo"], basenames: ["DemoFile"], basenamePrefixes: [] },
+          }];
+          return languagePackSnapshot();
+        }
+        case "remove_language_pack":
+          languagePackRevision += 1;
+          languagePackEntries = languagePackEntries.filter((entry) => entry.id !== args.id || entry.origin !== "user");
+          return languagePackSnapshot();
+        case "open_language_packs_directory":
+          return undefined;
         case "add_workspace_note":
         case "edit_workspace_note": {
           notesRevision += 1;

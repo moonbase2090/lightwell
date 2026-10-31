@@ -2575,6 +2575,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       {settingsOpen && (
         <EditorSettingsPanel
           editor={mapSource.editor}
+          languagePacks={mapSource.languagePacks}
+          workspaceId={mapKey}
           themePreference={themePreference}
           theme={theme}
           onThemeChange={changeTheme}

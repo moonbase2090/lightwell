@@ -21,6 +21,8 @@ import {
 } from "./type-scale.js";
 import { DEFAULT_WORD_WRAP_SHORTCUT, shortcutFromKeyEvent } from "./source-view-preferences.js";
 import type { UpdateDelivery } from "./app-updates.js";
+import LanguagePacksSettings from "./LanguagePacksSettings.js";
+import type { LanguagePackSource } from "./language-pack-source.js";
 
 type PanelState =
   | { readonly kind: "loading" }
@@ -177,6 +179,8 @@ function TextSizeControl({
 
 export default function EditorSettingsPanel({
   editor,
+  languagePacks,
+  workspaceId,
   themePreference,
   theme,
   onThemeChange,
@@ -194,6 +198,8 @@ export default function EditorSettingsPanel({
   onTreeSelectActionChange,
 }: {
   readonly editor?: MapEditorSource;
+  readonly languagePacks?: LanguagePackSource;
+  readonly workspaceId?: string | null;
   readonly themePreference: ThemePreference;
   readonly theme: ResolvedTheme;
   readonly onThemeChange: (preference: ThemePreference) => void;
@@ -293,7 +299,7 @@ export default function EditorSettingsPanel({
             <span className="settings-panel-icon"><Settings2 size={16} /></span>
             <div>
               <h2 id="editor-settings-title">Settings</h2>
-              <p>Choose how Lightwell looks, sizes text, opens source files, and checks for updates</p>
+              <p>Choose how Lightwell looks, opens source files, loads language packs, and checks for updates</p>
             </div>
           </div>
           <button
@@ -385,6 +391,10 @@ export default function EditorSettingsPanel({
             </button>
             {updateStatus.length > 0 && <span className="settings-help">{updateStatus}</span>}
           </div>
+
+          {languagePacks !== undefined && (
+            <LanguagePacksSettings source={languagePacks} workspaceId={workspaceId ?? null} />
+          )}
 
           {editor !== undefined && <>
           <h3 className="settings-section-title settings-editor-section">Editor</h3>
