@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod language_packs;
 #[cfg(any(target_os = "macos", all(test, unix)))]
 mod path_shim;
 mod updates;
@@ -8,6 +9,7 @@ mod workspace;
 fn main() {
     let builder = tauri::Builder::default()
         .manage(workspace::WorkspaceWatchers::default())
+        .manage(language_packs::LanguagePackService::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -25,6 +27,12 @@ fn main() {
     #[cfg(lightwell_notes_stale_actions)]
     let builder = builder.invoke_handler(tauri::generate_handler![
         updates::update_delivery,
+        language_packs::language_pack_catalog,
+        language_packs::validate_language_pack,
+        language_packs::install_language_pack,
+        language_packs::reload_language_packs,
+        language_packs::remove_language_pack,
+        language_packs::open_language_packs_directory,
         workspace::recent_workspaces,
         workspace::open_workspace,
         workspace::load_workspace_map,
@@ -51,6 +59,12 @@ fn main() {
     #[cfg(not(lightwell_notes_stale_actions))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         updates::update_delivery,
+        language_packs::language_pack_catalog,
+        language_packs::validate_language_pack,
+        language_packs::install_language_pack,
+        language_packs::reload_language_packs,
+        language_packs::remove_language_pack,
+        language_packs::open_language_packs_directory,
         workspace::recent_workspaces,
         workspace::open_workspace,
         workspace::load_workspace_map,

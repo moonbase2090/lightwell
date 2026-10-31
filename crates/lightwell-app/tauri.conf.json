@@ -45,6 +45,12 @@
       "icons/icon.ico"
     ],
     "targets": ["app", "deb", "appimage", "rpm"],
+    "resources": {
+      "../../resources/language-packs/": "language-packs/"
+    },
+    "resources": {
+      "../../resources/language-packs/": "language-packs/"
+    },
     "macOS": {
       "minimumSystemVersion": "11.0"
     }

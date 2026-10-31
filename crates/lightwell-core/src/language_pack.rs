@@ -11,6 +11,33 @@ use std::path::{Path, PathBuf};
 
 pub const LANGUAGE_PACK_SCHEMA_VERSION: u32 = 1;
 pub const RUST_WORKSPACE_PACK_ID: &str = "rust";
+const HIGHLIGHTER_HOOKS: &[&str] = &[
+    "config-infra",
+    "cpp",
+    "dotnet",
+    "go",
+    "jvm",
+    "php",
+    "python",
+    "ruby",
+    "rust",
+    "swift",
+    "web",
+];
+const SOURCE_EXTRACTOR_HOOKS: &[&str] = &[
+    "config-infra-module",
+    "cpp-module",
+    "dotnet-module",
+    "go-module",
+    "jvm-module",
+    "php-module",
+    "python-module",
+    "ruby-module",
+    "rust-workspace",
+    "swift-module",
+    "web-module",
+];
+const WORKSPACE_EXTRACTOR_HOOKS: &[&str] = &["rust"];
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -122,6 +149,7 @@ enum CandidateError {
     Parse(String),
     Validation(String),
     Conflict(String),
+    UnknownHook(String),
 }
 
 impl CandidateError {
@@ -131,6 +159,7 @@ impl CandidateError {
             Self::Parse(_) => LanguagePackErrorCode::Parse,
             Self::Validation(_) => LanguagePackErrorCode::Validation,
             Self::Conflict(_) => LanguagePackErrorCode::Conflict,
+            Self::UnknownHook(_) => LanguagePackErrorCode::UnknownHook,
         }
     }
 }
@@ -141,7 +170,8 @@ impl fmt::Display for CandidateError {
             Self::Read(message)
             | Self::Parse(message)
             | Self::Validation(message)
-            | Self::Conflict(message) => formatter.write_str(message),
+            | Self::Conflict(message)
+            | Self::UnknownHook(message) => formatter.write_str(message),
         }
     }
 }
@@ -178,6 +208,31 @@ pub fn default_user_language_packs_directory() -> Option<PathBuf> {
                 .join(".lightwell")
                 .join("language-packs")
         })
+}
+
+pub fn read_language_pack_manifest(path: &Path) -> Result<LanguagePackManifest, String> {
+    let source = fs::read_to_string(path).map_err(|error| {
+        format!(
+            "Could not read language pack manifest {}: {error}",
+            display_path(path)
+        )
+    })?;
+    let manifest = serde_json::from_str(&source).map_err(|error| {
+        format!(
+            "Could not parse language pack manifest {}: {error}",
+            display_path(path)
+        )
+    })?;
+    validate_language_pack_manifest(&manifest)?;
+    Ok(manifest)
+}
+
+pub fn validate_language_pack_manifest(manifest: &LanguagePackManifest) -> Result<(), String> {
+    validate_manifest(manifest)
+}
+
+pub fn validate_language_pack_conflicts(manifests: &[LanguagePackManifest]) -> Result<(), String> {
+    validate_conflicts(manifests)
 }
 
 pub fn load_language_packs(
@@ -305,10 +360,15 @@ fn load_candidate(
         ))
     })?;
     validate_manifest(&manifest).map_err(|message| {
-        CandidateError::Validation(format!(
+        let message = format!(
             "Invalid language pack manifest at {}: {message}",
             display_path(&candidate.path)
-        ))
+        );
+        if message.contains(" is not installed.") {
+            CandidateError::UnknownHook(message)
+        } else {
+            CandidateError::Validation(message)
+        }
     })?;
     let mut all = loaded.to_vec();
     all.push(manifest.clone());
@@ -360,9 +420,21 @@ fn validate_manifest(manifest: &LanguagePackManifest) -> Result<(), String> {
     if manifest.monaco.id.is_empty() {
         return Err("monaco.id must be a non-empty string.".into());
     }
-    validate_hook(&manifest.monaco.highlighter, "monaco.highlighter")?;
-    validate_hook(&manifest.extractors.source, "extractors.source")?;
-    validate_hook(&manifest.extractors.workspace, "extractors.workspace")?;
+    validate_hook(
+        &manifest.monaco.highlighter,
+        "monaco.highlighter",
+        HIGHLIGHTER_HOOKS,
+    )?;
+    validate_hook(
+        &manifest.extractors.source,
+        "extractors.source",
+        SOURCE_EXTRACTOR_HOOKS,
+    )?;
+    validate_hook(
+        &manifest.extractors.workspace,
+        "extractors.workspace",
+        WORKSPACE_EXTRACTOR_HOOKS,
+    )?;
     if manifest
         .fixtures
         .as_ref()
@@ -471,9 +543,14 @@ fn validate_unique(values: &[String], field: &str, case_insensitive: bool) -> Re
     Ok(())
 }
 
-fn validate_hook(value: &Option<String>, field: &str) -> Result<(), String> {
-    if value.as_ref().is_some_and(|hook| hook.is_empty()) {
-        return Err(format!("{field} must be null or a non-empty string."));
+fn validate_hook(value: &Option<String>, field: &str, installed: &[&str]) -> Result<(), String> {
+    if let Some(hook) = value {
+        if hook.is_empty() {
+            return Err(format!("{field} must be null or a non-empty string."));
+        }
+        if !installed.contains(&hook.as_str()) {
+            return Err(format!("{field} hook {hook:?} is not installed."));
+        }
     }
     Ok(())
 }

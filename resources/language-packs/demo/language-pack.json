@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "demo",
+  "packVersion": "1.0.0",
+  "extensions": [".demo"],
+  "basenames": ["DemoFile"],
+  "basenamePrefixes": [],
+  "monaco": {
+    "id": "plaintext",
+    "highlighter": null,
+    "byExtension": {},
+    "byBasename": {},
+    "byBasenamePrefix": {}
+  },
+  "extractors": {
+    "source": null,
+    "workspace": null
+  },
+  "fixtures": null
+}

@@ -41,10 +41,11 @@ pub use facts::{
 };
 pub use language_pack::{
     builtin_language_pack_manifests, default_user_language_packs_directory, load_language_packs,
-    load_language_packs_with_builtins, LanguagePackCatalog, LanguagePackCatalogEntry,
-    LanguagePackErrorCode, LanguagePackExtractorManifest, LanguagePackLoaderError,
-    LanguagePackManifest, LanguagePackMonacoManifest, LanguagePackOrigin, LoadedLanguagePacks,
-    LANGUAGE_PACK_SCHEMA_VERSION, RUST_WORKSPACE_PACK_ID,
+    load_language_packs_with_builtins, read_language_pack_manifest,
+    validate_language_pack_conflicts, validate_language_pack_manifest, LanguagePackCatalog,
+    LanguagePackCatalogEntry, LanguagePackErrorCode, LanguagePackExtractorManifest,
+    LanguagePackLoaderError, LanguagePackManifest, LanguagePackMonacoManifest, LanguagePackOrigin,
+    LoadedLanguagePacks, LANGUAGE_PACK_SCHEMA_VERSION, RUST_WORKSPACE_PACK_ID,
 };
 pub use metadata::{
     discover_cargo_workspace, discover_cargo_workspace_manifest_only, CargoDependency,
