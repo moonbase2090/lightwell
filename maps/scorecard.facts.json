@@ -28,7 +28,6 @@
         "module:python:testdata-py-local-import-extra-widgets",
         "module:python:testdata-py-local-import-helpers",
         "module:python:testdata-py-local-import-src-demo",
-        "module:python:testdata-py-local-import-src-demo-app",
         "module:python:testdata-python-cov-partial-app",
         "module:python:testdata-python-cov-partial-conftest",
         "module:python:testdata-python-cov-partial-other",
@@ -1331,7 +1330,9 @@
       "id": "module:python:testdata-py-local-import-src-demo",
       "label": "demo",
       "parentId": "workspace:scorecard",
-      "children": [],
+      "children": [
+        "module:python:testdata-py-local-import-src-demo-app"
+      ],
       "sourcePath": "testdata/py_local_import/src/demo/__init__.py",
       "fingerprint": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
       "packageName": "testdata.py_local_import.src.demo",
@@ -1345,7 +1346,7 @@
       "type": "module",
       "id": "module:python:testdata-py-local-import-src-demo-app",
       "label": "app",
-      "parentId": "workspace:scorecard",
+      "parentId": "module:python:testdata-py-local-import-src-demo",
       "children": [
         "module:python:testdata-py-local-import-src-demo-app-total:def"
       ],
@@ -2921,8 +2922,8 @@
     },
     {
       "kind": "contains",
-      "id": "contains:workspace:scorecard->module:python:testdata-py-local-import-src-demo-app",
-      "source": "workspace:scorecard",
+      "id": "contains:module:python:testdata-py-local-import-src-demo->module:python:testdata-py-local-import-src-demo-app",
+      "source": "module:python:testdata-py-local-import-src-demo",
       "target": "module:python:testdata-py-local-import-src-demo-app"
     },
     {
