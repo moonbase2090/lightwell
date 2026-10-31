@@ -9,6 +9,47 @@ import type { MapNode, BlockNodeData } from "./BlockNode.js";
 const elk = new ELK();
 const nodeWidth = 222;
 const nodeHeight = 94;
+const rowSpacing = 14;
+/** Most nodes one row may hold before a wide layer wraps into more rows. */
+export const maxNodesPerRow = 8;
+
+/**
+ * Re-flows each ELK layer that is wider than maxNodesPerRow into rows, then moves the layers below it down.
+ * Edges are drawn from node positions, so moving nodes needs no edge rerouting.
+ */
+export function wrapWideLayers(
+  positions: ReadonlyMap<string, { readonly x: number; readonly y: number }>,
+  perRow: number = maxNodesPerRow,
+): Map<string, { x: number; y: number }> {
+  const layers = new Map<number, string[]>();
+  for (const [id, position] of positions) {
+    const row = layers.get(position.y) ?? [];
+    row.push(id);
+    layers.set(position.y, row);
+  }
+  const result = new Map<string, { x: number; y: number }>();
+  let shift = 0;
+  for (const y of [...layers.keys()].sort((a, b) => a - b)) {
+    const ids = (layers.get(y) ?? []).sort((a, b) => (positions.get(a)?.x ?? 0) - (positions.get(b)?.x ?? 0));
+    if (ids.length <= perRow) {
+      for (const id of ids) result.set(id, { x: positions.get(id)?.x ?? 0, y: y + shift });
+      continue;
+    }
+    const left = positions.get(ids[0] ?? "")?.x ?? 0;
+    const rows = Math.ceil(ids.length / perRow);
+    const perRowCount = Math.ceil(ids.length / rows);
+    ids.forEach((id, index) => {
+      const column = index % perRowCount;
+      const rowIndex = Math.floor(index / perRowCount);
+      result.set(id, {
+        x: left + column * (nodeWidth + rowSpacing),
+        y: y + shift + rowIndex * (nodeHeight + rowSpacing),
+      });
+    });
+    shift += (rows - 1) * (nodeHeight + rowSpacing);
+  }
+  return result;
+}
 
 export async function layoutBlocks(args: {
   readonly blocks: readonly DisplayBlock[];
@@ -36,7 +77,7 @@ export async function layoutBlocks(args: {
       targets: [connection.target],
     })),
   });
-  const positions = new Map((layout.children ?? []).map((child) => [child.id, { x: child.x ?? 0, y: child.y ?? 0 }]));
+  const positions = wrapWideLayers(new Map((layout.children ?? []).map((child) => [child.id, { x: child.x ?? 0, y: child.y ?? 0 }])));
   const nodes: MapNode[] = args.blocks.map((block) => {
     const position = positions.get(block.id) ?? { x: 0, y: 0 };
     const data: BlockNodeData = {
