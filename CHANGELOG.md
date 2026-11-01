@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.25 - 2026-11-01
+
+### Added
+
+- Python projects read package metadata from `pyproject.toml`, Poetry, `setup.cfg`, and `setup.py`, map package hierarchies and static entry points, and connect imports within the workspace (#233).
+- Project notes configure a repository-local merge driver. Changes to different block IDs merge automatically, while same-note conflicts keep both complete documents for manual resolution (#232).
+- Opt-in compound dependency maps render nested workspace, crate, module, entry-point, and feature regions with bounded groups and orthogonal routes. Build with `VITE_ENABLE_COMPOUND_LAYOUT=true` to enable them (#230, #234).
+- Opt-in source-derived state charts map Rust enum and match transitions and TypeScript or JavaScript enum and switch transitions for the selected block. Build with `VITE_ENABLE_STATE_CHART=true` to enable them (#231).
+- Versioned language packs add strict manifests, built-in, user, and workspace discovery, validation, authoring documentation, and an opt-in Settings screen for installing, updating, removing, and reloading packs. Build with `VITE_ENABLE_LANGUAGE_PACKS=true` to enable the Settings screen and live registry activation (#238, #239).
+
+
 ## 0.1.24 - 2026-10-28
 
 ### Changed
