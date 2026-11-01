@@ -151,7 +151,7 @@ jobs:
   tauri-macos-signed:
     # Runs only once Apple signing is configured; until then macOS ships unsigned.
     # Signs the universal build, the release path with the most moving parts.
-    if: ${{ vars.LIGHTWELL_MACOS_SIGNING == 'true' }}
+    if: ${{ vars.LIGHTWELL_MACOS_SIGNING == 'true' && github.actor != 'dependabot[bot]' }}
     runs-on: macos-26
     env:
       MACOSX_DEPLOYMENT_TARGET: '11.0'

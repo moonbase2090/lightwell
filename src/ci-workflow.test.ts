@@ -41,6 +41,15 @@ test("windows runs the npm suite and the cargo tests", () => {
   assert.match(block, /python scripts\/release\/windows_msi_test.py/);
 });
 
+test("the signed macOS job skips Dependabot without disabling configured signing", () => {
+  const block = jobBlock("tauri-macos-signed");
+  assert.match(
+    block,
+    /if: \$\{\{ vars\.LIGHTWELL_MACOS_SIGNING == 'true' && github\.actor != 'dependabot\[bot\]' \}\}/,
+  );
+  assert.match(block, /scripts\/ci\/sign-macos-app\.sh --credential-smoke/);
+});
+
 test("CI upload-artifact steps are pinned to a full commit SHA", () => {
   assert.equal(text.includes("actions/upload-artifact@v"), false);
   const uploads = [...text.matchAll(/^ {2,}(?:- )?uses: (actions\/upload-artifact@\S+)/gm)].map(
