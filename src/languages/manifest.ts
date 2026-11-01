@@ -245,13 +245,13 @@ function stringMap(
 ): Readonly<Record<string, string>> {
   const record = objectValue(value, source, field);
   const allowed = new Set(allowedKeys.map((key) => caseInsensitive ? key.toLowerCase() : key));
-  const result: Record<string, string> = {};
+  const result: Array<readonly [string, string]> = [];
   for (const [key, item] of Object.entries(record)) {
     const lookup = caseInsensitive ? key.toLowerCase() : key;
     if (!allowed.has(lookup)) fail(source, `${field}.${key} does not match a declared path rule.`);
-    result[lookup] = requiredString(item, source, `${field}.${key}`);
+    result.push([lookup, requiredString(item, source, `${field}.${key}`)]);
   }
-  return result;
+  return Object.fromEntries(result);
 }
 
 function extensionMap(
@@ -260,12 +260,12 @@ function extensionMap(
   field: string,
 ): Readonly<Record<string, string>> {
   const record = objectValue(value, source, field);
-  const result: Record<string, string> = {};
+  const result: Array<readonly [string, string]> = [];
   for (const [key, item] of Object.entries(record)) {
     const extension = extensionValue(key, source, `${field}.${key}`);
-    result[extension] = requiredString(item, source, `${field}.${key}`);
+    result.push([extension, requiredString(item, source, `${field}.${key}`)]);
   }
-  return result;
+  return Object.fromEntries(result);
 }
 
 function requiredString(value: unknown, source: string, field: string): string {
