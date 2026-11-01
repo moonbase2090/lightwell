@@ -15,7 +15,7 @@ assert.deepEqual(
   "The bundled and workspace sample manifests must remain identical.",
 );
 
-run("npx", ["tsx", "--test", "src/language-pack-loader.test.ts"]);
+run(npmCommand(), ["run", "test:language-packs"]);
 run("cargo", ["test", "-p", "lightwell-core", "--lib", "language_pack::tests", "--locked"]);
 run("cargo", ["test", "-p", "lightwell-app", "--bin", "lightwell", "language_packs", "--locked"]);
 
