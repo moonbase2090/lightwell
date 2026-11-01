@@ -57,8 +57,7 @@ pub fn install_language_pack(
     let loaded = load_catalog(&app, service.inner(), workspace_id.as_deref())?;
     validate_install(&loaded, &manifest, replace)?;
     let user_directory = user_packs_directory(&app)?;
-    let destination_directory = user_directory.join(&manifest.id);
-    let destination = destination_directory.join("language-pack.json");
+    let destination = user_manifest_destination(&loaded, &user_directory, &manifest.id, replace);
     copy_manifest_atomic(&source_path, &destination, replace)?;
     refreshed_catalog(&app, service.inner(), workspace_id.as_deref())
 }
@@ -81,37 +80,75 @@ pub fn remove_language_pack(
 ) -> Result<LanguagePackCatalog, String> {
     validate_catalog_id(&id)?;
     let loaded = load_catalog(&app, service.inner(), workspace_id.as_deref())?;
-    let removable = loaded.catalog.entries.iter().any(|entry| {
-        matches!(entry, LanguagePackCatalogEntry::Loaded {
+    let user_directory = user_packs_directory(&app)?;
+    remove_user_manifest(&loaded, &user_directory, &id)?;
+    refreshed_catalog(&app, service.inner(), workspace_id.as_deref())
+}
+
+fn user_manifest_destination(
+    loaded: &LoadedLanguagePacks,
+    user_directory: &Path,
+    id: &str,
+    replace: bool,
+) -> PathBuf {
+    if replace {
+        if let Some(path) = installed_user_manifest_path(loaded, user_directory, id) {
+            return path;
+        }
+    }
+    user_directory.join(id).join("language-pack.json")
+}
+
+fn installed_user_manifest_path(
+    loaded: &LoadedLanguagePacks,
+    user_directory: &Path,
+    id: &str,
+) -> Option<PathBuf> {
+    loaded.catalog.entries.iter().find_map(|entry| match entry {
+        LanguagePackCatalogEntry::Loaded {
             id: loaded_id,
             origin: LanguagePackOrigin::User,
+            manifest_path: Some(manifest_path),
             ..
-        } if loaded_id == &id)
-    });
-    if !removable {
-        return Err(format!(
-            "Language pack {id} is not installed in the user language packs directory."
-        ));
-    }
-    let directory = user_packs_directory(&app)?.join(&id);
-    let manifest_path = directory.join("language-pack.json");
+        } if loaded_id == id => {
+            let path = PathBuf::from(manifest_path);
+            path.starts_with(user_directory).then_some(path)
+        }
+        _ => None,
+    })
+}
+
+fn remove_user_manifest(
+    loaded: &LoadedLanguagePacks,
+    user_directory: &Path,
+    id: &str,
+) -> Result<(), String> {
+    let manifest_path =
+        installed_user_manifest_path(loaded, user_directory, id).ok_or_else(|| {
+            format!("Language pack {id} is not installed in the user language packs directory.")
+        })?;
     fs::remove_file(&manifest_path).map_err(|error| {
         format!(
             "Could not remove language pack manifest {}: {error}",
             manifest_path.display()
         )
     })?;
-    match fs::remove_dir(&directory) {
-        Ok(()) => {}
-        Err(error) if error.kind() == io::ErrorKind::DirectoryNotEmpty => {}
-        Err(error) => {
-            return Err(format!(
-                "Could not remove language pack directory {}: {error}",
-                directory.display()
-            ))
+    if let Some(directory) = manifest_path
+        .parent()
+        .filter(|directory| *directory != user_directory)
+    {
+        match fs::remove_dir(directory) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::DirectoryNotEmpty => {}
+            Err(error) => {
+                return Err(format!(
+                    "Could not remove language pack directory {}: {error}",
+                    directory.display()
+                ))
+            }
         }
     }
-    refreshed_catalog(&app, service.inner(), workspace_id.as_deref())
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -420,5 +457,77 @@ mod tests {
         copy_manifest_atomic(&source, &destination, true).unwrap();
         assert_eq!(fs::read_to_string(destination).unwrap(), "second");
         fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn flat_user_manifest_is_replaced_and_removed_at_its_loaded_path() {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!(
+            "lightwell-language-pack-flat-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir(&directory).unwrap();
+        let source = directory.join("source.json");
+        let user_directory = directory.join("packs");
+        fs::create_dir(&user_directory).unwrap();
+        let flat_manifest = user_directory.join("demo.language-pack.json");
+        fs::write(&source, "updated").unwrap();
+        fs::write(&flat_manifest, "original").unwrap();
+        let loaded = loaded_user_pack("demo", &flat_manifest);
+
+        let destination = user_manifest_destination(&loaded, &user_directory, "demo", true);
+        copy_manifest_atomic(&source, &destination, true).unwrap();
+        assert_eq!(destination, flat_manifest);
+        assert_eq!(fs::read_to_string(&flat_manifest).unwrap(), "updated");
+        assert!(!user_directory.join("demo/language-pack.json").exists());
+
+        remove_user_manifest(&loaded, &user_directory, "demo").unwrap();
+        assert!(!flat_manifest.exists());
+        assert!(user_directory.exists());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    fn loaded_user_pack(id: &str, manifest_path: &Path) -> LoadedLanguagePacks {
+        let manifest = LanguagePackManifest {
+            schema_version: 1,
+            id: id.into(),
+            pack_version: "1.0.0".into(),
+            extensions: vec![".demo".into()],
+            basenames: Vec::new(),
+            basename_prefixes: Vec::new(),
+            monaco: lightwell_core::LanguagePackMonacoManifest {
+                id: "plaintext".into(),
+                highlighter: None,
+                by_extension: Default::default(),
+                by_basename: Default::default(),
+                by_basename_prefix: Default::default(),
+            },
+            extractors: lightwell_core::LanguagePackExtractorManifest {
+                source: None,
+                workspace: None,
+            },
+            fixtures: None,
+        };
+        LoadedLanguagePacks {
+            manifests: vec![manifest.clone()],
+            catalog: LanguagePackCatalog {
+                revision: 0,
+                user_packs_directory: manifest_path
+                    .parent()
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned(),
+                entries: vec![LanguagePackCatalogEntry::Loaded {
+                    id: id.into(),
+                    pack_version: "1.0.0".into(),
+                    origin: LanguagePackOrigin::User,
+                    manifest_path: Some(manifest_path.to_string_lossy().into_owned()),
+                    manifest,
+                }],
+            },
+        }
     }
 }

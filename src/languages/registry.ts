@@ -130,17 +130,24 @@ function monacoLanguageIdForPathIn(pack: LanguagePack | null, filePath: string):
     return "rust";
   }
   const basename = baseName(filePath).toLowerCase();
-  const exactBasenameId = pack.monacoIdByBasename?.[basename];
+  const exactBasenameId = ownMappingValue(pack.monacoIdByBasename, basename);
   if (exactBasenameId !== undefined) return exactBasenameId;
   for (const [prefix, languageId] of Object.entries(pack.monacoIdByBasenamePrefix ?? {})) {
     if (basename.startsWith(prefix.toLowerCase())) return languageId;
   }
   const extension = extensionForMonaco(filePath);
-  const mapped = pack.monacoIdByExtension?.[extension];
+  const mapped = ownMappingValue(pack.monacoIdByExtension, extension);
   if (mapped !== undefined) {
     return mapped;
   }
   return pack.monacoLanguageId;
+}
+
+function ownMappingValue(
+  mapping: Readonly<Record<string, string>> | undefined,
+  key: string,
+): string | undefined {
+  return mapping !== undefined && Object.hasOwn(mapping, key) ? mapping[key] : undefined;
 }
 
 export function registerLanguagePackHighlighters(monaco: typeof Monaco): void {

@@ -1,6 +1,6 @@
 //! Versioned language-pack manifests and filesystem discovery.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::error::Error;
@@ -43,6 +43,7 @@ const WORKSPACE_EXTRACTOR_HOOKS: &[&str] = &["rust"];
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LanguagePackMonacoManifest {
     pub id: String,
+    #[serde(deserialize_with = "deserialize_required_nullable")]
     pub highlighter: Option<String>,
     pub by_extension: BTreeMap<String, String>,
     pub by_basename: BTreeMap<String, String>,
@@ -52,7 +53,9 @@ pub struct LanguagePackMonacoManifest {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LanguagePackExtractorManifest {
+    #[serde(deserialize_with = "deserialize_required_nullable")]
     pub source: Option<String>,
+    #[serde(deserialize_with = "deserialize_required_nullable")]
     pub workspace: Option<String>,
 }
 
@@ -67,7 +70,16 @@ pub struct LanguagePackManifest {
     pub basename_prefixes: Vec<String>,
     pub monaco: LanguagePackMonacoManifest,
     pub extractors: LanguagePackExtractorManifest,
+    #[serde(deserialize_with = "deserialize_required_nullable")]
     pub fixtures: Option<String>,
+}
+
+fn deserialize_required_nullable<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -485,7 +497,7 @@ fn validate_conflicts(manifests: &[LanguagePackManifest]) -> Result<(), String> 
             )?;
         }
         for basename in &manifest.basenames {
-            let lower = basename.to_ascii_lowercase();
+            let lower = normalize_basename(basename);
             insert_unique(&mut basenames, &lower, &manifest.id, "basename")?;
             for (prefix, prefix_pack) in &prefixes {
                 if lower.starts_with(prefix) && prefix_pack != &manifest.id {
@@ -499,7 +511,7 @@ fn validate_conflicts(manifests: &[LanguagePackManifest]) -> Result<(), String> 
             }
         }
         for prefix in &manifest.basename_prefixes {
-            let lower = prefix.to_ascii_lowercase();
+            let lower = normalize_basename(prefix);
             for (existing, existing_pack) in &prefixes {
                 if (lower.starts_with(existing) || existing.starts_with(&lower))
                     && existing_pack != &manifest.id
@@ -532,7 +544,7 @@ fn validate_unique(values: &[String], field: &str, case_insensitive: bool) -> Re
     let mut seen = BTreeSet::new();
     for value in values {
         let key = if case_insensitive {
-            value.to_ascii_lowercase()
+            normalize_basename(value)
         } else {
             value.clone()
         };
@@ -565,7 +577,7 @@ fn validate_monaco_map(
         .iter()
         .map(|value| {
             if case_insensitive {
-                value.to_ascii_lowercase()
+                normalize_basename(value)
             } else {
                 value.clone()
             }
@@ -573,7 +585,7 @@ fn validate_monaco_map(
         .collect::<BTreeSet<_>>();
     for (key, value) in values {
         let comparable = if case_insensitive {
-            key.to_ascii_lowercase()
+            normalize_basename(key)
         } else {
             key.clone()
         };
@@ -585,6 +597,10 @@ fn validate_monaco_map(
         }
     }
     Ok(())
+}
+
+fn normalize_basename(value: &str) -> String {
+    value.to_lowercase()
 }
 
 fn insert_unique(
@@ -737,6 +753,42 @@ mod tests {
             validate_manifest(&invalid).unwrap_err(),
             "monaco.id must be a non-empty string."
         );
+    }
+
+    #[test]
+    fn nullable_manifest_fields_are_required_in_json() {
+        let source = serde_json::to_value(manifest("example", ".example")).unwrap();
+        let cases = [
+            ("fixtures", vec!["fixtures"]),
+            ("monaco.highlighter", vec!["monaco", "highlighter"]),
+            ("extractors.source", vec!["extractors", "source"]),
+            ("extractors.workspace", vec!["extractors", "workspace"]),
+        ];
+        for (field, path) in cases {
+            let mut missing = source.clone();
+            let (key, parents) = path.split_last().unwrap();
+            let mut object = missing.as_object_mut().unwrap();
+            for parent in parents {
+                object = object.get_mut(*parent).unwrap().as_object_mut().unwrap();
+            }
+            object.remove(*key);
+            let error = serde_json::from_value::<LanguagePackManifest>(missing).unwrap_err();
+            assert!(
+                error.to_string().contains("missing field"),
+                "{field}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn unicode_basename_case_variants_conflict() {
+        let mut upper = manifest("upper", ".upper");
+        upper.basenames = vec!["ÄFile".into()];
+        let mut lower = manifest("lower", ".lower");
+        lower.basenames = vec!["äfile".into()];
+        assert!(validate_conflicts(&[upper, lower])
+            .unwrap_err()
+            .contains("basename conflict"));
     }
 
     #[test]

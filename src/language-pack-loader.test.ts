@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { loadLanguagePacks } from "./languages/loader.js";
-import { LanguagePackManifestError, parseLanguagePackManifest } from "./languages/manifest.js";
+import {
+  EMPTY_LANGUAGE_PACK_HOOKS,
+  LanguagePackManifestError,
+  languagePackFromManifest,
+  parseLanguagePackManifest,
+} from "./languages/manifest.js";
 import { createLanguagePackRegistry } from "./languages/registry.js";
 
 const validManifest = {
@@ -31,6 +36,71 @@ test("manifest validation rejects an extension without a leading dot", () => {
     (error) => error instanceof LanguagePackManifestError
       && error.message === "Invalid language pack manifest at broken.json: extensions[0] must be a lowercase extension beginning with a dot.",
   );
+});
+
+test("manifest validation requires every nullable field", () => {
+  const cases: ReadonlyArray<readonly [string, unknown]> = [
+    ["fixtures", withoutKey(validManifest, "fixtures")],
+    ["monaco.highlighter", {
+      ...validManifest,
+      monaco: withoutKey(validManifest.monaco, "highlighter"),
+    }],
+    ["extractors.source", {
+      ...validManifest,
+      extractors: withoutKey(validManifest.extractors, "source"),
+    }],
+    ["extractors.workspace", {
+      ...validManifest,
+      extractors: withoutKey(validManifest.extractors, "workspace"),
+    }],
+  ];
+  for (const [field, manifest] of cases) {
+    assert.throws(
+      () => parseLanguagePackManifest(manifest, "missing.json"),
+      (error) => error instanceof LanguagePackManifestError
+        && error.message.includes(`${field} must be a non-empty string`),
+      field,
+    );
+  }
+});
+
+test("loader treats Unicode basename case variants as a conflict", () => {
+  withPackDirectory((directory) => {
+    writeFileSync(
+      path.join(directory, "one.language-pack.json"),
+      JSON.stringify({ ...validManifest, id: "one", extensions: [], basenames: ["ÄFile"] }),
+    );
+    writeFileSync(
+      path.join(directory, "two.language-pack.json"),
+      JSON.stringify({ ...validManifest, id: "two", extensions: [], basenames: ["äfile"] }),
+    );
+    const loaded = loadLanguagePacks({ userPacksDirectory: directory, workspacePacksDirectory: null });
+    const error = loaded.catalog.entries.find((entry) => entry.kind === "error");
+    assert.equal(error?.code, "conflict");
+    assert.match(error?.message ?? "", /basename conflict/);
+    assert.equal(loaded.packs.some((pack) => pack.id === "two"), false);
+  });
+});
+
+test("basename Monaco maps retain an own __proto__ rule", () => {
+  const manifest = parseLanguagePackManifest({
+    ...validManifest,
+    extensions: [],
+    basenames: ["__proto__", "constructor"],
+    monaco: {
+      ...validManifest.monaco,
+      byBasename: Object.fromEntries([["__proto__", "json"]]),
+    },
+  }, "prototype.json");
+  const pack = languagePackFromManifest({
+    manifest,
+    hooks: EMPTY_LANGUAGE_PACK_HOOKS,
+    source: "prototype.json",
+  });
+  const registry = createLanguagePackRegistry([pack]);
+  assert.equal(registry.monacoLanguageIdForPath("__proto__"), "json");
+  assert.equal(registry.monacoLanguageIdForPath("constructor"), "plaintext");
+  assert.equal(Object.hasOwn(manifest.monaco.byBasename, "__proto__"), true);
 });
 
 test("loader reports an extension conflict and keeps the built-in owner", () => {
@@ -106,4 +176,8 @@ function withPackDirectory(run: (directory: string) => void): void {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+}
+
+function withoutKey(value: object, key: string): Readonly<Record<string, unknown>> {
+  return Object.fromEntries(Object.entries(value).filter(([candidate]) => candidate !== key));
 }
