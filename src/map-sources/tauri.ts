@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { MapHistorySource, MapSource, ProjectNoteInput, ProjectNotesSource } from "../map-source.js";
+import type { LanguagePackSource } from "../language-pack-source.js";
 import {
   parseBlockDiffDocument,
   parseCommitChanges,
@@ -18,6 +19,7 @@ import {
   parseSourceFileDocument,
   parseWorkspaceMapUpdate,
   parseWorkspaceNotesUpdate,
+  parseLanguagePackCatalog,
 } from "./tauri-types.js";
 import { readNoteRevisionConflict } from "../notes-reload.js";
 
@@ -132,7 +134,56 @@ const historyApi: MapHistorySource = {
   },
 };
 
+const languagePacksApi: LanguagePackSource = {
+  catalog(workspaceId) {
+    const request = nextLanguagePackActivationRequest();
+    return invoke<unknown>("language_pack_catalog", { workspaceId })
+      .then((value) => parseAndActivateLanguagePackCatalog(value, request));
+  },
+  install(source, replace, workspaceId) {
+    const request = nextLanguagePackActivationRequest();
+    return invoke<unknown>("install_language_pack", { source, replace, workspaceId })
+      .then((value) => parseAndActivateLanguagePackCatalog(value, request));
+  },
+  reload(workspaceId) {
+    const request = nextLanguagePackActivationRequest();
+    return invoke<unknown>("reload_language_packs", { workspaceId })
+      .then((value) => parseAndActivateLanguagePackCatalog(value, request));
+  },
+  remove(id, workspaceId) {
+    const request = nextLanguagePackActivationRequest();
+    return invoke<unknown>("remove_language_pack", { id, workspaceId })
+      .then((value) => parseAndActivateLanguagePackCatalog(value, request));
+  },
+  openDirectory() {
+    return invoke<void>("open_language_packs_directory");
+  },
+  async watch(onChange, onError) {
+    return listen<unknown>("language-pack-catalog-changed", (event) => {
+      const request = nextLanguagePackActivationRequest();
+      void parseAndActivateLanguagePackCatalog(event.payload, request).then(onChange, onError);
+    });
+  },
+};
+
+let languagePackActivationRequest = 0;
+
+function nextLanguagePackActivationRequest(): number {
+  languagePackActivationRequest += 1;
+  return languagePackActivationRequest;
+}
+
+async function parseAndActivateLanguagePackCatalog(value: unknown, request: number) {
+  const catalog = parseLanguagePackCatalog(value);
+  const { activateLanguagePackCatalog } = await import("../language-pack-activation.js");
+  if (request === languagePackActivationRequest) activateLanguagePackCatalog(catalog);
+  return catalog;
+}
+
 export const tauriMapSource: MapSource = {
+  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_LANGUAGE_PACKS) === "true"
+    ? { languagePacks: languagePacksApi }
+    : {}),
   editor: {
     inspectBlock(workspaceId, blockId) {
       return invoke<unknown>("inspect_block", {

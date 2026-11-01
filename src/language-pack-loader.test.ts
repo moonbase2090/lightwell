@@ -49,6 +49,22 @@ test("loader reports an extension conflict and keeps the built-in owner", () => 
   });
 });
 
+test("loader reports an id conflict instead of letting a user pack shadow a built-in", () => {
+  withPackDirectory((directory) => {
+    writeFileSync(
+      path.join(directory, "shadow.language-pack.json"),
+      JSON.stringify({ ...validManifest, id: "rust", extensions: [".shadow"] }),
+    );
+    const loaded = loadLanguagePacks({ userPacksDirectory: directory, workspacePacksDirectory: null });
+    const errors = loaded.catalog.entries.filter((entry) => entry.kind === "error");
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0]?.code, "conflict");
+    assert.match(errors[0]?.message ?? "", /id conflict for "rust" between rust and rust/);
+    assert.equal(loaded.packs.filter((pack) => pack.id === "rust").length, 1);
+    assert.equal(createLanguagePackRegistry(loaded.packs).languagePackForPath("src/file.shadow"), null);
+  });
+});
+
 test("loader discovers a valid user pack", () => {
   withPackDirectory((directory) => {
     writeFileSync(path.join(directory, "example.language-pack.json"), JSON.stringify(validManifest));

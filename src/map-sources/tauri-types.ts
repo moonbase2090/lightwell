@@ -17,9 +17,91 @@ import type {
   ProjectNotesSnapshot,
   SourceFileDocument,
 } from "../map-source.js";
+import type {
+  InvalidLanguagePackEntry,
+  LanguagePackCatalogSnapshot,
+  LanguagePackErrorCode,
+  LanguagePackOrigin,
+  LoadedLanguagePackEntry,
+} from "../language-pack-source.js";
+import { parseLanguagePackManifest } from "../languages/manifest.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function parseLanguagePackCatalog(value: unknown): LanguagePackCatalogSnapshot {
+  if (
+    !isRecord(value)
+    || typeof value.revision !== "number"
+    || !Number.isSafeInteger(value.revision)
+    || value.revision < 0
+    || typeof value.userPacksDirectory !== "string"
+    || !Array.isArray(value.entries)
+  ) {
+    throw new Error("The desktop app returned an invalid language pack catalog.");
+  }
+  return {
+    revision: value.revision,
+    userPacksDirectory: value.userPacksDirectory,
+    entries: value.entries.map(parseLanguagePackEntry),
+  };
+}
+
+function parseLanguagePackEntry(value: unknown): LoadedLanguagePackEntry | InvalidLanguagePackEntry {
+  if (!isRecord(value) || (value.kind !== "loaded" && value.kind !== "error")) {
+    throw new Error("The desktop app returned an invalid language pack entry.");
+  }
+  if (value.kind === "loaded") {
+    if (
+      typeof value.id !== "string"
+      || !/^[a-z][a-z0-9-]*$/.test(value.id)
+      || !isLanguagePackVersion(value.packVersion)
+      || !isLanguagePackOrigin(value.origin)
+      || !(value.manifestPath === null || typeof value.manifestPath === "string")
+    ) {
+      throw new Error("The desktop app returned an invalid loaded language pack.");
+    }
+    return {
+      kind: "loaded",
+      id: value.id,
+      packVersion: value.packVersion,
+      origin: value.origin,
+      manifestPath: value.manifestPath,
+      manifest: parseLanguagePackManifest(value.manifest, `desktop catalog:${value.id}`),
+    };
+  }
+  if (
+    typeof value.errorId !== "string"
+    || value.errorId.length === 0
+    || (value.origin !== "user" && value.origin !== "workspace")
+    || typeof value.manifestPath !== "string"
+    || !isLanguagePackErrorCode(value.code)
+    || typeof value.message !== "string"
+    || value.message.length === 0
+  ) {
+    throw new Error("The desktop app returned an invalid language pack error.");
+  }
+  return {
+    kind: "error",
+    errorId: value.errorId,
+    origin: value.origin,
+    manifestPath: value.manifestPath,
+    code: value.code,
+    message: value.message,
+  };
+}
+
+function isLanguagePackOrigin(value: unknown): value is LanguagePackOrigin {
+  return value === "builtin" || value === "user" || value === "workspace";
+}
+
+function isLanguagePackErrorCode(value: unknown): value is LanguagePackErrorCode {
+  return value === "read" || value === "parse" || value === "validation" || value === "conflict" || value === "unknown-hook";
+}
+
+function isLanguagePackVersion(value: unknown): value is string {
+  return typeof value === "string" && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(value);
 }
 
 export function parseMapSourceEntry(value: unknown): MapSourceEntry {

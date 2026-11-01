@@ -1,3 +1,5 @@
+import type { LanguagePackSource } from "./language-pack-source.js";
+
 export interface MapSourceEntry {
   readonly id: string;
   readonly label: string;
@@ -193,6 +195,7 @@ export interface MapSource {
   ): Promise<() => void>;
   readonly projectNotes?: ProjectNotesSource;
   readonly editor?: MapEditorSource;
+  readonly languagePacks?: LanguagePackSource;
   /** Present only when the commit diff view is enabled. */
   readonly history?: MapHistorySource;
 }

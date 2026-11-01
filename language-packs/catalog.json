@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "packs": [
+    {
+      "id": "demo",
+      "packVersion": "1.0.0",
+      "description": "Plain-text support for .demo files and DemoFile.",
+      "extensions": [".demo"]
+    }
+  ]
+}

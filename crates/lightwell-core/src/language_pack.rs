@@ -594,9 +594,7 @@ fn insert_unique(
     field: &str,
 ) -> Result<(), String> {
     if let Some(existing) = values.get(value) {
-        if existing != pack_id {
-            return Err(conflict_message(field, value, existing, pack_id));
-        }
+        return Err(conflict_message(field, value, existing, pack_id));
     }
     values.insert(value.to_owned(), pack_id.to_owned());
     Ok(())
@@ -763,6 +761,30 @@ mod tests {
         };
         assert_eq!(*code, LanguagePackErrorCode::Conflict);
         assert!(message.contains("extension conflict for \".rs\" between rust and rust-copy"));
+    }
+
+    #[test]
+    fn external_id_conflict_is_reported_without_replacing_builtin() {
+        let directory = TempDir::new().unwrap();
+        fs::write(
+            directory.path().join("shadow.language-pack.json"),
+            serde_json::to_vec(&manifest("rust", ".shadow")).unwrap(),
+        )
+        .unwrap();
+        let loaded = load_language_packs_with_builtins(
+            &[manifest("rust", ".rs")],
+            None,
+            Some(directory.path()),
+            0,
+        )
+        .unwrap();
+        assert_eq!(loaded.manifests.len(), 1);
+        let LanguagePackCatalogEntry::Error { code, message, .. } = &loaded.catalog.entries[1]
+        else {
+            panic!("expected an id conflict entry");
+        };
+        assert_eq!(*code, LanguagePackErrorCode::Conflict);
+        assert!(message.contains("id conflict for \"rust\" between rust and rust"));
     }
 
     #[test]
