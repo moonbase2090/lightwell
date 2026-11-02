@@ -519,31 +519,74 @@ function stronglyConnectedComponents(states: readonly StateChartState[], transit
   return components;
 }
 
+/**
+ * Rows for a machine's states. Components of the transition graph keep their topological order,
+ * and inside a strongly connected component each state sits at its breadth-first distance from
+ * the component's entry: its initial state, else the first member reached from an earlier
+ * component, else its first declared member. A cycle then reads top to bottom rather than
+ * sharing a row, and the walk is bounded because each state is visited once.
+ */
 function ranksFor(states: readonly StateChartState[], transitions: readonly StateChartTransition[]): ReadonlyMap<string, number> {
   const components = stronglyConnectedComponents(states, transitions);
   const componentByState = new Map<string, number>();
   components.forEach((component, index) => component.forEach((id) => componentByState.set(id, index)));
+  const declared = new Map(states.map((state, index) => [state.id, index]));
+  const initial = new Set(states.filter((state) => state.initial).map((state) => state.id));
+  const inner = new Map<string, string[]>();
+  const enteredFromOutside = new Set<string>();
   const outgoing = components.map(() => new Set<number>());
   const indegree = components.map(() => 0);
   for (const transition of transitions) {
     const source = componentByState.get(transition.source);
     const target = componentByState.get(transition.target);
-    if (source === undefined || target === undefined || source === target || outgoing[source]?.has(target)) continue;
+    if (source === undefined || target === undefined) continue;
+    if (source === target) {
+      if (transition.source !== transition.target) inner.set(transition.source, [...(inner.get(transition.source) ?? []), transition.target]);
+      continue;
+    }
+    enteredFromOutside.add(transition.target);
+    if (outgoing[source]?.has(target)) continue;
     outgoing[source]?.add(target);
     indegree[target] = (indegree[target] ?? 0) + 1;
   }
+  const depthByState = new Map<string, number>();
+  const heights = components.map((component) => {
+    const byDeclaration = [...component].sort((left, right) => (declared.get(left) ?? 0) - (declared.get(right) ?? 0));
+    const entry = byDeclaration.find((id) => initial.has(id))
+      ?? byDeclaration.find((id) => enteredFromOutside.has(id))
+      ?? byDeclaration[0];
+    if (entry === undefined) return 1;
+    depthByState.set(entry, 0);
+    const queue = [entry];
+    let height = 1;
+    for (let cursor = 0; cursor < queue.length; cursor += 1) {
+      const id = queue[cursor];
+      if (id === undefined) continue;
+      const depth = depthByState.get(id) ?? 0;
+      for (const next of inner.get(id) ?? []) {
+        if (depthByState.has(next)) continue;
+        depthByState.set(next, depth + 1);
+        height = Math.max(height, depth + 2);
+        queue.push(next);
+      }
+    }
+    return height;
+  });
   const queue = indegree.flatMap((degree, index) => degree === 0 ? [index] : []);
   const componentRanks = components.map(() => 0);
   for (let cursor = 0; cursor < queue.length; cursor += 1) {
     const source = queue[cursor];
     if (source === undefined) continue;
     for (const target of outgoing[source] ?? []) {
-      componentRanks[target] = Math.max(componentRanks[target] ?? 0, (componentRanks[source] ?? 0) + 1);
+      componentRanks[target] = Math.max(componentRanks[target] ?? 0, (componentRanks[source] ?? 0) + (heights[source] ?? 1));
       indegree[target] = (indegree[target] ?? 1) - 1;
       if (indegree[target] === 0) queue.push(target);
     }
   }
-  return new Map(states.map((state) => [state.id, componentRanks[componentByState.get(state.id) ?? 0] ?? 0]));
+  return new Map(states.map((state) => [
+    state.id,
+    (componentRanks[componentByState.get(state.id) ?? 0] ?? 0) + (depthByState.get(state.id) ?? 0),
+  ]));
 }
 
 function channelExtent(count: number): number {

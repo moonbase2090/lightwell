@@ -312,7 +312,7 @@ fn later(value: Later) -> Later { match value { Later::X => Later::Y, } }`,
   assert.equal(chart.omittedTransitions, 6);
 });
 
-test("ranks an acyclic chain into rows and keeps a strongly connected cycle together", () => {
+test("ranks an acyclic chain into rows and a cycle by distance from its entry", () => {
   const chain = layoutStateChart(detectStateChart({
     path: "src/chain.rs",
     content: `enum Chain { A, B, C }
@@ -334,7 +334,62 @@ fn next(value: Cycle) -> Cycle { match value {
   Cycle::C => Cycle::A,
 } }`,
   }));
-  assert.deepEqual(new Set(cycle.nodes.map((node) => node.y)).size, 1);
+  const cycleY = new Map(cycle.nodes.map((node) => [node.label, node.y]));
+  assert.ok((cycleY.get("A") ?? 0) < (cycleY.get("B") ?? 0), "the first declared state is the entry");
+  assert.ok((cycleY.get("B") ?? 0) < (cycleY.get("C") ?? 0));
+});
+
+test("starts a cycle at its initial state, or where an earlier state enters it", () => {
+  const withDefault = layoutStateChart(detectStateChart({
+    path: "src/default.rs",
+    content: `enum Phase { A, B, #[default] C }
+fn next(value: Phase) -> Phase { match value {
+  Phase::A => Phase::B,
+  Phase::B => Phase::C,
+  Phase::C => Phase::A,
+} }`,
+  }));
+  const defaultY = new Map(withDefault.nodes.map((node) => [node.label, node.y]));
+  assert.ok((defaultY.get("C") ?? 0) < (defaultY.get("A") ?? 0), "the #[default] state is the entry");
+  assert.ok((defaultY.get("A") ?? 0) < (defaultY.get("B") ?? 0));
+
+  const entered = layoutStateChart(detectStateChart({
+    path: "src/entered.rs",
+    content: `enum Job { Start, X, Y, Z }
+fn next(value: Job) -> Job { match value {
+  Job::Start => Job::Y,
+  Job::X => Job::Y,
+  Job::Y => Job::Z,
+  Job::Z => Job::X,
+} }`,
+  }));
+  const enteredY = new Map(entered.nodes.map((node) => [node.label, node.y]));
+  assert.ok((enteredY.get("Start") ?? 0) < (enteredY.get("Y") ?? 0), "an earlier component stays above the cycle");
+  assert.ok((enteredY.get("Y") ?? 0) < (enteredY.get("Z") ?? 0), "the cycle starts where Start enters it");
+  assert.ok((enteredY.get("Z") ?? 0) < (enteredY.get("X") ?? 0));
+  assertEdgesAvoidOtherNodes(entered.edges, entered.nodes);
+  assertEdgesDoNotShareSegments(entered.edges);
+});
+
+test("places states downstream of a cycle below its last row", () => {
+  const layout = layoutStateChart(detectStateChart({
+    path: "src/work.rs",
+    content: `enum Work { Start, A, B, C, Done }
+fn next(value: Work) -> Work { match value {
+  Work::Start => Work::A,
+  Work::A => Work::B,
+  Work::B => Work::C,
+  Work::C if retry => Work::A,
+  Work::C => Work::Done,
+} }`,
+  }));
+  assert.deepEqual(layout.nodes.map((node) => node.label), ["Start", "A", "B", "C", "Done"]);
+  for (const [index, node] of layout.nodes.entries()) {
+    const next = layout.nodes[index + 1];
+    if (next !== undefined) assert.ok(node.y + node.height < next.y, `${node.label} must be above ${next.label}`);
+  }
+  assertEdgesAvoidOtherNodes(layout.edges, layout.nodes);
+  assertEdgesDoNotShareSegments(layout.edges);
 });
 
 test("routes shortcuts and cycle back-edges around non-endpoint states", () => {

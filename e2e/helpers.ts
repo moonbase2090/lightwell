@@ -1,7 +1,7 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { BlockDiffDocument, CommitChanges, CommitSummary, ResolvedCommitRange } from "../src/map-source.js";
+import type { BlockDiffDocument, CommitChanges, CommitSummary, ResolvedCommitRange, SourceFileDocument } from "../src/map-source.js";
 
 // ---------------------------------------------------------------------------
 // Console / pageerror gate
@@ -62,6 +62,7 @@ const CAPTURES_JSON = readFileSync(
 );
 
 export async function gotoIpc(page: Page, overrides: {
+  readonly sources?: Readonly<Record<string, SourceFileDocument>>;
   readonly changes?: CommitChanges;
   readonly commits?: readonly CommitSummary[];
   readonly ranges?: Readonly<Record<string, ResolvedCommitRange | string>>;
