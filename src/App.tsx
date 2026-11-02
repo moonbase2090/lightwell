@@ -615,7 +615,11 @@ function FeatureFooter({
   );
 }
 
-const GRAPH_FIT_OPTIONS = { padding: 0.2, minZoom: 0.18, maxZoom: 1.2 } as const;
+/**
+ * The top padding is in pixels so a fitted map always starts below the canvas header
+ * (Modules / Files, Depth), which floats over the top of the canvas.
+ */
+const GRAPH_FIT_OPTIONS = { padding: { top: "64px", right: 0.2, bottom: 0.2, left: 0.2 }, minZoom: 0.18, maxZoom: 1.2 } as const;
 
 /** Children kept in view around the scope block; wide scopes pan for the rest. */
 const FIT_NEAREST_CHILDREN = 8;
@@ -682,11 +686,20 @@ function FitOnScopeChange({
           void fitView({ ...GRAPH_FIT_OPTIONS, duration: 200 });
           return;
         }
-        const centerX = (node: (typeof nodes)[number]) => node.position.x + (node.measured?.width ?? 0) / 2;
-        const rootX = centerX(root);
+        // Distance in both axes: a wide layer wraps into rows (layout.ts), so the nearest
+        // children by x alone are one tall column and the fit zooms out too far.
+        const center = (node: (typeof nodes)[number]) => ({
+          x: node.position.x + (node.measured?.width ?? 0) / 2,
+          y: node.position.y + (node.measured?.height ?? 0) / 2,
+        });
+        const rootCenter = center(root);
+        const distance = (node: (typeof nodes)[number]) => {
+          const point = center(node);
+          return Math.hypot(point.x - rootCenter.x, point.y - rootCenter.y);
+        };
         const nearest = nodes
           .filter((node) => node.id !== root.id)
-          .sort((left, right) => Math.abs(centerX(left) - rootX) - Math.abs(centerX(right) - rootX))
+          .sort((left, right) => distance(left) - distance(right))
           .slice(0, FIT_NEAREST_CHILDREN);
         void fitView({ ...GRAPH_FIT_OPTIONS, duration: 200, nodes: [root, ...nearest].map((node) => ({ id: node.id })) });
       });
@@ -2161,7 +2174,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           nodesConnectable={false}
           elementsSelectable={false}
           fitView={mapView !== "files"}
-          fitViewOptions={{ padding: 0.2, minZoom: 0.18, maxZoom: 1.2 }}
+          fitViewOptions={GRAPH_FIT_OPTIONS}
           minZoom={0.12}
           maxZoom={1.7}
           defaultEdgeOptions={{ type: "smoothstep" }}

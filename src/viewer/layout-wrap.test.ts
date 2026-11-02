@@ -63,6 +63,25 @@ test("the Modules layout keeps a 212-child root within the row cap", async () =>
   assert.ok(widest <= maxNodesPerRow, `widest row holds ${widest} nodes`);
 });
 
+test("a wrapped layer stays centred under its parent", async () => {
+  const blocks = [displayBlock("root"), ...Array.from({ length: 212 }, (_, index) => displayBlock(`c${index}`))];
+  const connections = Array.from({ length: 212 }, (_, index) => ({
+    id: `e${index}`,
+    source: "root",
+    target: `c${index}`,
+    kind: "contains" as const,
+  }));
+  const { nodes } = await layoutBlocks({ blocks, connections });
+  const root = nodes.find((node) => node.id === "root");
+  assert.ok(root !== undefined);
+  const children = nodes.filter((node) => node.id !== "root");
+  const childLeft = Math.min(...children.map((node) => node.position.x));
+  const childRight = Math.max(...children.map((node) => node.position.x)) + nodeWidth;
+  const rootCentre = root.position.x + nodeWidth / 2;
+  const childCentre = (childLeft + childRight) / 2;
+  assert.ok(Math.abs(rootCentre - childCentre) <= nodeWidth, `root centre ${rootCentre}, children centre ${childCentre}`);
+});
+
 function displayBlock(id: string): DisplayBlock {
   return {
     id,

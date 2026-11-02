@@ -35,9 +35,14 @@ export function wrapWideLayers(
       for (const id of ids) result.set(id, { x: positions.get(id)?.x ?? 0, y: y + shift });
       continue;
     }
-    const left = positions.get(ids[0] ?? "")?.x ?? 0;
     const rows = Math.ceil(ids.length / perRow);
     const perRowCount = Math.ceil(ids.length / rows);
+    // Centre the rows on the old layer's midpoint. ELK centres a parent over its children,
+    // so starting at the old left edge would leave a wide parent far from its children.
+    const firstX = positions.get(ids[0] ?? "")?.x ?? 0;
+    const lastX = positions.get(ids[ids.length - 1] ?? "")?.x ?? 0;
+    const blockWidth = perRowCount * nodeWidth + (perRowCount - 1) * rowSpacing;
+    const left = (firstX + lastX + nodeWidth) / 2 - blockWidth / 2;
     ids.forEach((id, index) => {
       const column = index % perRowCount;
       const rowIndex = Math.floor(index / perRowCount);
