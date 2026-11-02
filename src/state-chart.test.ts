@@ -491,3 +491,74 @@ test("returns an empty bounded layout when no state machine is detected", () => 
     edges: [],
   });
 });
+
+test("labels TypeScript transitions with the if guard that wraps them", () => {
+  const chart = detectStateChart({
+    path: "src/door.ts",
+    content: `enum Door { Closed, Open, Locked }
+function next(door: Door, event: string, force: boolean): Door {
+  switch (door) {
+    case Door.Closed:
+      if (event === "open") return Door.Open;
+      if (force && event !== "") { return Door.Locked; }
+      return Door.Closed;
+    case Door.Open:
+      return Door.Closed;
+  }
+  return door;
+}`,
+  });
+
+  assert.deepEqual(chart.machines[0]?.transitions.map((transition) => [transition.source, transition.target, transition.label]), [
+    ["Door::Closed", "Door::Open", "open"],
+    ["Door::Closed", "Door::Locked", "if force && event !== \"\""],
+    ["Door::Closed", "Door::Closed", "transition"],
+    ["Door::Open", "Door::Closed", "transition"],
+  ]);
+});
+
+test("labels a Rust return with the if that wraps it when the arm has no guard", () => {
+  const chart = detectStateChart({
+    path: "src/mode.rs",
+    content: `enum Mode { A, B, C }
+fn next(value: Mode, label: &str) -> Mode {
+  match value {
+    Mode::A if label == "go" => Mode::B,
+    Mode::B => { if label == "stop" { return Mode::C; } Mode::B },
+    Mode::C => Mode::A,
+  }
+}`,
+  });
+
+  assert.deepEqual(chart.machines[0]?.transitions.map((transition) => [transition.source, transition.target, transition.label]), [
+    ["Mode::A", "Mode::B", "go"],
+    ["Mode::B", "Mode::C", "stop"],
+    ["Mode::B", "Mode::B", "transition"],
+    ["Mode::C", "Mode::A", "transition"],
+  ]);
+});
+
+test("reads guard labels at the right offset after astral characters in comments and strings", () => {
+  const chart = detectStateChart({
+    path: "src/light.ts",
+    content: `// 🚦🚦 traffic light
+enum Light { Red, Green }
+const banner = "🟢 go";
+function next(light: Light, event: string): Light {
+  switch (light) {
+    case Light.Red:
+      if (event === "go") return Light.Green;
+      return Light.Red;
+    case Light.Green:
+      if (event === "stop") return Light.Red;
+      return Light.Green;
+  }
+  return light;
+}`,
+  });
+
+  assert.deepEqual(chart.machines[0]?.transitions.filter((transition) => transition.label !== "transition").map((transition) => [transition.target, transition.label]), [
+    ["Light::Green", "go"],
+    ["Light::Red", "stop"],
+  ]);
+});
