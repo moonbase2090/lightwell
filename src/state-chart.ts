@@ -138,6 +138,34 @@ function languageFor(path: string): StateChartLanguage | null {
   return null;
 }
 
+/** Spaces with the same UTF-16 length, so offsets into masked source still index the original. */
+function blank(character: string): string {
+  return " ".repeat(character.length);
+}
+
+/**
+ * The condition of an `if` that directly guards a return or assignment ending at `end`, as a
+ * short edge label: `if (event === "open") return S.Open;` gives `open`. The condition is read
+ * from the original source because masking blanks string literals.
+ */
+function guardLabel(masked: string, original: string, end: number, language: StateChartLanguage): string | null {
+  const prefix = masked.slice(0, end);
+  // Greedy captures: a masked string literal is blank, and a lazy capture would leave it to `\s*`.
+  const pattern = language === "rust" ? /\bif\s+([^;{}]+)\{\s*$/ : /\bif\s*\(([^;{}]+)\)\s*\{?\s*$/;
+  const found = pattern.exec(prefix);
+  const condition = found?.[1];
+  if (found === undefined || found === null || condition === undefined) return null;
+  const start = found.index + found[0].indexOf(condition);
+  return formatGuard(original.slice(start, start + condition.length));
+}
+
+/** `event === "open"` becomes `open`; any other condition becomes `if <condition>`, cut to 32 characters. */
+function formatGuard(condition: string): string {
+  const text = condition.replace(/\s+/g, " ").trim();
+  const literal = /^[A-Za-z_$][\w$.]*\s*===?\s*(["'`])([^"'`]{1,32})\1$/.exec(text)?.[2];
+  return literal ?? `if ${text}`.slice(0, 32);
+}
+
 function maskNonCode(source: string, language: StateChartLanguage): string {
   const chars = [...source];
   let mode: "code" | "line-comment" | "block-comment" | "string" = "code";
@@ -169,7 +197,7 @@ function maskNonCode(source: string, language: StateChartLanguage): string {
     }
     if (mode === "line-comment") {
       if (current === "\n") mode = "code";
-      else chars[index] = " ";
+      else chars[index] = blank(current);
       continue;
     }
     if (mode === "block-comment") {
@@ -179,12 +207,12 @@ function maskNonCode(source: string, language: StateChartLanguage): string {
         index += 1;
         mode = "code";
       } else if (current !== "\n") {
-        chars[index] = " ";
+        chars[index] = blank(current);
       }
       continue;
     }
     if (current === "\n") continue;
-    chars[index] = " ";
+    chars[index] = blank(current);
     if (escaped) {
       escaped = false;
     } else if (current === "\\") {
@@ -274,7 +302,7 @@ function enumDeclarations(source: string, language: StateChartLanguage): readonl
   return declarations;
 }
 
-function rustTransitions(source: string, declaration: EnumDeclaration): readonly StateChartTransition[] {
+function rustTransitions(source: string, original: string, declaration: EnumDeclaration): readonly StateChartTransition[] {
   const transitions: StateChartTransition[] = [];
   const matchPattern = /\bmatch\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{/g;
   const enumPattern = escapePattern(declaration.name);
@@ -296,29 +324,36 @@ function rustTransitions(source: string, declaration: EnumDeclaration): readonly
       const sourceVariant = sourcePattern.exec(left)?.[1];
       const sourceId = sourceVariant === undefined ? "" : `${declaration.name}::${sourceVariant}`;
       if (!stateIds.has(sourceId)) continue;
-      const guard = /\bif\s+(.+)$/.exec(left.trim())?.[0].replace(/\s+/g, " ").slice(0, 32) ?? "transition";
+      // Read the arm guard from the original text: masking blanks its string literals.
+      const armStart = bodyStart + range.start;
+      const guardAt = /\bif\s+/.exec(left)?.index;
+      const armGuard = guardAt === undefined ? undefined : formatGuard(original.slice(armStart + guardAt, armStart + arrow).replace(/^if\s+/, ""));
+      const rightStart = bodyStart + range.start + arrow + 2;
       const right = arm.slice(arrow + 2);
-      const candidates = new Set<string>();
+      // Target variant -> label. An arm guard labels every target; otherwise an `if` that
+      // directly wraps the return labels that target.
+      const candidates = new Map<string, string>();
+      const add = (target: string | undefined, offset: number | null) => {
+        if (target === undefined || candidates.has(target)) return;
+        const inner = offset === null ? null : guardLabel(source, original, rightStart + offset, "rust");
+        candidates.set(target, armGuard ?? inner ?? "transition");
+      };
       const direct = new RegExp(`^\\s*${enumPattern}\\s*::\\s*([A-Za-z_][A-Za-z0-9_]*)`).exec(right)?.[1];
-      if (direct !== undefined) candidates.add(direct);
+      add(direct, null);
       const returned = new RegExp(`\\breturn\\s+${enumPattern}\\s*::\\s*([A-Za-z_][A-Za-z0-9_]*)`, "g");
-      for (const target of right.matchAll(returned)) {
-        if (target[1] !== undefined) candidates.add(target[1]);
-      }
+      for (const target of right.matchAll(returned)) add(target[1], target.index ?? null);
       const assigned = new RegExp(`\\b${escapePattern(subject)}\\s*=\\s*${enumPattern}\\s*::\\s*([A-Za-z_][A-Za-z0-9_]*)`, "g");
-      for (const target of right.matchAll(assigned)) {
-        if (target[1] !== undefined) candidates.add(target[1]);
-      }
+      for (const target of right.matchAll(assigned)) add(target[1], target.index ?? null);
       const tail = new RegExp(`${enumPattern}\\s*::\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\}?\\s*$`).exec(right)?.[1];
-      if (tail !== undefined) candidates.add(tail);
-      for (const target of candidates) {
+      add(tail, null);
+      for (const [target, label] of candidates) {
         const targetId = `${declaration.name}::${target}`;
         if (!stateIds.has(targetId)) continue;
         transitions.push({
           id: `${declaration.name}:${transitions.length}`,
           source: sourceId,
           target: targetId,
-          label: guard,
+          label,
           line: lineAt(source, bodyStart + range.start),
         });
       }
@@ -327,7 +362,7 @@ function rustTransitions(source: string, declaration: EnumDeclaration): readonly
   return transitions;
 }
 
-function typescriptTransitions(source: string, declaration: EnumDeclaration): readonly StateChartTransition[] {
+function typescriptTransitions(source: string, original: string, declaration: EnumDeclaration): readonly StateChartTransition[] {
   const transitions: StateChartTransition[] = [];
   const switchPattern = /\bswitch\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\{/g;
   const enumPattern = escapePattern(declaration.name);
@@ -350,23 +385,26 @@ function typescriptTransitions(source: string, declaration: EnumDeclaration): re
       const segmentStart = (current.index ?? 0) + current[0].length;
       const segmentEnd = cases[index + 1]?.index ?? body.length;
       const segment = body.slice(segmentStart, segmentEnd).split(/\bdefault\s*:/, 1)[0] ?? "";
-      const candidates = new Set<string>();
+      const segmentOffset = bodyStart + segmentStart;
+      // One edge per target and guard: `if (event === "open") return S.Open;` is labelled `open`.
+      const candidates = new Map<string, { readonly target: string; readonly label: string }>();
+      const add = (target: string | undefined, offset: number | undefined) => {
+        if (target === undefined || offset === undefined) return;
+        const label = guardLabel(source, original, segmentOffset + offset, "typescript") ?? "transition";
+        candidates.set(`${target}\0${label}`, { target, label });
+      };
       const returned = new RegExp(`\\breturn\\s+${enumPattern}\\s*\\.\\s*([A-Za-z_][A-Za-z0-9_]*)`, "g");
-      for (const target of segment.matchAll(returned)) {
-        if (target[1] !== undefined) candidates.add(target[1]);
-      }
+      for (const target of segment.matchAll(returned)) add(target[1], target.index);
       const assigned = new RegExp(`\\b${escapePattern(subject)}\\s*=\\s*${enumPattern}\\s*\\.\\s*([A-Za-z_][A-Za-z0-9_]*)`, "g");
-      for (const target of segment.matchAll(assigned)) {
-        if (target[1] !== undefined) candidates.add(target[1]);
-      }
-      for (const target of candidates) {
+      for (const target of segment.matchAll(assigned)) add(target[1], target.index);
+      for (const { target, label } of candidates.values()) {
         const targetId = `${declaration.name}::${target}`;
         if (!stateIds.has(targetId)) continue;
         transitions.push({
           id: `${declaration.name}:${transitions.length}`,
           source: sourceId,
           target: targetId,
-          label: "transition",
+          label,
           line: lineAt(source, bodyStart + (current.index ?? 0)),
         });
       }
@@ -396,8 +434,8 @@ export function detectStateChart(input: StateChartSource): StateChart {
   let omittedTransitions = 0;
   for (const declaration of enumDeclarations(source, language)) {
     const detected = uniqueTransitions(language === "rust"
-      ? rustTransitions(source, declaration)
-      : typescriptTransitions(source, declaration));
+      ? rustTransitions(source, input.content, declaration)
+      : typescriptTransitions(source, input.content, declaration));
     if (detected.length === 0) continue;
     if (stateBudget === 0 || transitionBudget === 0) {
       omittedStates += declaration.states.length;
@@ -481,31 +519,74 @@ function stronglyConnectedComponents(states: readonly StateChartState[], transit
   return components;
 }
 
+/**
+ * Rows for a machine's states. Components of the transition graph keep their topological order,
+ * and inside a strongly connected component each state sits at its breadth-first distance from
+ * the component's entry: its initial state, else the first member reached from an earlier
+ * component, else its first declared member. A cycle then reads top to bottom rather than
+ * sharing a row, and the walk is bounded because each state is visited once.
+ */
 function ranksFor(states: readonly StateChartState[], transitions: readonly StateChartTransition[]): ReadonlyMap<string, number> {
   const components = stronglyConnectedComponents(states, transitions);
   const componentByState = new Map<string, number>();
   components.forEach((component, index) => component.forEach((id) => componentByState.set(id, index)));
+  const declared = new Map(states.map((state, index) => [state.id, index]));
+  const initial = new Set(states.filter((state) => state.initial).map((state) => state.id));
+  const inner = new Map<string, string[]>();
+  const enteredFromOutside = new Set<string>();
   const outgoing = components.map(() => new Set<number>());
   const indegree = components.map(() => 0);
   for (const transition of transitions) {
     const source = componentByState.get(transition.source);
     const target = componentByState.get(transition.target);
-    if (source === undefined || target === undefined || source === target || outgoing[source]?.has(target)) continue;
+    if (source === undefined || target === undefined) continue;
+    if (source === target) {
+      if (transition.source !== transition.target) inner.set(transition.source, [...(inner.get(transition.source) ?? []), transition.target]);
+      continue;
+    }
+    enteredFromOutside.add(transition.target);
+    if (outgoing[source]?.has(target)) continue;
     outgoing[source]?.add(target);
     indegree[target] = (indegree[target] ?? 0) + 1;
   }
+  const depthByState = new Map<string, number>();
+  const heights = components.map((component) => {
+    const byDeclaration = [...component].sort((left, right) => (declared.get(left) ?? 0) - (declared.get(right) ?? 0));
+    const entry = byDeclaration.find((id) => initial.has(id))
+      ?? byDeclaration.find((id) => enteredFromOutside.has(id))
+      ?? byDeclaration[0];
+    if (entry === undefined) return 1;
+    depthByState.set(entry, 0);
+    const queue = [entry];
+    let height = 1;
+    for (let cursor = 0; cursor < queue.length; cursor += 1) {
+      const id = queue[cursor];
+      if (id === undefined) continue;
+      const depth = depthByState.get(id) ?? 0;
+      for (const next of inner.get(id) ?? []) {
+        if (depthByState.has(next)) continue;
+        depthByState.set(next, depth + 1);
+        height = Math.max(height, depth + 2);
+        queue.push(next);
+      }
+    }
+    return height;
+  });
   const queue = indegree.flatMap((degree, index) => degree === 0 ? [index] : []);
   const componentRanks = components.map(() => 0);
   for (let cursor = 0; cursor < queue.length; cursor += 1) {
     const source = queue[cursor];
     if (source === undefined) continue;
     for (const target of outgoing[source] ?? []) {
-      componentRanks[target] = Math.max(componentRanks[target] ?? 0, (componentRanks[source] ?? 0) + 1);
+      componentRanks[target] = Math.max(componentRanks[target] ?? 0, (componentRanks[source] ?? 0) + (heights[source] ?? 1));
       indegree[target] = (indegree[target] ?? 1) - 1;
       if (indegree[target] === 0) queue.push(target);
     }
   }
-  return new Map(states.map((state) => [state.id, componentRanks[componentByState.get(state.id) ?? 0] ?? 0]));
+  return new Map(states.map((state) => [
+    state.id,
+    (componentRanks[componentByState.get(state.id) ?? 0] ?? 0) + (depthByState.get(state.id) ?? 0),
+  ]));
 }
 
 function channelExtent(count: number): number {
