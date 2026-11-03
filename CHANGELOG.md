@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.26 - 2026-11-03
+
+### Changed
+
+- State charts label transitions and lay out cycles vertically so loops stay readable (#247).
+- Documentation link checks fail on unpublished npm packages and dead external pages (#245).
+
+### Fixed
+
+- Wide Modules layers wrap into multiple rows and stay below the canvas header (#246).
+
+
 ## 0.1.25 - 2026-11-01
 
 ### Added
