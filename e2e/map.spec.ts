@@ -76,6 +76,30 @@ test.describe("map canvas (web)", () => {
     else await expect(compoundGroups).toHaveCount(0);
     await expect(page.locator(".react-flow__node-codeBlock").first()).toBeVisible();
   });
+
+  test("MAP-16: the first fit shows the root below the canvas header at a readable zoom", async ({ page }) => {
+    // Prismattyc's 68-child root layer wraps into rows. The fit must keep the root card
+    // clear of the floating header and large enough to read: fitting the root with a
+    // stacked column of children shrank it under 0.3x and slid it beneath the header.
+    const root = page.locator('.react-flow__node[data-id="workspace:prismattyc"]');
+    const header = page.locator(".canvas-watermark");
+    await expect(root).toBeVisible();
+    // Measure only once the animated fit has settled; the first frames show zoom 1.
+    const viewport = page.locator(".react-flow__viewport");
+    const transform = () => viewport.evaluate((element) => getComputedStyle(element).transform);
+    await expect.poll(async () => {
+      const before = await transform();
+      await page.waitForTimeout(400);
+      return before !== "none" && before !== "matrix(1, 0, 0, 1, 0, 0)" && before === (await transform());
+    }).toBe(true);
+    await expect.poll(async () => {
+      const [rootBox, headerBox] = await Promise.all([root.boundingBox(), header.boundingBox()]);
+      if (rootBox === null || headerBox === null) return "not rendered";
+      if (rootBox.y < headerBox.y + headerBox.height) return `root top ${rootBox.y} under header bottom ${headerBox.y + headerBox.height}`;
+      if (rootBox.width < 222 * 0.3) return `root ${rootBox.width}px wide`;
+      return "ok";
+    }).toBe("ok");
+  });
 });
 
 test.describe("map canvas (ipc)", () => {
