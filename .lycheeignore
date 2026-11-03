@@ -1,0 +1,1 @@
+^https://github\.com/moonbase2090/lightwell/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/Lightwell_[0-9]+\.[0-9]+\.[0-9]+_(aarch64\.dmg|universal\.dmg|amd64\.deb|amd64\.AppImage|x86_64\.rpm|linux_(x86_64|aarch64)\.tar\.gz|x64\.msi)$
