@@ -14,7 +14,7 @@ The built Linux desktop app displays a newly added Rust module without reopening
 scripts/ci/capture-live-refresh.sh <app-binary> /tmp/lightwell-verify-$RUN_ID/proof/live-refresh
 ```
 
-The helper uses a 1280 by 850 window with the default pane layout. It waits for the default Atlas to render, selects the Modules view, and waits for the fixture crate. It then searches for `before` to bring the Rust modules into scope and waits for that module in the map pane. Finally, it adds `after.rs` and its module declaration and waits for `after` in the same pane.
+The helper uses a 1280 by 850 window with the default pane layout. It waits for the default Atlas to render, locates the visible Modules toggle through OCR, selects it, and waits for the fixture crate. It then searches for `before` to bring the Rust modules into scope and waits for that module in the map pane. Finally, it adds `after.rs` and its module declaration and waits for `after` in the same pane.
 
 Text recognition excludes search results, summary counts and the source inspector. A changed counter or a repaint cannot satisfy the module-label assertion. Each phase has a bounded wait. Exit `0` requires both literal module labels and a screenshot of at least 800 by 500 pixels.
 
