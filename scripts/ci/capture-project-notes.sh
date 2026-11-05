@@ -77,7 +77,10 @@ XDG_CONFIG_HOME="$config_home" xvfb-run -a --server-args='-screen 0 1440x900x24'
     note_textarea_y=$((dialog_top + 372))
     note_save_x=$((dialog_left + 812))
     note_save_y=$((dialog_top + 598))
-    note_remove_x=$((dialog_left + 700))
+    # A stale note also shows Mark reviewed between Remove and Save (stale actions are on by
+    # default), which moves Remove left by that button's width plus the footer gap. The click
+    # aims at the middle of the shifted Remove button, with room for font differences.
+    note_remove_x=$((dialog_left + 565))
     note_remove_y=$note_save_y
 
     type_in_note_textarea() {

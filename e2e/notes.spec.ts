@@ -10,27 +10,27 @@ test.describe("project notes (web)", () => {
   });
 
   test("NOTES-02: Add note button opens the dialog for the block", async ({ page }) => {
-    await page.locator(".react-flow__node").first().click();
+    await page.locator(".react-flow__node-codeBlock").first().click();
     await page.getByRole("button", { name: /add note|edit note/i }).first().click();
     await expect(page.getByRole("dialog")).toContainText("Project notes");
   });
 
   test("NOTES-03: pressing N opens the notes dialog", async ({ page }) => {
-    await page.locator(".react-flow__node").first().click();
+    await page.locator(".react-flow__node-codeBlock").first().click();
     await page.keyboard.press("n");
     await expect(page.getByRole("dialog")).toContainText("Project notes");
     await page.keyboard.press("Escape");
   });
 
   test("NOTES-04: right-click opens the block context menu", async ({ page }) => {
-    const node = page.locator(".react-flow__node").first();
+    const node = page.locator(".react-flow__node-codeBlock").first();
     await node.click({ button: "right" });
     await expect(page.getByText(/Add note|Edit note|Copy path/).first()).toBeVisible();
     await page.keyboard.press("Escape");
   });
 
   test("NOTES-07: Copy path item is in the context menu", async ({ page }) => {
-    const node = page.locator(".react-flow__node").first();
+    const node = page.locator(".react-flow__node-codeBlock").first();
     await node.click({ button: "right" });
     await expect(page.getByText("Copy path")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -59,7 +59,7 @@ test.describe("project notes (web)", () => {
   });
 
   test("NOTES-14: Show on map appears for a saved note", async ({ page }) => {
-    await page.locator(".react-flow__node").first().click();
+    await page.locator(".react-flow__node-codeBlock").first().click();
     await page.keyboard.press("n");
     await page.getByLabel("Project note text").fill("e2e note for show-on-map");
     await page.keyboard.press("Control+Enter");
@@ -70,7 +70,7 @@ test.describe("project notes (web)", () => {
 test.describe("project notes (ipc)", () => {
   test("NOTES-16: deleting a note that changed on disk offers Delete this version, not a silent delete", async ({ page }) => {
     await gotoIpc(page);
-    const node = page.locator(".react-flow__node").first();
+    const node = page.locator(".react-flow__node-codeBlock").first();
     await node.click();
     await page.keyboard.press("n");
     await page.getByLabel("Project note text").fill("note before the disk change");
@@ -91,20 +91,23 @@ test.describe("project notes (ipc)", () => {
 
   test("NOTES-05: Delete note item appears after adding via menu", async ({ page }) => {
     await gotoIpc(page);
-    const node = page.locator(".react-flow__node").first();
+    const node = page.locator(".react-flow__node-codeBlock").first();
     await node.click();
     await page.keyboard.press("n");
     await page.getByLabel("Project note text").fill("ipc note to delete");
     await page.keyboard.press("Control+Enter");
     await page.keyboard.press("Escape");
-    await node.click({ button: "right" });
+    // In the compound chart a click on a card drills into it, so find the block that now
+    // carries the note badge rather than reusing the first card.
+    const noted = page.locator(".react-flow__node").filter({ has: page.locator(".node-note-badge") }).first();
+    await noted.locator(".node-note-badge").click({ button: "right" });
     await expect(page.getByText("Delete note")).toBeVisible();
     await page.keyboard.press("Escape");
   });
 
   test("NOTES-06: Open source item appears in the ipc context menu", async ({ page }) => {
     await gotoIpc(page);
-    const node = page.locator(".react-flow__node").first();
+    const node = page.locator(".react-flow__node-codeBlock").first();
     await node.click({ button: "right" });
     await expect(page.getByText("Open source")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -112,7 +115,7 @@ test.describe("project notes (ipc)", () => {
 
   test("NOTES-11: saving a note reports the on-disk message", async ({ page }) => {
     await gotoIpc(page);
-    await page.locator(".react-flow__node").first().click();
+    await page.locator(".react-flow__node-codeBlock").first().click();
     await page.keyboard.press("n");
     await page.getByLabel("Project note text").fill("ipc saved note");
     await page.keyboard.press("Control+Enter");
@@ -121,7 +124,7 @@ test.describe("project notes (ipc)", () => {
 
   test("NOTES-15: memory/ipc notes start non-stale", async ({ page }) => {
     await gotoIpc(page);
-    await page.locator(".react-flow__node").first().click();
+    await page.locator(".react-flow__node-codeBlock").first().click();
     await page.keyboard.press("n");
     await page.getByLabel("Project note text").fill("fresh note");
     await page.keyboard.press("Control+Enter");
@@ -133,7 +136,7 @@ test.describe("project notes (ipc)", () => {
 test.describe("notes Git sharing", () => {
   test("saved note commits only by explicit action and retains saved text after failure", async ({ page }) => {
     await gotoIpc(page);
-    await page.locator(".react-flow__node").first().click();
+    await page.locator(".react-flow__node-codeBlock").first().click();
     await page.keyboard.press("n");
     await page.getByLabel("Project note text").fill("Shared architecture note");
     await page.getByRole("button", { name: "Save note", exact: true }).click();
@@ -165,7 +168,7 @@ test.describe("notes Git sharing", () => {
     test(`saved notes explain ${state} without offering a commit`, async ({ page }) => {
       await gotoIpc(page);
       await page.evaluate((kind) => Reflect.set(window, "__LW_NOTES_GIT_STATE__", kind), state);
-      await page.locator(".react-flow__node").first().click();
+      await page.locator(".react-flow__node-codeBlock").first().click();
       await page.keyboard.press("n");
       await page.getByLabel("Project note text").fill("Saved local note");
       await page.getByRole("button", { name: "Save note", exact: true }).click();

@@ -36,7 +36,7 @@ export function createMemoryNotesSource(): ProjectNotesSource {
   type StoredMemoryNote =
     | { readonly kind: "legacy"; readonly text: string; readonly sourceFingerprint: string; readonly stale: boolean }
     | { readonly kind: "revisioned"; readonly note: MemoryNote; readonly stale: boolean };
-  const compareRevisions = typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true";
+  const compareRevisions = typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS !== "false";
   const notesByWorkspace = new Map<string, Map<string, StoredMemoryNote>>();
   const snapshot = (workspaceId: string): ProjectNotesSnapshot => ({
     kind: "ready",
@@ -136,7 +136,7 @@ export function createMemoryNotesSource(): ProjectNotesSource {
       notesFor(workspaceId).delete(blockId);
       return snapshot(workspaceId);
     },
-    ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS) === "true" ? {
+    ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS) !== "false" ? {
       async markReviewed({ workspaceId, blockId }: { workspaceId: string; blockId: string }) {
         const notes = notesFor(workspaceId);
         const existing = notes.get(blockId);

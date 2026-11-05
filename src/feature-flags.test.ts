@@ -3,34 +3,41 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { commitDiffEnabled, compoundLayoutEnabled, mapPopoutEnabled, notesCasEnabled, notesStaleActionsEnabled, projectNotesEnabled, stateChartEnabled } from "./feature-flags.js";
 
-test("compound layout stays off unless VITE_ENABLE_COMPOUND_LAYOUT is exactly true", () => {
-  assert.equal(compoundLayoutEnabled(undefined), false);
-  assert.equal(compoundLayoutEnabled(""), false);
-  assert.equal(compoundLayoutEnabled("false"), false);
-  assert.equal(compoundLayoutEnabled("TRUE"), false);
-  assert.equal(compoundLayoutEnabled(" true "), false);
+test("compound layout is on when the build sets no flag", () => {
+  assert.equal(compoundLayoutEnabled(undefined), true);
+  assert.equal(compoundLayoutEnabled(""), true);
   assert.equal(compoundLayoutEnabled("true"), true);
 });
 
-test("the app starts the compound layout worker only behind the exact true flag", () => {
+test("compound layout can be turned off with VITE_ENABLE_COMPOUND_LAYOUT=false", () => {
+  assert.equal(compoundLayoutEnabled("false"), false);
+  assert.equal(compoundLayoutEnabled(" FALSE "), true);
+  assert.equal(compoundLayoutEnabled("False"), true);
+});
+
+test("the app starts the compound layout worker only behind a flag other than the exact false", () => {
   const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
-  assert.match(app, /import\.meta\.env\.VITE_ENABLE_COMPOUND_LAYOUT !== "true"/);
+  assert.match(app, /import\.meta\.env\.VITE_ENABLE_COMPOUND_LAYOUT !== "false"/);
   assert.match(app, /createCompoundLayoutFeature\("true"\)/);
 });
 
-test("state charts stay off unless VITE_ENABLE_STATE_CHART is exactly true", () => {
-  assert.equal(stateChartEnabled(undefined), false);
-  assert.equal(stateChartEnabled(""), false);
-  assert.equal(stateChartEnabled("false"), false);
-  assert.equal(stateChartEnabled("TRUE"), false);
-  assert.equal(stateChartEnabled(" true "), false);
+test("state charts are on when the build sets no flag", () => {
+  assert.equal(stateChartEnabled(undefined), true);
+  assert.equal(stateChartEnabled(""), true);
   assert.equal(stateChartEnabled("true"), true);
 });
 
-test("the app loads and shows state charts only behind the exact true flag", () => {
+test("state charts can be turned off with VITE_ENABLE_STATE_CHART=false", () => {
+  assert.equal(stateChartEnabled("false"), false);
+  assert.equal(stateChartEnabled(" FALSE "), true);
+  assert.equal(stateChartEnabled("False"), true);
+});
+
+test("the app loads state charts statically and hides them only for the exact false flag", () => {
   const app = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
   assert.match(app, /import StateChartFeature from "\.\/StateChartFeature\.js"/);
-  assert.match(app, /import\.meta\.env\.VITE_ENABLE_STATE_CHART === "true" &&/);
+  assert.match(app, /import\.meta\.env\.VITE_ENABLE_STATE_CHART !== "false" &&/);
+  assert.equal(app.includes('VITE_ENABLE_STATE_CHART === "true"'), false);
   assert.equal(app.includes("import(\"./StateChartFeature.js\")"), false);
   assert.equal(app.includes("stateChartEnabled"), false);
 });
@@ -63,19 +70,33 @@ test("notes call sites compare the env string so the bundler can drop the branch
   }
 });
 
-test("notes stale actions stay off unless VITE_ENABLE_NOTES_STALE_ACTIONS=true", () => {
-  assert.equal(notesStaleActionsEnabled(undefined), false);
-  assert.equal(notesStaleActionsEnabled(""), false);
-  assert.equal(notesStaleActionsEnabled("false"), false);
-  assert.equal(notesStaleActionsEnabled("TRUE"), false);
+test("map pop-out is on when the build sets no flag", () => {
+  assert.equal(mapPopoutEnabled(undefined), true);
+  assert.equal(mapPopoutEnabled(""), true);
+  assert.equal(mapPopoutEnabled("true"), true);
+});
+
+test("map pop-out can be turned off with VITE_ENABLE_MAP_POPOUT=false", () => {
+  assert.equal(mapPopoutEnabled("false"), false);
+  assert.equal(mapPopoutEnabled("False"), true);
+});
+
+test("notes stale actions are on when the build sets no flag", () => {
+  assert.equal(notesStaleActionsEnabled(undefined), true);
+  assert.equal(notesStaleActionsEnabled(""), true);
   assert.equal(notesStaleActionsEnabled("true"), true);
+});
+
+test("notes stale actions can be turned off with VITE_ENABLE_NOTES_STALE_ACTIONS=false", () => {
+  assert.equal(notesStaleActionsEnabled("false"), false);
+  assert.equal(notesStaleActionsEnabled("FALSE"), true);
 });
 
 test("stale-action call sites compare the env string so the bundler can drop the branch", () => {
   const fixtures = readFileSync(new URL("./map-sources/fixtures.ts", import.meta.url), "utf8");
   const tauri = readFileSync(new URL("./map-sources/tauri.ts", import.meta.url), "utf8");
   for (const source of [fixtures, tauri]) {
-    assert.match(source, /import\.meta\.env\.VITE_ENABLE_NOTES_STALE_ACTIONS\) === "true"/);
+    assert.match(source, /import\.meta\.env\.VITE_ENABLE_NOTES_STALE_ACTIONS\) !== "false"/);
     assert.equal(source.includes("notesStaleActionsEnabled"), false);
   }
 });
@@ -97,13 +118,15 @@ test("history call sites compare the env string so the bundler can drop the bran
   assert.equal(tauri.includes("commitDiffEnabled"), false);
 });
 
-test("notes compare-and-swap is off unless the build sets VITE_ENABLE_NOTES_CAS=true", () => {
-  assert.equal(notesCasEnabled(undefined), false);
-  assert.equal(notesCasEnabled(""), false);
-  assert.equal(notesCasEnabled("false"), false);
-  assert.equal(notesCasEnabled("TRUE"), false);
-  assert.equal(notesCasEnabled(" true "), false);
+test("notes compare-and-swap is on when the build sets no flag", () => {
+  assert.equal(notesCasEnabled(undefined), true);
+  assert.equal(notesCasEnabled(""), true);
   assert.equal(notesCasEnabled("true"), true);
+});
+
+test("notes compare-and-swap can be turned off with VITE_ENABLE_NOTES_CAS=false", () => {
+  assert.equal(notesCasEnabled("false"), false);
+  assert.equal(notesCasEnabled(" false "), true);
 });
 
 test("notes compare-and-swap call sites compare the env string so the bundler can drop the branch", () => {
@@ -115,7 +138,7 @@ test("notes compare-and-swap call sites compare the env string so the bundler ca
   ];
   for (const file of files) {
     const source = readFileSync(new URL(file, import.meta.url), "utf8");
-    assert.match(source, /import\.meta\.env\.VITE_ENABLE_NOTES_CAS === "true"/);
+    assert.match(source, /import\.meta\.env\.VITE_ENABLE_NOTES_CAS !== "false"/);
     assert.equal(source.includes("notesCasEnabled"), false);
   }
 });

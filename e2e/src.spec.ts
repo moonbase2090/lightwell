@@ -6,7 +6,7 @@ test.describe("source inspector follows the selection (ipc)", () => {
   test.beforeEach(async ({ page }) => gotoIpc(page));
 
   test("SRC-01: selecting block A then block B changes the source", async ({ page }) => {
-    const nodes = page.locator(".react-flow__node");
+    const nodes = page.locator(".compound-group-header, .react-flow__node-codeBlock");
     const editor = page.locator(".source-code-editor");
     const label = editor.locator("[aria-label^=\"Read-only source: \"]").first();
 

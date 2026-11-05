@@ -1,11 +1,9 @@
 import { test, expect, gotoIpc } from "./helpers.js";
 
 test("state chart labels guards and arranges a cycle from top to bottom", async ({ page }, testInfo) => {
-  test.skip(process.env.VITE_ENABLE_STATE_CHART !== "true", "Requires the state-chart build flag");
-  await gotoIpc(page, { sources: {
-    "workspace:prismattyc": {
-      path: "src/phase.ts", line: 1, column: 1,
-      content: `enum Phase { Start, Active, Done }
+  const phase = {
+    path: "src/phase.ts", line: 1, column: 1,
+    content: `enum Phase { Start, Active, Done }
 function next(phase: Phase, event: string): Phase {
   switch (phase) {
     case Phase.Start: if (event === "begin") return Phase.Active; return Phase.Start;
@@ -13,9 +11,15 @@ function next(phase: Phase, event: string): Phase {
     case Phase.Done: return Phase.Start;
   }
 }`,
-    },
+  };
+  // A click on a card drills into it, so every block the test can select reads the same file.
+  await gotoIpc(page, { sources: {
+    "workspace:prismattyc": phase,
+    "crate:web-sample": phase,
+    "app:web-sample:main": phase,
+    "module:web-sample:main": phase,
   } });
-  await page.locator(".react-flow__node").first().click();
+  await page.locator(".react-flow__node-codeBlock").first().click();
   await page.getByRole("button", { name: "States", exact: true }).click();
   const chart = page.getByRole("img", { name: "State chart for src/phase.ts" });
   await expect(chart).toBeVisible();
@@ -27,5 +31,5 @@ function next(phase: Phase, event: string): Phase {
   await page.screenshot({ path: testInfo.outputPath("state-flow.png") });
   await page.getByRole("button", { name: "Back to map" }).click();
   await expect(chart).toHaveCount(0);
-  await expect(page.locator(".react-flow__node").first()).toBeVisible();
+  await expect(page.locator(".react-flow__node-codeBlock").first()).toBeVisible();
 });

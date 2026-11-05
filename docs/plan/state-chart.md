@@ -16,7 +16,7 @@ This is intentionally conservative. A chart with missing transitions is more use
 
 ## View and data flow
 
-An exact-true `VITE_ENABLE_STATE_CHART` build flag adds a States control beside the existing Modules and Files controls. The flag is off by default. The default build omits the detector and state-chart renderer.
+The States control sits beside the existing Modules and Files controls. The feature is on by default. A build with `VITE_ENABLE_STATE_CHART=false` (the exact string) omits the control, the detector and the state-chart renderer.
 
 The user selects a source-backed block, then opens States. The app loads that block through the existing `MapEditorSource.inspectBlock` boundary. The detector receives the returned path and content. No package manager, registry, CDN, dynamic import, or network request participates in detection or rendering.
 
@@ -48,4 +48,4 @@ Tests use literal source fixtures and assert the public result. Every detection 
 - Duplicate merging, state and transition bounds, cycles, disconnected states, orthogonal routes, and sibling non-overlap.
 - The exact-true feature gate, disabled default, loading, empty, error, ready, and source-selection states.
 
-App proof uses a real source file containing an explicit state machine. The captured image comes from the running app with the feature flag enabled. The default build must contain no state-chart detector or renderer chunk.
+App proof uses a real source file containing an explicit state machine. The captured image comes from the running app with the feature flag enabled. The build with `VITE_ENABLE_STATE_CHART=false` must contain no state-chart detector or renderer text, and the default build must include them in the main bundle without a separate runtime chunk.

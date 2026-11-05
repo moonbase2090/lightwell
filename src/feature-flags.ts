@@ -7,26 +7,34 @@ export function projectNotesEnabled(value: string | undefined): boolean {
   return value !== "false";
 }
 
-/** The compound dependency layout stays off until its rendering slice lands. */
+/**
+ * The compound dependency layout is on unless the build sets VITE_ENABLE_COMPOUND_LAYOUT to
+ * the exact string "false". The app compares the env string to "false" directly so the
+ * bundler can drop the layout worker.
+ */
 export function compoundLayoutEnabled(value: string | undefined): boolean {
-  return value === "true";
-}
-
-/** Source-derived state charts stay off unless the build opts in exactly. */
-export function stateChartEnabled(value: string | undefined): boolean {
-  return value === "true";
+  return value !== "false";
 }
 
 /**
- * Mark reviewed and bulk delete of stale notes stay off unless the build sets
- * VITE_ENABLE_NOTES_STALE_ACTIONS to the exact string "true".
+ * Source-derived state charts are on unless the build sets VITE_ENABLE_STATE_CHART to the
+ * exact string "false". Call sites compare `import.meta.env.VITE_ENABLE_STATE_CHART` to
+ * "false" directly so the bundler can drop the state-chart branch.
+ */
+export function stateChartEnabled(value: string | undefined): boolean {
+  return value !== "false";
+}
+
+/**
+ * Mark reviewed and bulk delete of stale notes are on unless the build sets
+ * VITE_ENABLE_NOTES_STALE_ACTIONS to the exact string "false".
  *
  * Call sites compare `import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS` to
- * `"true"` directly so the bundler can drop the branch (same pattern as
- * `VITE_ENABLE_NOTE_GIT`). This helper documents and unit-tests the predicate.
+ * `"false"` directly so the bundler can drop the branch. This helper documents and
+ * unit-tests the predicate.
  */
 export function notesStaleActionsEnabled(value: string | undefined): boolean {
-  return value === "true";
+  return value !== "false";
 }
 
 /**
@@ -39,20 +47,20 @@ export function commitDiffEnabled(value: string | undefined): boolean {
 }
 
 /**
- * The map pop-out window is off unless the build sets VITE_ENABLE_MAP_POPOUT
- * to the exact string "true". Call sites compare `import.meta.env.VITE_ENABLE_MAP_POPOUT`
- * to "true" directly so the bundler can drop the pop-out branch.
+ * The map pop-out window is on unless the build sets VITE_ENABLE_MAP_POPOUT
+ * to the exact string "false". Call sites compare `import.meta.env.VITE_ENABLE_MAP_POPOUT`
+ * to "false" directly so the bundler can drop the pop-out branch.
  */
 export function mapPopoutEnabled(value: string | undefined): boolean {
-  return value === "true";
+  return value !== "false";
 }
 
 /**
- * Per-note revision checks are off unless the build sets VITE_ENABLE_NOTES_CAS
- * to the exact string "true". Call sites compare
- * `import.meta.env.VITE_ENABLE_NOTES_CAS === "true"` directly so the bundler
+ * Per-note revision checks are on unless the build sets VITE_ENABLE_NOTES_CAS
+ * to the exact string "false". Call sites compare
+ * `import.meta.env.VITE_ENABLE_NOTES_CAS !== "false"` directly so the bundler
  * can drop the compare-and-swap branch.
  */
 export function notesCasEnabled(value: string | undefined): boolean {
-  return value === "true";
+  return value !== "false";
 }

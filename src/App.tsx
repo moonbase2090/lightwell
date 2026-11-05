@@ -743,17 +743,17 @@ function RestoreViewport({
 
 function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [compoundLayoutFeature] = useState<CompoundLayoutFeature>(() => (
-    import.meta.env.VITE_ENABLE_COMPOUND_LAYOUT === "true"
+    import.meta.env.VITE_ENABLE_COMPOUND_LAYOUT !== "false"
       ? createCompoundLayoutFeature("true")
       : { kind: "disabled" }
   ));
   useEffect(() => {
-    if (import.meta.env.VITE_ENABLE_COMPOUND_LAYOUT !== "true") return undefined;
+    if (import.meta.env.VITE_ENABLE_COMPOUND_LAYOUT === "false") return undefined;
     return () => {
       if (compoundLayoutFeature.kind === "enabled") compoundLayoutFeature.client.dispose();
     };
   }, [compoundLayoutFeature]);
-  const popoutWorkspaceId = import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isMapPopoutSearch(window.location.search)
+  const popoutWorkspaceId = import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" && isMapPopoutSearch(window.location.search)
     ? workspaceFromPopoutSearch(window.location.search)
     : null;
   const [mapCatalog, setMapCatalog] = useState<MapCatalogState>({ kind: "loading" });
@@ -1062,7 +1062,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
           const watchMap = mapSource.watchMap;
           if (watchMap !== undefined) {
-            const onNotes = typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true"
+            const onNotes = typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS !== "false"
               ? (snapshot: ProjectNotesSnapshot) => {
                   if (cancelled) return;
                   setLoadedMap((current) => current.kind === "ready" && current.id === mapKey
@@ -1216,7 +1216,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   useEffect(() => {
     if (fileScopeResetKeyRef.current === fileScopeResetKey) return;
     fileScopeResetKeyRef.current = fileScopeResetKey;
-    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && preservedFileScopeRef.current !== null) {
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" && preservedFileScopeRef.current !== null) {
       const preserved = preservedFileScopeRef.current;
       preservedFileScopeRef.current = null;
       setFileScope(preserved);
@@ -1314,13 +1314,13 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setLoadedMap((current) => current.kind === "ready" && current.id === mapKey
       ? { ...current, projectNotes: snapshot }
       : current);
-    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true") setNotesRevision((current) => current + 1);
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false") setNotesRevision((current) => current + 1);
   }, [mapKey]);
 
   useEffect(() => {
     if (map === null || initializedMapKeyRef.current === mapKey) return;
     initializedMapKeyRef.current = mapKey;
-    const sync = import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" ? remoteSyncRef.current : null;
+    const sync = import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" ? remoteSyncRef.current : null;
     if (sync !== null && sync.workspaceId === mapKey && sync.revision > 0) {
       setScopePath([...sync.scopePath]);
       setSelectedId(sync.selectedId);
@@ -1401,7 +1401,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   };
 
   useEffect(() => {
-    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri()) {
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" && isTauri()) {
       let cancelled = false;
       let unlisten: (() => void) | undefined;
       const popoutMode = isMapPopoutSearch(window.location.search);
@@ -1456,7 +1456,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, []);
 
   useEffect(() => {
-    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri() && mapKey !== null && map !== null && selectedId.length > 0) {
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" && isTauri() && mapKey !== null && map !== null && selectedId.length > 0) {
       const popoutMode = isMapPopoutSearch(window.location.search);
       if (popoutMode && !popoutHeardPeerRef.current) return;
       const fields = {
@@ -1486,7 +1486,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, [fileScope, map, mapKey, mapView, notesRevision, orientation, scopePath, selectedId]);
 
   useEffect(() => {
-    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri() && !isMapPopoutSearch(window.location.search)) {
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" && isTauri() && !isMapPopoutSearch(window.location.search)) {
       const handleShortcut = (event: globalThis.KeyboardEvent) => {
         if (event.repeat || !mapPopoutShortcut(event) || mapKey === null) return;
         const target = event.target;
@@ -1503,7 +1503,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   }, [mapKey]);
 
   useEffect(() => {
-    if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isMapPopoutSearch(window.location.search)) {
+    if (import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" && isMapPopoutSearch(window.location.search)) {
       const handleKey = (event: globalThis.KeyboardEvent) => {
         if (event.key !== "Escape") return;
         const target = event.target;
@@ -2083,7 +2083,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <div className="map-view" role="group" aria-label="Map view">
             <button type="button" aria-pressed={mapView === "modules"} onClick={() => chooseMapView("modules")}>Modules</button>
             <button type="button" aria-pressed={mapView === "files"} onClick={() => chooseMapView("files")}>Files</button>
-            {import.meta.env.VITE_ENABLE_STATE_CHART === "true" && (
+            {import.meta.env.VITE_ENABLE_STATE_CHART !== "false" && (
               <button
                 type="button"
                 aria-pressed={stateChartOpen}
@@ -2211,7 +2211,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       onFeatureHover={(id) => { setActiveFeatureId(id); if (id !== null) setActiveNodeId(null); }}
     />
   );
-  const stateChartCanvas = import.meta.env.VITE_ENABLE_STATE_CHART === "true" && stateChartOpen ? (
+  const stateChartCanvas = import.meta.env.VITE_ENABLE_STATE_CHART !== "false" && stateChartOpen ? (
     <div className="graph-canvas state-chart-host">
       {stateChartTarget !== null && mapSource.editor !== undefined && mapKey !== null ? (
         <StateChartFeature
@@ -2302,7 +2302,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             {projectNotes.kind === "ready" && projectNotes.notes.length > 0 && <span>{projectNotes.notes.length}</span>}
           </button>
         )}
-        {import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isTauri() && mapKey !== null && !isMapPopoutSearch(window.location.search) && (
+        {import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" && isTauri() && mapKey !== null && !isMapPopoutSearch(window.location.search) && (
           <button
             className="map-popout-button"
             type="button"
@@ -2486,7 +2486,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     </svg>
   );
 
-  if (import.meta.env.VITE_ENABLE_MAP_POPOUT === "true" && isMapPopoutSearch(window.location.search)) {
+  if (import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" && isMapPopoutSearch(window.location.search)) {
     return (
       <div className="workspace-shell map-popout-shell" data-theme={theme} ref={shellRef} style={textSizeVars(textSize) as CSSProperties}>
         {mapColumn}

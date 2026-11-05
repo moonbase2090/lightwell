@@ -286,7 +286,6 @@ test("a collapsed summary keeps dependencies from omitted children", async () =>
   assert.deepEqual(edge.sourceEdgeIds, ["hidden-to-visible"]);
 });
 
-test("the default-off feature does not construct a browser worker", () => {
-  assert.deepEqual(createCompoundLayoutFeature(undefined), { kind: "disabled" });
+test("the opted-out feature does not construct a browser worker", () => {
   assert.deepEqual(createCompoundLayoutFeature("false"), { kind: "disabled" });
 });
