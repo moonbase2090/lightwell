@@ -152,6 +152,7 @@ export default function FileExplorer({
           onChange={(event) => setFilter(event.currentTarget.value)}
         />
         <div className="map-view" role="group" aria-label="Map view">
+          <button type="button" aria-pressed={false} onClick={() => onChooseView("atlas")}>Atlas</button>
           <button type="button" aria-pressed={false} onClick={() => onChooseView("modules")}>Modules</button>
           <button type="button" aria-pressed={true} onClick={() => onChooseView("files")}>Files</button>
         </div>

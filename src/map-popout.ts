@@ -13,7 +13,7 @@ export interface MapPopoutSync {
   readonly workspaceId: string;
   readonly selectedId: string;
   readonly scopePath: readonly string[];
-  readonly mapView: "modules" | "files";
+  readonly mapView: "atlas" | "modules" | "files";
   readonly orientation: "vertical" | "horizontal";
   readonly fileScope: string;
   readonly notesRevision: number;
@@ -44,8 +44,8 @@ export function parseMapPopoutSync(payload: unknown): MapPopoutSync {
   }
   if (typeof selectedId !== "string") throw new Error("Map pop-out sync selectedId must be a string.");
   if (!isStringArray(scopePath)) throw new Error("Map pop-out sync scopePath must be an array of strings.");
-  if (mapView !== "modules" && mapView !== "files") {
-    throw new Error("Map pop-out sync mapView must be modules or files.");
+  if (mapView !== "atlas" && mapView !== "modules" && mapView !== "files") {
+    throw new Error("Map pop-out sync mapView must be atlas, modules, or files.");
   }
   if (orientation !== "vertical" && orientation !== "horizontal") {
     throw new Error("Map pop-out sync orientation must be vertical or horizontal.");

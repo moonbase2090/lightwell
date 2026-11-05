@@ -105,18 +105,19 @@ test("file tree zoom defaults to 1, steps by a tenth, and is stored per workspac
   writeFileTreeZoom(throwing, "/work/alpha", 1.2);
 });
 
-test("the map view defaults to modules and is stored per workspace", () => {
-  assert.equal(parseMapView(null), "modules");
-  assert.equal(parseMapView(""), "modules");
+test("the map view defaults to atlas and is stored per workspace", () => {
+  assert.equal(parseMapView(null), "atlas");
+  assert.equal(parseMapView(""), "atlas");
+  assert.equal(parseMapView("atlas"), "atlas");
   assert.equal(parseMapView("files"), "files");
-  assert.equal(parseMapView("all"), "modules");
+  assert.equal(parseMapView("all"), "atlas");
   const storage = new MemoryStorage();
   writeMapView(storage, "/work/alpha", "files");
   writeMapView(storage, "/work/beta", "modules");
   assert.equal(readMapView(storage, "/work/alpha"), "files");
   assert.equal(readMapView(storage, "/work/beta"), "modules");
-  assert.equal(readMapView(storage, "/work/gamma"), "modules");
-  assert.equal(readMapView(null, "/work/alpha"), "modules");
+  assert.equal(readMapView(storage, "/work/gamma"), "atlas");
+  assert.equal(readMapView(null, "/work/alpha"), "atlas");
 });
 
 test("tree orientation defaults to vertical and is stored per workspace", () => {
@@ -226,7 +227,7 @@ test("explorer badges use the outline kind when a symbol has one", () => {
   assert.equal(explorerBadge({ folder: false, blockType: "cargo_feature" }), "FEAT");
 });
 
-test("a storage failure keeps the module view", () => {
+test("a storage failure keeps the atlas view", () => {
   const storage: MapViewStorage = {
     getItem() {
       throw new Error("storage blocked");
@@ -235,7 +236,7 @@ test("a storage failure keeps the module view", () => {
       throw new Error("storage blocked");
     },
   };
-  assert.equal(readMapView(storage, "/work/alpha"), "modules");
+  assert.equal(readMapView(storage, "/work/alpha"), "atlas");
   writeMapView(storage, "/work/alpha", "files");
 });
 

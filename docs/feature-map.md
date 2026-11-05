@@ -43,7 +43,7 @@ Note on APP-02: the native folder dialog is a real OS dialog. On the `ipc` layer
 
 | ID | Control or state | Where it lives | Expected behavior | Coverage |
 | --- | --- | --- | --- | --- |
-| MAP-01 | Modules / Files toggle | Canvas watermark bar in `App`; a second copy sits in the file-tree toolbar (TREE-02) | "Modules" shows the block graph. "Files" shows the file tree: indented rows in vertical orientation, folder and file blocks on the graph in horizontal. The choice saves per workspace and defaults to Modules. Switching re-centers on the selected block when it has one. | ipc, app |
+| MAP-01 | Atlas / Modules / Files toggle | Canvas watermark bar in `App`; a second copy sits in the file-tree toolbar (TREE-02) | "Atlas" shows the searchable whole-workspace treemap and is the default. "Modules" shows the block graph. "Files" shows the file tree: indented rows in vertical orientation, folder and file blocks on the graph in horizontal. The choice saves per workspace. Switching between graph views re-centers on the selected block when it has one. | ipc, app |
 | MAP-02 | Depth control | Canvas watermark bar in `App`; a second copy sits in the file-tree toolbar (TREE-07) | Limits how many levels below the current scope the map draws. Choices run from 1 up to the deeper of the subtree depth and the saved value, capped at 12, plus "All". The default is 2. The choice saves per workspace and also sets how deep the file tree starts expanded. | web |
 | MAP-03 | Direct children count | Canvas watermark bar in `App` | Reads "N direct children" for the current scope. In Files view it counts the file root's children instead. Display only. | web |
 | MAP-04 | Breadcrumbs | Map toolbar in `App` | Shows the scope path from the workspace root. Clicking an earlier crumb moves the scope back to it, selects it, and clears feature tracing, hover, the file scope, and any open inspector. In Files view, folder crumbs from the file scope follow the block crumbs and narrow the tree when clicked. | web |
@@ -66,7 +66,7 @@ The tree replaces the graph in Files view with vertical orientation. Its toolbar
 | ID | Control or state | Where it lives | Expected behavior | Coverage |
 | --- | --- | --- | --- | --- |
 | TREE-01 | Filter input | File-tree toolbar in `FileExplorer`, placeholder "Filter symbols..." | Typing keeps every row whose label or source path contains the text, plus all ancestors of a match so it stays in context. Matching ignores case. The row count (TREE-08) updates with the filter. | web |
-| TREE-02 | Modules / Files toggle (tree copy) | File-tree toolbar in `FileExplorer` | Same action as MAP-01. Behavior to confirm: in this copy the pressed state is fixed, with Files always marked pressed and Modules never, while the canvas copy reflects the real view. | web |
+| TREE-02 | Atlas / Modules / Files toggle (tree copy) | File-tree toolbar in `FileExplorer` | Same action as MAP-01. In this copy Files is pressed because the toolbar only appears in Files view. | web |
 | TREE-03 | Expand all | File-tree toolbar in `FileExplorer` | Expands every folder in the tree, ignoring the depth limit. | web |
 | TREE-04 | Collapse | File-tree toolbar in `FileExplorer` | Collapses every folder so only the root row remains. | web |
 | TREE-05 | Zoom buttons | File-tree toolbar in `FileExplorer` | "−" and "+" step the row scale by a tenth between 80% and 180%. The middle button shows the current percentage and resets to 100%. The end buttons disable at the limits. The scale saves per workspace and resizes row padding, indent, guides, and chevron size. | web |
@@ -122,7 +122,7 @@ The commit picker lights up the blocks one commit, or a range of commits, change
 | DIFF-03 | Reading commit state | Banner under the map toolbar in `App` | While the diff loads, the banner reads "Reading commit…". | ipc |
 | DIFF-04 | Commit error state | Banner under the map toolbar in `App` | A failed read shows the error in the banner with a Clear button that clears both commit selectors. | ipc |
 | DIFF-05 | Diff summary banner | `CommitDiffSummary` under the map toolbar | Names the commit, or "base…through" for a range, then counts changed blocks, changed connections when any, and files outside the map when any. Changed blocks on the map and in the tree gain "+n −n" badges (MAP-07, TREE-09), ancestors of a changed block show the rolled-up count, and unchanged blocks dim. Connection edges restyle as added, changed, or removed. | ipc |
-| DIFF-06 | Only changed toggle | `CommitDiffSummary` banner | When on, the map draws only changed blocks and the file tree keeps only branches containing one (TREE-13). When off, the full map shows with changed blocks lit. It starts off for each new commit choice. | ipc |
+| DIFF-06 | Only changed toggle | `CommitDiffSummary` banner | When on, graph views draw only changed blocks and the file tree keeps only branches containing one (TREE-13). Atlas keeps its stable geography, suppresses unchanged regions, and expands only changed outline branches. When off, the full map shows with changed blocks lit. It starts off for each new commit choice. | ipc |
 | DIFF-07 | Prev / Next navigation | `CommitDiffSummary` banner | Steps through the change list one entry at a time, wrapping at both ends. The banner shows the position as "n / total". Stepping selects the entry's block, opens its inspector, and centres it on the map; an entry for a file outside the map opens that file's diff instead (DIFF-11). The buttons disable when the list is empty. | ipc |
 | DIFF-08 | Change navigation keys | Global key handler in `App` | "]" steps to the next change and "[" to the previous, wrapping at the ends. The keys do nothing while typing in an input, textarea, select, or editable element, and only while a commit diff is ready. The banner hints "[ ]". | ipc |
 | DIFF-09 | Change list | Expanded `CommitDiffSummary` banner | The expand button toggles a legend (added and removed lines, dimmed meaning, connection colours) and a list of every directly changed block and every changed file outside the map, sorted by label, each with "+n −n" counts or "binary". Clicking an entry navigates like DIFF-07 and marks it current. | ipc |
@@ -250,7 +250,7 @@ Playwright test titles mapped to the feature IDs they prove. APP-10 is not cover
 | APP-12 | APP-12: no workspace error banner after a clean mocked load | ipc |
 | APP-13 | APP-13: default theme is blueprint on the shell | web |
 | APP-14 | APP-14: mocked watch keeps the map ready | ipc |
-| MAP-01 | MAP-01: Modules / Files toggle switches the view; app layer not yet covered (stage 2b, tauri-driver) | ipc, app |
+| MAP-01 | MAP-01: Atlas / Modules / Files toggle switches the view; app layer not yet covered (stage 2b, tauri-driver) | ipc, app |
 | MAP-02 | MAP-02: depth control changes the depth value | web |
 | MAP-03 | MAP-03: direct children count is displayed | web |
 | MAP-04 | MAP-04: breadcrumbs show the workspace root | web |
