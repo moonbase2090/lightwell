@@ -97,6 +97,10 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
       return 1
     }
 
+    wait_for_label atlas-ready ATLAS
+    # Live refresh asserts module nodes, so enter the Modules view explicitly.
+    # The window has a fixed 1280x850 layout; this is the center of that toggle.
+    xdotool mousemove --window "$window_id" 800 250 click 1
     wait_for_label ready CRATE
     # The default depth hides Rust modules. Search brings their parent into scope.
     xdotool key ctrl+k
