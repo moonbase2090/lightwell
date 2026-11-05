@@ -2145,6 +2145,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           connections={map.connections}
           selectedId={selectedId}
           onSelect={selectTreeNode}
+          onContextMenu={showBlockMenu}
           {...(graphChanges === undefined ? {} : { changes: graphChanges })}
           onlyChanged={commitDiffOnlyChanged}
         />

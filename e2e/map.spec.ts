@@ -161,6 +161,10 @@ test.describe("workspace atlas", () => {
     await expect(selectedCell.locator("text")).toHaveText("prismattyc-host");
     await page.getByLabel("Filter workspace atlas").fill("");
     await expect(page.getByRole("treeitem", { name: /prismattyc-host/i }).last()).toHaveAttribute("aria-selected", "true");
+    await page.getByLabel("Filter workspace atlas").fill("session_prompt");
+    await page.getByRole("treeitem", { name: /session_prompt/i }).last().click();
+    await expect(page.getByRole("button", { name: "Fit workspace" })).toBeDisabled();
+    await expect(page.locator(".atlas-cell.is-selected")).toBeVisible();
   });
 
   test("MAP-19: commit changes highlight atlas regions and filter the outline", async ({ page }) => {
@@ -176,7 +180,15 @@ test.describe("workspace atlas", () => {
     await expect(page.getByRole("treeitem", { name: /Scorecard/i })).toHaveCount(0);
     await toggle.click();
     await page.getByLabel("Filter workspace atlas").fill("src/main.mjs");
-    await page.getByRole("treeitem", { name: /main.*MODULE/i }).last().click();
+    const leaf = page.getByRole("treeitem", { name: /main.*MODULE/i }).last();
+    await leaf.click();
+    await leaf.click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: "Copy path" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await leaf.focus();
+    await page.keyboard.press("Shift+F10");
+    await expect(page.getByRole("menuitem", { name: "Open source" })).toBeVisible();
+    await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Open source" }).click();
     await expect(page.getByLabel("Source inspector for main")).toBeVisible();
   });

@@ -86,6 +86,7 @@ export default function AtlasView({
   connections,
   selectedId,
   onSelect,
+  onContextMenu,
   changes,
   onlyChanged,
 }: {
@@ -94,6 +95,7 @@ export default function AtlasView({
   readonly connections: readonly FactConnection[];
   readonly selectedId: string;
   readonly onSelect: (id: string) => void;
+  readonly onContextMenu: (block: DisplayBlock, x: number, y: number) => void;
   readonly changes?: ReadonlyMap<string, { readonly added: number; readonly removed: number }>;
   readonly onlyChanged: boolean;
 }) {
@@ -117,6 +119,7 @@ export default function AtlasView({
   useEffect(() => {
     if (selectedTreeId === null) return;
     setExpanded((current) => revealExpanded(current, tree.nodeById, selectedTreeId));
+    setZoomId(null);
   }, [selectedTreeId, tree]);
 
   const toggle = (id: string) => {
@@ -174,7 +177,18 @@ export default function AtlasView({
                 className={`atlas-outline-row${selected ? " is-selected" : ""}${change === undefined ? "" : " is-changed"}`}
                 style={{ paddingInlineStart: `${10 + (level - 1) * 14}px` }}
                 onClick={() => selectNode(node)}
+                onContextMenu={(event) => {
+                  if (block === undefined) return;
+                  event.preventDefault();
+                  onContextMenu(block, event.clientX, event.clientY);
+                }}
                 onKeyDown={(event) => {
+                  if (block !== undefined && (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) {
+                    event.preventDefault();
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    onContextMenu(block, rect.left + 12, rect.bottom);
+                    return;
+                  }
                   if (event.key === "ArrowRight" && node.children.length > 0 && !expanded.has(node.id)) { event.preventDefault(); toggle(node.id); return; }
                   if (event.key === "ArrowLeft" && expanded.has(node.id)) { event.preventDefault(); toggle(node.id); return; }
                   moveOutlineFocus(event);
@@ -220,6 +234,12 @@ export default function AtlasView({
                 key={cell.id}
                 className={`atlas-cell depth-${Math.min(cell.depth, 5)}${selected ? " is-selected" : ""}${related ? "" : " is-dimmed"}${change === undefined ? "" : ` is-changed${change.added > 0 ? " has-additions" : ""}${change.removed > 0 ? " has-removals" : ""}`}${filtered ? " is-filtered" : ""}`}
                 onClick={() => { if (blockId !== null) onSelect(blockId); }}
+                onContextMenu={(event) => {
+                  const block = blockId === null ? undefined : blockById.get(blockId);
+                  if (block === undefined) return;
+                  event.preventDefault();
+                  onContextMenu(block, event.clientX, event.clientY);
+                }}
                 onDoubleClick={() => setZoomId(cell.id)}
               >
                 <rect x={cell.x} y={cell.y} width={cell.width} height={cell.height} rx={cell.depth === 0 ? 8 : 3} />
