@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.29 - 2026-11-05
+
+### Fixed
+
+- Mark reviewed and Delete stale for notes now follow `VITE_ENABLE_NOTES_STALE_ACTIONS` alone. The desktop build no longer also reads `LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS`, which could remove the commands while the buttons stayed visible (#255).
+
 ## 0.1.28 - 2026-11-05
 
 ### Changed
