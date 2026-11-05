@@ -98,16 +98,19 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     }
 
     wait_for_label atlas-ready ATLAS
+    # Give the small view controls their own enlarged OCR frame. Reusing the
+    # whole map frame makes recognition depend on unrelated labels and shapes.
+    convert "$artifact_dir/atlas-ready.png" -crop 1280x80+0+210 +repage -colorspace Gray -threshold 55% -negate -resize 400% "$artifact_dir/controls-ocr.png"
+    tesseract "$artifact_dir/controls-ocr.png" stdout --psm 11 tsv >"$artifact_dir/controls.tsv" 2>"$artifact_dir/ocr.log"
     if ! read -r modules_left modules_top modules_width modules_height < <(
-      tesseract "$artifact_dir/ocr.png" stdout --psm 11 tsv 2>/dev/null |
-        node -e "const fs = require(\"node:fs\"); const row = fs.readFileSync(0, \"utf8\").split(\"\\n\").map((line) => line.split(\"\\t\")).find((columns) => columns[11]?.toLowerCase() === \"modules\"); if (row === undefined) process.exit(1); process.stdout.write(row.slice(6, 10).join(\" \") + \"\\n\");"
+      node -e "const fs = require(\"node:fs\"); const row = fs.readFileSync(process.argv[1], \"utf8\").split(\"\\n\").map((line) => line.split(\"\\t\")).find((columns) => columns[11]?.toLowerCase() === \"modules\"); if (row === undefined) process.exit(1); process.stdout.write(row.slice(6, 10).join(\" \") + \"\\n\");" "$artifact_dir/controls.tsv"
     ); then
       printf "Could not locate the Modules view toggle.\n" >&2
-      return 1
+      exit 1
     fi
-    # The OCR image is a 2x crop beginning 154 pixels below the window top.
-    modules_x=$((modules_left / 2 + modules_width / 4))
-    modules_y=$((154 + modules_top / 2 + modules_height / 4))
+    # The controls OCR image is a 4x crop beginning 210 pixels below the window top.
+    modules_x=$((modules_left / 4 + modules_width / 8))
+    modules_y=$((210 + modules_top / 4 + modules_height / 8))
     xdotool mousemove --window "$window_id" "$modules_x" "$modules_y" click 1
     wait_for_label ready CRATE
     # The default depth hides Rust modules. Search brings their parent into scope.
