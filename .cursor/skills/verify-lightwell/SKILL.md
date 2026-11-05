@@ -53,6 +53,7 @@ Harness summary:
 - **Desktop project notes (Linux only):** `scripts/ci/capture-project-notes.sh` with a built Tauri binary. See `features/project-notes-capture.md` for Xvfb, xdotool, ImageMagick, and the fixed layout. Skip it when those are missing; do not substitute the browser preview.
 - **Desktop live refresh (Linux only):** `scripts/ci/capture-live-refresh.sh` verifies the map labels before and after a Rust module is added. See `features/live-refresh-capture.md` for the Tesseract prerequisite and retained diagnostics.
 - **Desktop source inspector (Linux only):** `scripts/ci/capture-source-inspector.sh` enters the Modules view, opens a searched Rust block in the source inspector, invokes an isolated editor command, and opens editor settings.
+- **Desktop themes (Linux only):** `scripts/ci/capture-theme-picker.sh` enters the Modules view and checks visible graph blocks across the system, dark, light, and blueprint themes.
 
 ## Evidence
 
@@ -63,6 +64,7 @@ Store proof under `/tmp/lightwell-verify-$RUN_ID/proof/` (create the directory).
 - Browser: preview URL, `curl` response code, and a note that `dist/index.html` contains `Lightwell` (from `scripts/verify/browser-preview-proof.sh`).
 - Project notes, when the Linux desktop prerequisites are present: capture command, exit code, the `created, edited, retained as stale, and removed` line, and `notes-current.png`, `notes-stale.png`, and `notes-removed.png`.
 - Source inspector, when the Linux desktop prerequisites are present: capture command, exit code, the `inspected src/lib.rs at line 43, column 9` line, `source-inspector.png`, and `editor-settings.png`.
+- Themes, when the Linux desktop prerequisites are present: capture command, exit code, the `applied Follow system, Dark, Light, and Blueprint` line, and the `theme-*.png` screenshots.
 
 Proof must exercise a real user path from the feature map, not internal test-only hooks. Do not delete proof files during cleanup.
 
