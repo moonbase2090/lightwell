@@ -20,7 +20,7 @@ use crate::metadata::{
 };
 use crate::php_source::{discover_php_packages, PhpFile, PhpPackage, PhpSymbol};
 use crate::python_source::{
-    discover_python_modules, discover_python_project, resolve_python_import, PythonModule,
+    discover_python_modules, discover_python_project, resolve_python_imports, PythonModule,
     PythonProject, PythonSymbol,
 };
 use crate::ruby_source::{
@@ -3000,8 +3000,25 @@ fn append_python_blocks(
             language: "python".to_owned(),
         }));
         connections.push(contains_connection(workspace_id, &project_id));
+        let mut name_counts = HashMap::new();
         for entry in &project.entry_points {
-            let app_id = format!("app:python:{}:{}", slug(&project.name), slug(&entry.name));
+            *name_counts.entry(slug(&entry.name)).or_insert(0usize) += 1;
+        }
+        for entry in &project.entry_points {
+            let identity = hash_text(
+                &serde_json::to_string(&(&entry.group, &entry.name, &entry.object_ref))
+                    .expect("entry point strings should serialize"),
+            );
+            let suffix = if name_counts[&slug(&entry.name)] > 1 {
+                format!(":{identity}")
+            } else {
+                String::new()
+            };
+            let app_id = format!(
+                "app:python:{}:{}{suffix}",
+                slug(&project.name),
+                slug(&entry.name)
+            );
             let entry_module = entry
                 .object_ref
                 .split_once(':')
@@ -3097,23 +3114,22 @@ fn append_python_blocks(
     for module in modules {
         let source_id = &module_ids[&module.name];
         for import in &module.imports {
-            let Some(target_name) = resolve_python_import(module, import, &known_modules) else {
-                continue;
-            };
-            let Some(target_id) = module_ids.get(&target_name) else {
-                continue;
-            };
-            if target_id == source_id {
-                continue;
-            }
-            let edge_id = connection_id("depends_on", source_id, target_id);
-            if import_edges.insert(edge_id.clone()) {
-                connections.push(Connection::DependsOn {
-                    id: edge_id,
-                    source: source_id.clone(),
-                    target: target_id.clone(),
-                    dependency_scope: DependencyScope::Normal,
-                });
+            for target_name in resolve_python_imports(module, import, &known_modules) {
+                let Some(target_id) = module_ids.get(&target_name) else {
+                    continue;
+                };
+                if target_id == source_id {
+                    continue;
+                }
+                let edge_id = connection_id("depends_on", source_id, target_id);
+                if import_edges.insert(edge_id.clone()) {
+                    connections.push(Connection::DependsOn {
+                        id: edge_id,
+                        source: source_id.clone(),
+                        target: target_id.clone(),
+                        dependency_scope: DependencyScope::Normal,
+                    });
+                }
             }
         }
     }

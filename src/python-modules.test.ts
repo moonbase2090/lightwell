@@ -1,3 +1,4 @@
+import metadataCases from "../crates/lightwell-core/fixtures/python-metadata-cases.json";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -10,7 +11,7 @@ import {
   discoverPythonProject,
   parsePythonSource,
   pythonImportStatement,
-  resolvePythonImport,
+  resolvePythonImports,
 } from "./extract/python-modules.js";
 
 const fixtureRoot = fileURLToPath(new URL("../crates/lightwell-core/fixtures/python-sample/", import.meta.url));
@@ -121,12 +122,13 @@ test("python fixture project lists entry points and import edges", () => {
   assert.ok(api);
   const relative = api.imports.find((item) => pythonImportStatement(item) === "from .nested.worker import run");
   assert.ok(relative);
-  assert.equal(resolvePythonImport(api, relative, known), "sample_pkg.nested.worker");
+  assert.deepEqual(resolvePythonImports(api, relative, known), ["sample_pkg.nested.worker"]);
   assert.ok(modules.some((module) => module.name === "sample_pkg.__main__"));
 
   const map = extractCargoMap({ repositoryPath: fixtureRoot, projectName: "Python Sample" });
   assert.ok(map.blocks.some((block) => block.type === "module" && block.language === "python" && block.cfgAttributes.includes("project") && block.label === "sample-pkg"));
   assert.ok(map.blocks.some((block) => block.type === "app" && block.targetName === "sample-cli" && block.targetKind === "console_scripts"));
+  assert.equal(map.blocks.find((block) => block.type === "app" && block.targetName === "sample-cli")?.id, "app:python:sample-pkg:sample-cli");
   const apiId = map.blocks.find((block) => block.type === "module" && block.language === "python" && block.modulePath === "sample_pkg.api")?.id;
   const workerId = map.blocks.find((block) => block.type === "module" && block.language === "python" && block.modulePath === "sample_pkg.nested.worker")?.id;
   assert.ok(apiId);
@@ -220,3 +222,42 @@ test("cargo extraction includes python modules without a flag", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+for (const fixture of metadataCases) {
+  test(`python metadata regression: ${fixture.name}`, () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "lightwell-python-metadata-"));
+    try {
+      for (const [relative, source] of Object.entries(fixture.files)) {
+        if (source === undefined) continue;
+        const file = path.join(root, relative);
+        mkdirSync(path.dirname(file), { recursive: true });
+        writeFileSync(file, source);
+      }
+      const project = discoverPythonProject(root);
+      assert.equal(project?.name ?? null, fixture.expectedProject);
+      assert.deepEqual(project?.entryPoints.map((entry) => [entry.group, entry.name, entry.objectRef]) ?? [], fixture.expectedEntries);
+      const map = extractCargoMap({ repositoryPath: root });
+      assert.equal(map.blocks.filter((block) => block.type === "app").length, fixture.expectedEntries.length);
+      assert.equal(new Set(map.blocks.map((block) => block.id)).size, map.blocks.length, "block IDs must be unique");
+      assert.equal(new Set(map.connections.map((edge) => edge.id)).size, map.connections.length, "edge IDs must be unique");
+      if (fixture.name.startsWith("malformed")) {
+        assert.ok(map.blocks.some((block) => block.type === "module" && block.modulePath === "kept.kept"));
+      }
+      if (fixture.name === "src-layout-imports") {
+        const modules = map.blocks.filter((block) => block.type === "module");
+        const cli = modules.find((block) => block.modulePath === "pkg.cli");
+        const pkg = modules.find((block) => block.modulePath === "pkg");
+        assert.ok(cli);
+        assert.ok(pkg);
+        assert.equal(cli.parentId, pkg.id);
+        assert.ok(cli.cfgAttributes.includes("from pkg import pkg"));
+        assert.equal(map.blocks.find((block) => block.type === "app")?.sourcePath, "src/pkg/cli.py");
+        const targets = map.connections.filter((edge) => edge.kind === "depends_on" && edge.source === cli.id)
+          .map((edge) => modules.find((block) => block.id === edge.target)?.modulePath).sort();
+        assert.deepEqual(targets, ["pkg", "pkg.gui", "pkg.handlers", "pkg.hooks", "pkg.pkg"]);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
