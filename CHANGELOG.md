@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.27 - 2026-11-05
+
+### Fixed
+
+- Python project metadata no longer aborts extraction on malformed TOML or creates duplicate entry point IDs. Rust and TypeScript agree on metadata, source layouts, and imported submodules (#250).
+
 ## 0.1.26 - 2026-11-03
 
 ### Changed
