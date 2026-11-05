@@ -22,7 +22,7 @@ Lightwell is adding source languages beyond Rust workspace manifests. TypeScript
 
 Vue, Svelte, Astro, Angular, other meta-frameworks, and bundler/monorepo orchestrator graphs ship **after v0.1.4** in follow-up PRs.
 
-Extension routing lands with the language registry. Extraction, outline facts, and inspector highlighting for language packs ship **on in the same trunk PR that adds the pack**. This follows `REVIEW_POLICY.md` **§5 language-pack exception** (not the default off-by-default feature gating in §5’s first paragraph). Do **not** land extractors or `registerHighlighter` behind a default-off flag with a later “enable” PR — that pattern does not apply to language packs.
+Extension routing lands with the language registry. Extraction, outline facts, and inspector highlighting for language packs ship **on in the same trunk PR that adds the pack**. This follows `REVIEW_POLICY.md` **§5**: new behavior ships on by default, and language packs ship on with the pack. Do **not** land extractors or `registerHighlighter` behind a default-off flag with a later “enable” PR — that pattern does not apply to language packs.
 
 Python module extraction and its Monarch tokenizer are on. The web pack extracts module facts and registers Monaco highlighting on. There is no separate enable PR and no off switch.
 
