@@ -172,6 +172,12 @@ test.describe("workspace atlas", () => {
     await page.getByLabel("Show changes", { exact: true }).selectOption("lastCommit");
     await expect(page.locator(".atlas-cell.is-changed").first()).toBeVisible();
     await expect(page.locator(".atlas-outline-change").first()).toBeVisible();
+    const mixedChange = page.locator(".atlas-cell.is-changed.has-additions.has-removals:not(.is-selected)").first();
+    await expect(mixedChange).toBeVisible();
+    await page.getByRole("button", { name: /settings/i }).first().click();
+    await page.getByRole("combobox", { name: "THEME" }).selectOption("light");
+    await page.getByRole("button", { name: "Close settings" }).click();
+    await expect(mixedChange.locator("rect")).toHaveCSS("stroke", "rgb(155, 98, 28)");
     const toggle = page.getByRole("checkbox", { name: "Only show changed blocks on the map and file tree" });
     await toggle.click();
     await expect(page.locator(".atlas-cell.is-filtered").first()).toBeVisible();

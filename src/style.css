@@ -1333,6 +1333,7 @@ button.node-note-badge:hover, button.node-note-badge:focus-visible { background:
 [data-theme="light"] .atlas-cell.depth-2 rect { fill: #d7e5e7; }
 [data-theme="light"] .atlas-cell.depth-3 rect { fill: #cfe1df; }
 [data-theme="light"] .atlas-cell text { fill: #344657; }
+[data-theme="light"] .atlas-cell.is-changed rect { stroke: #9b621c; }
 [data-theme="light"] .atlas-cell.is-selected rect { fill: #cadcf2; stroke: #517bbb; }
 [data-theme="light"] .atlas-outline-row.is-selected { color: #263b55; background: #dce8f5; }
 

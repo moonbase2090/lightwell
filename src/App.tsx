@@ -1796,6 +1796,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     if (next === "atlas") {
       setScopePath([map.facts.project.id]);
       setInspectedBlockId(null);
+      setFocusRequest(null);
+      return;
     }
     if (mapView === "atlas") return;
     const block = map.blockById.get(selectedId);
