@@ -1597,6 +1597,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setActiveFeatureId(null);
     setActiveNodeId(null);
     setInspectedBlockId(null);
+    setInspectedDiffPath(null);
   }, []);
   const activateBlock = useCallback((block: DisplayBlock) => {
     if (folderPathFromId(block.id) !== null) {
@@ -1754,6 +1755,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
     setSearch("");
     setActiveNodeId(null);
+    setInspectedDiffPath(null);
     if (node.virtual) {
       setInspectedBlockId(null);
       setSelectedId(node.id);
@@ -1767,7 +1769,6 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       return;
     }
     if (mapSource.editor !== undefined) {
-      setInspectedDiffPath(null);
       setInspectedBlockId(node.id);
     }
     if (map === null) return;

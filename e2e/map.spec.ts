@@ -179,9 +179,13 @@ test.describe("workspace atlas", () => {
     await expect(changedBlock).toBeVisible();
     await expect(page.getByRole("treeitem", { name: /Scorecard/i })).toHaveCount(0);
     await toggle.click();
+    await page.getByRole("button", { name: "Expand change list" }).click();
+    await page.getByRole("button", { name: /File README\.md/ }).click();
+    await expect(page.getByLabel("Source inspector for README.md")).toBeVisible();
     await page.getByLabel("Filter workspace atlas").fill("src/main.mjs");
     const leaf = page.getByRole("treeitem", { name: /main.*MODULE/i }).last();
     await leaf.click();
+    await expect(page.getByLabel("Source inspector for README.md")).toHaveCount(0);
     await leaf.click({ button: "right" });
     await expect(page.getByRole("menuitem", { name: "Copy path" })).toBeVisible();
     await page.keyboard.press("Escape");
