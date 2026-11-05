@@ -1,10 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.1.28 - 2026-11-05
 
 ### Changed
 
-- Six features that needed a build flag are now on by default: state charts, the map pop-out, note revision checks, Mark reviewed and Delete stale for notes, the compound dependency chart, and commit diffs (already on). Build with the matching `VITE_ENABLE_STATE_CHART`, `VITE_ENABLE_MAP_POPOUT`, `VITE_ENABLE_NOTES_CAS`, `VITE_ENABLE_NOTES_STALE_ACTIONS` or `VITE_ENABLE_COMPOUND_LAYOUT` set to `false` to turn one off.
+- Five features that needed a build flag are now on by default: state charts, the map pop-out, note revision checks, Mark reviewed and Delete stale for notes, and the compound dependency chart. Commit diffs were already on. Build with the matching `VITE_ENABLE_STATE_CHART`, `VITE_ENABLE_MAP_POPOUT`, `VITE_ENABLE_NOTES_CAS`, `VITE_ENABLE_NOTES_STALE_ACTIONS` or `VITE_ENABLE_COMPOUND_LAYOUT` set to `false` to turn one off (#253).
 
 ## 0.1.27 - 2026-11-05
 
