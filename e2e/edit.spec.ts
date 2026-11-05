@@ -4,7 +4,7 @@ test.describe("source inspector (ipc)", () => {
   test.beforeEach(async ({ page }) => gotoIpc(page));
 
   async function openSource(page: import("@playwright/test").Page) {
-    const node = page.locator(".react-flow__node").first();
+    const node = page.locator(".react-flow__node-codeBlock").first();
     await node.click({ button: "right" });
     await page.getByText("Open source").click();
     await expect(page.getByText("READ-ONLY SOURCE")).toBeVisible();

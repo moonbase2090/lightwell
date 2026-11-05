@@ -74,6 +74,6 @@ App proof uses only real extraction output. Capture the Lightwell workspace and 
 1. Land this design note as a docs pull request.
 2. Add the bounded graph builder, recursive ELK worker, layout cache, and geometry and performance tests behind a default-off feature flag.
 3. Add group nodes, orthogonal edges, the legend, blueprint styling, and real-repository captures while the flag remains off by default.
-4. Enable the dependency chart after the implementation proof is green.
+4. Enable the dependency chart after the implementation proof is green. It is now on by default; a build with `VITE_ENABLE_COMPOUND_LAYOUT=false` (the exact string) returns to the flat Modules layout.
 
 The later state-chart work starts with a separate note about detecting explicit states and transition evidence from source. It does not share extraction rules or a view with this dependency chart.

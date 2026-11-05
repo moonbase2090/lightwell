@@ -17,7 +17,6 @@ export default defineConfig({
     env: {
       VITE_ENABLE_LANGUAGE_PACKS: "true",
       VITE_ENABLE_NOTE_GIT: "true",
-      VITE_ENABLE_NOTES_CAS: "true",
     },
     command: "npm run build && npm run preview -- --port 4173 --strictPort",
     url: "http://localhost:4173",

@@ -24,7 +24,7 @@ import {
 import { readNoteRevisionConflict } from "../notes-reload.js";
 
 function notesCasFlagEnabled(): boolean {
-  return typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true";
+  return typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS !== "false";
 }
 
 export function noteCommandArgs(input: Pick<ProjectNoteInput, "expectedRevision" | "expectation">, enabled = notesCasFlagEnabled()): { expectedRevision?: string | null; expectation?: ProjectNoteInput["expectation"] | null } {
@@ -84,7 +84,7 @@ const projectNotesApi: ProjectNotesSource = {
   remove(input: Omit<ProjectNoteInput, "text">) {
     return invoke<unknown>("remove_workspace_note", removeNoteArgs(input)).then(parseProjectNotesSnapshot, rejectNoteCommand);
   },
-  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS) === "true" ? {
+  ...((typeof import.meta.env === "undefined" ? undefined : import.meta.env.VITE_ENABLE_NOTES_STALE_ACTIONS) !== "false" ? {
     markReviewed(input: Omit<ProjectNoteInput, "text">) {
       return invoke<unknown>("mark_workspace_note_reviewed", {
         path: input.workspaceId,
@@ -226,7 +226,7 @@ export const tauriMapSource: MapSource = {
   async watchMap(id, onChange, onError, onNotes) {
     let commandFinished = false;
     let pendingUpdate: ReturnType<typeof parseWorkspaceMapUpdate> | undefined;
-    const unlistenNotes = typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true" && onNotes !== undefined
+    const unlistenNotes = typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS !== "false" && onNotes !== undefined
       ? await listen<unknown>("workspace-notes-changed", (event) => {
           try {
             const update = parseWorkspaceNotesUpdate(event.payload);

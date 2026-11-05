@@ -68,8 +68,9 @@ test.describe("map canvas (web)", () => {
     await expect(page.getByText("CONNECTED BLOCKS")).toBeVisible();
   });
 
-  test("MAP-15: compound dependency chart follows its feature flag", async ({ page }) => {
-    const enabled = process.env.VITE_ENABLE_COMPOUND_LAYOUT === "true";
+  test("MAP-15: compound dependency chart is on by default and opts out with false", async ({ page }) => {
+    // Only an exact VITE_ENABLE_COMPOUND_LAYOUT=false build turns the chart off.
+    const enabled = process.env.VITE_ENABLE_COMPOUND_LAYOUT !== "false";
     await expect(page.getByLabel("Dependency chart legend")).toHaveCount(enabled ? 1 : 0);
     const compoundGroups = page.locator(".react-flow__node-compoundGroup");
     if (enabled) await expect(compoundGroups.first()).toBeVisible();

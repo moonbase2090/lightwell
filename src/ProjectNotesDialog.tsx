@@ -14,7 +14,7 @@ type NoteEditor = {
 };
 
 function notesCompareAndSwap(): boolean {
-  return typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS === "true";
+  return typeof import.meta.env !== "undefined" && import.meta.env.VITE_ENABLE_NOTES_CAS !== "false";
 }
 
 interface ProjectNotesDialogProps {
