@@ -98,19 +98,19 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
     }
 
     wait_for_label atlas-ready ATLAS
-    # Give the small view controls their own enlarged OCR frame. Reusing the
+    # Give the small view controls a focused enlarged OCR frame. Reusing the
     # whole map frame makes recognition depend on unrelated labels and shapes.
-    convert "$artifact_dir/atlas-ready.png" -crop 1280x80+0+210 +repage -colorspace Gray -threshold 55% -negate -resize 400% "$artifact_dir/controls-ocr.png"
-    tesseract "$artifact_dir/controls-ocr.png" stdout --psm 11 tsv >"$artifact_dir/controls.tsv" 2>"$artifact_dir/ocr.log"
-    if ! read -r modules_left modules_top modules_width modules_height < <(
-      node -e "const fs = require(\"node:fs\"); const row = fs.readFileSync(process.argv[1], \"utf8\").split(\"\\n\").map((line) => line.split(\"\\t\")).find((columns) => columns[11]?.toLowerCase() === \"modules\"); if (row === undefined) process.exit(1); process.stdout.write(row.slice(6, 10).join(\" \") + \"\\n\");" "$artifact_dir/controls.tsv"
+    convert "$artifact_dir/atlas-ready.png" -crop 360x55+600+220 +repage -colorspace Gray -threshold 55% -negate -resize 400% "$artifact_dir/controls-ocr.png"
+    tesseract "$artifact_dir/controls-ocr.png" stdout --psm 6 tsv >"$artifact_dir/controls.tsv" 2>"$artifact_dir/ocr.log"
+    if ! read -r modules_center_x modules_center_y < <(
+      node -e "const fs = require(\"node:fs\"); const rows = fs.readFileSync(process.argv[1], \"utf8\").split(\"\\n\").map((line) => line.split(\"\\t\")).filter((columns) => columns.length >= 12); const named = (label) => rows.find((columns) => columns[11].toLowerCase() === label); const center = (row) => ({ x: Number(row[6]) + Number(row[8]) / 2, y: Number(row[7]) + Number(row[9]) / 2 }); const modules = named(\"modules\"); const atlas = named(\"atlas\"); const files = named(\"files\"); const target = modules === undefined ? atlas === undefined || files === undefined ? undefined : { x: (center(atlas).x + center(files).x) / 2, y: (center(atlas).y + center(files).y) / 2 } : center(modules); if (target === undefined) process.exit(1); process.stdout.write(Math.round(target.x) + \" \" + Math.round(target.y) + \"\\n\");" "$artifact_dir/controls.tsv"
     ); then
       printf "Could not locate the Modules view toggle.\n" >&2
       exit 1
     fi
-    # The controls OCR image is a 4x crop beginning 210 pixels below the window top.
-    modules_x=$((modules_left / 4 + modules_width / 8))
-    modules_y=$((210 + modules_top / 4 + modules_height / 8))
+    # The controls OCR image is a 4x crop beginning at (600, 220).
+    modules_x=$((600 + modules_center_x / 4))
+    modules_y=$((220 + modules_center_y / 4))
     xdotool mousemove --window "$window_id" "$modules_x" "$modules_y" click 1
     wait_for_label ready CRATE
     # The default depth hides Rust modules. Search brings their parent into scope.
