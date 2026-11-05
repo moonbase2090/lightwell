@@ -22,7 +22,7 @@ fn main() {
         });
 
     // Stale-note actions are registered unless the app was built with
-    // VITE_ENABLE_NOTES_STALE_ACTIONS=false (or LIGHTWELL_ENABLE_NOTES_STALE_ACTIONS=false).
+    // VITE_ENABLE_NOTES_STALE_ACTIONS=false, the same variable the frontend reads.
     // Keep both handler lists in sync except for those two commands.
     #[cfg(lightwell_notes_stale_actions)]
     let builder = builder.invoke_handler(tauri::generate_handler![

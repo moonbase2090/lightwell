@@ -48,4 +48,4 @@ Tests use literal source fixtures and assert the public result. Every detection 
 - Duplicate merging, state and transition bounds, cycles, disconnected states, orthogonal routes, and sibling non-overlap.
 - The exact-true feature gate, disabled default, loading, empty, error, ready, and source-selection states.
 
-App proof uses a real source file containing an explicit state machine. The captured image comes from the running app with the feature flag enabled. The build with `VITE_ENABLE_STATE_CHART=false` must contain no state-chart detector or renderer text, and the default build must include them in the main bundle without a separate runtime chunk.
+App proof uses a real source file containing an explicit state machine. The captured image comes from the running app in a normal build. The build with `VITE_ENABLE_STATE_CHART=false` must contain no state-chart detector or renderer text, and the default build must include them in the main bundle without a separate runtime chunk.
