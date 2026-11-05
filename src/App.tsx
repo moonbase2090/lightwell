@@ -626,7 +626,7 @@ function FeatureFooter({
  * The top padding is in pixels so a fitted map always starts below the canvas header
  * (Modules / Files, Depth), which floats over the top of the canvas.
  */
-const GRAPH_FIT_OPTIONS = { padding: { top: "64px", right: 0.2, bottom: 0.2, left: 0.2 }, minZoom: 0.18, maxZoom: 1.2 } as const;
+const GRAPH_FIT_OPTIONS = { padding: { top: "68px", right: 0.2, bottom: 0.2, left: 0.2 }, minZoom: 0.18, maxZoom: 1.2 } as const;
 
 /** Children kept in view around the scope block; wide scopes pan for the rest. */
 const FIT_NEAREST_CHILDREN = 8;
