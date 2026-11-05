@@ -49,8 +49,15 @@ pub(crate) struct PythonProject {
     pub entry_points: Vec<PythonEntryPoint>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum PythonImportKind {
+    Import,
+    From,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PythonImport {
+    pub kind: PythonImportKind,
     pub line: usize,
     pub module: String,
     pub relative_level: usize,
@@ -79,7 +86,7 @@ pub(crate) struct PythonSymbol {
 
 impl PythonImport {
     pub(crate) fn statement(&self) -> String {
-        if self.names.len() == 1 && self.names[0].name == self.module && self.relative_level == 0 {
+        if self.kind == PythonImportKind::Import && self.names.len() == 1 {
             return match &self.names[0].alias {
                 Some(alias) => format!("import {} as {alias}", self.module),
                 None => format!("import {}", self.module),
@@ -144,7 +151,7 @@ pub(crate) fn discover_python_project(
     let _canonical_root = opened_root(repository_path)?;
     let pyproject = repository_path.join("pyproject.toml");
     if pyproject.is_file() {
-        return Ok(Some(read_pyproject(&pyproject)?));
+        return read_pyproject(&pyproject);
     }
     let setup_cfg = repository_path.join("setup.cfg");
     if setup_cfg.is_file() {
@@ -158,20 +165,46 @@ pub(crate) fn discover_python_project(
 }
 
 /// Resolve an import to a discovered module path when the target is inside the workspace.
-pub(crate) fn resolve_python_import(
+pub(crate) fn resolve_python_imports(
     from: &PythonModule,
     import: &PythonImport,
     known_modules: &HashSet<String>,
-) -> Option<String> {
+) -> Vec<String> {
     let candidate = if import.relative_level > 0 {
-        let package = containing_package(from)?;
-        resolve_relative_import(&package, import.relative_level, &import.module)?
+        let Some(package) = containing_package(from) else {
+            return Vec::new();
+        };
+        let Some(candidate) =
+            resolve_relative_import(&package, import.relative_level, &import.module)
+        else {
+            return Vec::new();
+        };
+        candidate
     } else if import.module.is_empty() {
-        return None;
+        return Vec::new();
     } else {
         import.module.clone()
     };
-    longest_known_module(&candidate, known_modules)
+    if import.kind == PythonImportKind::Import {
+        return longest_known_module(&candidate, known_modules)
+            .into_iter()
+            .collect();
+    }
+    let mut targets = Vec::new();
+    for name in &import.names {
+        let submodule = format!("{candidate}.{}", name.name);
+        let target = if known_modules.contains(&submodule) {
+            Some(submodule)
+        } else {
+            longest_known_module(&candidate, known_modules)
+        };
+        if let Some(target) = target {
+            targets.push(target);
+        }
+    }
+    targets.sort();
+    targets.dedup();
+    targets
 }
 
 fn containing_package(module: &PythonModule) -> Option<String> {
@@ -194,7 +227,7 @@ fn resolve_relative_import(package: &str, level: usize, module: &str) -> Option<
         .map(str::to_owned)
         .collect::<Vec<_>>();
     let up = level - 1;
-    if up > parts.len() {
+    if up >= parts.len() {
         return None;
     }
     parts.truncate(parts.len() - up);
@@ -225,17 +258,14 @@ fn longest_known_module(candidate: &str, known: &HashSet<String>) -> Option<Stri
     None
 }
 
-fn read_pyproject(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
+fn read_pyproject(path: &Path) -> Result<Option<PythonProject>, CargoDiscoveryError> {
     let source = fs::read_to_string(path).map_err(|source| CargoDiscoveryError::SourceRead {
         path: path.to_owned(),
         source,
     })?;
-    let value = source.parse::<toml::Value>().map_err(|source| {
-        CargoDiscoveryError::InvalidManifestToml {
-            path: path.to_owned(),
-            source,
-        }
-    })?;
+    let Ok(value) = source.parse::<toml::Value>() else {
+        return Ok(None);
+    };
     let mut name = value
         .get("project")
         .and_then(|project| project.get("name"))
@@ -276,12 +306,13 @@ fn read_pyproject(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
             .then(left.name.cmp(&right.name))
             .then(left.object_ref.cmp(&right.object_ref))
     });
-    Ok(PythonProject {
+    entry_points.dedup();
+    Ok(Some(PythonProject {
         name,
         manifest_path: path.to_owned(),
         kind: PythonManifestKind::Pyproject,
         entry_points,
-    })
+    }))
 }
 
 fn push_script_table(
@@ -324,10 +355,9 @@ fn read_setup_cfg(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
             continue;
         }
         if section == "metadata" {
-            if let Some(value) = line.strip_prefix("name") {
-                let value = value.trim().trim_start_matches('=').trim();
-                if !value.is_empty() {
-                    name = value.to_owned();
+            if let Some((key, value)) = line.split_once(['=', ':']) {
+                if key.trim() == "name" && !value.trim().is_empty() {
+                    name = value.trim().to_owned();
                 }
             }
             continue;
@@ -337,7 +367,7 @@ fn read_setup_cfg(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
         }
         let indented = raw.starts_with(' ') || raw.starts_with('\t');
         if !indented {
-            let (group, rest) = match line.split_once('=') {
+            let (group, rest) = match line.split_once(['=', ':']) {
                 Some((group, rest)) => (group.trim(), rest.trim()),
                 None => (line, ""),
             };
@@ -369,7 +399,9 @@ fn read_setup_cfg(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
         left.group
             .cmp(&right.group)
             .then(left.name.cmp(&right.name))
+            .then(left.object_ref.cmp(&right.object_ref))
     });
+    entry_points.dedup();
     Ok(PythonProject {
         name,
         manifest_path: path.to_owned(),
@@ -383,6 +415,7 @@ fn read_setup_py(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
         path: path.to_owned(),
         source,
     })?;
+    let source = mask_python(&source, false);
     let name = setup_py_name(&source).unwrap_or_else(|| "python-project".to_owned());
     Ok(PythonProject {
         name,
@@ -393,22 +426,10 @@ fn read_setup_py(path: &Path) -> Result<PythonProject, CargoDiscoveryError> {
 }
 
 fn setup_py_entry_points(source: &str) -> Vec<PythonEntryPoint> {
-    let Some((name_index, _)) = source.match_indices("entry_points").find(|(index, _)| {
-        let before = source[..*index].chars().next_back();
-        let after = source[*index + "entry_points".len()..].chars().next();
-        !before.is_some_and(|character| character.is_alphanumeric() || character == '_')
-            && !after.is_some_and(|character| character.is_alphanumeric() || character == '_')
-    }) else {
+    let Some(value) = setup_py_assignment(source, "entry_points") else {
         return Vec::new();
     };
-    let assignment = source[name_index + "entry_points".len()..].trim_start();
-    let Some(value) = assignment.strip_prefix('=') else {
-        return Vec::new();
-    };
-    let Some(open) = value.find('{') else {
-        return Vec::new();
-    };
-    let Some((body, _)) = balanced_body(value, open, '{', '}') else {
+    let Some((body, _)) = balanced_body(value, 0, '{', '}') else {
         return Vec::new();
     };
 
@@ -424,12 +445,12 @@ fn setup_py_entry_points(source: &str) -> Vec<PythonEntryPoint> {
             cursor = after_group;
             continue;
         }
-        let Some(list_offset) = after[1..].find('[') else {
+        let value = after[1..].trim_start();
+        if !value.starts_with('[') {
             cursor = after_group;
             continue;
-        };
-        let leading_whitespace = body[after_group..].len() - after.len();
-        let list_start = after_group + leading_whitespace + 1 + list_offset;
+        }
+        let list_start = body.len() - value.len();
         let Some((list, after_list)) = balanced_body(body, list_start, '[', ']') else {
             cursor = after_group;
             continue;
@@ -461,6 +482,7 @@ fn setup_py_entry_points(source: &str) -> Vec<PythonEntryPoint> {
             .then(left.name.cmp(&right.name))
             .then(left.object_ref.cmp(&right.object_ref))
     });
+    entry_points.dedup();
     entry_points
 }
 
@@ -528,23 +550,81 @@ fn quoted_string(source: &str, start: usize) -> Option<(String, usize)> {
 }
 
 fn setup_py_name(source: &str) -> Option<String> {
-    for (index, _) in source.match_indices("name") {
-        let rest = source[index + 4..].trim_start();
-        let Some(rest) = rest.strip_prefix('=').map(str::trim_start) else {
-            continue;
-        };
-        let quote = rest.chars().next()?;
-        if quote != '"' && quote != '\'' {
+    let value = setup_py_assignment(source, "name")?;
+    let (name, _) = quoted_string(value, 0)?;
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
+}
+
+fn setup_py_assignment<'a>(source: &'a str, keyword: &str) -> Option<&'a str> {
+    let masked = mask_python(source, true);
+    for (index, _) in masked.match_indices(keyword) {
+        let before = masked[..index].chars().next_back();
+        let after = &masked[index + keyword.len()..];
+        if before.is_some_and(|c| c.is_alphanumeric() || c == '_') {
             continue;
         }
-        let body = &rest[1..];
-        let end = body.find(quote)?;
-        let name = &body[..end];
-        if !name.is_empty() {
-            return Some(name.to_owned());
+        let rest = after.trim_start();
+        if !rest.starts_with('=') || rest.starts_with("==") {
+            continue;
         }
+        let value_index = masked.len() - rest.len() + 1;
+        return Some(source[value_index..].trim_start());
     }
     None
+}
+
+fn mask_python(source: &str, strings: bool) -> String {
+    let chars: Vec<_> = source.chars().collect();
+    let offsets: Vec<_> = source
+        .char_indices()
+        .map(|(offset, _)| offset)
+        .chain(std::iter::once(source.len()))
+        .collect();
+    let mut masked = source.as_bytes().to_vec();
+    let mut quote = None;
+    let mut index = 0;
+    while index < chars.len() {
+        let start = index;
+        let mask = if let Some(active) = quote {
+            let closes = closes_quote(&chars, index, active);
+            index += if closes {
+                quote_len(active)
+            } else if chars[index] == '\\' {
+                2
+            } else {
+                1
+            };
+            if closes {
+                quote = None;
+            }
+            strings
+        } else if chars[index] == '#' {
+            while index < chars.len() && chars[index] != '\n' {
+                index += 1;
+            }
+            true
+        } else if let Some(opened) = opens_quote(&chars, index) {
+            quote = Some(opened);
+            index += quote_len(opened);
+            strings
+        } else {
+            index += 1;
+            false
+        };
+        index = index.min(chars.len());
+        if mask {
+            for byte in &mut masked[offsets[start]..offsets[index]] {
+                if *byte != b'\n' {
+                    *byte = b' ';
+                }
+            }
+        }
+    }
+    String::from_utf8(masked).expect("masking whole characters preserves UTF-8")
 }
 
 pub(crate) fn parse_python_source(source: &str) -> (Vec<PythonImport>, Vec<PythonSymbol>) {
@@ -597,6 +677,12 @@ fn module_from_file(
     path: &Path,
     packages: &HashSet<PathBuf>,
 ) -> Result<PythonModule, CargoDiscoveryError> {
+    let source_root = root.join("src");
+    let root = if path.starts_with(&source_root) && !packages.contains(&source_root) {
+        source_root.as_path()
+    } else {
+        root
+    };
     let bytes = fs::read(path).map_err(|source| CargoDiscoveryError::PythonSourceRead {
         path: path.to_owned(),
         source,
@@ -968,6 +1054,7 @@ fn parse_import(rest: &str, line: usize) -> Vec<PythonImport> {
             }
             let (module, alias) = split_alias(part);
             Some(PythonImport {
+                kind: PythonImportKind::Import,
                 line,
                 module: module.clone(),
                 relative_level: 0,
@@ -998,6 +1085,7 @@ fn parse_from(rest: &str, line: usize) -> Option<PythonImport> {
         return None;
     }
     Some(PythonImport {
+        kind: PythonImportKind::From,
         line,
         module,
         relative_level,
@@ -1050,7 +1138,7 @@ fn split_top_level(value: &str, separator: char) -> Vec<String> {
 mod tests {
     use super::{
         discover_python_modules, discover_python_project, parse_python_source,
-        resolve_python_import, PythonManifestKind, PythonSymbolKind,
+        resolve_python_imports, PythonManifestKind, PythonSymbolKind,
     };
     use crate::extract::extract_cargo_map;
     use crate::facts::{Connection, FactBlock};
@@ -1295,8 +1383,8 @@ def load_widget():
             .find(|import| import.statement() == "from .nested.worker import run")
             .expect("relative import");
         assert_eq!(
-            resolve_python_import(api, relative, &known).as_deref(),
-            Some("sample_pkg.nested.worker")
+            resolve_python_imports(api, relative, &known),
+            ["sample_pkg.nested.worker"]
         );
 
         let map = extract_cargo_map(&fixture_root(), Some("Python Sample")).expect("extract");
@@ -1393,5 +1481,108 @@ def load_widget():
         assert_eq!(setup.entry_points[0].object_ref, "setup_pkg.cli:main");
         assert_eq!(setup.entry_points[1].group, "sample.hooks");
         let _ = fs::remove_dir_all(&py_root);
+    }
+    #[test]
+    fn metadata_review_cases_match_expected() {
+        let cases: serde_json::Value =
+            serde_json::from_str(include_str!("../fixtures/python-metadata-cases.json")).unwrap();
+        for case in cases.as_array().unwrap() {
+            let temp = tempfile::tempdir().unwrap();
+            let root = temp.path();
+            for (relative, source) in case["files"].as_object().unwrap() {
+                let file = root.join(relative);
+                fs::create_dir_all(file.parent().unwrap()).unwrap();
+                fs::write(file, source.as_str().unwrap()).unwrap();
+            }
+            let project = discover_python_project(root)
+                .expect("metadata discovery must tolerate invalid TOML");
+            let name = project.as_ref().map(|p| p.name.as_str());
+            assert_eq!(
+                serde_json::json!(name),
+                case["expectedProject"],
+                "{}",
+                case["name"]
+            );
+            let entries: Vec<_> = project
+                .as_ref()
+                .map(|p| {
+                    p.entry_points
+                        .iter()
+                        .map(|e| serde_json::json!([e.group, e.name, e.object_ref]))
+                        .collect()
+                })
+                .unwrap_or_default();
+            assert_eq!(
+                serde_json::json!(entries),
+                case["expectedEntries"],
+                "{}",
+                case["name"]
+            );
+            let map = extract_cargo_map(root, None).expect("regression fixture should extract");
+            assert_eq!(
+                map.blocks
+                    .iter()
+                    .filter(|b| matches!(b, FactBlock::App(_)))
+                    .count(),
+                case["expectedEntries"].as_array().unwrap().len()
+            );
+            let ids: HashSet<_> = map
+                .blocks
+                .iter()
+                .map(|b| super::super::extract::block_base(b).id.as_str())
+                .collect();
+            assert_eq!(
+                ids.len(),
+                map.blocks.len(),
+                "duplicate block IDs in {}",
+                case["name"]
+            );
+            if case["name"].as_str().unwrap().starts_with("malformed") {
+                assert!(map
+                    .blocks
+                    .iter()
+                    .any(|b| matches!(b, FactBlock::Module(m) if m.module_path == "kept.kept")));
+            }
+            if case["name"] == "src-layout-imports" {
+                let module = |name: &str| {
+                    map.blocks
+                        .iter()
+                        .find_map(|b| match b {
+                            FactBlock::Module(m) if m.module_path == name => Some(m),
+                            _ => None,
+                        })
+                        .expect("expected Python module")
+                };
+                let cli = module("pkg.cli");
+                assert_eq!(
+                    cli.base.parent_id.as_deref(),
+                    Some(module("pkg").base.id.as_str())
+                );
+                assert!(map
+                    .blocks
+                    .iter()
+                    .any(|b| matches!(b, FactBlock::App(a) if a.entry_path == "src/pkg/cli.py")));
+                let mut targets: Vec<_> = map
+                    .connections
+                    .iter()
+                    .filter_map(|e| match e {
+                        Connection::DependsOn { source, target, .. } if source == &cli.base.id => {
+                            map.blocks.iter().find_map(|b| match b {
+                                FactBlock::Module(m) if &m.base.id == target => {
+                                    Some(m.module_path.as_str())
+                                }
+                                _ => None,
+                            })
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                targets.sort();
+                assert_eq!(
+                    targets,
+                    ["pkg", "pkg.gui", "pkg.handlers", "pkg.hooks", "pkg.pkg"]
+                );
+            }
+        }
     }
 }

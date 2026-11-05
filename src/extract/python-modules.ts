@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
+import { parse as parseToml, TomlError } from "smol-toml";
 import { isIgnoredDirectory } from "../workspace-ignore.js";
 import type { AppBlock, FactBlock, FactConnection, ModuleBlock } from "../model.js";
 
@@ -13,6 +14,7 @@ export interface PythonImportedName {
 }
 
 export interface PythonImport {
+  readonly kind: "import" | "from";
   readonly line: number;
   readonly module: string;
   readonly relativeLevel: number;
@@ -86,24 +88,34 @@ export function discoverPythonProject(repositoryPath: string): PythonProject | n
   return null;
 }
 
-export function resolvePythonImport(
+export function resolvePythonImports(
   from: PythonModule,
   item: PythonImport,
   knownModules: ReadonlySet<string>,
-): string | null {
+): string[] {
   let candidate: string;
   if (item.relativeLevel > 0) {
     const packageName = containingPackage(from);
-    if (packageName === null) return null;
+    if (packageName === null) return [];
     const resolved = resolveRelativeImport(packageName, item.relativeLevel, item.module);
-    if (resolved === null) return null;
+    if (resolved === null) return [];
     candidate = resolved;
   } else if (item.module.length === 0) {
-    return null;
+    return [];
   } else {
     candidate = item.module;
   }
-  return longestKnownModule(candidate, knownModules);
+  if (item.kind === "import") {
+    const target = longestKnownModule(candidate, knownModules);
+    return target === null ? [] : [target];
+  }
+  const targets = new Set<string>();
+  for (const name of item.names) {
+    const submodule = `${candidate}.${name.name}`;
+    const target = knownModules.has(submodule) ? submodule : longestKnownModule(candidate, knownModules);
+    if (target !== null) targets.add(target);
+  }
+  return [...targets].sort();
 }
 
 export function parsePythonSource(source: string): { readonly imports: PythonImport[]; readonly symbols: PythonSymbol[] } {
@@ -145,8 +157,9 @@ export function parsePythonSource(source: string): { readonly imports: PythonImp
 }
 
 export function pythonImportStatement(item: PythonImport): string {
-  if (item.names.length === 1 && item.names[0]?.name === item.module && item.relativeLevel === 0) {
-    const alias = item.names[0].alias;
+  const firstName = item.names[0];
+  if (item.kind === "import" && firstName !== undefined) {
+    const alias = firstName.alias;
     return alias === null ? `import ${item.module}` : `import ${item.module} as ${alias}`;
   }
   const dots = ".".repeat(item.relativeLevel);
@@ -188,8 +201,15 @@ export function pythonFactBlocks(args: {
       fingerprint,
     } satisfies ModuleBlock);
     connections.push(containsConnection(args.workspaceId, projectId));
+    const nameCounts = new Map<string, number>();
     for (const entry of project.entryPoints) {
-      const appId = `app:python:${slug(project.name)}:${slug(entry.name)}`;
+      const key = slug(entry.name);
+      nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+    }
+    for (const entry of project.entryPoints) {
+      const identity = createHash("sha256").update(JSON.stringify([entry.group, entry.name, entry.objectRef])).digest("hex");
+      const suffix = (nameCounts.get(slug(entry.name)) ?? 0) > 1 ? `:${identity}` : "";
+      const appId = `app:python:${slug(project.name)}:${slug(entry.name)}${suffix}`;
       const entryModule = entry.objectRef.split(":")[0] ?? entry.objectRef;
       const modulePath = args.modules.find((module) => module.name === entryModule)?.path ?? project.manifestPath;
       const sourcePath = toSlash(path.relative(args.rootPath, modulePath));
@@ -267,26 +287,28 @@ export function pythonFactBlocks(args: {
     const sourceId = moduleIds.get(module.name);
     if (sourceId === undefined) continue;
     for (const item of module.imports) {
-      const targetName = resolvePythonImport(module, item, knownModules);
-      if (targetName === null) continue;
-      const targetId = moduleIds.get(targetName);
-      if (targetId === undefined || targetId === sourceId) continue;
-      const edgeId = `depends_on:${sourceId}->${targetId}`;
-      if (importEdges.has(edgeId)) continue;
-      importEdges.add(edgeId);
-      connections.push({
-        id: edgeId,
-        source: sourceId,
-        target: targetId,
-        kind: "depends_on",
-        dependencyScope: "normal",
-      });
+      for (const targetName of resolvePythonImports(module, item, knownModules)) {
+        const targetId = moduleIds.get(targetName);
+        if (targetId === undefined || targetId === sourceId) continue;
+        const edgeId = `depends_on:${sourceId}->${targetId}`;
+        if (importEdges.has(edgeId)) continue;
+        importEdges.add(edgeId);
+        connections.push({
+          id: edgeId,
+          source: sourceId,
+          target: targetId,
+          kind: "depends_on",
+          dependencyScope: "normal",
+        });
+      }
     }
   }
   return { blocks, connections };
 }
 
 function moduleFromFile(root: string, filePath: string, packages: ReadonlySet<string>): PythonModule {
+  const sourceRoot = path.join(root, "src");
+  if (filePath.startsWith(sourceRoot + path.sep) && !packages.has(sourceRoot)) root = sourceRoot;
   const source = readPythonSource(filePath);
   const parsed = source === null ? { imports: [], symbols: [] } : parsePythonSource(source);
   return {
@@ -536,6 +558,7 @@ function parseImport(rest: string, line: number): PythonImport[] {
     if (trimmed.length === 0) continue;
     const [module, alias] = splitAlias(trimmed);
     imports.push({
+      kind: "import",
       line,
       module,
       relativeLevel: 0,
@@ -559,7 +582,7 @@ function parseFrom(rest: string, line: number): PythonImport | null {
     names.push({ name, alias });
   }
   if (names.length === 0) return null;
-  return { line, module, relativeLevel, names };
+  return { kind: "from", line, module, relativeLevel, names };
 }
 
 function splitAlias(part: string): [string, string | null] {
@@ -649,7 +672,7 @@ function resolveRelativeImport(packageName: string, level: number, module: strin
   if (level <= 0) return null;
   const parts = packageName.split(".").filter((part) => part.length > 0);
   const up = level - 1;
-  if (up > parts.length) return null;
+  if (up >= parts.length) return null;
   parts.length -= up;
   if (module.length > 0) parts.push(...module.split(".").filter((part) => part.length > 0));
   return parts.length === 0 ? null : parts.join(".");
@@ -665,36 +688,47 @@ function longestKnownModule(candidate: string, known: ReadonlySet<string>): stri
   return null;
 }
 
-function readPyproject(manifestPath: string): PythonProject {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
+function normalizeEntryPoints(entries: PythonEntryPoint[]): PythonEntryPoint[] {
+  const compare = (left: string, right: string) => Buffer.compare(Buffer.from(left), Buffer.from(right));
+  entries.sort((left, right) => compare(left.group, right.group) || compare(left.name, right.name) || compare(left.objectRef, right.objectRef));
+  return entries.filter((entry, index) => {
+    const previous = entries[index - 1];
+    return previous === undefined || entry.group !== previous.group || entry.name !== previous.name || entry.objectRef !== previous.objectRef;
+  });
+}
+
+function readPyproject(manifestPath: string): PythonProject | null {
   const source = readFileSync(manifestPath, "utf8");
-  const name =
-    tomlString(source, ["project", "name"]) ??
-    tomlString(source, ["tool", "poetry", "name"]) ??
-    "python-project";
-  const entryPoints: PythonEntryPoint[] = [
-    ...tomlTableEntries(source, ["project", "scripts"]).map(([script, objectRef]) => ({
-      name: script,
-      objectRef,
-      group: "console_scripts",
-    })),
-    ...tomlTableEntries(source, ["project", "gui-scripts"]).map(([script, objectRef]) => ({
-      name: script,
-      objectRef,
-      group: "gui_scripts",
-    })),
-    ...tomlEntryPointGroups(source),
-    ...tomlTableEntries(source, ["tool", "poetry", "scripts"]).map(([script, objectRef]) => ({
-      name: script,
-      objectRef,
-      group: "console_scripts",
-    })),
-  ];
-  entryPoints.sort((left, right) =>
-    left.group.localeCompare(right.group) ||
-    left.name.localeCompare(right.name) ||
-    left.objectRef.localeCompare(right.objectRef),
-  );
-  return { name, manifestPath, kind: "pyproject.toml", entryPoints };
+  let value: unknown;
+  try {
+    value = parseToml(source, { integersAsBigInt: true });
+  } catch (error) {
+    if (error instanceof TomlError) return null;
+    throw error;
+  }
+  const document = record(value);
+  const project = record(document.project);
+  const poetry = record(record(document.tool).poetry);
+  const name = typeof project.name === "string" ? project.name : typeof poetry.name === "string" ? poetry.name : "python-project";
+  const entryPoints: PythonEntryPoint[] = [];
+  const push = (table: unknown, group: string) => {
+    for (const [name, objectRef] of Object.entries(record(table))) {
+      if (typeof objectRef === "string") entryPoints.push({ name, objectRef, group });
+    }
+  };
+  push(project.scripts, "console_scripts");
+  push(project["gui-scripts"], "gui_scripts");
+  for (const [group, table] of Object.entries(record(project["entry-points"]))) push(table, group);
+  push(poetry.scripts, "console_scripts");
+  return { name, manifestPath, kind: "pyproject.toml", entryPoints: normalizeEntryPoints(entryPoints) };
 }
 
 function readSetupCfg(manifestPath: string): PythonProject {
@@ -711,17 +745,16 @@ function readSetupCfg(manifestPath: string): PythonProject {
       entryGroup = null;
       continue;
     }
-    if (section === "metadata" && line.startsWith("name")) {
-      const value = line.replace(/^name\s*=\s*/u, "").trim();
-      if (value.length > 0) name = value;
+    const option = line.match(/^([^=:]+)[=:](.*)$/u);
+    if (section === "metadata") {
+      if (option?.[1]?.trim() === "name" && option[2]?.trim()) name = option[2].trim();
       continue;
     }
     if (section !== "options.entry_points") continue;
     const indented = raw.startsWith(" ") || raw.startsWith("\t");
     if (!indented) {
-      const splitAt = line.indexOf("=");
-      const group = (splitAt < 0 ? line : line.slice(0, splitAt)).trim();
-      const rest = splitAt < 0 ? "" : line.slice(splitAt + 1).trim();
+      const group = option?.[1]?.trim() ?? line;
+      const rest = option?.[2]?.trim() ?? "";
       entryGroup = group;
       if (rest.length > 0) {
         const entrySplit = rest.indexOf("=");
@@ -744,15 +777,15 @@ function readSetupCfg(manifestPath: string): PythonProject {
       group: entryGroup,
     });
   }
-  entryPoints.sort((left, right) => left.group.localeCompare(right.group) || left.name.localeCompare(right.name));
-  return { name, manifestPath, kind: "setup.cfg", entryPoints };
+  return { name, manifestPath, kind: "setup.cfg", entryPoints: normalizeEntryPoints(entryPoints) };
 }
 
 function readSetupPy(manifestPath: string): PythonProject {
-  const source = readFileSync(manifestPath, "utf8");
-  const match = source.match(/\bname\s*=\s*["']([^"']+)["']/u);
+  const source = maskPython(readFileSync(manifestPath, "utf8"), false);
+  const assigned = setupPyAssignment(source, "name");
+  const name = assigned === null ? null : quotedString(assigned, 0)?.value;
   return {
-    name: match?.[1] && match[1].length > 0 ? match[1] : "python-project",
+    name: name || "python-project",
     manifestPath,
     kind: "setup.py",
     entryPoints: setupPyEntryPoints(source),
@@ -760,11 +793,9 @@ function readSetupPy(manifestPath: string): PythonProject {
 }
 
 function setupPyEntryPoints(source: string): PythonEntryPoint[] {
-  const nameMatch = /\bentry_points\b\s*=/u.exec(source);
-  if (nameMatch === null) return [];
-  const open = source.indexOf("{", nameMatch.index + nameMatch[0].length);
-  if (open < 0) return [];
-  const dictionary = balancedBody(source, open, "{", "}");
+  const value = setupPyAssignment(source, "entry_points");
+  if (value === null || !value.startsWith("{")) return [];
+  const dictionary = balancedBody(value, 0, "{", "}");
   if (dictionary === null) return [];
 
   const entryPoints: PythonEntryPoint[] = [];
@@ -781,8 +812,9 @@ function setupPyEntryPoints(source: string): PythonEntryPoint[] {
       cursor = group.after;
       continue;
     }
-    const listStart = dictionary.body.indexOf("[", colon + 1);
-    if (listStart < 0) {
+    const afterColon = dictionary.body.slice(colon + 1);
+    const listStart = colon + 1 + afterColon.length - afterColon.trimStart().length;
+    if (dictionary.body[listStart] !== "[") {
       cursor = group.after;
       continue;
     }
@@ -809,12 +841,7 @@ function setupPyEntryPoints(source: string): PythonEntryPoint[] {
     }
     cursor = list.after;
   }
-  entryPoints.sort((left, right) =>
-    left.group.localeCompare(right.group) ||
-    left.name.localeCompare(right.name) ||
-    left.objectRef.localeCompare(right.objectRef),
-  );
-  return entryPoints;
+  return normalizeEntryPoints(entryPoints);
 }
 
 function balancedBody(
@@ -878,64 +905,35 @@ function quotedString(
   return null;
 }
 
-function tomlString(source: string, keys: readonly string[]): string | null {
-  const table = tomlTableBody(source, keys.slice(0, -1));
-  if (table === null) return null;
-  const key = keys[keys.length - 1];
-  if (key === undefined) return null;
-  const match = table.match(new RegExp(`^${escapeRegExp(key)}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "mu"));
-  return match?.[1] ?? match?.[2] ?? null;
+function setupPyAssignment(source: string, keyword: "name" | "entry_points"): string | null {
+  const pattern = new RegExp(`\\b${keyword}\\s*=(?!=)`, "u");
+  const match = pattern.exec(maskPython(source, true));
+  return match === null ? null : source.slice(match.index + match[0].length).trimStart();
 }
 
-function tomlTableEntries(source: string, keys: readonly string[]): Array<[string, string]> {
-  const body = tomlTableBody(source, keys);
-  if (body === null) return [];
-  const entries: Array<[string, string]> = [];
-  for (const line of body.split(/\r?\n/)) {
-    const entry = tomlStringEntry(line);
-    if (entry !== null) entries.push(entry);
-  }
-  return entries;
-}
-
-function tomlEntryPointGroups(source: string): PythonEntryPoint[] {
-  const entries: PythonEntryPoint[] = [];
-  const pattern = /^\[project\.entry-points(?:\."([^"]+)"|\.([^\]]+))\]\s*$/gmu;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(source)) !== null) {
-    const group = match[1] ?? match[2];
-    if (group === undefined) continue;
-    const start = match.index + match[0].length;
-    const next = source.slice(start).search(/^\[/mu);
-    const body = next < 0 ? source.slice(start) : source.slice(start, start + next);
-    for (const line of body.split(/\r?\n/)) {
-      const entry = tomlStringEntry(line);
-      if (entry !== null) entries.push({ name: entry[0], objectRef: entry[1], group });
+function maskPython(source: string, strings: boolean): string {
+  const chars = source.split("");
+  const masked = [...chars];
+  let quote: Quote | null = null;
+  for (let index = 0; index < chars.length;) {
+    if (quote !== null) {
+      const closes = closesQuote(chars, index, quote);
+      const count = closes ? quoteLen(quote) : chars[index] === "\\" ? 2 : 1;
+      if (closes) quote = null;
+      if (strings) for (let offset = 0; offset < count && index + offset < chars.length; offset += 1) {
+        if (chars[index + offset] !== "\n") masked[index + offset] = " ";
+      }
+      index += count;
+    } else if (chars[index] === "#") {
+      while (index < chars.length && chars[index] !== "\n") masked[index++] = " ";
+    } else {
+      quote = opensQuote(chars, index);
+      if (quote !== null) {
+        const count = quoteLen(quote);
+        if (strings) for (let offset = 0; offset < count; offset += 1) masked[index + offset] = " ";
+        index += count;
+      } else index += 1;
     }
   }
-  return entries;
-}
-
-function tomlStringEntry(line: string): [string, string] | null {
-  const match = line.match(
-    /^(?:([A-Za-z0-9_.-]+)|"([^"]+)"|'([^']+)')\s*=\s*(?:"([^"]*)"|'([^']*)')/u,
-  );
-  const key = match?.[1] ?? match?.[2] ?? match?.[3];
-  const value = match?.[4] ?? match?.[5];
-  return key === undefined || value === undefined ? null : [key, value];
-}
-
-function tomlTableBody(source: string, keys: readonly string[]): string | null {
-  if (keys.length === 0) return source;
-  const header = `[${keys.join(".")}]`;
-  const start = source.indexOf(header);
-  if (start < 0) return null;
-  const bodyStart = start + header.length;
-  const rest = source.slice(bodyStart);
-  const next = rest.search(/^\[/mu);
-  return next < 0 ? rest : rest.slice(0, next);
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return masked.join("");
 }

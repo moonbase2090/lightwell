@@ -1,0 +1,179 @@
+[
+  {
+    "name": "malformed-pyproject",
+    "files": {
+      "pyproject.toml": "[project\nname = \"broken\"\n",
+      "kept.py": "def kept():\n    return 1\n"
+    },
+    "expectedProject": null,
+    "expectedEntries": []
+  },
+  {
+    "name": "malformed-after-name",
+    "files": {
+      "pyproject.toml": "[project]\nname = \"broken\"\ninvalid = [\n",
+      "kept.py": "def kept():\n    return 1\n"
+    },
+    "expectedProject": null,
+    "expectedEntries": []
+  },
+  {
+    "name": "toml-key-forms",
+    "files": {
+      "pyproject.toml": "[project]\nname = 'forms'\nscripts = { 'A' = 'pkg.cli:main', a_cli = 'pkg.cli:run' }\ngui-scripts.gui-app = 'pkg.gui:main'\n[project.entry-points.'sample.hooks']\n'on-refresh' = 'pkg.hooks:refresh' # comment\n"
+    },
+    "expectedProject": "forms",
+    "expectedEntries": [
+      [
+        "console_scripts",
+        "A",
+        "pkg.cli:main"
+      ],
+      [
+        "console_scripts",
+        "a_cli",
+        "pkg.cli:run"
+      ],
+      [
+        "gui_scripts",
+        "gui-app",
+        "pkg.gui:main"
+      ],
+      [
+        "sample.hooks",
+        "on-refresh",
+        "pkg.hooks:refresh"
+      ]
+    ]
+  },
+  {
+    "name": "duplicate-entry-names",
+    "files": {
+      "pyproject.toml": "[project]\nname = 'duplicates'\n[project.scripts]\na_cli = 'pkg.cli:main'\na-cli = 'pkg.cli:other'\n[project.gui-scripts]\na_cli = 'pkg.gui:main'\n[tool.poetry.scripts]\na_cli = 'pkg.cli:main'\na-cli = 'pkg.cli:third'\n"
+    },
+    "expectedProject": "duplicates",
+    "expectedEntries": [
+      [
+        "console_scripts",
+        "a-cli",
+        "pkg.cli:other"
+      ],
+      [
+        "console_scripts",
+        "a-cli",
+        "pkg.cli:third"
+      ],
+      [
+        "console_scripts",
+        "a_cli",
+        "pkg.cli:main"
+      ],
+      [
+        "gui_scripts",
+        "a_cli",
+        "pkg.gui:main"
+      ]
+    ]
+  },
+  {
+    "name": "cfg-colon-and-order",
+    "files": {
+      "setup.cfg": "[metadata]\nname: colon-sample\nname_extra = ignored\n[options.entry_points]\nconsole_scripts =\n    a_cli = pkg.cli:z\n    B-cli = pkg.cli:run\n    A = pkg.cli:main\n    a_cli = pkg.cli:a\ngui_scripts: gui = pkg.gui:main\n"
+    },
+    "expectedProject": "colon-sample",
+    "expectedEntries": [
+      [
+        "console_scripts",
+        "A",
+        "pkg.cli:main"
+      ],
+      [
+        "console_scripts",
+        "B-cli",
+        "pkg.cli:run"
+      ],
+      [
+        "console_scripts",
+        "a_cli",
+        "pkg.cli:a"
+      ],
+      [
+        "console_scripts",
+        "a_cli",
+        "pkg.cli:z"
+      ],
+      [
+        "gui_scripts",
+        "gui",
+        "pkg.gui:main"
+      ]
+    ]
+  },
+  {
+    "name": "setup-code-only",
+    "files": {
+      "setup.py": "\"\"\"name = 'docstring-name'\nentry_points = {'bad': ['doc = bad:ref']}\n\"\"\"\n# name = 'commented-out'\n# entry_points = {'bad': ['comment = bad:ref']}\npackage_name = 'not-the-project'\ntext = \"name = 'string-name'\"\nfrom setuptools import setup\nsetup(\n    name = 'actual',\n    entry_points = {\n        # 'bogus': ['comment = bad:ref'],\n        'gui_scripts': ['gui = pkg.gui:main'],\n        'console_scripts': ['a_cli = pkg.cli:run', 'A = pkg.cli:main'],\n    },\n)\n"
+    },
+    "expectedProject": "actual",
+    "expectedEntries": [
+      [
+        "console_scripts",
+        "A",
+        "pkg.cli:main"
+      ],
+      [
+        "console_scripts",
+        "a_cli",
+        "pkg.cli:run"
+      ],
+      [
+        "gui_scripts",
+        "gui",
+        "pkg.gui:main"
+      ]
+    ]
+  },
+  {
+    "name": "setup-no-assignment",
+    "files": {
+      "setup.py": "package_name = 'not-the-project'\ntext = \"name = 'string-name'\"\n# entry_points = {'bad': ['comment = bad:ref']}\nsetup(entry_points=variable)\n"
+    },
+    "expectedProject": "python-project",
+    "expectedEntries": []
+  },
+  {
+    "name": "src-layout-imports",
+    "files": {
+      "pyproject.toml": "[project]\nname = 'src-project'\n[project.scripts]\ncli = 'pkg.cli:main'\n",
+      "src/pkg/__init__.py": "",
+      "src/pkg/cli.py": "import pkg\nfrom pkg import pkg\nimport pkg.handlers.callable\nimport pkg.cli\nfrom . import gui, hooks\nfrom ..outside import helper\nfrom ...pkg import hooks\ndef main():\n    return 1\n",
+      "src/pkg/gui.py": "",
+      "src/pkg/hooks.py": "",
+      "outside.py": "",
+      "src/pkg/handlers.py": "",
+      "src/pkg/pkg.py": ""
+    },
+    "expectedProject": "src-project",
+    "expectedEntries": [
+      [
+        "console_scripts",
+        "cli",
+        "pkg.cli:main"
+      ]
+    ]
+  },
+  {
+    "name": "setup-nonliteral-groups",
+    "files": {
+      "setup.py": "setup(name='nonliteral', entry_points={'console_scripts': variable, 'gui_scripts': ['gui = pkg.gui:main']})\n"
+    },
+    "expectedProject": "nonliteral",
+    "expectedEntries": [
+      [
+        "gui_scripts",
+        "gui",
+        "pkg.gui:main"
+      ]
+    ]
+  }
+]
