@@ -66,25 +66,28 @@ test.describe("workspace atlas empty workspace", () => {
 test.describe("workspace atlas dependency lens", () => {
   test.beforeEach(async ({ page }) => gotoWeb(page, "atlas"));
 
-  test("ATLAS-02: a block with no dependencies reads 0 incoming 0 outgoing and draws no edges", async ({ page }) => {
+  test("ATLAS-02: a block with no depends-on links lists its parent and draws no edges", async ({ page }) => {
     await page.getByLabel("Filter workspace atlas").fill("cell_grid");
     await page.getByRole("treeitem", { name: /cell_grid/i }).last().click();
     const lens = page.getByRole("region", { name: "Dependencies for cell_grid" });
     await expect(lens).toBeVisible();
-    await expect(lens.getByText("0 incoming")).toBeVisible();
+    await expect(lens.getByText("1 incoming")).toBeVisible();
     await expect(lens.getByText("0 outgoing")).toBeVisible();
-    await expect(lens.locator(".atlas-relation-row")).toHaveCount(0);
+    await expect(lens.locator(".atlas-relation-row")).toHaveCount(1);
+    await expect(lens.getByRole("button", { name: /^IN contains / })).toBeVisible();
     await expect(page.locator(".atlas-edges path")).toHaveCount(0);
   });
 
-  test("ATLAS-03: a connected block lists each relation and draws its edges", async ({ page }) => {
+  test("ATLAS-03: a connected block lists containment and dependency relations", async ({ page }) => {
     await page.getByLabel("Filter workspace atlas").fill("apple");
     await page.getByRole("treeitem", { name: /^apple(?!-)/i }).click();
     const lens = page.getByRole("region", { name: "Dependencies for apple" });
-    await expect(lens.getByText("1 incoming")).toBeVisible();
+    await expect(lens.getByText("2 incoming")).toBeVisible();
     await expect(lens.getByText("1 outgoing")).toBeVisible();
-    await expect(lens.locator(".atlas-relation-row")).toHaveCount(2);
-    await expect(lens.locator(".atlas-relation-row").first()).toContainText(/^(IN|OUT)/);
+    await expect(lens.locator(".atlas-relation-row")).toHaveCount(3);
+    await expect(lens.getByRole("button", { name: /^IN contains / })).toBeVisible();
+    await expect(lens.getByRole("button", { name: /^IN depends / })).toBeVisible();
+    await expect(lens.getByRole("button", { name: /^OUT depends / })).toBeVisible();
     await expect(page.locator(".atlas-edges path").first()).toBeVisible();
   });
 
@@ -125,7 +128,7 @@ for (const theme of ["dark", "light"] as const) {
       }
       // The empty-result message only exists with a filter that matches nothing.
       await page.getByLabel("Filter workspace atlas").fill("zzzz-no-such-block");
-      await expect(page.getByText("No matching blocks")).toBeVisible();
+      await expect(page.locator(".atlas-empty")).toHaveText("No matching blocks");
       const empty = await colours(page, ".atlas-empty");
       expect(ratio(empty.text, empty.background), `empty message is ${empty.text} on ${empty.background}`).toBeGreaterThanOrEqual(4.5);
     });
