@@ -2,8 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildFileTree, type FileTreeSource } from "../file-tree.js";
 import type { FactConnection } from "../model.js";
-import { layoutAtlas } from "./atlas-layout.js";
-import { buildAtlasLens } from "./atlas-lens.js";
+import { folderNodeId } from "../file-tree.js";
+import {
+  FOLDER_WEIGHT_CAP,
+  clampFrame,
+  ellipsizeLabel,
+  frameFocus,
+  frameMatches,
+  layoutAtlas,
+  zoomAbout,
+} from "./atlas-layout.js";
+import { ancestorIds, atlasCellTone, buildAtlasLens } from "./atlas-lens.js";
 import { matchingOutline } from "./AtlasView.js";
 
 function source(id: string, label: string, path: string | null, parentId: string | null, children: readonly string[]): FileTreeSource {
@@ -62,7 +71,7 @@ test("atlas layout leaves positive drawable space through deep folder nesting", 
   }
 });
 
-test("focused lens keeps exact incoming and outgoing dependencies while capping drawn edges", () => {
+test("focused lens counts containment and depends-on, and draws only depends-on curves", () => {
   const connections: FactConnection[] = [
     { id: "in", kind: "depends_on", source: "b", target: "a", dependencyScope: "normal" },
     { id: "out", kind: "depends_on", source: "a", target: "c", dependencyScope: "normal" },
@@ -70,11 +79,90 @@ test("focused lens keeps exact incoming and outgoing dependencies while capping 
     { id: "contains", kind: "contains", source: "root", target: "a" },
   ];
   const lens = buildAtlasLens(tree, connections, "a", 1);
-  assert.deepEqual(lens.incoming.map((edge) => edge.id), ["in"]);
+  assert.deepEqual(lens.incoming.map((edge) => edge.id), ["contains", "in"]);
+  assert.equal(lens.incoming.find((edge) => edge.id === "contains")?.kind, "contains");
   assert.deepEqual(lens.outgoing.map((edge) => edge.id), ["out"]);
-  assert.equal(lens.drawn.length, 1);
+  assert.deepEqual(lens.drawn.map((edge) => edge.id), ["in"]);
   assert.equal(lens.hiddenCount, 1);
-  assert.deepEqual(lens.relatedBlockIds, new Set(["a", "b", "c"]));
+  assert.equal(lens.dependsOnCount, 2);
+  assert.deepEqual(lens.relatedBlockIds, new Set(["a", "b", "c", "root"]));
+});
+
+test("a module with no depends-on link still reports its parent contains edge", () => {
+  const connections: FactConnection[] = [
+    { id: "parent", kind: "contains", source: "root", target: "c" },
+  ];
+  const lens = buildAtlasLens(tree, connections, "c");
+  assert.equal(lens.dependsOnCount, 0);
+  assert.deepEqual(lens.incoming.map((edge) => edge.kind), ["contains"]);
+  assert.equal(lens.outgoing.length, 0);
+  assert.equal(lens.drawn.length, 0);
+});
+
+test("selection dims unrelated leaves and leaves ancestor folders at full strength", () => {
+  assert.equal(atlasCellTone(
+    { folder: false },
+    { selected: false, focusActive: true, related: false, ancestor: false, searchMiss: false },
+  ), "dimmed");
+  assert.equal(atlasCellTone(
+    { folder: true },
+    { selected: false, focusActive: true, related: false, ancestor: true, searchMiss: false },
+  ), "context");
+  assert.equal(atlasCellTone(
+    { folder: true },
+    { selected: false, focusActive: true, related: false, ancestor: false, searchMiss: false },
+  ), "rest");
+  assert.equal(atlasCellTone(
+    { folder: false },
+    { selected: true, focusActive: true, related: true, ancestor: false, searchMiss: false },
+  ), "selected");
+  assert.deepEqual([...ancestorIds(tree, "a")], ["dir:src", "root"]);
+});
+
+test("labels ellipsize to the cell width and a short name is kept", () => {
+  assert.equal(ellipsizeLabel("src", 80, 11), "src");
+  const long = ellipsizeLabel("prismattyc-emulator", 48, 11);
+  assert.ok(long.endsWith("…"));
+  assert.ok(long.length < "prismattyc-emulator".length);
+  assert.equal(ellipsizeLabel("prismattyc-emulator", 0, 11), "");
+});
+
+test("framing a tiny cell keeps it inside the atlas and larger than the cell", () => {
+  const bounds = { x: 0, y: 0, width: 800, height: 600 };
+  const cell = { x: 100, y: 80, width: 4, height: 4 };
+  const framed = frameFocus(cell, bounds, { x: 90, y: 70, width: 30, height: 24 });
+  assert.ok(framed.width > cell.width * 3);
+  assert.ok(framed.x <= cell.x && framed.x + framed.width >= cell.x + cell.width);
+  assert.ok(framed.x >= bounds.x && framed.y >= bounds.y);
+  assert.ok(framed.x + framed.width <= bounds.width + 0.01);
+  assert.ok(framed.y + framed.height <= bounds.height + 0.01);
+  const spread = frameMatches(
+    [cell, { x: 700, y: 500, width: 10, height: 10 }],
+    bounds,
+  );
+  assert.ok(spread.x <= cell.x && spread.x + spread.width >= cell.x + cell.width);
+  const zoomed = zoomAbout(bounds, 0.5, 400, 300);
+  assert.ok(zoomed.width < bounds.width);
+  const restored = clampFrame(zoomAbout(zoomed, 2, 400, 300), bounds);
+  assert.ok(Math.abs(restored.width - bounds.width) < 0.01);
+  assert.ok(Math.abs(restored.height - bounds.height) < 0.01);
+});
+
+test("a release folder of many files stays within the leaf weight cap of a single crate file", () => {
+  const releaseIds = Array.from({ length: 30 }, (_, index) => `rel-${index}`);
+  const denseRoot = source("root", "Workspace", "Cargo.toml", null, ["crate-mod", ...releaseIds]);
+  const denseBlocks = new Map<string, FileTreeSource>([[denseRoot.id, denseRoot]]);
+  denseBlocks.set("crate-mod", source("crate-mod", "Crate", "crates/core/lib.ts", denseRoot.id, []));
+  for (const id of releaseIds) {
+    denseBlocks.set(id, source(id, id, `scripts/release/${id}.ts`, denseRoot.id, []));
+  }
+  const cells = layoutAtlas(buildFileTree(denseRoot, denseBlocks), 1000, 600);
+  const release = cells.find((cell) => cell.id === folderNodeId("scripts/release"));
+  const crates = cells.find((cell) => cell.id === folderNodeId("crates"));
+  assert.ok(release !== undefined && crates !== undefined);
+  const ratio = (release.width * release.height) / (crates.width * crates.height);
+  assert.ok(ratio <= FOLDER_WEIGHT_CAP + 2, `release/crate area ratio ${ratio}`);
+  assert.ok(ratio > 8, `release/crate area ratio ${ratio}`);
 });
 
 test("atlas outline respects expansion and keeps ancestors of search matches", () => {

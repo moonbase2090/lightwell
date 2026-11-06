@@ -88,7 +88,9 @@ import NoteContextMenu, {
 import Splitter from "./Splitter.js";
 import BlockNodeView, { type MapNode } from "./viewer/BlockNode.js";
 import {
+  createCompoundLayoutClient,
   createCompoundLayoutFeature,
+  type CompoundLayoutClient,
   type CompoundLayoutFeature,
 } from "./viewer/compound-layout-client.js";
 import {
@@ -267,6 +269,16 @@ function mapDepthStorage(): MapDepthStorage | null {
   } catch {
     return null;
   }
+}
+
+function countConnectionKinds(connections: readonly FactConnection[]): { readonly contains: number; readonly depends: number } {
+  let contains = 0;
+  let depends = 0;
+  for (const connection of connections) {
+    if (connection.kind === "contains") contains += 1;
+    else depends += 1;
+  }
+  return { contains, depends };
 }
 
 function displayConnections(scopeId: string, blocks: readonly DisplayBlock[], connections: readonly FactConnection[]) {
@@ -754,12 +766,22 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       ? createCompoundLayoutFeature("true")
       : { kind: "disabled" }
   ));
+  const layoutClientRef = useRef<CompoundLayoutClient | null>(
+    compoundLayoutFeature.kind === "enabled" ? compoundLayoutFeature.client : null,
+  );
+  const [layoutAttempt, setLayoutAttempt] = useState(0);
+  const retryLayout = useCallback(() => {
+    layoutClientRef.current?.dispose();
+    layoutClientRef.current = createCompoundLayoutClient();
+    setGraphError("");
+    setLayoutAttempt((attempt) => attempt + 1);
+  }, []);
   useEffect(() => {
     if (import.meta.env.VITE_ENABLE_COMPOUND_LAYOUT === "false") return undefined;
     return () => {
-      if (compoundLayoutFeature.kind === "enabled") compoundLayoutFeature.client.dispose();
+      layoutClientRef.current?.dispose();
     };
-  }, [compoundLayoutFeature]);
+  }, []);
   const popoutWorkspaceId = import.meta.env.VITE_ENABLE_MAP_POPOUT !== "false" && isMapPopoutSearch(window.location.search)
     ? workspaceFromPopoutSearch(window.location.search)
     : null;
@@ -1288,6 +1310,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const chosenGroup = map?.annotations.groups.find((group) => group.id === activeGroupId) ?? map?.annotations.groups[0];
   const staleCount = map?.nodes.filter((node) => node.annotationState !== "current").length ?? 0;
   const directConnectionSummary = connectionsInScope;
+  const atlasConnectionSummary = mapView === "atlas" && map !== null ? countConnectionKinds(map.connections) : null;
+  const legendContains = atlasConnectionSummary?.contains ?? directConnectionSummary.contains;
+  const legendDepends = atlasConnectionSummary?.depends ?? directConnectionSummary.depends;
   const projectDescription = map?.annotations.blocks[rootId]?.description.trim() ?? "";
 
   const setHoverNode = useCallback((id: string | null) => {
@@ -1556,26 +1581,47 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         connections: graphConnections,
       });
       const startedAt = performance.now();
-      compoundLayoutFeature.client.layout(input)
+      const applyLayout = (layout: Awaited<ReturnType<CompoundLayoutClient["layout"]>>) => {
+        const graph = buildCompoundGraph({
+          rootId: scopeId,
+          blocks: scopedVisibleBlocks,
+          layout,
+          labelScale: textSize.labels,
+        });
+        setBaseGraph({
+          kind: "compound",
+          ...graph,
+          stats: layout.stats,
+          durationMs: performance.now() - startedAt,
+        });
+        setLayoutRevision((revision) => revision + 1);
+      };
+      const fail = (error: unknown) => {
+        setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
+      };
+      const client = layoutClientRef.current ?? createCompoundLayoutClient();
+      layoutClientRef.current = client;
+      const run = (current: CompoundLayoutClient) => current.layout(input);
+      run(client)
         .then((layout) => {
-          if (!cancelled) {
-            const graph = buildCompoundGraph({
-              rootId: scopeId,
-              blocks: scopedVisibleBlocks,
-              layout,
-              labelScale: textSize.labels,
-            });
-            setBaseGraph({
-              kind: "compound",
-              ...graph,
-              stats: layout.stats,
-              durationMs: performance.now() - startedAt,
-            });
-            setLayoutRevision((revision) => revision + 1);
-          }
+          if (!cancelled) applyLayout(layout);
         })
         .catch((error: unknown) => {
-          if (!cancelled) setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
+          if (cancelled) return;
+          const disposed = error instanceof Error && error.message.includes("Compound layout client was disposed");
+          if (!disposed) {
+            fail(error);
+            return;
+          }
+          const next = createCompoundLayoutClient();
+          layoutClientRef.current = next;
+          run(next)
+            .then((layout) => {
+              if (!cancelled) applyLayout(layout);
+            })
+            .catch((retryError: unknown) => {
+              if (!cancelled) fail(retryError);
+            });
         });
       return () => { cancelled = true; };
     }
@@ -1590,7 +1636,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         if (!cancelled) setGraphError(error instanceof Error ? error.message : "Graph layout failed.");
       });
     return () => { cancelled = true; };
-  }, [compoundLayoutFeature, graphConnections, map, mapView, orientation, scope, scopeId, scopedVisibleBlocks, textSize.labels]);
+  }, [compoundLayoutFeature, graphConnections, layoutAttempt, map, mapView, orientation, scope, scopeId, scopedVisibleBlocks, textSize.labels]);
 
   const selectTreeNode = useCallback((id: string) => {
     setSelectedId(id);
@@ -2149,6 +2195,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           selectedId={selectedId}
           onSelect={selectTreeNode}
           onContextMenu={showBlockMenu}
+          labelScale={textSize.labels}
           {...(graphChanges === undefined ? {} : { changes: graphChanges })}
           onlyChanged={commitDiffOnlyChanged}
         />
@@ -2193,7 +2240,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
         />
       )}
       {!atlasMode && (graphError.length > 0 && !verticalFiles ? (
-        <div className="graph-message"><CircleAlert size={18} />Could not lay out this map: {graphError}</div>
+        <div className="graph-message" role="alert"><CircleAlert size={18} /><span>Could not lay out this map: {graphError}</span><button type="button" onClick={retryLayout}>Try again</button></div>
       ) : graph.nodes.length === 0 && !verticalFiles ? (
         <div className="graph-message"><Activity size={18} />Preparing graph layout…</div>
       ) : (
@@ -2321,8 +2368,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           </button>
         )}
         <div className="connection-legend">
-          <span className="legend-item"><i className="legend-line contains-line" />contains <b>{directConnectionSummary.contains}</b></span>
-          <span className="legend-item"><i className="legend-line dependency-line" />depends on <b>{directConnectionSummary.depends}</b></span>
+          <span className="legend-item"><i className="legend-line contains-line" />contains <b>{legendContains}</b></span>
+          <span className="legend-item"><i className="legend-line dependency-line" />depends on <b>{legendDepends}</b></span>
           {staleCount > 0 && <span className="stale-count"><CircleAlert size={12} />{staleCount} changed</span>}
         </div>
         {projectNotesSource !== undefined && (

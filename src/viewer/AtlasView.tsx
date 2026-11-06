@@ -1,9 +1,20 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { Focus, Search, X } from "lucide-react";
 import { revealExpanded, type FileTree, type FileTreeNode } from "../file-tree.js";
 import type { DisplayBlock, FactConnection } from "../model.js";
-import { buildAtlasLens } from "./atlas-lens.js";
-import { layoutAtlas, type AtlasCell, type AtlasRect } from "./atlas-layout.js";
+import { ancestorIds, atlasCellTone, buildAtlasLens } from "./atlas-lens.js";
+import {
+  clampFrame,
+  ellipsizeLabel,
+  frameCell,
+  frameFocus,
+  frameMatches,
+  layoutAtlas,
+  panRect,
+  zoomAbout,
+  type AtlasCell,
+  type AtlasRect,
+} from "./atlas-layout.js";
 
 interface OutlineRow {
   readonly node: FileTreeNode;
@@ -73,10 +84,25 @@ function useElementSize(): readonly [RefObject<HTMLDivElement | null>, number, n
   return [ref, size.width, size.height];
 }
 
-function framedRect(rect: AtlasRect | undefined, width: number, height: number): AtlasRect {
-  if (rect === undefined) return { x: 0, y: 0, width, height };
-  const pad = Math.max(8, Math.min(rect.width, rect.height) * 0.04);
-  return { x: rect.x - pad, y: rect.y - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 };
+function clientToFrame(svg: SVGSVGElement, clientX: number, clientY: number, frame: AtlasRect): { x: number; y: number } {
+  const rect = svg.getBoundingClientRect();
+  const scale = Math.min(rect.width / frame.width, rect.height / frame.height);
+  const offsetX = (rect.width - frame.width * scale) / 2;
+  const offsetY = (rect.height - frame.height * scale) / 2;
+  return {
+    x: frame.x + (clientX - rect.left - offsetX) / scale,
+    y: frame.y + (clientY - rect.top - offsetY) / scale,
+  };
+}
+
+function matchIdsFor(tree: FileTree, query: string): ReadonlySet<string> | null {
+  const term = query.trim().toLocaleLowerCase();
+  if (term.length === 0) return null;
+  const ids = new Set<string>();
+  for (const node of tree.nodes) {
+    if (`${node.label} ${node.sourcePath ?? ""}`.toLocaleLowerCase().includes(term)) ids.add(node.id);
+  }
+  return ids;
 }
 
 /** Search-first atlas: exact outline for navigation, stable treemap for orientation, edges only on focus. */
@@ -89,6 +115,7 @@ export default function AtlasView({
   onContextMenu,
   changes,
   onlyChanged,
+  labelScale = 1,
 }: {
   readonly tree: FileTree;
   readonly blockById: ReadonlyMap<string, DisplayBlock>;
@@ -98,16 +125,26 @@ export default function AtlasView({
   readonly onContextMenu: (block: DisplayBlock, x: number, y: number) => void;
   readonly changes?: ReadonlyMap<string, { readonly added: number; readonly removed: number }>;
   readonly onlyChanged: boolean;
+  readonly labelScale?: number;
 }) {
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set([tree.rootId]));
-  const [zoomId, setZoomId] = useState<string | null>(null);
+  const [viewFrame, setViewFrame] = useState<AtlasRect | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [canvasRef, width, height] = useElementSize();
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const outlineRef = useRef<HTMLDivElement | null>(null);
+  const frameSource = useRef<"fit" | "search" | "selection" | "region" | "gesture">("fit");
+  const framedQuery = useRef<string | null>(null);
+  const selectionOrigin = useRef<"map" | "outline" | "external">("external");
+  const dragRef = useRef<{ x: number; y: number; frame: AtlasRect; moved: boolean } | null>(null);
+  const suppressClick = useRef(false);
   const cells = useMemo(() => layoutAtlas(tree, width, height), [height, tree, width]);
   const cellById = useMemo(() => new Map(cells.map((cell) => [cell.id, cell])), [cells]);
   const cellByBlockId = useMemo(() => new Map(cells.flatMap((cell) => cell.blockId === null ? [] : [[cell.blockId, cell] as const])), [cells]);
-  const frame = framedRect(zoomId === null ? undefined : cellById.get(zoomId), width, height);
-  const zoomScale = zoomId === null ? 1 : Math.min(width / frame.width, height / frame.height);
+  const bounds = useMemo<AtlasRect>(() => ({ x: 0, y: 0, width, height }), [height, width]);
+  const frame = viewFrame ?? bounds;
+  const zoomScale = Math.min(width / frame.width, height / frame.height);
   const changedIds = useMemo(() => changes === undefined ? undefined : new Set(changes.keys()), [changes]);
   const rows = useMemo(
     () => matchingOutline(tree, expanded, query, onlyChanged ? changedIds : undefined),
@@ -115,12 +152,81 @@ export default function AtlasView({
   );
   const selectedTreeId = selectedId !== tree.rootId && tree.nodeById.has(selectedId) ? selectedId : null;
   const lens = useMemo(() => buildAtlasLens(tree, connections, selectedTreeId), [connections, selectedTreeId, tree]);
+  const ancestors = useMemo(() => ancestorIds(tree, selectedTreeId), [selectedTreeId, tree]);
+  const matches = useMemo(() => matchIdsFor(tree, query), [query, tree]);
   const selectedLabel = selectedTreeId === null ? null : tree.nodeById.get(selectedTreeId)?.label ?? null;
+  const listedRelations = useMemo(
+    () => [...lens.incoming, ...lens.outgoing.filter((relation) => relation.kind !== "contains")],
+    [lens.incoming, lens.outgoing],
+  );
+  const containedCount = lens.outgoing.filter((relation) => relation.kind === "contains").length;
+  const cellsRef = useRef(cells);
+  cellsRef.current = cells;
+  const boundsRef = useRef(bounds);
+  boundsRef.current = bounds;
+  const viewFrameRef = useRef(viewFrame);
+  viewFrameRef.current = viewFrame;
+
+  useEffect(() => {
+    const term = query.trim();
+    if (framedQuery.current === term) return;
+    const previous = framedQuery.current;
+    framedQuery.current = term;
+    if (term.length === 0) {
+      if (previous !== null) {
+        frameSource.current = "fit";
+        viewFrameRef.current = null;
+        setViewFrame(null);
+      }
+      return;
+    }
+    const matched = cellsRef.current.filter((cell) => {
+      const node = tree.nodeById.get(cell.id);
+      return node !== undefined && `${node.label} ${node.sourcePath ?? ""}`.toLocaleLowerCase().includes(term.toLocaleLowerCase());
+    });
+    const next = matched.length === 0 ? null : frameMatches(matched, boundsRef.current);
+    frameSource.current = "search";
+    viewFrameRef.current = next;
+    setViewFrame(next);
+  }, [query, tree]);
+
   useEffect(() => {
     if (selectedTreeId === null) return;
     setExpanded((current) => revealExpanded(current, tree.nodeById, selectedTreeId));
-    setZoomId(null);
+    const origin = selectionOrigin.current;
+    selectionOrigin.current = "external";
+    if (origin === "map") return;
+    const cell = cellsRef.current.find((entry) => entry.id === selectedTreeId);
+    if (cell === undefined) return;
+    const parentId = tree.nodeById.get(selectedTreeId)?.parentId ?? null;
+    const parent = parentId === null ? undefined : cellsRef.current.find((entry) => entry.id === parentId);
+    const next = frameFocus(cell, boundsRef.current, parent);
+    frameSource.current = "selection";
+    viewFrameRef.current = next;
+    setViewFrame(next);
   }, [selectedTreeId, tree]);
+
+  useEffect(() => {
+    outlineRef.current?.querySelector(".atlas-outline-row.is-selected")?.scrollIntoView({ block: "nearest" });
+  }, [rows, selectedId]);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (svg === null) return;
+    const onWheel = (event: globalThis.WheelEvent) => {
+      event.preventDefault();
+      const currentBounds = boundsRef.current;
+      const current = viewFrameRef.current ?? currentBounds;
+      const point = clientToFrame(svg, event.clientX, event.clientY, current);
+      const factor = event.deltaY > 0 ? 1.12 : 1 / 1.12;
+      const next = clampFrame(zoomAbout(current, factor, point.x, point.y), currentBounds);
+      frameSource.current = "gesture";
+      viewFrameRef.current = next;
+      setViewFrame(next);
+    };
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, []);
 
   const toggle = (id: string) => {
     setExpanded((current) => {
@@ -131,8 +237,12 @@ export default function AtlasView({
     });
   };
   const selectNode = (node: FileTreeNode) => {
-    if (node.blockId !== null) onSelect(node.blockId);
-    else toggle(node.id);
+    if (node.blockId !== null) {
+      selectionOrigin.current = "outline";
+      onSelect(node.blockId);
+    } else {
+      toggle(node.id);
+    }
   };
   const moveOutlineFocus = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
@@ -146,7 +256,34 @@ export default function AtlasView({
     event.preventDefault();
     next.focus();
   };
+  const onCanvasPointerDown = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (event.button !== 0) return;
+    dragRef.current = { x: event.clientX, y: event.clientY, frame, moved: false };
+  };
+  const onCanvasPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    const svg = svgRef.current;
+    if (drag === null || svg === null) return;
+    const rect = svg.getBoundingClientRect();
+    const scale = Math.min(rect.width / drag.frame.width, rect.height / drag.frame.height);
+    const dx = (event.clientX - drag.x) / Math.max(scale, 0.0001);
+    const dy = (event.clientY - drag.y) / Math.max(scale, 0.0001);
+    if (!drag.moved && Math.abs(event.clientX - drag.x) + Math.abs(event.clientY - drag.y) > 5) {
+      drag.moved = true;
+      svg.setPointerCapture(event.pointerId);
+    }
+    if (!drag.moved) return;
+    const next = clampFrame(panRect(drag.frame, -dx, -dy), bounds);
+    frameSource.current = "gesture";
+    viewFrameRef.current = next;
+    setViewFrame(next);
+  };
+  const onCanvasPointerUp = () => {
+    suppressClick.current = dragRef.current?.moved === true;
+    dragRef.current = null;
+  };
 
+  const fontPx = 11 * labelScale;
   return (
     <div className="atlas-view">
       <aside className="atlas-outline" aria-label="Workspace outline">
@@ -155,11 +292,20 @@ export default function AtlasView({
             <Search size={14} aria-hidden="true" />
             <span className="atlas-visually-hidden">Filter workspace atlas</span>
           </label>
-          <input id="workspace-atlas-filter" value={query} onChange={(event) => setQuery(event.currentTarget.value)} type="search" placeholder="Find a module or file" />
+          <input
+            id="workspace-atlas-filter"
+            value={query}
+            onChange={(event) => setQuery(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") setQuery("");
+            }}
+            type="search"
+            placeholder="Find a module or file"
+          />
           {query.length > 0 && <button type="button" aria-label="Clear atlas filter" onClick={() => setQuery("")}><X size={13} /></button>}
         </div>
         <div className="atlas-outline-summary"><span>{rows.length} visible</span><span>{tree.nodes.length} total</span></div>
-        <div className="atlas-outline-tree" role="tree" aria-label="Workspace atlas outline">
+        <div className="atlas-outline-tree" role="tree" aria-label="Workspace atlas outline" ref={outlineRef}>
           {rows.map(({ node, level, position, setSize }) => {
             const block = node.blockId === null ? undefined : blockById.get(node.blockId);
             const change = changes?.get(node.id);
@@ -191,6 +337,7 @@ export default function AtlasView({
                   }
                   if (event.key === "ArrowRight" && node.children.length > 0 && !expanded.has(node.id)) { event.preventDefault(); toggle(node.id); return; }
                   if (event.key === "ArrowLeft" && expanded.has(node.id)) { event.preventDefault(); toggle(node.id); return; }
+                  if (event.key === "Enter" && node.blockId !== null) { event.preventDefault(); selectNode(node); return; }
                   moveOutlineFocus(event);
                 }}
               >
@@ -207,49 +354,105 @@ export default function AtlasView({
           <section className="atlas-relations" aria-label={`Dependencies for ${selectedLabel}`}>
             <div className="atlas-relations-heading"><strong>Dependency lens</strong><button type="button" onClick={() => onSelect(tree.rootId)}>Clear</button></div>
             <div className="atlas-relation-counts"><span>{lens.incoming.length} incoming</span><span>{lens.outgoing.length} outgoing</span></div>
-            {[...lens.incoming, ...lens.outgoing].map((relation) => {
-              const incoming = lens.incoming.includes(relation);
+            {lens.dependsOnCount === 0 && <p className="atlas-relation-note">No depends-on links</p>}
+            {listedRelations.map((relation) => {
+              const incoming = relation.target === selectedTreeId || lens.focusBlockIds.has(relation.target);
               const otherId = incoming ? relation.source : relation.target;
               const other = blockById.get(otherId);
-              return <button className="atlas-relation-row" type="button" key={relation.id} onClick={() => onSelect(otherId)}><span>{incoming ? "IN" : "OUT"}</span>{other?.label ?? otherId}</button>;
+              const kindLabel = relation.kind === "contains" ? "contains" : "depends";
+              return (
+                <button className="atlas-relation-row" type="button" key={relation.id} onClick={() => { selectionOrigin.current = "outline"; onSelect(otherId); }}>
+                  <span>{incoming ? "IN" : "OUT"}</span>
+                  <span className="atlas-relation-kind">{kindLabel}</span>
+                  {other?.label ?? otherId}
+                </button>
+              );
             })}
+            {containedCount > 0 && <p className="atlas-relation-note">Contains {containedCount} {containedCount === 1 ? "block" : "blocks"}</p>}
           </section>
         )}
       </aside>
       <div className="atlas-canvas" ref={canvasRef}>
         <div className="atlas-canvas-actions">
           <span>ATLAS</span>
-          <button type="button" onClick={() => setZoomId(null)} disabled={zoomId === null}><Focus size={13} /> Fit workspace</button>
+          <button type="button" onClick={() => { frameSource.current = "fit"; viewFrameRef.current = null; setViewFrame(null); }} disabled={viewFrame === null}><Focus size={13} /> Fit workspace</button>
         </div>
-        <svg viewBox={`${frame.x} ${frame.y} ${frame.width} ${frame.height}`} preserveAspectRatio="xMidYMid meet" aria-label="Workspace treemap">
-          {cells.map((cell) => {
+        <svg
+          ref={svgRef}
+          viewBox={`${frame.x} ${frame.y} ${frame.width} ${frame.height}`}
+          preserveAspectRatio="xMidYMid meet"
+          aria-label="Workspace treemap"
+          onPointerDown={onCanvasPointerDown}
+          onPointerMove={onCanvasPointerMove}
+          onPointerUp={onCanvasPointerUp}
+          onPointerCancel={onCanvasPointerUp}
+        >
+          {cells.map((cell, index) => {
             const blockId = cell.blockId;
             const change = changes?.get(cell.id);
             const selected = blockId === selectedId;
-            const related = lens.focusId === null || (blockId !== null && lens.relatedBlockIds.has(blockId));
+            const related = blockId !== null && lens.relatedBlockIds.has(blockId);
+            const tone = atlasCellTone(cell, {
+              selected,
+              focusActive: lens.focusId !== null,
+              related,
+              ancestor: ancestors.has(cell.id),
+              searchMiss: matches !== null && !matches.has(cell.id),
+            });
             const filtered = onlyChanged && change === undefined;
-            const showLabel = !filtered && cell.width * zoomScale > 52 && cell.height * zoomScale > 24;
+            const screenW = cell.width * zoomScale;
+            const screenH = cell.height * zoomScale;
+            const labelText = ellipsizeLabel(cell.label, Math.max(0, screenW - 8), fontPx);
+            const hovered = hoveredId === cell.id;
+            const showLabel = !filtered && (selected || hovered || (labelText.length > 0 && screenW >= 34 && screenH >= 15) || (cell.depth <= 2 && labelText.length > 0 && screenW >= 22 && screenH >= 13));
+            const drawnLabel = showLabel ? (labelText.length > 0 ? labelText : cell.label) : "";
+            const clipId = `atlas-clip-${index}`;
+            const clipHeight = cell.folder ? Math.min(cell.height, 16 / zoomScale) : cell.height;
+            const textWidth = Math.max(1, cell.width - 10 / zoomScale);
             return (
               <g
                 key={cell.id}
-                className={`atlas-cell depth-${Math.min(cell.depth, 5)}${selected ? " is-selected" : ""}${related ? "" : " is-dimmed"}${change === undefined ? "" : ` is-changed${change.added > 0 ? " has-additions" : ""}${change.removed > 0 ? " has-removals" : ""}`}${filtered ? " is-filtered" : ""}`}
-                onClick={() => { if (blockId !== null) onSelect(blockId); }}
+                className={`atlas-cell depth-${Math.min(cell.depth, 5)}${tone === "selected" ? " is-selected" : ""}${tone === "dimmed" ? " is-dimmed" : ""}${tone === "context" ? " is-context" : ""}${matches?.has(cell.id) === true ? " is-match" : ""}${change === undefined ? "" : ` is-changed${change.added > 0 ? " has-additions" : ""}${change.removed > 0 ? " has-removals" : ""}`}${filtered ? " is-filtered" : ""}`}
+                onClick={() => {
+                  if (suppressClick.current) {
+                    suppressClick.current = false;
+                    return;
+                  }
+                  if (blockId === null) return;
+                  selectionOrigin.current = "map";
+                  onSelect(blockId);
+                }}
+                onPointerEnter={() => setHoveredId(cell.id)}
+                onPointerLeave={() => setHoveredId((current) => current === cell.id ? null : current)}
                 onContextMenu={(event) => {
                   const block = blockId === null ? undefined : blockById.get(blockId);
                   if (block === undefined) return;
                   event.preventDefault();
                   onContextMenu(block, event.clientX, event.clientY);
                 }}
-                onDoubleClick={() => setZoomId(cell.id)}
+                onDoubleClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const next = frameCell(cell, bounds);
+                  frameSource.current = "region";
+                  viewFrameRef.current = next;
+                  setViewFrame(next);
+                }}
               >
-                <rect x={cell.x} y={cell.y} width={cell.width} height={cell.height} rx={cell.depth === 0 ? 8 : 3} />
-                {showLabel && (
+                <clipPath id={clipId}>
+                  <rect x={cell.x} y={cell.y} width={Math.max(0, cell.width)} height={Math.max(0, clipHeight)} />
+                </clipPath>
+                <rect className="atlas-cell-shape" x={cell.x} y={cell.y} width={cell.width} height={cell.height} rx={cell.depth === 0 ? 8 : 3} />
+                {drawnLabel.length > 0 && (
                   <text
-                    x={cell.x + 7 / zoomScale}
-                    y={cell.y + 16 / zoomScale}
-                    style={{ fontSize: `${11 / zoomScale}px` }}
+                    x={cell.x + 5 / zoomScale}
+                    y={cell.y + Math.min(clipHeight - 3 / zoomScale, 13 / zoomScale)}
+                    clipPath={`url(#${clipId})`}
+                    textLength={drawnLabel === cell.label ? undefined : textWidth}
+                    lengthAdjust={drawnLabel === cell.label ? undefined : "spacingAndGlyphs"}
+                    style={{ fontSize: `${fontPx / zoomScale}px` }}
                   >
-                    {cell.label}
+                    {drawnLabel}
                   </text>
                 )}
               </g>
@@ -264,6 +467,7 @@ export default function AtlasView({
             })}
           </g>
         </svg>
+        {matches !== null && matches.size === 0 && <div className="atlas-canvas-note">No matching blocks</div>}
         {lens.hiddenCount > 0 && <div className="atlas-edge-cap">{lens.hiddenCount} more relations in the outline</div>}
       </div>
     </div>
