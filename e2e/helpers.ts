@@ -41,10 +41,18 @@ export { expect };
 // ---------------------------------------------------------------------------
 // Web (fixture) navigation
 // ---------------------------------------------------------------------------
-export async function gotoWeb(page: Page): Promise<void> {
+type TestMapView = "atlas" | "modules";
+
+async function chooseTestMapView(page: Page, view: TestMapView): Promise<void> {
+  if (view === "atlas") return;
+  await page.getByRole("group", { name: "Map view" }).first().getByRole("button", { name: "Modules" }).click();
+}
+
+export async function gotoWeb(page: Page, view: TestMapView = "modules"): Promise<void> {
   await page.goto("/");
   // The fixture build always offers Prismattyc and Scorecard.
   await expect(page.getByLabel("Project summary")).toBeVisible();
+  await chooseTestMapView(page, view);
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +75,7 @@ export async function gotoIpc(page: Page, overrides: {
   readonly commits?: readonly CommitSummary[];
   readonly ranges?: Readonly<Record<string, ResolvedCommitRange | string>>;
   readonly diff?: BlockDiffDocument;
-} = {}): Promise<void> {
+} = {}, view: TestMapView = "modules"): Promise<void> {
   await page.route("**/__lw-captures.json", (route) =>
     route.fulfill({ contentType: "application/json", body: JSON.stringify({ ...JSON.parse(CAPTURES_JSON), ...overrides }) }),
   );
@@ -300,4 +308,5 @@ export async function gotoIpc(page: Page, overrides: {
   });
   await page.goto("/");
   await expect(page.getByLabel("Project summary")).toBeVisible();
+  await chooseTestMapView(page, view);
 }

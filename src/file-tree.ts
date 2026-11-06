@@ -1,7 +1,7 @@
 import type { DisplayBlock, FactBlockType, FactConnection } from "./model.js";
 import { pathContainsIgnoredDirectory } from "./workspace-ignore.js";
 
-export type MapView = "modules" | "files";
+export type MapView = "atlas" | "modules" | "files";
 export type TreeOrientation = "vertical" | "horizontal";
 
 export interface MapViewStorage {
@@ -45,7 +45,7 @@ export function mapViewStorageKey(workspaceId: string): string {
 }
 
 export function parseMapView(value: string | null): MapView {
-  return value === "files" ? "files" : "modules";
+  return value === "modules" || value === "files" ? value : "atlas";
 }
 
 export function treeOrientationStorageKey(workspaceId: string): string {
@@ -370,11 +370,11 @@ export function revealExpanded(
 }
 
 export function readMapView(storage: MapViewStorage | null, workspaceId: string): MapView {
-  if (storage === null) return "modules";
+  if (storage === null) return "atlas";
   try {
     return parseMapView(storage.getItem(mapViewStorageKey(workspaceId)));
   } catch {
-    return "modules";
+    return "atlas";
   }
 }
 

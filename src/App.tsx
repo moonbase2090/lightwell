@@ -105,6 +105,7 @@ import {
 } from "./viewer/CompoundGraphView.js";
 import type { CompoundLayoutStats } from "./viewer/compound-layout.js";
 import StateChartFeature from "./StateChartFeature.js";
+import AtlasView from "./viewer/AtlasView.js";
 import { emphasizeGraph, layoutBlocks } from "./viewer/layout.js";
 import {
   DEFAULT_MAP_DEPTH,
@@ -376,6 +377,7 @@ function DetailsPanel({
   node,
   map,
   onOpen,
+  canOpenSource,
   onSelectBlock,
   noteAction,
   onAddNote,
@@ -385,6 +387,7 @@ function DetailsPanel({
   readonly node: DisplayNode;
   readonly map: ResolvedMap;
   readonly onOpen: (node: DisplayNode) => void;
+  readonly canOpenSource: boolean;
   readonly onSelectBlock: (id: string) => void;
   /** Note button label for this block, or undefined when notes are unavailable. */
   readonly noteAction?: "Add note" | "Edit note";
@@ -498,7 +501,11 @@ function DetailsPanel({
           </div>
         </>
       )}
-      {children.length > 0 && <button className="open-block-button" type="button" onClick={() => onOpen(node)}><ArrowDownRight size={15} /> Open {node.type === "workspace" ? "workspace" : node.type}</button>}
+      {(children.length > 0 || (canOpenSource && node.sourcePath !== null)) && (
+        <button className="open-block-button" type="button" onClick={() => onOpen(node)}>
+          <ArrowDownRight size={15} /> {children.length === 0 ? "Open source" : `Open ${node.type === "workspace" ? "workspace" : node.type}`}
+        </button>
+      )}
     </aside>
   );
 }
@@ -619,7 +626,7 @@ function FeatureFooter({
  * The top padding is in pixels so a fitted map always starts below the canvas header
  * (Modules / Files, Depth), which floats over the top of the canvas.
  */
-const GRAPH_FIT_OPTIONS = { padding: { top: "64px", right: 0.2, bottom: 0.2, left: 0.2 }, minZoom: 0.18, maxZoom: 1.2 } as const;
+const GRAPH_FIT_OPTIONS = { padding: { top: "68px", right: 0.2, bottom: 0.2, left: 0.2 }, minZoom: 0.18, maxZoom: 1.2 } as const;
 
 /** Children kept in view around the scope block; wide scopes pan for the rest. */
 const FIT_NEAREST_CHILDREN = 8;
@@ -792,11 +799,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setDepthWorkspaceId(mapKey);
     setMapDepth(mapKey === null ? DEFAULT_MAP_DEPTH : readMapDepth(mapDepthStorage(), mapKey));
   }
-  const [mapView, setMapView] = useState<MapView>("modules");
+  const [mapView, setMapView] = useState<MapView>("atlas");
   const [viewWorkspaceId, setViewWorkspaceId] = useState<string | null>(null);
   if (mapKey !== viewWorkspaceId) {
     setViewWorkspaceId(mapKey);
-    setMapView(mapKey === null ? "modules" : readMapView(mapDepthStorage(), mapKey));
+    setMapView(mapKey === null ? "atlas" : readMapView(mapDepthStorage(), mapKey));
   }
   const [orientation, setOrientation] = useState<TreeOrientation>("vertical");
   const [orientationWorkspaceId, setOrientationWorkspaceId] = useState<string | null>(null);
@@ -887,7 +894,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     workspaceId: null as string | null,
     selectedId: "",
     scopePath: [] as string[],
-    mapView: "modules" as MapView,
+    mapView: "atlas" as MapView,
     orientation: "vertical" as TreeOrientation,
     fileScope: "",
     notesRevision: 0,
@@ -1228,8 +1235,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     .map((id) => map?.blockById.get(id))
     .filter((block): block is DisplayBlock => block !== undefined) ?? [], [map, scopeId]);
   const fileTree = useMemo(() => {
-    if (map === null || scope === undefined || mapView !== "files") return null;
-    return buildFileTree(scope, map.blockById);
+    if (map === null || scope === undefined || mapView === "modules") return null;
+    const treeScope = mapView === "atlas" ? map.blockById.get(rootId) : scope;
+    return treeScope === undefined ? null : buildFileTree(treeScope, map.blockById);
   }, [map, mapView, scope]);
   const fileRoot = useMemo(() => {
     if (fileTree === null || scope === undefined) return undefined;
@@ -1440,7 +1448,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           workspaceId,
           selectedId: "",
           scopePath: [],
-          mapView: "modules",
+          mapView: "atlas",
           orientation: "vertical",
           fileScope: "",
           notesRevision: 0,
@@ -1535,7 +1543,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       setBaseGraph({ kind: "flat", nodes: [], edges: [] });
       return;
     }
-    if (mapView === "files" && orientation === "vertical") {
+    if (mapView === "atlas" || (mapView === "files" && orientation === "vertical")) {
       setBaseGraph({ kind: "flat", nodes: [], edges: [] });
       setGraphError("");
       return;
@@ -1589,6 +1597,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setActiveFeatureId(null);
     setActiveNodeId(null);
     setInspectedBlockId(null);
+    setInspectedDiffPath(null);
   }, []);
   const activateBlock = useCallback((block: DisplayBlock) => {
     if (folderPathFromId(block.id) !== null) {
@@ -1685,7 +1694,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
 
   const graphChanges = useMemo(() => {
     if (commitDiff.kind !== "ready") return undefined;
-    if (mapView !== "files" || fileTree === null) return commitDiff.byBlock;
+    if ((mapView !== "files" && mapView !== "atlas") || fileTree === null) return commitDiff.byBlock;
     const direct = new Map<string, { added: number; removed: number }>();
     for (const [id, change] of commitDiff.byBlock) {
       if (change.direct) direct.set(id, { added: change.added, removed: change.removed });
@@ -1746,6 +1755,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
     setSearch("");
     setActiveNodeId(null);
+    setInspectedDiffPath(null);
     if (node.virtual) {
       setInspectedBlockId(null);
       setSelectedId(node.id);
@@ -1754,8 +1764,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       return;
     }
     setSelectedId(node.id);
+    if (mapView === "atlas") {
+      setInspectedBlockId(null);
+      return;
+    }
     if (mapSource.editor !== undefined) {
-      setInspectedDiffPath(null);
       setInspectedBlockId(node.id);
     }
     if (map === null) return;
@@ -1767,7 +1780,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     }
     setScopePath(ancestors.length > 1 ? ancestors.slice(0, -1) : ancestors);
     setFocusRequest((current) => ({ blockId: node.id, sequence: (current?.sequence ?? 0) + 1 }));
-  }, [map, mapSource.editor]);
+  }, [map, mapSource.editor, mapView]);
 
   const onNodeClick: NodeMouseHandler<CompoundGraphNode> = useCallback((_event, node) => {
     if (node.type === "compoundSummary") {
@@ -1780,11 +1793,18 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setMapView(next);
     if (mapKey !== null) writeMapView(mapDepthStorage(), mapKey, next);
     if (map === null) return;
+    if (next === "atlas") {
+      setScopePath([map.facts.project.id]);
+      setInspectedBlockId(null);
+      setFocusRequest(null);
+      return;
+    }
+    if (mapView === "atlas") return;
     const block = map.blockById.get(selectedId);
     if (block !== undefined) {
       setFocusRequest((current) => ({ blockId: block.id, sequence: (current?.sequence ?? 0) + 1 }));
     }
-  }, [map, mapKey, selectedId]);
+  }, [map, mapKey, mapView, selectedId]);
   const rotateTree = useCallback(() => {
     const next: TreeOrientation = orientation === "vertical" ? "horizontal" : "vertical";
     setOrientation(next);
@@ -2073,14 +2093,16 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const stateChartTarget = !selected.virtual && selected.sourcePath !== null ? selected : null;
 
   const verticalFiles = mapView === "files" && orientation === "vertical" && fileTree !== null && fileRoot !== undefined;
+  const atlasMode = mapView === "atlas" && fileTree !== null;
   const selectedTreeNode = mapView === "files" && fileTree !== null ? fileTree.nodeById.get(selectedId) : undefined;
   const folderSelection = selectedTreeNode?.folder === true ? selectedTreeNode : undefined;
   const graphCanvas = (
     <div className={`graph-canvas${verticalFiles ? " is-vertical" : ""}`} aria-label={`${map.facts.project.name} architecture map`}>
       {!verticalFiles && <div className="canvas-watermark">
-        <span>{mapView === "files" ? "FILE TREE" : scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
+        <span>{mapView === "atlas" ? "WORKSPACE ATLAS" : mapView === "files" ? "FILE TREE" : scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
         <span className="map-depth-controls">
           <div className="map-view" role="group" aria-label="Map view">
+            <button type="button" aria-pressed={mapView === "atlas"} onClick={() => chooseMapView("atlas")}>Atlas</button>
             <button type="button" aria-pressed={mapView === "modules"} onClick={() => chooseMapView("modules")}>Modules</button>
             <button type="button" aria-pressed={mapView === "files"} onClick={() => chooseMapView("files")}>Files</button>
             {import.meta.env.VITE_ENABLE_STATE_CHART !== "false" && (
@@ -2093,7 +2115,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
               >States</button>
             )}
           </div>
-          <label className="map-depth">
+          {mapView !== "atlas" && <label className="map-depth">
             Depth
             <select
               aria-label="Map depth"
@@ -2115,10 +2137,22 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
                 </option>
               ))}
             </select>
-          </label>
-          <span className="child-count">{mapView === "files" && fileRoot !== undefined ? fileRoot.children.length : scopeChildren.length} direct children</span>
+          </label>}
+          {mapView !== "atlas" && <span className="child-count">{mapView === "files" && fileRoot !== undefined ? fileRoot.children.length : scopeChildren.length} direct children</span>}
         </span>
       </div>}
+      {atlasMode && (
+        <AtlasView
+          tree={fileTree}
+          blockById={map.blockById}
+          connections={map.connections}
+          selectedId={selectedId}
+          onSelect={selectTreeNode}
+          onContextMenu={showBlockMenu}
+          {...(graphChanges === undefined ? {} : { changes: graphChanges })}
+          onlyChanged={commitDiffOnlyChanged}
+        />
+      )}
       {verticalFiles && fileTree !== null && fileRoot !== undefined && (
         <FileExplorer
           root={fileRoot}
@@ -2158,7 +2192,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
             : {})}
         />
       )}
-      {graphError.length > 0 && !verticalFiles ? (
+      {!atlasMode && (graphError.length > 0 && !verticalFiles ? (
         <div className="graph-message"><CircleAlert size={18} />Could not lay out this map: {graphError}</div>
       ) : graph.nodes.length === 0 && !verticalFiles ? (
         <div className="graph-message"><Activity size={18} />Preparing graph layout…</div>
@@ -2194,8 +2228,8 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           <Background color={theme === "blueprint" ? "rgba(227,238,255,.22)" : theme === "light" ? "#d4c9c0" : "#1b2733"} gap={26} size={1} />
           <Controls showInteractive={false} position="bottom-left" />
         </ReactFlow>
-      )}
-      {!verticalFiles && baseGraph.kind === "compound" && (
+      ))}
+      {!atlasMode && !verticalFiles && baseGraph.kind === "compound" && (
         <DependencyLegend stats={baseGraph.stats} durationMs={baseGraph.durationMs} />
       )}
     </div>
@@ -2232,7 +2266,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       )}
     </div>
   ) : null;
-  const mapContent = stateChartCanvas ?? (
+  const mapContent = stateChartCanvas ?? (atlasMode ? graphCanvas : (
     <Splitter
       projectId={mapKey}
       splitterId="map-features"
@@ -2245,7 +2279,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       first={graphCanvas}
       second={featureGroups}
     />
-  );
+  ));
   const mapColumn = (
     <main className="map-column">
       <div className="map-toolbar">
@@ -2443,6 +2477,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       node={selected}
       map={map}
       onOpen={(node) => { if (!node.virtual) openBlockInspector(node); }}
+      canOpenSource={mapSource.editor !== undefined}
       onSelectBlock={setSelectedId}
       onBlockContextMenu={showBlockMenu}
       {...(noteByBlockId.has(selected.id) ? { note: noteByBlockId.get(selected.id)! } : {})}

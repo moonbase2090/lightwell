@@ -68,6 +68,7 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
       exit 1
     fi
 
+    xdotool windowsize "$window_id" 1280 850
     sleep 8
     window_width="$(xdotool getwindowgeometry "$window_id" | sed -n "s/.*Geometry: \\([0-9][0-9]*\\)x.*/\\1/p")"
     window_height="$(xdotool getwindowgeometry "$window_id" | sed -n "s/.*Geometry: [0-9][0-9]*x\\([0-9][0-9]*\\).*/\\1/p")"
@@ -99,6 +100,10 @@ XDG_CONFIG_HOME="$config_home" XDG_DATA_HOME="$data_home" xvfb-run -a --server-a
       splitter_inner_x=$((splitter_x / 2))
       splitter_inner_y=$((main_top + 47 + main_height - 47 - 8 - 197 + 4))
     fi
+
+    # Theme proof checks graph-node fills and outlines at fixed coordinates.
+    xdotool mousemove --window "$window_id" 800 250 click 1
+    sleep 3
 
     capture_theme() {
       theme_name="$1"

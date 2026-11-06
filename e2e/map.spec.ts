@@ -1,14 +1,18 @@
 import { test, expect, gotoWeb, gotoIpc } from "./helpers.js";
 
 test.describe("map canvas (web)", () => {
-  test.beforeEach(async ({ page }) => gotoWeb(page));
+  test.beforeEach(async ({ page }) => {
+    await gotoWeb(page);
+  });
 
-  test("MAP-01: Modules / Files toggle switches the view", async ({ page }) => {
+  test("MAP-01: Atlas / Modules / Files toggle switches the view", async ({ page }) => {
     const group = page.getByRole("group", { name: "Map view" }).first();
     await group.getByRole("button", { name: "Files" }).click();
     await expect(page.getByRole("tree", { name: "File tree" })).toBeVisible();
     await group.getByRole("button", { name: "Modules" }).click();
     await expect(page.getByRole("tree", { name: "File tree" })).toBeHidden();
+    await group.getByRole("button", { name: "Atlas" }).click();
+    await expect(page.getByRole("tree", { name: "Workspace atlas outline" })).toBeVisible();
   });
 
   test("MAP-02: depth control changes the depth value", async ({ page }) => {
@@ -123,16 +127,79 @@ test.describe("map canvas (ipc)", () => {
     await gotoIpc(page);
     // No notes exist yet, so no badge is rendered.
     await expect(page.locator(".node-note-badge")).toHaveCount(0);
-    const node = page.locator(".react-flow__node").first();
-    const groupHeader = node.locator(".compound-group-header");
-    if (await groupHeader.count() > 0) await groupHeader.click();
-    else await node.click();
-    await page.keyboard.press("n");
+    await page.getByRole("button", { name: /Add note/ }).click();
     await page.getByLabel("Project note text").fill("map badge note");
     await page.keyboard.press("Control+Enter");
     await page.keyboard.press("Escape");
     // Saving the note marks the node: its note badge renders. Without the
     // add-note flow the badge count stays zero.
     await expect(page.locator(".node-note-badge").first()).toBeVisible();
+  });
+});
+
+test.describe("workspace atlas", () => {
+  test.beforeEach(async ({ page }) => gotoWeb(page, "atlas"));
+
+  test("MAP-17: atlas is the default and keeps dependency edges hidden at rest", async ({ page }) => {
+    const group = page.getByRole("group", { name: "Map view" }).first();
+    await expect(group.getByRole("button", { name: "Atlas" })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("tree", { name: "Workspace atlas outline" })).toBeVisible();
+    await expect.poll(() => page.locator(".atlas-cell").count()).toBeGreaterThanOrEqual(400);
+    await expect(page.locator(".atlas-edges path")).toHaveCount(0);
+  });
+
+  test("MAP-18: search selects a block and opens its focused dependency lens", async ({ page }) => {
+    await page.getByLabel("Filter workspace atlas").fill("prismattyc-host");
+    const result = page.getByRole("treeitem", { name: /prismattyc-host/i }).last();
+    await expect(result).toBeVisible();
+    await result.click();
+    await expect(result).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("region", { name: /Dependencies for prismattyc-host/i })).toBeVisible();
+    await expect(page.locator(".atlas-edges path").first()).toBeVisible();
+    const selectedCell = page.locator(".atlas-cell.is-selected");
+    await selectedCell.dblclick();
+    await expect(selectedCell.locator("text")).toHaveText("prismattyc-host");
+    await page.getByLabel("Filter workspace atlas").fill("");
+    await expect(page.getByRole("treeitem", { name: /prismattyc-host/i }).last()).toHaveAttribute("aria-selected", "true");
+    await page.getByLabel("Filter workspace atlas").fill("session_prompt");
+    await page.getByRole("treeitem", { name: /session_prompt/i }).last().click();
+    await expect(page.getByRole("button", { name: "Fit workspace" })).toBeDisabled();
+    await expect(page.locator(".atlas-cell.is-selected")).toBeVisible();
+  });
+
+  test("MAP-19: commit changes highlight atlas regions and filter the outline", async ({ page }) => {
+    await gotoIpc(page, {}, "atlas");
+    await page.getByLabel("Show changes", { exact: true }).selectOption("lastCommit");
+    await expect(page.locator(".atlas-cell.is-changed").first()).toBeVisible();
+    await expect(page.locator(".atlas-outline-change").first()).toBeVisible();
+    const mixedChange = page.locator(".atlas-cell.is-changed.has-additions.has-removals:not(.is-selected)").first();
+    await expect(mixedChange).toBeVisible();
+    await page.getByRole("button", { name: /settings/i }).first().click();
+    await page.getByRole("combobox", { name: "THEME" }).selectOption("light");
+    await page.getByRole("button", { name: "Close settings" }).click();
+    await expect(mixedChange.locator("rect")).toHaveCSS("stroke", "rgb(155, 98, 28)");
+    const toggle = page.getByRole("checkbox", { name: "Only show changed blocks on the map and file tree" });
+    await toggle.click();
+    await expect(page.locator(".atlas-cell.is-filtered").first()).toBeVisible();
+    const changedBlock = page.getByRole("treeitem", { name: /main/i });
+    await expect(changedBlock).toBeVisible();
+    await expect(page.getByRole("treeitem", { name: /Scorecard/i })).toHaveCount(0);
+    await toggle.click();
+    await page.getByRole("button", { name: "Expand change list" }).click();
+    await page.getByRole("button", { name: /File README\.md/ }).click();
+    await expect(page.getByLabel("Source inspector for README.md")).toBeVisible();
+    await page.getByLabel("Filter workspace atlas").fill("src/main.mjs");
+    const leaf = page.getByRole("treeitem", { name: /main.*MODULE/i }).last();
+    await leaf.click();
+    await expect(page.getByLabel("Source inspector for README.md")).toHaveCount(0);
+    await leaf.click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: "Copy path" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await leaf.focus();
+    await page.keyboard.press("Shift+F10");
+    await expect(page.getByRole("menuitem", { name: "Open source" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Open source" }).click();
+    await expect(page.getByLabel("Source inspector for main")).toBeVisible();
   });
 });

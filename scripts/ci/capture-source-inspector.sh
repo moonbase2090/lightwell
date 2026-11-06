@@ -73,6 +73,7 @@ XDG_CONFIG_HOME="$config_home" EDITOR_LOG_PATH="$editor_log" xvfb-run -a --serve
       exit 1
     fi
 
+    xdotool windowsize "$window_id" 1280 850
     sleep 8
     window_width="$(xdotool getwindowgeometry "$window_id" | sed -n "s/.*Geometry: \\([0-9][0-9]*\\)x.*/\\1/p")"
     if [[ ! "$window_width" =~ ^[0-9]+$ ]]; then
@@ -82,6 +83,10 @@ XDG_CONFIG_HOME="$config_home" EDITOR_LOG_PATH="$editor_log" xvfb-run -a --serve
     # Settings is the rightmost top-bar control: a 25px margin, then an 87px button.
     # Its centre is about 68px from the right edge.
     settings_x=$((window_width - 68))
+    # Atlas search selects in place. This capture needs Modules search, which
+    # opens the source inspector for the selected source-backed block.
+    xdotool mousemove --window "$window_id" 800 250 click 1
+    sleep 2
     xdotool key ctrl+k
     xdotool type --clearmodifiers --delay 45 inspector_target
     sleep 2

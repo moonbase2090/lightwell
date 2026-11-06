@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- A searchable workspace atlas is now the default map. It preserves a stable treemap overview, keeps dependency edges hidden until selection, and pairs focused relations with an exact accessible outline.
+
 ## 0.1.29 - 2026-11-05
 
 ### Fixed

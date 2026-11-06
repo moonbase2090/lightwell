@@ -20,6 +20,7 @@ const sync = {
 
 test("parseMapPopoutSync accepts a complete sync payload", () => {
   assert.deepEqual(parseMapPopoutSync({ ...sync, extra: true }), sync);
+  assert.equal(parseMapPopoutSync({ ...sync, mapView: "atlas" }).mapView, "atlas");
   assert.deepEqual(parseMapPopoutSync({ ...sync, revision: 0, notesRevision: 0, selectedId: "", scopePath: [], fileScope: "" }), {
     ...sync,
     revision: 0,
