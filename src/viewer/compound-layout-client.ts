@@ -3,7 +3,16 @@ import type { CompoundLayoutInput, CompoundLayoutResult } from "./compound-layou
 import type { CompoundLayoutWorkerRequest, CompoundLayoutWorkerResponse } from "./compound-layout-worker.js";
 
 const LAYOUT_TIMEOUT_MS = 2_000;
-const RETRY_BLOCK_LIMIT = 400;
+
+/**
+ * Smaller layouts to try, in order, when the previous attempt times out. Layout time grows with the
+ * number of dependency edges, so the last tier drops them: the map always appears, with blocks only.
+ */
+const FALLBACK_TIERS: readonly { readonly maxBlocks: number; readonly maxEdges: number; readonly timeoutMs: number }[] = [
+  { maxBlocks: 400, maxEdges: 800, timeoutMs: 2_000 },
+  { maxBlocks: 150, maxEdges: 300, timeoutMs: 1_500 },
+  { maxBlocks: 60, maxEdges: 0, timeoutMs: 5_000 },
+];
 
 export interface CompoundLayoutClient {
   layout(input: CompoundLayoutInput): Promise<CompoundLayoutResult>;
@@ -34,7 +43,7 @@ interface PendingRequest {
 
 class CompoundLayoutTimeoutError extends Error {
   constructor() {
-    super("Compound layout exceeded its two-second limit.");
+    super("Compound layout exceeded its time limit.");
     this.name = "CompoundLayoutTimeoutError";
   }
 }
@@ -57,7 +66,7 @@ export function createCompoundLayoutClient(
     if (!disposed) worker = createWorker();
   };
 
-  const run = (input: CompoundLayoutInput): Promise<CompoundLayoutResult> => {
+  const run = (input: CompoundLayoutInput, timeoutMs: number): Promise<CompoundLayoutResult> => {
     if (disposed) return Promise.reject(new Error("Compound layout client was disposed."));
     generation += 1;
     const requestGeneration = generation;
@@ -74,7 +83,7 @@ export function createCompoundLayoutClient(
         pending = null;
         replaceWorker();
         reject(new CompoundLayoutTimeoutError());
-      }, LAYOUT_TIMEOUT_MS);
+      }, timeoutMs);
       pending = { generation: requestGeneration, reject, timer };
       worker.onmessage = (event: MessageEvent<CompoundLayoutWorkerResponse>) => {
         if (event.data.generation !== requestGeneration || pending?.generation !== requestGeneration) return;
@@ -107,17 +116,23 @@ export function createCompoundLayoutClient(
 
   return {
     async layout(input) {
-      try {
-        return await run(input);
-      } catch (error: unknown) {
-        if (!(error instanceof CompoundLayoutTimeoutError)) throw error;
-        return run({
-          ...input,
-          limits: {
-            maxBlocks: Math.min(input.limits.maxBlocks, RETRY_BLOCK_LIMIT),
-            maxEdges: Math.min(input.limits.maxEdges, RETRY_BLOCK_LIMIT * 2),
-          },
-        });
+      let attemptInput = input;
+      let timeoutMs = LAYOUT_TIMEOUT_MS;
+      for (let tier = 0; ; tier += 1) {
+        try {
+          return await run(attemptInput, timeoutMs);
+        } catch (error: unknown) {
+          const next = FALLBACK_TIERS[tier];
+          if (!(error instanceof CompoundLayoutTimeoutError) || next === undefined) throw error;
+          attemptInput = {
+            ...input,
+            limits: {
+              maxBlocks: Math.min(input.limits.maxBlocks, next.maxBlocks),
+              maxEdges: Math.min(input.limits.maxEdges, next.maxEdges),
+            },
+          };
+          timeoutMs = next.timeoutMs;
+        }
       }
     },
     dispose() {
