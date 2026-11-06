@@ -70,6 +70,8 @@ const CAPTURES_JSON = readFileSync(
 );
 
 export async function gotoIpc(page: Page, overrides: {
+  readonly workspaces?: readonly { readonly id: string; readonly label: string }[];
+  readonly maps?: Readonly<Record<string, unknown>>;
   readonly sources?: Readonly<Record<string, SourceFileDocument>>;
   readonly changes?: CommitChanges;
   readonly commits?: readonly CommitSummary[];
@@ -307,6 +309,8 @@ export async function gotoIpc(page: Page, overrides: {
     };
   });
   await page.goto("/");
+  // With no recent workspaces there is no map to wait for: the app shows its first-run screen.
+  if (overrides.workspaces?.length === 0) return;
   await expect(page.getByLabel("Project summary")).toBeVisible();
   await chooseTestMapView(page, view);
 }
