@@ -163,8 +163,118 @@ test.describe("workspace atlas", () => {
     await expect(page.getByRole("treeitem", { name: /prismattyc-host/i }).last()).toHaveAttribute("aria-selected", "true");
     await page.getByLabel("Filter workspace atlas").fill("session_prompt");
     await page.getByRole("treeitem", { name: /session_prompt/i }).last().click();
-    await expect(page.getByRole("button", { name: "Fit workspace" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Fit workspace" })).toBeEnabled();
     await expect(page.locator(".atlas-cell.is-selected")).toBeVisible();
+    await expect(page.locator(".atlas-cell.is-selected text")).not.toHaveText("");
+  });
+
+  test("MAP-20: selecting a module keeps the map readable and counts the parent link", async ({ page }) => {
+    await page.getByLabel("Filter workspace atlas").fill("config_template");
+    const row = page.getByRole("treeitem", { name: /config_template/i }).last();
+    await expect(row).toBeVisible();
+    await row.click();
+    const selected = page.locator(".atlas-cell.is-selected");
+    await expect(selected).toBeVisible();
+    await expect(selected.locator("text")).not.toHaveText("");
+    const dimmed = page.locator(".atlas-cell.is-dimmed");
+    const dimmedCount = await dimmed.count();
+    const cellCount = await page.locator(".atlas-cell").count();
+    expect(dimmedCount).toBeGreaterThan(0);
+    expect(dimmedCount).toBeLessThan(cellCount - 1);
+    const opacity = await dimmed.first().evaluate((element) => Number(getComputedStyle(element).opacity));
+    expect(opacity).toBeGreaterThanOrEqual(0.55);
+    expect(opacity).toBeLessThanOrEqual(0.75);
+    const lens = page.getByRole("region", { name: /Dependencies for config_template/i });
+    await expect(lens).toContainText("No depends-on links");
+    await expect(lens).toContainText("1 incoming");
+    await expect(lens.getByRole("button", { name: /contains/i })).toBeVisible();
+    const svgBox = await page.getByRole("img", { name: "Workspace treemap" }).boundingBox();
+    const cellBox = await selected.locator("rect.atlas-cell-shape").boundingBox();
+    expect(svgBox).not.toBeNull();
+    expect(cellBox).not.toBeNull();
+    expect(cellBox!.width).toBeGreaterThan(svgBox!.width * 0.08);
+  });
+
+  test("MAP-21: overview labels stay inside their cells and follow the label setting", async ({ page }) => {
+    await expect.poll(() => page.locator(".atlas-cell text").count()).toBeGreaterThan(24);
+    const overflow = await page.evaluate(() => {
+      const cells = [...document.querySelectorAll(".atlas-cell")];
+      return cells.filter((cell) => {
+        const text = cell.querySelector("text");
+        const rect = cell.querySelector("rect.atlas-cell-shape");
+        if (text === null || rect === null) return false;
+        const textBox = text.getBoundingClientRect();
+        const cellBox = rect.getBoundingClientRect();
+        if (textBox.width === 0) return false;
+        return textBox.left < cellBox.left - 1 || textBox.right > cellBox.right + 1 || textBox.bottom > cellBox.bottom + 1;
+      }).length;
+    });
+    expect(overflow).toBe(0);
+    const coversTiles = await page.evaluate(() => {
+      const bar = document.querySelector(".atlas-canvas-actions")?.getBoundingClientRect();
+      const svg = document.querySelector(".atlas-canvas svg[aria-label='Workspace treemap']")?.getBoundingClientRect();
+      if (bar === undefined || svg === undefined) return true;
+      return bar.bottom > svg.top + 1 && bar.top < svg.bottom;
+    });
+    expect(coversTiles).toBe(false);
+    const before = await page.locator(".atlas-cell text").first().evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize));
+    await page.getByRole("button", { name: /settings/i }).first().click();
+    await page.getByRole("button", { name: "Increase Tree and map labels" }).click();
+    await page.getByRole("button", { name: "Close settings" }).click();
+    await expect.poll(async () => page.locator(".atlas-cell text").first().evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize))).toBeGreaterThan(before);
+  });
+
+  test("MAP-22: search frames matches and clearing restores the atlas", async ({ page }) => {
+    const svg = page.getByRole("img", { name: "Workspace treemap" });
+    await expect.poll(() => page.locator(".atlas-cell").count()).toBeGreaterThan(100);
+    const initial = await svg.getAttribute("viewBox");
+    await page.getByLabel("Filter workspace atlas").fill("config_template");
+    await expect.poll(() => svg.getAttribute("viewBox")).not.toBe(initial);
+    await expect(page.locator(".atlas-cell.is-match").first()).toBeVisible();
+    await page.getByLabel("Filter workspace atlas").fill("zzzz-not-a-module");
+    await expect(page.locator(".atlas-canvas-note")).toHaveText("No matching blocks");
+    await page.getByLabel("Clear atlas filter").click();
+    await expect(page.locator(".atlas-canvas-note")).toHaveCount(0);
+    await expect.poll(() => svg.getAttribute("viewBox")).toBe(initial);
+    await expect(page.locator(".atlas-cell.is-match")).toHaveCount(0);
+  });
+
+  test("MAP-23: wheel zoom and a region fit survive selecting a cell", async ({ page }) => {
+    const svg = page.getByRole("img", { name: "Workspace treemap" });
+    await expect.poll(() => page.locator(".atlas-cell").count()).toBeGreaterThan(100);
+    const initial = await svg.getAttribute("viewBox");
+    await svg.evaluate((element) => {
+      element.dispatchEvent(new WheelEvent("wheel", { deltaY: -500, bubbles: true, cancelable: true, clientX: 400, clientY: 300 }));
+    });
+    await expect.poll(() => svg.getAttribute("viewBox")).not.toBe(initial);
+    const zoomed = await svg.getAttribute("viewBox");
+    await page.locator(".atlas-cell").nth(8).click({ force: true });
+    await expect.poll(() => svg.getAttribute("viewBox")).toBe(zoomed);
+    await page.getByRole("button", { name: "Fit workspace" }).click();
+    await expect.poll(() => svg.getAttribute("viewBox")).toBe(initial);
+    const region = page.locator(".atlas-cell.depth-2").first();
+    await region.dblclick({ force: true });
+    await expect.poll(() => svg.getAttribute("viewBox")).not.toBe(initial);
+    const fitted = await svg.getAttribute("viewBox");
+    await region.click({ force: true });
+    await expect.poll(() => svg.getAttribute("viewBox")).toBe(fitted);
+  });
+
+  test("MAP-24: the atlas legend matches the workspace connection total", async ({ page }) => {
+    const summary = page.locator(".overview-stat", { hasText: "connections" });
+    await expect(summary).toBeVisible();
+    const total = Number((await summary.innerText()).match(/(\d+)/)?.[1]);
+    const contains = Number((await page.locator(".legend-item").nth(0).innerText()).match(/(\d+)/)?.[1]);
+    const depends = Number((await page.locator(".legend-item").nth(1).innerText()).match(/(\d+)/)?.[1]);
+    expect(contains).toBeGreaterThan(0);
+    expect(depends).toBeGreaterThan(0);
+    expect(contains + depends).toBe(total);
+  });
+
+  test("MAP-25: modules lays out after the dev double-mount", async ({ page }) => {
+    await page.getByRole("group", { name: "Map view" }).first().getByRole("button", { name: "Modules" }).click();
+    await expect(page.getByText("Compound layout client was disposed")).toHaveCount(0);
+    await expect.poll(() => page.locator(".react-flow__node").count(), { timeout: 15_000 }).toBeGreaterThan(0);
   });
 
   test("MAP-19: commit changes highlight atlas regions and filter the outline", async ({ page }) => {
@@ -177,7 +287,7 @@ test.describe("workspace atlas", () => {
     await page.getByRole("button", { name: /settings/i }).first().click();
     await page.getByRole("combobox", { name: "THEME" }).selectOption("light");
     await page.getByRole("button", { name: "Close settings" }).click();
-    await expect(mixedChange.locator("rect")).toHaveCSS("stroke", "rgb(155, 98, 28)");
+    await expect(mixedChange.locator("rect.atlas-cell-shape")).toHaveCSS("stroke", "rgb(155, 98, 28)");
     const toggle = page.getByRole("checkbox", { name: "Only show changed blocks on the map and file tree" });
     await toggle.click();
     await expect(page.locator(".atlas-cell.is-filtered").first()).toBeVisible();
