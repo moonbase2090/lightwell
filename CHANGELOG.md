@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.31 - 2026-11-06
+
+### Changed
+
+- Selecting an Atlas block keeps the surrounding workspace visible, frames the selected cell, and shows both dependency and containment relations. Search, wheel zoom, and double-click framing preserve that context across wide and narrow windows (#260).
+
+### Fixed
+
+- Atlas labels stay inside their cells and follow the label-size setting, the Modules view recovers after a development remount, and Atlas outline, empty-state, and dependency-lens text remain readable in light and dark themes (#260, #262).
+
 ## 0.1.30 - 2026-11-05
 
 ### Added
