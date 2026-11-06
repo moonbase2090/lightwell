@@ -20,15 +20,25 @@ export interface AtlasCell extends AtlasRect {
 const GAP = 2;
 const HEADER = 22;
 
+/** Leaf files under one folder stop growing the folder once this many are counted. */
+export const FOLDER_WEIGHT_CAP = 16;
+
 function weightOf(id: string, tree: FileTree, cache: Map<string, number>, visiting: Set<string>): number {
   const cached = cache.get(id);
   if (cached !== undefined) return cached;
   if (visiting.has(id)) return 1;
   visiting.add(id);
   const node = tree.nodeById.get(id);
-  const childWeight = node?.children.reduce((sum, childId) => sum + weightOf(childId, tree, cache, visiting), 0) ?? 0;
+  let folderWeight = 0;
+  let leafWeight = 0;
+  for (const childId of node?.children ?? []) {
+    const childWeight = weightOf(childId, tree, cache, visiting);
+    if (tree.nodeById.get(childId)?.folder === true) folderWeight += childWeight;
+    else leafWeight += childWeight;
+  }
   visiting.delete(id);
-  const weight = Math.max(node?.blockId === null ? 0 : 1, childWeight, 1);
+  const self = node?.blockId === null ? 0 : 1;
+  const weight = Math.max(self, folderWeight + Math.min(leafWeight, FOLDER_WEIGHT_CAP), 1);
   cache.set(id, weight);
   return weight;
 }
@@ -117,4 +127,92 @@ export function layoutAtlas(tree: FileTree, width: number, height: number): read
   };
   visit(root, { x: 0, y: 0, width, height }, 0, new Set());
   return cells;
+}
+
+/** Fit a label into a pixel width. A short name is unchanged. A long name ends with an ellipsis. */
+export function ellipsizeLabel(label: string, maxWidth: number, fontSize: number): string {
+  if (maxWidth <= 0 || fontSize <= 0) return "";
+  const maxChars = Math.floor(maxWidth / (fontSize * 0.92));
+  if (maxChars <= 0) return "";
+  if (label.length <= maxChars) return label;
+  if (maxChars === 1) return "…";
+  return `${label.slice(0, maxChars - 1)}…`;
+}
+
+export function zoomAbout(rect: AtlasRect, factor: number, anchorX: number, anchorY: number): AtlasRect {
+  return {
+    x: anchorX - (anchorX - rect.x) * factor,
+    y: anchorY - (anchorY - rect.y) * factor,
+    width: rect.width * factor,
+    height: rect.height * factor,
+  };
+}
+
+export function panRect(rect: AtlasRect, dx: number, dy: number): AtlasRect {
+  return { x: rect.x + dx, y: rect.y + dy, width: rect.width, height: rect.height };
+}
+
+/** Keep a frame inside the atlas and at least `minSize` on each side. */
+export function clampFrame(rect: AtlasRect, bounds: AtlasRect, minSize = 48): AtlasRect {
+  const width = Math.min(bounds.width, Math.max(Math.min(minSize, bounds.width), rect.width));
+  const height = Math.min(bounds.height, Math.max(Math.min(minSize, bounds.height), rect.height));
+  const x = Math.min(bounds.x + bounds.width - width, Math.max(bounds.x, rect.x));
+  const y = Math.min(bounds.y + bounds.height - height, Math.max(bounds.y, rect.y));
+  return { x, y, width, height };
+}
+
+/** Fit one region, with a little padding, without jumping back to the whole atlas. */
+export function frameCell(cell: AtlasRect, bounds: AtlasRect): AtlasRect {
+  const pad = Math.max(8, Math.min(cell.width, cell.height) * 0.04);
+  return clampFrame(
+    { x: cell.x - pad, y: cell.y - pad, width: cell.width + pad * 2, height: cell.height + pad * 2 },
+    bounds,
+    Math.min(48, bounds.width, bounds.height),
+  );
+}
+
+/**
+ * Frame a selected cell large enough to read, and include a parent that is
+ * not much bigger than that window.
+ */
+export function frameFocus(cell: AtlasRect, bounds: AtlasRect, parent?: AtlasRect): AtlasRect {
+  // Keep the cell near a quarter of the frame so a small module stays readable.
+  const width = Math.min(bounds.width, Math.max(cell.width * 2.8, Math.min(cell.width / 0.22, bounds.width * 0.55)));
+  const height = Math.min(bounds.height, Math.max(cell.height * 2.8, Math.min(cell.height / 0.22, bounds.height * 0.55)));
+  let x = cell.x + cell.width / 2 - width / 2;
+  let y = cell.y + cell.height / 2 - height / 2;
+  let frameWidth = width;
+  let frameHeight = height;
+  if (
+    parent !== undefined &&
+    parent.width <= width * 1.25 &&
+    parent.height <= height * 1.25
+  ) {
+    const left = Math.min(x, parent.x);
+    const top = Math.min(y, parent.y);
+    x = left;
+    y = top;
+    frameWidth = Math.max(x + frameWidth, parent.x + parent.width) - x;
+    frameHeight = Math.max(y + frameHeight, parent.y + parent.height) - y;
+  }
+  return clampFrame({ x: x - 8, y: y - 8, width: frameWidth + 16, height: frameHeight + 16 }, bounds);
+}
+
+/** Frame a tight cluster of matches. A spread-out query frames the first match. */
+export function frameMatches(matches: readonly AtlasRect[], bounds: AtlasRect): AtlasRect {
+  const first = matches[0];
+  if (first === undefined) return bounds;
+  let minX = first.x;
+  let minY = first.y;
+  let maxX = first.x + first.width;
+  let maxY = first.y + first.height;
+  for (const cell of matches) {
+    minX = Math.min(minX, cell.x);
+    minY = Math.min(minY, cell.y);
+    maxX = Math.max(maxX, cell.x + cell.width);
+    maxY = Math.max(maxY, cell.y + cell.height);
+  }
+  const union = { x: minX, y: minY, width: Math.max(8, maxX - minX), height: Math.max(8, maxY - minY) };
+  if (union.width <= bounds.width * 0.72 && union.height <= bounds.height * 0.72) return frameFocus(union, bounds);
+  return frameFocus(first, bounds);
 }

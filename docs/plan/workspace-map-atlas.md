@@ -15,7 +15,7 @@ The workspace atlas is the default map for large repositories. It pairs a stable
 
 The atlas derives its groups from the same file outline as the Files view. Layout is deterministic: nodes are ordered by descendant weight, then stable ID. Cycles and repeated nodes are bounded during both weighting and traversal.
 
-Only `depends_on` facts enter the dependency lens. Containment remains visible through nesting. Internal subtree edges do not count as incoming or outgoing, duplicate connection IDs are ignored, and the exact list is not truncated when canvas drawing is capped.
+`depends_on` and `contains` facts that cross the selected subtree both enter the lens, so the counts match the inspector. The canvas draws `depends_on` curves only. When a block has no depends-on edge, the lens says so and still lists the parent contains link. Internal subtree edges do not count as incoming or outgoing, duplicate connection IDs are ignored, and the exact list is not truncated when canvas drawing is capped.
 
 ## Accessibility
 
