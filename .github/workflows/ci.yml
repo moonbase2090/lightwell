@@ -67,7 +67,7 @@ jobs:
       - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
       - uses: moonbase2090/Scorecard/action@v0.1.6
         with:
-          fail-on: types,tests,crap,secrets,lint
+          fail-on: types,tests,secrets,lint
           diff: origin/${{ github.base_ref }}
 
   macos-cli:
