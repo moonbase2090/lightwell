@@ -158,11 +158,10 @@ test.describe("workspace atlas", () => {
     await expect(page.locator(".atlas-edges path").first()).toBeVisible();
     const selectedCell = page.locator(".atlas-cell.is-selected");
     await selectedCell.dblclick();
-    const drawn = (await selectedCell.locator("text").textContent()) ?? "";
-    const full = "prismattyc-host";
-    const ellipsized = drawn.length > 1 && drawn.endsWith("…") && full.startsWith(drawn.slice(0, -1));
     // A narrow frame can still be too thin for the full crate name after fit.
-    expect(testInfo.project.name === "narrow" ? drawn === full || ellipsized : drawn === full).toBe(true);
+    await expect(selectedCell.locator("text")).toHaveText(
+      testInfo.project.name === "narrow" ? /^(?:prismattyc-host|prismattyc…)$/ : "prismattyc-host",
+    );
     await page.getByLabel("Filter workspace atlas").fill("");
     await expect(page.getByRole("treeitem", { name: /prismattyc-host/i }).last()).toHaveAttribute("aria-selected", "true");
     await page.getByLabel("Filter workspace atlas").fill("session_prompt");
