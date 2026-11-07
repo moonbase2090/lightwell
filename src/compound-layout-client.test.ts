@@ -94,7 +94,7 @@ function captureErrors(promise: Promise<unknown>): string[] {
   return errors;
 }
 
-test("a timeout replaces the worker and retries once with reduced limits", async (context) => {
+test("a timeout replaces the worker and retries with reduced limits", async (context) => {
   context.mock.timers.enable({ apis: ["setTimeout"] });
   const factory = workerFactory();
   const client = createCompoundLayoutClient(factory.createWorker);
@@ -113,7 +113,7 @@ test("a timeout replaces the worker and retries once with reduced limits", async
   await pending;
 });
 
-test("a second timeout rejects instead of starting another layout attempt", async (context) => {
+test("repeated timeouts step down to a layout without dependency edges and still resolve", async (context) => {
   context.mock.timers.enable({ apis: ["setTimeout"] });
   const factory = workerFactory();
   const client = createCompoundLayoutClient(factory.createWorker);
@@ -122,9 +122,57 @@ test("a second timeout rejects instead of starting another layout attempt", asyn
   context.mock.timers.tick(2_000);
   await flushPromises();
   context.mock.timers.tick(2_000);
+  await flushPromises();
+  context.mock.timers.tick(1_500);
+  await flushPromises();
 
-  await assert.rejects(pending, /exceeded its two-second limit/);
-  assert.equal(factory.workers.flatMap((worker) => worker.requests).length, 2);
+  const limits = factory.workers.flatMap((worker) => worker.requests).map((request) => request.input.limits);
+  assert.deepEqual(limits, [
+    { maxBlocks: 800, maxEdges: 1_600 },
+    { maxBlocks: 400, maxEdges: 800 },
+    { maxBlocks: 150, maxEdges: 300 },
+    { maxBlocks: 60, maxEdges: 0 },
+  ]);
+  factory.workers[3]?.respond({ kind: "layout-complete", generation: 4, result: RESULT });
+  assert.equal(await pending, RESULT);
+});
+
+test("fallback limits never exceed the limits the caller asked for", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const factory = workerFactory();
+  const client = createCompoundLayoutClient(factory.createWorker);
+  const pending = client.layout({ ...INPUT, limits: { maxBlocks: 100, maxEdges: 120 } });
+
+  context.mock.timers.tick(2_000);
+  await flushPromises();
+  context.mock.timers.tick(2_000);
+  await flushPromises();
+
+  const limits = factory.workers.flatMap((worker) => worker.requests).map((request) => request.input.limits);
+  assert.deepEqual(limits, [
+    { maxBlocks: 100, maxEdges: 120 },
+    { maxBlocks: 100, maxEdges: 120 },
+    { maxBlocks: 100, maxEdges: 120 },
+  ]);
+  factory.workers[2]?.respond({ kind: "layout-complete", generation: 3, result: RESULT });
+  await pending;
+});
+
+test("a timeout of the final edge-free layout rejects instead of retrying forever", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const factory = workerFactory();
+  const client = createCompoundLayoutClient(factory.createWorker);
+  const pending = client.layout(INPUT);
+  const errors = captureErrors(pending);
+
+  for (const waitMs of [2_000, 2_000, 1_500, 5_000]) {
+    context.mock.timers.tick(waitMs);
+    await flushPromises();
+  }
+
+  await assert.rejects(pending, /exceeded its time limit/);
+  assert.deepEqual(errors, ["Compound layout exceeded its time limit."]);
+  assert.equal(factory.workers.flatMap((worker) => worker.requests).length, 4);
 });
 
 test("a newer request rejects the older request and replaces its worker", async () => {

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The Modules view no longer stops with "Compound layout exceeded its two-second limit" on large repositories. When a layout is too slow it now steps down to fewer blocks and dependency edges, and finally to blocks only, so the map always appears.
+
 ## 0.1.31 - 2026-11-06
 
 ### Changed

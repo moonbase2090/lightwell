@@ -265,6 +265,36 @@ test("the edge budget limits routed dependencies", async () => {
   assert.equal(result.edges.length, 1);
 });
 
+test("the final fallback tier lays out a dependency-heavy workspace with blocks only, well inside the client budget", async () => {
+  const groups = Array.from({ length: 100 }, (_, group) => `crate:svc-${group}`);
+  const modulesOf = (group: number) => Array.from({ length: 20 }, (_, index) => `module:svc-${group}:${index}`);
+  const blocks: CompoundLayoutBlock[] = [block("workspace:heavy", null, "workspace", groups)];
+  for (const [group, groupId] of groups.entries()) {
+    const modules = modulesOf(group);
+    blocks.push(block(groupId, "workspace:heavy", "crate", modules));
+    for (const moduleId of modules) blocks.push(block(moduleId, groupId, "module"));
+  }
+  const connections = Array.from({ length: 3_000 }, (_, index) => {
+    const from = (index * 7) % 100;
+    const to = (from + 1 + (index % 97)) % 100;
+    return dependency(`dep:${index}`, `module:svc-${from}:${index % 20}`, `module:svc-${to}:${(index * 3) % 20}`);
+  });
+  const started = performance.now();
+  const result = await createTestEngine().layout({
+    rootId: "workspace:heavy",
+    blocks,
+    connections,
+    limits: { maxBlocks: 60, maxEdges: 0 },
+  });
+  const elapsed = performance.now() - started;
+
+  assert.equal(result.stats.renderedEdges, 0);
+  assert.equal(result.stats.omittedEdges, connections.length);
+  assert.equal(result.edges.length, 0);
+  assert.ok(result.stats.renderedBlocks <= 60 && result.stats.renderedBlocks > 1);
+  assert.ok(elapsed < 1_000, `edge-free layout took ${Math.round(elapsed)}ms`);
+});
+
 test("a collapsed summary keeps dependencies from omitted children", async () => {
   const result = await createTestEngine().layout({
     rootId: "workspace:bounded",

@@ -54,7 +54,7 @@ The host builds a bounded layout request before it contacts the worker. The init
 
 Each group layout has a cache key from its child IDs, child sizes, projected edges, label scale, and spacing version. A local expansion invalidates that group and its ancestors, not unrelated groups. Hover, selection, note state, and commit-diff colors do not invalidate layout.
 
-Every worker request has a generation number. A newer topology request terminates the old worker, starts a new one, and discards any late result. A two-second watchdog retries once with a 400-block limit. If that retry fails, the canvas reports the layout error and keeps navigation available instead of showing an endless preparing state.
+Every worker request has a generation number. A newer topology request terminates the old worker, starts a new one, and discards any late result. A two-second watchdog steps down through smaller layouts when an attempt is too slow: 400 blocks and 800 edges, then 150 blocks and 300 edges, then 60 blocks with no dependency edges. Layout time grows with the number of dependency edges, so the last tier always finishes and the map appears with blocks only; the footer shows how many blocks and edges were omitted. Only a failure of that last tier reports the layout error and keeps navigation available instead of showing an endless preparing state.
 
 ## Tests and proof
 

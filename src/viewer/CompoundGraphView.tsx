@@ -110,7 +110,9 @@ export function DependencyLegend({ stats, durationMs }: {
       <span><i className="legend-module" />Module</span>
       <span><i className="legend-feature" />Cargo feature</span>
       <span className="dependency-layout-stats">
-        {stats.renderedBlocks}/{stats.inputBlocks} blocks · {Math.round(durationMs)} ms
+        {stats.renderedBlocks}/{stats.inputBlocks} blocks
+        {stats.omittedEdges > 0 && ` · ${stats.omittedEdges} of ${stats.inputEdges} dependencies hidden`}
+        {` · ${Math.round(durationMs)} ms`}
       </span>
     </aside>
   );
