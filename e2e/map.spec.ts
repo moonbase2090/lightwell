@@ -165,20 +165,26 @@ test.describe("workspace atlas", () => {
     await page.getByLabel("Filter workspace atlas").fill("");
     await expect(page.getByRole("treeitem", { name: /prismattyc-host/i }).last()).toHaveAttribute("aria-selected", "true");
     await page.getByLabel("Filter workspace atlas").fill("session_prompt");
-    await page.getByRole("treeitem", { name: /session_prompt/i }).last().click();
+    const moduleRow = page.getByRole("treeitem", { name: /session_prompt/i }).last();
+    await moduleRow.click();
+    await expect(moduleRow).toHaveAttribute("aria-selected", "true");
     await expect(page.getByRole("button", { name: "Fit workspace" })).toBeEnabled();
-    await expect(page.locator(".atlas-cell.is-selected")).toBeVisible();
-    await expect(page.locator(".atlas-cell.is-selected text")).not.toHaveText("");
+    const moduleCell = page.locator(".atlas-cell.is-selected");
+    await expect(moduleCell).toBeVisible();
+    // The narrow viewport leaves this tile below readable label size.
+    // Selection must retain its full name in the outline without forcing text.
+    if (testInfo.project.name === "narrow") await expect(moduleCell.locator("text")).toHaveCount(0);
+    else await expect(moduleCell.locator("text")).toHaveText(/^session_/);
   });
 
-  test("MAP-20: selecting a module keeps the map readable and counts the parent link", async ({ page }) => {
+  test("MAP-20: selecting a module keeps the map readable and counts the parent link", async ({ page }, testInfo) => {
     await page.getByLabel("Filter workspace atlas").fill("config_template");
     const row = page.getByRole("treeitem", { name: /config_template/i }).last();
     await expect(row).toBeVisible();
     await row.click();
     const selected = page.locator(".atlas-cell.is-selected");
     await expect(selected).toBeVisible();
-    await expect(selected.locator("text")).not.toHaveText("");
+    await expect(row).toHaveAttribute("aria-selected", "true");
     const dimmed = page.locator(".atlas-cell.is-dimmed");
     const dimmedCount = await dimmed.count();
     const cellCount = await page.locator(".atlas-cell").count();
@@ -196,10 +202,17 @@ test.describe("workspace atlas", () => {
     expect(svgBox).not.toBeNull();
     expect(cellBox).not.toBeNull();
     expect(cellBox!.width).toBeGreaterThan(svgBox!.width * 0.08);
+    if (testInfo.project.name === "narrow") await expect(selected.locator("text")).toHaveCount(0);
+    else await expect(selected.locator("text")).toHaveText(/^config_/);
   });
 
-  test("MAP-21: overview labels stay inside their cells and follow the label setting", async ({ page }) => {
-    await expect.poll(() => page.locator(".atlas-cell text").count()).toBeGreaterThan(24);
+  test("MAP-21: overview shows only group labels in monospace and follows the label setting", async ({ page }) => {
+    await expect(page.locator(".atlas-cell.depth-0 text")).toHaveText("Prismattyc");
+    await expect(page.locator(".atlas-cell.depth-1 text").filter({ hasText: "crates" })).toBeVisible();
+    await expect(page.locator(".atlas-cell:not(.depth-0):not(.depth-1) text")).toHaveCount(0);
+    const textFont = await page.locator(".atlas-cell text").first().evaluate((element) => getComputedStyle(element).fontFamily);
+    const controlFont = await page.getByRole("group", { name: "Map view" }).first().getByRole("button", { name: "Atlas", exact: true }).evaluate((element) => getComputedStyle(element).fontFamily);
+    expect(textFont).toBe(controlFont);
     const overflow = await page.evaluate(() => {
       const cells = [...document.querySelectorAll(".atlas-cell")];
       return cells.filter((cell) => {
@@ -305,6 +318,9 @@ test.describe("workspace atlas", () => {
     const leaf = page.getByRole("treeitem", { name: /main.*MODULE/i }).last();
     await leaf.click();
     await expect(page.getByLabel("Source inspector for README.md")).toHaveCount(0);
+    await expect(page.getByLabel("Source inspector for main", { exact: true })).toBeVisible();
+    await expect(page.locator('.source-code-editor [aria-label^="Read-only source:"]').first()).toHaveAttribute("aria-label", /src\/main\.mjs/);
+    await expect(page.locator(".source-code-editor .monaco-editor")).toHaveCount(1);
     await leaf.click({ button: "right" });
     await expect(page.getByRole("menuitem", { name: "Copy path" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -312,7 +328,6 @@ test.describe("workspace atlas", () => {
     await page.keyboard.press("Shift+F10");
     await expect(page.getByRole("menuitem", { name: "Open source" })).toBeVisible();
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Open source" }).click();
-    await expect(page.getByLabel("Source inspector for main")).toBeVisible();
+    await expect(page.getByLabel("Source inspector for main", { exact: true })).toBeVisible();
   });
 });

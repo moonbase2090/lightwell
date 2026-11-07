@@ -5,7 +5,7 @@ import type { DisplayBlock, FactConnection } from "../model.js";
 import { ancestorIds, atlasCellTone, buildAtlasLens } from "./atlas-lens.js";
 import {
   clampFrame,
-  ellipsizeLabel,
+  atlasLabel,
   frameCell,
   frameFocus,
   frameMatches,
@@ -69,8 +69,8 @@ function relationPath(source: AtlasCell, target: AtlasCell): string {
   return `M ${x1} ${y1} C ${x1 + bend} ${y1}, ${x2 - bend} ${y2}, ${x2} ${y2}`;
 }
 
-function useElementSize(): readonly [RefObject<HTMLDivElement | null>, number, number] {
-  const ref = useRef<HTMLDivElement | null>(null);
+function useCanvasSize(): readonly [RefObject<SVGSVGElement | null>, number, number] {
+  const ref = useRef<SVGSVGElement | null>(null);
   const [size, setSize] = useState({ width: 1000, height: 650 });
   useEffect(() => {
     const element = ref.current;
@@ -130,9 +130,7 @@ export default function AtlasView({
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set([tree.rootId]));
   const [viewFrame, setViewFrame] = useState<AtlasRect | null>(null);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [canvasRef, width, height] = useElementSize();
-  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [svgRef, width, height] = useCanvasSize();
   const outlineRef = useRef<HTMLDivElement | null>(null);
   const frameSource = useRef<"fit" | "search" | "selection" | "region" | "gesture">("fit");
   const framedQuery = useRef<string | null>(null);
@@ -372,7 +370,7 @@ export default function AtlasView({
           </section>
         )}
       </aside>
-      <div className="atlas-canvas" ref={canvasRef}>
+      <div className="atlas-canvas">
         <div className="atlas-canvas-actions">
           <span>ATLAS</span>
           <button type="button" onClick={() => { frameSource.current = "fit"; viewFrameRef.current = null; setViewFrame(null); }} disabled={viewFrame === null}><Focus size={13} /> Fit workspace</button>
@@ -400,15 +398,9 @@ export default function AtlasView({
               searchMiss: matches !== null && !matches.has(cell.id),
             });
             const filtered = onlyChanged && change === undefined;
-            const screenW = cell.width * zoomScale;
-            const screenH = cell.height * zoomScale;
-            const labelText = ellipsizeLabel(cell.label, Math.max(0, screenW - 8), fontPx);
-            const hovered = hoveredId === cell.id;
-            const showLabel = !filtered && (selected || hovered || (labelText.length > 0 && screenW >= 34 && screenH >= 15) || (cell.depth <= 2 && labelText.length > 0 && screenW >= 22 && screenH >= 13));
-            const drawnLabel = showLabel ? (labelText.length > 0 ? labelText : cell.label) : "";
+            const drawnLabel = filtered ? "" : atlasLabel(cell, zoomScale, fontPx);
             const clipId = `atlas-clip-${index}`;
-            const clipHeight = cell.folder ? Math.min(cell.height, 16 / zoomScale) : cell.height;
-            const textWidth = Math.max(1, cell.width - 10 / zoomScale);
+            const clipHeight = cell.folder ? Math.min(cell.height, (fontPx + 8) / zoomScale) : cell.height;
             return (
               <g
                 key={cell.id}
@@ -422,8 +414,6 @@ export default function AtlasView({
                   selectionOrigin.current = "map";
                   onSelect(blockId);
                 }}
-                onPointerEnter={() => setHoveredId(cell.id)}
-                onPointerLeave={() => setHoveredId((current) => current === cell.id ? null : current)}
                 onContextMenu={(event) => {
                   const block = blockId === null ? undefined : blockById.get(blockId);
                   if (block === undefined) return;
@@ -446,10 +436,8 @@ export default function AtlasView({
                 {drawnLabel.length > 0 && (
                   <text
                     x={cell.x + 5 / zoomScale}
-                    y={cell.y + Math.min(clipHeight - 3 / zoomScale, 13 / zoomScale)}
+                    y={cell.y + (fontPx + 3) / zoomScale}
                     clipPath={`url(#${clipId})`}
-                    textLength={drawnLabel === cell.label ? undefined : textWidth}
-                    lengthAdjust={drawnLabel === cell.label ? undefined : "spacingAndGlyphs"}
                     style={{ fontSize: `${fontPx / zoomScale}px` }}
                   >
                     {drawnLabel}

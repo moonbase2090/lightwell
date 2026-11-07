@@ -134,3 +134,45 @@ for (const theme of ["dark", "light"] as const) {
     });
   });
 }
+
+test.describe("atlas label detail", () => {
+  test("fit shows group labels, zoom reveals readable detail in the UI monospace font", async ({ page }) => {
+    await gotoWeb(page, "atlas");
+    const svg = page.getByLabel("Workspace treemap");
+    await expect(svg.locator(".atlas-cell")).not.toHaveCount(0);
+    await expect(svg.locator(".atlas-cell.depth-1 text").filter({ hasText: "crates" })).toBeVisible();
+    await expect(svg.locator(".atlas-cell:not(.depth-0):not(.depth-1) text")).toHaveCount(0);
+    const textFont = await svg.locator("text").first().evaluate((node) => getComputedStyle(node).fontFamily);
+    const controlFont = await page.getByRole("group", { name: "Map view" }).first().getByRole("button", { name: "Atlas", exact: true }).evaluate((node) => getComputedStyle(node).fontFamily);
+    expect(textFont).toBe(controlFont);
+    const labelPixels = await svg.locator("text").first().evaluate((node) => {
+      if (!(node instanceof SVGGraphicsElement)) return 0;
+      return parseFloat(getComputedStyle(node).fontSize) * (node.getScreenCTM()?.a ?? 0);
+    });
+    expect(labelPixels).toBeCloseTo(11, 1);
+    await svg.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      for (let count = 0; count < 12; count += 1) {
+        node.dispatchEvent(new WheelEvent("wheel", { deltaY: -120, clientX: rect.x + rect.width / 2, clientY: rect.y + rect.height / 2, bubbles: true, cancelable: true }));
+      }
+    });
+    await expect.poll(() => svg.locator(".atlas-cell:not(.depth-0):not(.depth-1) text").count()).toBeGreaterThan(0);
+    const labels = await svg.locator("text").allTextContents();
+    expect(labels.some((label) => label.endsWith("…") && label.length < 8)).toBe(false);
+    await page.getByRole("button", { name: "Fit workspace" }).click();
+    await expect(svg.locator(".atlas-cell:not(.depth-0):not(.depth-1) text")).toHaveCount(0);
+  });
+
+  test("selecting an Atlas block opens source immediately and follows the next selection", async ({ page }) => {
+    await gotoIpc(page, {}, "atlas");
+    await page.getByLabel("Filter workspace atlas").fill("main");
+    await page.getByRole("treeitem", { name: /main/i }).last().click();
+    await expect(page.getByLabel(/Source inspector for/)).toBeVisible();
+    await expect(page.getByText("READ-ONLY SOURCE")).toBeVisible();
+    await expect(page.locator('.source-code-editor [aria-label^="Read-only source:"]').first()).toHaveAttribute("aria-label", /main\.mjs/);
+    await page.getByLabel("Filter workspace atlas").fill("Prismattyc");
+    await page.getByRole("treeitem", { name: /Prismattyc/i }).first().click();
+    await expect(page.locator('.source-code-editor [aria-label^="Read-only source:"]').first()).toHaveAttribute("aria-label", /Cargo\.toml/);
+    await expect(page.locator(".source-code-editor .monaco-editor")).toHaveCount(1);
+  });
+});

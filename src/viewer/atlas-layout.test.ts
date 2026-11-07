@@ -5,6 +5,7 @@ import type { FactConnection } from "../model.js";
 import { folderNodeId } from "../file-tree.js";
 import {
   FOLDER_WEIGHT_CAP,
+  atlasLabel,
   clampFrame,
   ellipsizeLabel,
   frameFocus,
@@ -180,4 +181,23 @@ test("atlas outline keeps only changed branches without losing their ancestors",
     matchingOutline(tree, new Set(), "", changedIds).map((row) => row.node.id),
     ["root", "dir:src", "a"],
   );
+});
+
+
+test("atlas fit shows top-level groups and keeps file and nested labels hidden", () => {
+  const cell = { label: "module", width: 400, height: 100, depth: 1, folder: true };
+  assert.equal(atlasLabel(cell, 1, 11), "module");
+  assert.equal(atlasLabel({ ...cell, depth: 0 }, 1, 11), "module");
+  assert.equal(atlasLabel({ ...cell, depth: 2 }, 1, 11), "");
+  assert.equal(atlasLabel({ ...cell, folder: false }, 1, 11), "");
+});
+
+test("atlas label detail follows on-screen dimensions and configured text size", () => {
+  const cell = { label: "long-module-name", width: 40, height: 20, depth: 4, folder: false };
+  assert.equal(atlasLabel(cell, 1.2, 11), "");
+  assert.equal(atlasLabel(cell, 4, 11), "long-module-n…");
+  assert.equal(atlasLabel(cell, 6, 11), "long-module-name");
+  assert.equal(atlasLabel({ ...cell, width: 200, height: 3 }, 2, 11), "");
+  assert.equal(atlasLabel({ ...cell, width: 200, height: 10 }, 2, 11), "long-module-name");
+  assert.equal(atlasLabel({ ...cell, width: 200, height: 10 }, 2, 18), "");
 });
