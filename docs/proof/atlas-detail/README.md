@@ -2,7 +2,7 @@
 
 Captured from the real Tauri desktop app in a clean Ubuntu VM at 1440 × 900. The workspace is a public Prismattyc source snapshot at `2ba47351f62d54c2d05c0bd05c610e771ad08290`, containing 996 blocks and 17 crates. No mocked IPC is used. The screenshots are unmodified native window captures.
 
-The baseline is Lightwell `12a13d7`. The updated app uses implementation `d60a687`; subsequent changes only add this evidence and tighten the capture helper's OCR checks.
+The baseline is Lightwell `12a13d7`. The updated app uses implementation `d60a687`; the screenshot evidence was added in `c75e5f4` with identical product code. A later test-only follow-up updates the older map-suite assertions for the same behavior.
 
 | State | Screenshot | Observation |
 | --- | --- | --- |
@@ -31,6 +31,6 @@ Built application at: /tmp/atlas-app/target/debug/lightwell
 Atlas desktop proof captured fit, zoom and automatic source opening.
 ```
 
-Browser regression checks fail against the baseline: fit renders 81 nested labels, and selecting an Atlas block leaves the source inspector closed. The updated app passes all 54 Atlas, tree, and source checks across desktop and narrow viewports, including a rendered label size of 11 pixels, font-family matching, zoom/reset, and source replacement on the next selection. All 381 unit tests pass.
+Browser regression checks fail against the baseline: fit renders 81 nested labels, and selecting an Atlas block leaves the source inspector closed. The updated app passes all 54 Atlas, tree, and source checks across desktop and narrow viewports, including a rendered label size of 11 pixels, font-family matching, zoom/reset, and source replacement on the next selection. All 381 unit tests pass. After updating the older map assertions, the complete `npm run test:e2e` suite passes all 278 checks across both viewports.
 
 See [the verification feature guide](../../../.cursor/skills/verify-lightwell/features/atlas-detail.md) for prerequisites and cleanup.

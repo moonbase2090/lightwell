@@ -9,10 +9,10 @@ Selecting a source-backed Atlas block opens its read-only source in the side pan
 After `npm ci`, run:
 
 ```sh
-node_modules/.bin/playwright test e2e/atlas.spec.ts e2e/tree.spec.ts e2e/src.spec.ts
+node_modules/.bin/playwright test e2e/atlas.spec.ts e2e/map.spec.ts e2e/tree.spec.ts e2e/src.spec.ts
 ```
 
-The Atlas detail tests verify the fit/zoom/reset cycle, readable label prefixes, rendered font size and family, and automatic source following selection. Both desktop and narrow viewports run.
+The Atlas detail and map tests verify the fit/zoom/reset cycle, readable label prefixes, rendered font size and family, and automatic source following selection, including replacing an open file diff. Both desktop and narrow viewports run. A selected tile can remain unlabeled when the narrow viewport leaves too little room; its full name stays in the outline. Run `npm run test:e2e` before submitting changes to shared selection or label policy so older map assertions are covered too.
 
 ## Desktop proof on Linux
 
