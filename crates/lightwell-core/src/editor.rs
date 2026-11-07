@@ -812,8 +812,9 @@ mod tests {
         );
         assert_eq!(typescript_target.position.line(), 2);
         assert_eq!(typescript_target.position.column(), 1);
+        let canonical_root = root.canonicalize().unwrap();
         let cached_typescript_target =
-            resolve_block_target_in_map(&root, &map, &typescript_symbol_id, || {
+            resolve_block_target_in_map(&canonical_root, &map, &typescript_symbol_id, || {
                 panic!("a cached TypeScript symbol must not run cargo metadata")
             })
             .expect("a watched TypeScript function should resolve from the held map");
