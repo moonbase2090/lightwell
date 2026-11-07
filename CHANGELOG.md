@@ -1,10 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.1.32 - 2026-11-07
+
+### Changed
+
+- Atlas reveals labels as cells become large enough to read, and selecting a source-backed block opens its source (#265).
 
 ### Fixed
 
-- The Modules view no longer stops with "Compound layout exceeded its two-second limit" on large repositories. When a layout is too slow it now steps down to fewer blocks and dependency edges, and finally to blocks only, so the map always appears.
+- The Modules view no longer stops with "Compound layout exceeded its two-second limit" on large repositories. When a layout is too slow it steps down to fewer blocks and dependency edges, and finally to blocks only, so the map appears (#264).
 
 ## 0.1.31 - 2026-11-06
 
