@@ -139,6 +139,19 @@ export function ellipsizeLabel(label: string, maxWidth: number, fontSize: number
   return `${label.slice(0, maxChars - 1)}…`;
 }
 
+/** Keep the overview to groups, then reveal labels only when their screen area is readable. */
+export function atlasLabel(
+  cell: Pick<AtlasCell, "label" | "depth" | "folder" | "width" | "height">,
+  zoomScale: number,
+  fontSize: number,
+): string {
+  if (zoomScale <= 1.01 && (cell.depth > 1 || (cell.depth === 1 && !cell.folder))) return "";
+  const headerHeight = cell.folder ? Math.min(cell.height, HEADER) : cell.height;
+  if (headerHeight * zoomScale < fontSize + 8) return "";
+  const label = ellipsizeLabel(cell.label, cell.width * zoomScale - 10, fontSize);
+  return label.endsWith("…") && label.length < 8 ? "" : label;
+}
+
 export function zoomAbout(rect: AtlasRect, factor: number, anchorX: number, anchorY: number): AtlasRect {
   return {
     x: anchorX - (anchorX - rect.x) * factor,

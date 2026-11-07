@@ -53,6 +53,7 @@ Harness summary:
 - **Desktop project notes (Linux only):** `scripts/ci/capture-project-notes.sh` with a built Tauri binary. See `features/project-notes-capture.md` for Xvfb, xdotool, ImageMagick, and the fixed layout. Skip it when those are missing; do not substitute the browser preview.
 - **Desktop live refresh (Linux only):** `scripts/ci/capture-live-refresh.sh` verifies the map labels before and after a Rust module is added. See `features/live-refresh-capture.md` for the Tesseract prerequisite and retained diagnostics.
 - **Desktop source inspector (Linux only):** `scripts/ci/capture-source-inspector.sh` enters the Modules view, opens a searched Rust block in the source inspector, invokes an isolated editor command, and opens editor settings.
+- **Desktop Atlas detail (Linux only):** `scripts/verify/capture-atlas-detail.sh` drives fit, zoom and source selection against a large Prismattyc workspace. See `features/atlas-detail.md` for build order, capture requirements and retained evidence.
 - **Desktop themes (Linux only):** `scripts/ci/capture-theme-picker.sh` enters the Modules view and checks visible graph blocks across the system, dark, light, and blueprint themes.
 
 ## Evidence

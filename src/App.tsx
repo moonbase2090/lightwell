@@ -2193,7 +2193,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           blockById={map.blockById}
           connections={map.connections}
           selectedId={selectedId}
-          onSelect={selectTreeNode}
+          onSelect={selectTreeNodeAndMaybeOpen}
           onContextMenu={showBlockMenu}
           labelScale={textSize.labels}
           {...(graphChanges === undefined ? {} : { changes: graphChanges })}

@@ -31,3 +31,5 @@ Read this index before driving Lightwell. Each feature file is a user-facing rec
 - [Concurrent commit maps](./commit-map-concurrency.md) verifies repository ownership and temporary-worktree cleanup through concurrent public API calls.
 
 - [Commit range toolbar](./commit-range-presets.md) verifies Show changes presets, exact Git counts, chronological custom endpoints, keyboard navigation and native screenshot approval.
+
+- [Atlas label detail and source selection](./atlas-detail.md) verifies group-only fit labels, zoom-dependent readable labels, monospace text, and automatic source opening in the desktop app.
