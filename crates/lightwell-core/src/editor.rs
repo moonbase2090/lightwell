@@ -1,6 +1,7 @@
 use crate::extract::{block_base, discover_project_workspace, map_workspace};
 use crate::facts::{FactBlock, FactMap, ModuleBlock};
 use crate::metadata::{without_console_window, CargoTarget, CargoWorkspace, RustModule};
+use crate::typescript_source::parse_typescript_source;
 use crate::MapExtractionError;
 use serde::{Deserialize, Serialize};
 use shell_words::split;
@@ -141,14 +142,18 @@ pub fn resolve_block_target_in_map(
                 .source_path
                 .as_deref()
                 .unwrap_or(&module.declared_by_path);
-            let position = if module.base.source_path.as_deref()
-                == Some(module.declared_by_path.as_str())
-                || module.base.source_path.is_none()
-            {
-                module_source_position(&workspace()?, module)
-                    .unwrap_or_else(SourcePosition::file_start)
+            let position = if module.language == "rust" {
+                if module.base.source_path.as_deref() == Some(module.declared_by_path.as_str())
+                    || module.base.source_path.is_none()
+                {
+                    module_source_position(&workspace()?, module)
+                        .unwrap_or_else(SourcePosition::file_start)
+                } else {
+                    SourcePosition::file_start()
+                }
             } else {
-                SourcePosition::file_start()
+                web_symbol_source_position(root, source_path, module)
+                    .unwrap_or_else(SourcePosition::file_start)
             };
             (source_path, position)
         }
@@ -172,6 +177,28 @@ pub fn resolve_block_target_in_map(
         return Err(EditorError::SourceOutsideWorkspace(path));
     }
     Ok(EditorTarget { path, position })
+}
+
+fn web_symbol_source_position(
+    root: &Path,
+    source_path: &str,
+    block: &ModuleBlock,
+) -> Option<SourcePosition> {
+    if !matches!(block.language.as_str(), "typescript" | "javascript") {
+        return None;
+    }
+    let [kind] = block.cfg_attributes.as_slice() else {
+        return None;
+    };
+    if block.module_path != format!("{}.{}", block.package_name, block.base.label) {
+        return None;
+    }
+    let source = std::fs::read_to_string(root.join(source_path)).ok()?;
+    let (_, symbols) = parse_typescript_source(&source);
+    let symbol = symbols
+        .into_iter()
+        .find(|symbol| symbol.name == block.base.label && symbol.outline_label() == kind)?;
+    SourcePosition::new(symbol.line, 1)
 }
 
 /// Windows `canonicalize` returns `\\?\C:\...` paths, which many editors reject.
@@ -694,7 +721,7 @@ mod tests {
     }
 
     #[test]
-    fn resolver_opens_javascript_blocks_without_cargo_toml() {
+    fn resolver_opens_web_blocks_and_symbols_without_cargo_toml() {
         let root = temporary_directory("editor-javascript-source");
         fs::create_dir_all(root.join("src")).expect("fixture source folder should be created");
         fs::write(
@@ -704,14 +731,14 @@ mod tests {
         .expect("package.json should be written");
         fs::write(
             root.join("src/app.mjs"),
-            "export function greet() {\n  return \"hello\";\n}\n",
+            "// Public greeting.\nexport function greet() {\n  return \"hello\";\n}\n",
         )
         .expect("app.mjs should be written");
         fs::write(root.join("src/util.cjs"), "exports.answer = 42;\n")
             .expect("util.cjs should be written");
         fs::write(
             root.join("src/types.mts"),
-            "export const answer: number = 42;\n",
+            "export const answer: number = 42;\nexport function parseTypeScriptSource() {}\n",
         )
         .expect("types.mts should be written");
 
@@ -745,6 +772,52 @@ mod tests {
         );
         assert_eq!(target.position.line(), 1);
         assert_eq!(target.position.column(), 1);
+
+        let symbol_id = map
+            .blocks
+            .iter()
+            .find(|block| {
+                matches!(block, FactBlock::Module(module)
+                    if module.base.label == "greet"
+                        && module.language == "javascript"
+                        && module.cfg_attributes == ["function"])
+            })
+            .map(|block| block_base(block).id.clone())
+            .expect("the exported function should have a map block");
+        let symbol_target = resolve_block_target(&root, &symbol_id)
+            .expect("a JavaScript function block should resolve to its declaration");
+        assert_eq!(
+            symbol_target.path,
+            root.join("src/app.mjs").canonicalize().unwrap()
+        );
+        assert_eq!(symbol_target.position.line(), 2);
+        assert_eq!(symbol_target.position.column(), 1);
+
+        let typescript_symbol_id = map
+            .blocks
+            .iter()
+            .find(|block| {
+                matches!(block, FactBlock::Module(module)
+                    if module.base.label == "parseTypeScriptSource"
+                        && module.language == "typescript"
+                        && module.cfg_attributes == ["function"])
+            })
+            .map(|block| block_base(block).id.clone())
+            .expect("the exported TypeScript function should have a map block");
+        let typescript_target = resolve_block_target(&root, &typescript_symbol_id)
+            .expect("a TypeScript function block should resolve to its declaration");
+        assert_eq!(
+            typescript_target.path,
+            root.join("src/types.mts").canonicalize().unwrap()
+        );
+        assert_eq!(typescript_target.position.line(), 2);
+        assert_eq!(typescript_target.position.column(), 1);
+        let cached_typescript_target =
+            resolve_block_target_in_map(&root, &map, &typescript_symbol_id, || {
+                panic!("a cached TypeScript symbol must not run cargo metadata")
+            })
+            .expect("a watched TypeScript function should resolve from the held map");
+        assert_eq!(cached_typescript_target, typescript_target);
 
         fs::remove_dir_all(root).expect("fixture folder should be removed");
     }
