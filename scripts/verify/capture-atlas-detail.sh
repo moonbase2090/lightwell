@@ -45,7 +45,8 @@ OMP_THREAD_LIMIT=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_CONFIG_HOME="$profile/c
         if [[ "$name" == atlas-fit ]]; then
           tesseract "$artifact_dir/header-ocr.png" stdout --psm 6 2>/dev/null >"$artifact_dir/$name.txt"
         else
-          tesseract "$artifact_dir/$name.png" stdout --psm 11 2>/dev/null >"$artifact_dir/$name.txt"
+          convert "$artifact_dir/$name.png" -crop 320x792+1120+108 +repage -resize 200% -colorspace Gray "$artifact_dir/source-ocr.png"
+          tesseract "$artifact_dir/source-ocr.png" stdout --psm 6 2>/dev/null >"$artifact_dir/$name.txt"
         fi
         if grep -Eiq "$pattern" "$artifact_dir/$name.txt"; then return 0; fi
         if ! kill -0 "$app_pid" 2>/dev/null; then break; fi
@@ -72,6 +73,7 @@ OMP_THREAD_LIMIT=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_CONFIG_HOME="$profile/c
     sleep 2
     xdotool key Tab Tab End Return
     wait_for_text atlas-source "READ.?ONLY[[:space:]]+SOURCE"
-    grep -Eiq "cell.?grid" "$artifact_dir/atlas-source.txt"
+    grep -Eiq "cell.?grid.rs" "$artifact_dir/atlas-source.txt"
+    grep -Eq "Vec<|pub\(super\)" "$artifact_dir/atlas-source.txt"
     printf "Atlas desktop proof captured fit, zoom and automatic source opening.\n"
   ' lightwell-atlas-proof "$app_path" "$artifact_dir" "$app_log" "$phase"
