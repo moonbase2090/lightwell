@@ -1,0 +1,212 @@
+[
+  {
+    "side": 0,
+    "run": 0,
+    "elapsedMs": 400,
+    "legend": "800/981 blocks · 4 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:prismattyc",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 1360,
+        "outcome": "layout-complete",
+        "elapsedMs": 3,
+        "stats": {
+          "inputBlocks": 981,
+          "renderedBlocks": 800,
+          "omittedBlocks": 182,
+          "inputEdges": 62,
+          "renderedEdges": 62,
+          "omittedEdges": 0,
+          "cacheHits": 135,
+          "cacheMisses": 0,
+          "cacheEntries": 136
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 0,
+    "elapsedMs": 451.69999998807907,
+    "legend": "800/981 blocks · 1 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 1,
+    "elapsedMs": 400.5,
+    "legend": "800/981 blocks · 4 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:prismattyc",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 1326.300000011921,
+        "outcome": "layout-complete",
+        "elapsedMs": 3.100000023841858,
+        "stats": {
+          "inputBlocks": 981,
+          "renderedBlocks": 800,
+          "omittedBlocks": 182,
+          "inputEdges": 62,
+          "renderedEdges": 62,
+          "omittedEdges": 0,
+          "cacheHits": 135,
+          "cacheMisses": 0,
+          "cacheEntries": 136
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 1,
+    "elapsedMs": 433.80000001192093,
+    "legend": "800/981 blocks · 1 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 2,
+    "elapsedMs": 400.5,
+    "legend": "800/981 blocks · 4 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:prismattyc",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 1341.800000011921,
+        "outcome": "layout-complete",
+        "elapsedMs": 3.300000011920929,
+        "stats": {
+          "inputBlocks": 981,
+          "renderedBlocks": 800,
+          "omittedBlocks": 182,
+          "inputEdges": 62,
+          "renderedEdges": 62,
+          "omittedEdges": 0,
+          "cacheHits": 135,
+          "cacheMisses": 0,
+          "cacheEntries": 136
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 2,
+    "elapsedMs": 408.10000002384186,
+    "legend": "800/981 blocks · 1 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 3,
+    "elapsedMs": 401.2999999523163,
+    "legend": "800/981 blocks · 3 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:prismattyc",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 1324.800000011921,
+        "outcome": "layout-complete",
+        "elapsedMs": 2.900000035762787,
+        "stats": {
+          "inputBlocks": 981,
+          "renderedBlocks": 800,
+          "omittedBlocks": 182,
+          "inputEdges": 62,
+          "renderedEdges": 62,
+          "omittedEdges": 0,
+          "cacheHits": 135,
+          "cacheMisses": 0,
+          "cacheEntries": 136
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 3,
+    "elapsedMs": 407.2000000476837,
+    "legend": "800/981 blocks · 1 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 4,
+    "elapsedMs": 434.19999998807907,
+    "legend": "800/981 blocks · 3 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:prismattyc",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 1357.800000011921,
+        "outcome": "layout-complete",
+        "elapsedMs": 3,
+        "stats": {
+          "inputBlocks": 981,
+          "renderedBlocks": 800,
+          "omittedBlocks": 182,
+          "inputEdges": 62,
+          "renderedEdges": 62,
+          "omittedEdges": 0,
+          "cacheHits": 135,
+          "cacheMisses": 0,
+          "cacheEntries": 136
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 4,
+    "elapsedMs": 468.5,
+    "legend": "800/981 blocks · 1 ms",
+    "blocks": 800,
+    "edges": 62,
+    "errors": 0,
+    "workerRequests": []
+  }
+]

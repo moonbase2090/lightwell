@@ -45,6 +45,8 @@ Read `.cursor/skills/verify-lightwell/features/README.md` and the feature file f
 
 Harness summary:
 
+- **Modules breadcrumb return:** `scripts/verify/breadcrumb-layout-proof.mjs` measures returning from a child group to the workspace using separate production previews. See `features/breadcrumb-layout.md` for interleaved timing, timeout workload, correctness checks and retained evidence.
+
 - **CLI:** `target/debug/lightwell` (after build) or `cargo run -p lightwell-cli --locked --` with `extract`, `--name`, and `-o`.
 - **CLI project notes:** run `scripts/smoke-project-notes.sh target/debug/lightwell` after building the CLI. It saves notes in a temporary Git repository and checks ignored lock/temp files, unstaged trackable notes, preserved root ignore rules, and idempotent saves, then exercises stale detection and removal. `notes list` and `notes set` accept optional `--map <facts.json>` to reuse a facts file from `lightwell extract` instead of extracting. Without `--map`, each command extracts the workspace once. Contract coverage is `cargo test -p lightwell-cli --locked --test notes_map_reuse`.
 - **Python metadata and imports:** run `npm run check:python-parity` after `npm ci`. It builds the Rust CLI and compares complete Rust and TypeScript maps for the shared Python metadata regression fixtures, including malformed TOML, duplicate entry names, setup files, source layouts, and import edges. `npm test` and `cargo test -p lightwell-core --lib --locked` also check literal expected metadata and dependency targets from these cases.

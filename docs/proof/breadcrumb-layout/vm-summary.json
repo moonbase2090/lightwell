@@ -1,0 +1,24 @@
+{
+  "browser": "156.0.8078.4",
+  "viewport": {
+    "width": 1440,
+    "height": 900
+  },
+  "input": {
+    "blocks": 802,
+    "connections": 2401,
+    "crates": 1,
+    "apps": 0,
+    "modules": 800,
+    "cargoFeatures": 0
+  },
+  "summary": [
+    {
+      "side": 0,
+      "runs": 5,
+      "medianMs": 366.9000000000233,
+      "minMs": 363.89999999990687,
+      "maxMs": 376.69999999995343
+    }
+  ]
+}
