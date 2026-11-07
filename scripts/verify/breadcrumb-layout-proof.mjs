@@ -146,10 +146,12 @@ async function settled(page) {
   }, null, { timeout: 30_000 });
   await page.getByLabel("Dependency chart legend").waitFor();
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-  await page.evaluate(() => new Promise((resolve) => {
+  await page.evaluate(() => new Promise((resolve, reject) => {
     let previous = "";
     let stable = 0;
+    const deadline = performance.now() + 10_000;
     const check = () => {
+      if (performance.now() > deadline) { reject(new Error("Map camera did not settle.")); return; }
       const transform = document.querySelector(".react-flow__viewport")?.getAttribute("style") ?? "";
       stable = transform === previous ? stable + 1 : 0;
       previous = transform;
