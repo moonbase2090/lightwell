@@ -1,10 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.1.33 - 2026-11-07
+
+### Changed
+
+- Selecting a TypeScript or JavaScript function in Modules centers the source inspector on its declaration and highlights the line (#268).
+- Returning through Modules breadcrumbs reuses completed layouts instead of repeating layout timeouts and fallback work (#269).
 
 ### Fixed
 
-- Atlas labels stay inside their cells when zoomed in. Cell corners keep a constant size on screen instead of growing with the zoom and pushing the label outside the rounded edge.
+- Atlas labels stay inside their cells when zoomed in. Cell corners keep a constant size on screen instead of growing with the zoom and pushing the label outside the rounded edge (#267).
 
 ## 0.1.32 - 2026-11-07
 
