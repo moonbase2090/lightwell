@@ -432,7 +432,7 @@ export default function AtlasView({
                 <clipPath id={clipId}>
                   <rect x={cell.x} y={cell.y} width={Math.max(0, cell.width)} height={Math.max(0, clipHeight)} />
                 </clipPath>
-                <rect className="atlas-cell-shape" x={cell.x} y={cell.y} width={cell.width} height={cell.height} rx={cell.depth === 0 ? 8 : 3} />
+                <rect className="atlas-cell-shape" x={cell.x} y={cell.y} width={cell.width} height={cell.height} rx={Math.min((cell.depth === 0 ? 8 : 3) / zoomScale, cell.width / 2, cell.height / 2)} />
                 {drawnLabel.length > 0 && (
                   <text
                     x={cell.x + 5 / zoomScale}

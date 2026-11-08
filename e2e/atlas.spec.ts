@@ -100,6 +100,39 @@ test.describe("workspace atlas dependency lens", () => {
   });
 });
 
+test.describe("workspace atlas zoomed labels", () => {
+  test("ATLAS-07: zoomed in, every label sits inside its cell and corners stay small on screen", async ({ page }) => {
+    await gotoWeb(page, "atlas");
+    const shapes = page.locator(".atlas-cell-shape");
+    // Double-click the largest folder cell repeatedly to zoom well in.
+    for (let step = 0; step < 3; step += 1) {
+      const target = await shapes.evaluateAll((nodes) => {
+        const boxes = nodes.map((node, index) => ({ index, box: node.getBoundingClientRect() }))
+          .filter((entry) => entry.box.width > 0 && entry.box.x >= 0 && entry.box.y >= 0 && entry.box.width < window.innerWidth * 0.95);
+        boxes.sort((a, b) => b.box.width * b.box.height - a.box.width * a.box.height);
+        const pick = boxes[0];
+        return pick === undefined ? null : { x: pick.box.x + pick.box.width / 2, y: pick.box.y + pick.box.height / 2 };
+      });
+      if (target === null) break;
+      await page.mouse.dblclick(target.x, target.y);
+    }
+    const report = await page.locator(".atlas-cell").evaluateAll((cells) => cells.flatMap((cell) => {
+      const text = cell.querySelector("text");
+      const shape = cell.querySelector(".atlas-cell-shape");
+      if (text === null || shape === null) return [];
+      const t = text.getBoundingClientRect();
+      const s = shape.getBoundingClientRect();
+      const rx = Number(shape.getAttribute("rx") ?? 0) * (s.width / Math.max(Number(shape.getAttribute("width")), 0.0001));
+      return [{ label: text.textContent ?? "", outside: t.left < s.left - 1 || t.right > s.right + 1 || t.top < s.top - 1 || t.bottom > s.bottom + 1, rx }];
+    }));
+    expect(report.length).toBeGreaterThan(0);
+    for (const entry of report) {
+      expect(entry.outside, `label ${entry.label} escapes its cell`).toBe(false);
+      expect(entry.rx, `label ${entry.label} cell corner radius on screen`).toBeLessThanOrEqual(8.5);
+    }
+  });
+});
+
 for (const theme of ["dark", "light"] as const) {
   test.describe(`workspace atlas contrast (${theme})`, () => {
     test.beforeEach(async ({ page }) => {
