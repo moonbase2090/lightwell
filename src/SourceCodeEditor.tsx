@@ -4,6 +4,7 @@ import EditorWorker from "./editor.worker.js?worker";
 import { monacoLanguageIdForPath, registerLanguagePackHighlighters } from "./languages/registry.js";
 import type { ResolvedTheme } from "./theme.js";
 import { parseShortcut } from "./source-view-preferences.js";
+import { sourceTargetRange } from "./source-target.js";
 import { clampTextSize, codeLineHeight } from "./type-scale.js";
 
 interface MonacoWorkerWindow extends Window {
@@ -216,10 +217,9 @@ export default function SourceCodeEditor({ content, line, column, path, theme, w
       editor.setPosition(event.target.position);
       goToDefinition();
     });
-    const targetLine = Math.min(Math.max(1, line), editor.getModel()?.getLineCount() ?? 1);
-    const targetColumn = Math.max(1, column);
-    editor.setPosition({ lineNumber: targetLine, column: targetColumn });
-    editor.revealPositionInCenter({ lineNumber: targetLine, column: targetColumn });
+    const targetRange = sourceTargetRange({ content, line, column });
+    editor.setSelection(targetRange);
+    editor.revealRangeInCenter(targetRange);
     return () => {
       disposed = true;
       editorRef.current = null;
