@@ -3,6 +3,7 @@ import type { CompoundLayoutInput, CompoundLayoutResult } from "./compound-layou
 import type { CompoundLayoutWorkerRequest, CompoundLayoutWorkerResponse } from "./compound-layout-worker.js";
 
 const LAYOUT_TIMEOUT_MS = 2_000;
+const MAX_COMPLETED_LAYOUTS = 8;
 
 /**
  * Smaller layouts to try, in order, when the previous attempt times out. Layout time grows with the
@@ -60,6 +61,9 @@ export function createCompoundLayoutClient(
   let worker = createWorker();
   let pending: PendingRequest | null = null;
   let disposed = false;
+  let requestVersion = 0;
+  // Keep successful fallback layouts even when a timeout replaces the worker and its local cache.
+  const completed = new Map<string, CompoundLayoutResult>();
 
   const replaceWorker = () => {
     worker.terminate();
@@ -116,12 +120,36 @@ export function createCompoundLayoutClient(
 
   return {
     async layout(input) {
+      if (disposed) throw new Error("Compound layout client was disposed.");
+      const version = ++requestVersion;
+      const key = JSON.stringify(input);
+      const cached = completed.get(key);
+      if (cached !== undefined) {
+        if (pending !== null) {
+          clearTimeout(pending.timer);
+          pending.reject(new Error("Compound layout was replaced by a newer request."));
+          pending = null;
+          replaceWorker();
+        }
+        completed.delete(key);
+        completed.set(key, cached);
+        return cached;
+      }
       let attemptInput = input;
       let timeoutMs = LAYOUT_TIMEOUT_MS;
       for (let tier = 0; ; tier += 1) {
         try {
-          return await run(attemptInput, timeoutMs);
+          const result = await run(attemptInput, timeoutMs);
+          if (!disposed) {
+            completed.set(key, result);
+            if (completed.size > MAX_COMPLETED_LAYOUTS) {
+              const oldest = completed.keys().next();
+              if (!oldest.done) completed.delete(oldest.value);
+            }
+          }
+          return result;
         } catch (error: unknown) {
+          if (version !== requestVersion) throw new Error("Compound layout was replaced by a newer request.");
           const next = FALLBACK_TIERS[tier];
           if (!(error instanceof CompoundLayoutTimeoutError) || next === undefined) throw error;
           attemptInput = {
@@ -138,6 +166,7 @@ export function createCompoundLayoutClient(
     dispose() {
       if (disposed) return;
       disposed = true;
+      completed.clear();
       if (pending !== null) {
         clearTimeout(pending.timer);
         pending.reject(new Error("Compound layout client was disposed."));

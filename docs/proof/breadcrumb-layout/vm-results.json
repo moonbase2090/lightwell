@@ -1,0 +1,52 @@
+[
+  {
+    "side": 0,
+    "run": 0,
+    "elapsedMs": 376.69999999995343,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 25 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 1,
+    "elapsedMs": 366.79999999993015,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 24 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 2,
+    "elapsedMs": 366.9000000000233,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 26 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 3,
+    "elapsedMs": 368.20000000006985,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 20 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 4,
+    "elapsedMs": 363.89999999990687,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 21 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  }
+]

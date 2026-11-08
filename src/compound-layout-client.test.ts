@@ -238,3 +238,113 @@ test("dispose rejects pending work and prevents later worker creation", async ()
   assert.equal(factory.workers.length, 1);
   assert.equal(factory.workers[0]?.requests.length, 1);
 });
+
+test("a completed layout is reused after visiting another scope", async () => {
+  const factory = workerFactory();
+  const client = createCompoundLayoutClient(factory.createWorker);
+  const rootResult: CompoundLayoutResult = { ...RESULT, nodes: [{ kind: "block", id: "workspace:test", parentId: null, blockType: "workspace", hiddenDescendants: 0, bounds: { x: 0, y: 0, width: 222, height: 94 } }] };
+  const first = client.layout(INPUT);
+  factory.workers[0]?.respond({ kind: "layout-complete", generation: 1, result: rootResult });
+  await first;
+  const child = client.layout({ ...INPUT, rootId: "child" });
+  factory.workers[0]?.respond({ kind: "layout-complete", generation: 2, result: RESULT });
+  await child;
+  const back = client.layout(structuredClone(INPUT));
+  const errors = captureErrors(back);
+  try {
+    assert.equal(factory.workers[0]?.requests.length, 2);
+    assert.deepEqual((await back).nodes, [{ kind: "block", id: "workspace:test", parentId: null, blockType: "workspace", hiddenDescendants: 0, bounds: { x: 0, y: 0, width: 222, height: 94 } }]);
+    assert.deepEqual(errors, []);
+  } finally { client.dispose(); }
+});
+
+test("a fallback result is cached under the original request limits", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const factory = workerFactory();
+  const client = createCompoundLayoutClient(factory.createWorker);
+  const first = client.layout(INPUT);
+  context.mock.timers.tick(2_000);
+  await flushPromises();
+  factory.workers[1]?.respond({ kind: "layout-complete", generation: 2, result: { ...RESULT, stats: { ...RESULT.stats, renderedBlocks: 60 } } });
+  await first;
+  const back = client.layout(INPUT);
+  captureErrors(back);
+  try {
+    assert.equal(factory.workers[1]?.requests.length, 1);
+    assert.equal((await back).stats.renderedBlocks, 60);
+  } finally { client.dispose(); }
+});
+
+test("a cache hit supersedes pending work, including a queued timeout retry", async (context) => {
+  context.mock.timers.enable({ apis: ["setTimeout"] });
+  const factory = workerFactory();
+  const client = createCompoundLayoutClient(factory.createWorker);
+  const first = client.layout(INPUT);
+  factory.workers[0]?.respond({ kind: "layout-complete", generation: 1, result: { ...RESULT, stats: { ...RESULT.stats, renderedBlocks: 42 } } });
+  await first;
+  const child = client.layout({ ...INPUT, rootId: "child" });
+  const errors = captureErrors(child);
+  context.mock.timers.tick(2_000);
+  const back = client.layout(INPUT);
+  assert.equal((await back).stats.renderedBlocks, 42);
+  await assert.rejects(child, /replaced by a newer request/);
+  assert.deepEqual(errors, ["Compound layout was replaced by a newer request."]);
+  assert.equal(factory.workers.length, 2);
+  assert.deepEqual(factory.workers[1]?.requests, []);
+  client.dispose();
+  await assert.rejects(client.layout(INPUT), /disposed/);
+});
+
+test("a cached breadcrumb return cancels an in-flight scope layout", async () => {
+  const factory = workerFactory();
+  const client = createCompoundLayoutClient(factory.createWorker);
+  const first = client.layout(INPUT);
+  factory.workers[0]?.respond({ kind: "layout-complete", generation: 1, result: { ...RESULT, stats: { ...RESULT.stats, renderedBlocks: 42 } } });
+  await first;
+  const child = client.layout({ ...INPUT, rootId: "child" });
+  captureErrors(child);
+  assert.equal((await client.layout(INPUT)).stats.renderedBlocks, 42);
+  await assert.rejects(child, /replaced by a newer request/);
+  assert.equal(factory.workers[0]?.terminated, true);
+  assert.deepEqual(factory.workers[1]?.requests, []);
+  client.dispose();
+});
+
+test("changed graph content and limits do not reuse a stale layout", async () => {
+  const factory = workerFactory();
+  const client = createCompoundLayoutClient(factory.createWorker);
+  const inputs = [
+    INPUT,
+    { ...INPUT, limits: { maxBlocks: 60, maxEdges: 0 } },
+    { ...INPUT, blocks: INPUT.blocks.map((block) => ({ ...block, children: ["new-module"] })) },
+    { ...INPUT, connections: [{ id: "dep", source: "workspace:test", target: "new-module" }] },
+  ];
+  for (const [index, input] of inputs.entries()) {
+    const pending = client.layout(input);
+    factory.workers[0]?.respond({ kind: "layout-complete", generation: index + 1, result: { ...RESULT, stats: { ...RESULT.stats, renderedBlocks: index + 10 } } });
+    assert.equal((await pending).stats.renderedBlocks, index + 10);
+  }
+  assert.equal(factory.workers[0]?.requests.length, 4);
+  assert.equal((await client.layout(INPUT)).stats.renderedBlocks, 10);
+  client.dispose();
+});
+
+test("completed layouts are bounded and revisiting a layout refreshes its retention", async () => {
+  const factory = workerFactory();
+  const client = createCompoundLayoutClient(factory.createWorker);
+  for (let index = 0; index < 8; index += 1) {
+    const pending = client.layout({ ...INPUT, rootId: `root:${index}` });
+    factory.workers[0]?.respond({ kind: "layout-complete", generation: index + 1, result: { ...RESULT, stats: { ...RESULT.stats, renderedBlocks: index + 10 } } });
+    await pending;
+  }
+  assert.equal((await client.layout({ ...INPUT, rootId: "root:0" })).stats.renderedBlocks, 10);
+  const ninth = client.layout({ ...INPUT, rootId: "root:8" });
+  factory.workers[0]?.respond({ kind: "layout-complete", generation: 9, result: RESULT });
+  await ninth;
+  assert.equal((await client.layout({ ...INPUT, rootId: "root:0" })).stats.renderedBlocks, 10);
+  const evicted = client.layout({ ...INPUT, rootId: "root:1" });
+  assert.equal(factory.workers[0]?.requests.length, 10);
+  factory.workers[0]?.respond({ kind: "layout-complete", generation: 10, result: { ...RESULT, stats: { ...RESULT.stats, renderedBlocks: 11 } } });
+  assert.equal((await evicted).stats.renderedBlocks, 11);
+  client.dispose();
+});

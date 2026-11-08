@@ -21,6 +21,8 @@ Read this index before driving Lightwell. Each feature file is a user-facing rec
 
 ## Features
 
+- [Modules breadcrumb return](./breadcrumb-layout.md) verifies completed-layout reuse and repeated before/after timings, including timeout fallback and graph correctness.
+
 - [CLI workspace extract](./cli-extract.md) — produce a schema v1 facts JSON from this repository.
 - [macOS command on PATH](./macos-cli-path.md) — a fresh shell resolves the bundled `lightwell` command (macOS only).
 - [Browser preview maps](./browser-preview-maps.md) — serve the built viewer and confirm the preview responds.

@@ -1,0 +1,262 @@
+[
+  {
+    "side": 0,
+    "run": 0,
+    "elapsedMs": 3233.5,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 2912 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 7066.099999964237,
+        "outcome": "terminated",
+        "elapsedMs": 2002
+      },
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 400,
+          "maxEdges": 800
+        },
+        "startedAt": 9068.199999988079,
+        "outcome": "layout-complete",
+        "elapsedMs": 909.6000000238419,
+        "stats": {
+          "inputBlocks": 802,
+          "renderedBlocks": 400,
+          "omittedBlocks": 403,
+          "inputEdges": 1600,
+          "renderedEdges": 800,
+          "omittedEdges": 800,
+          "cacheHits": 0,
+          "cacheMisses": 2,
+          "cacheEntries": 2
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 0,
+    "elapsedMs": 350.0999999642372,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 15 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 1,
+    "elapsedMs": 3616.5,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 3259 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 7377.700000047684,
+        "outcome": "terminated",
+        "elapsedMs": 2001.8999999761581
+      },
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 400,
+          "maxEdges": 800
+        },
+        "startedAt": 9380.400000035763,
+        "outcome": "layout-complete",
+        "elapsedMs": 1254.5,
+        "stats": {
+          "inputBlocks": 802,
+          "renderedBlocks": 400,
+          "omittedBlocks": 403,
+          "inputEdges": 1600,
+          "renderedEdges": 800,
+          "omittedEdges": 800,
+          "cacheHits": 0,
+          "cacheMisses": 2,
+          "cacheEntries": 2
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 1,
+    "elapsedMs": 348.80000001192093,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 20 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 2,
+    "elapsedMs": 3383.5,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 3052 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 7046.399999976158,
+        "outcome": "terminated",
+        "elapsedMs": 2002.1000000238419
+      },
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 400,
+          "maxEdges": 800
+        },
+        "startedAt": 9048.699999988079,
+        "outcome": "layout-complete",
+        "elapsedMs": 1049.0999999642372,
+        "stats": {
+          "inputBlocks": 802,
+          "renderedBlocks": 400,
+          "omittedBlocks": 403,
+          "inputEdges": 1600,
+          "renderedEdges": 800,
+          "omittedEdges": 800,
+          "cacheHits": 0,
+          "cacheMisses": 2,
+          "cacheEntries": 2
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 2,
+    "elapsedMs": 365.30000001192093,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 23 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 3,
+    "elapsedMs": 3496.300000011921,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 3164 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 7771.399999976158,
+        "outcome": "terminated",
+        "elapsedMs": 2003
+      },
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 400,
+          "maxEdges": 800
+        },
+        "startedAt": 9774.600000023842,
+        "outcome": "layout-complete",
+        "elapsedMs": 1160.5,
+        "stats": {
+          "inputBlocks": 802,
+          "renderedBlocks": 400,
+          "omittedBlocks": 403,
+          "inputEdges": 1600,
+          "renderedEdges": 800,
+          "omittedEdges": 800,
+          "cacheHits": 0,
+          "cacheMisses": 2,
+          "cacheEntries": 2
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 3,
+    "elapsedMs": 333.5,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 13 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  },
+  {
+    "side": 0,
+    "run": 4,
+    "elapsedMs": 3383.2999999523163,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 3051 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": [
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 800,
+          "maxEdges": 1600
+        },
+        "startedAt": 7244.900000035763,
+        "outcome": "terminated",
+        "elapsedMs": 2001.8999999761581
+      },
+      {
+        "rootId": "workspace:dense",
+        "limits": {
+          "maxBlocks": 400,
+          "maxEdges": 800
+        },
+        "startedAt": 9246.900000035763,
+        "outcome": "layout-complete",
+        "elapsedMs": 1047.800000011921,
+        "stats": {
+          "inputBlocks": 802,
+          "renderedBlocks": 400,
+          "omittedBlocks": 403,
+          "inputEdges": 1600,
+          "renderedEdges": 800,
+          "omittedEdges": 800,
+          "cacheHits": 0,
+          "cacheMisses": 2,
+          "cacheEntries": 2
+        }
+      }
+    ]
+  },
+  {
+    "side": 1,
+    "run": 4,
+    "elapsedMs": 363.69999998807907,
+    "legend": "400/802 blocks · 800 of 1600 dependencies hidden · 17 ms",
+    "blocks": 400,
+    "edges": 792,
+    "errors": 0,
+    "workerRequests": []
+  }
+]
