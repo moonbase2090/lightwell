@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { BUILTIN_LANGUAGE_PACKS } from "./languages/builtin-packs.js";
 import { loadLanguagePacks } from "./languages/loader.js";
 import {
   EMPTY_LANGUAGE_PACK_HOOKS,
@@ -151,6 +152,48 @@ test("loader discovers a valid user pack", () => {
   });
 });
 
+test("authoring guide example validates and routes ledger paths", () => {
+  const manifest = parseLanguagePackManifest(
+    languagePackExampleFromGuide(),
+    "docs/language-pack-authoring.md",
+  );
+  assert.equal(manifest.id, "ledger");
+  assert.equal(manifest.packVersion, "1.0.0");
+  assert.deepEqual(manifest.extensions, [".ledger", ".ldg"]);
+  assert.deepEqual(manifest.basenames, ["Ledgerfile"]);
+  assert.deepEqual(manifest.basenamePrefixes, ["Ledgerfile."]);
+  assert.equal(manifest.fixtures, null);
+  assert.deepEqual(manifest.monaco.byExtension, { ".ledger": "json" });
+  assert.deepEqual(manifest.monaco.byBasename, { ledgerfile: "yaml" });
+  assert.deepEqual(manifest.monaco.byBasenamePrefix, { "ledgerfile.": "dockerfile" });
+  const pack = languagePackFromManifest({
+    manifest,
+    hooks: EMPTY_LANGUAGE_PACK_HOOKS,
+    source: "docs/language-pack-authoring.md",
+  });
+  assert.equal(pack.extractor, null);
+  assert.equal(pack.workspaceExtractor, null);
+  assert.equal(pack.registerHighlighter, null);
+  assert.equal(pack.fixtures, null);
+  const registry = createLanguagePackRegistry([...BUILTIN_LANGUAGE_PACKS, pack]);
+  assert.equal(registry.languagePackForPath("books/year.ledger")?.id, "ledger");
+  assert.equal(registry.monacoLanguageIdForPath("books/year.ledger"), "json");
+  assert.equal(registry.languagePackForPath("books/year.ldg")?.id, "ledger");
+  assert.equal(registry.monacoLanguageIdForPath("books/year.ldg"), "plaintext");
+  assert.equal(registry.languagePackForPath(String.raw`C:\books\year.ledger`)?.id, "ledger");
+  assert.equal(registry.monacoLanguageIdForPath(String.raw`C:\books\year.ledger`), "json");
+  assert.equal(registry.languagePackForPath("Ledgerfile")?.id, "ledger");
+  assert.equal(registry.monacoLanguageIdForPath("Ledgerfile"), "yaml");
+  assert.equal(registry.monacoLanguageIdForPath("LEDGERFILE"), "yaml");
+  assert.equal(registry.languagePackForPath("nested/Ledgerfile.production")?.id, "ledger");
+  assert.equal(registry.monacoLanguageIdForPath("nested/Ledgerfile.production"), "dockerfile");
+  assert.equal(registry.monacoLanguageIdForPath("dir/Ledgerfile.ledger"), "dockerfile");
+  assert.equal(registry.languagePackForPath("src/lib.rs")?.id, "rust");
+  assert.equal(registry.monacoLanguageIdForPath("src/lib.rs"), "rust");
+  assert.equal(registry.languagePackForPath("README.md"), null);
+  assert.equal(registry.monacoLanguageIdForPath("README.md"), "rust");
+});
+
 test("sample workspace pack loads end to end and routes its source", () => {
   const repositoryPath = path.join(
     process.cwd(),
@@ -166,6 +209,23 @@ test("sample workspace pack loads end to end and routes its source", () => {
   assert.equal(registry.monacoLanguageIdForPath("src/example.demo"), "plaintext");
   assert.equal(loaded.catalog.entries.find((entry) => entry.kind === "loaded" && entry.id === "demo")?.origin, "workspace");
 });
+
+function languagePackExampleFromGuide(): unknown {
+  const guide = readFileSync(path.join(process.cwd(), "docs", "language-pack-authoring.md"), "utf8");
+  const marker = "```json language-pack-example";
+  const start = guide.indexOf(marker);
+  assert.ok(start >= 0, "docs/language-pack-authoring.md is missing the language-pack-example fence");
+  assert.equal(
+    guide.indexOf(marker, start + marker.length),
+    -1,
+    "docs/language-pack-authoring.md has more than one language-pack-example fence",
+  );
+  const jsonStart = guide.indexOf("\n", start);
+  assert.ok(jsonStart > start);
+  const jsonEnd = guide.indexOf("\n```", jsonStart);
+  assert.ok(jsonEnd > jsonStart, "the language-pack-example fence is not closed");
+  return JSON.parse(guide.slice(jsonStart + 1, jsonEnd));
+}
 
 function withPackDirectory(run: (directory: string) => void): void {
   const root = mkdtempSync(path.join(tmpdir(), "lightwell-language-packs-"));
