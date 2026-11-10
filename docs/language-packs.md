@@ -4,6 +4,8 @@ Language packs teach Lightwell which files belong to a language and which Monaco
 
 Version 1 manifests are data, not executable plugins. They can use Monaco language IDs already available in Lightwell. Extractor and highlighter hook names must resolve to code installed by the Lightwell host; an external manifest cannot load arbitrary JavaScript or native code.
 
+Field rules, conflicts, fixture layout, test commands, and a worked example are in [language-pack-authoring.md](language-pack-authoring.md). The loader test parses that example.
+
 ## Create a pack
 
 Start with this routing-only manifest:
@@ -35,7 +37,7 @@ The machine-readable schema is [language-pack.schema.json](language-pack.schema.
 
 - `schemaVersion` is `1`. Lightwell rejects versions it does not understand.
 - `id` starts with a lowercase letter and contains only lowercase letters, digits, and hyphens.
-- `packVersion` is a version such as `1.2.3` or `1.2.3-beta.1`.
+- `packVersion` is a dotted version such as `1.2.3`. The manifest parsers also accept one pre-release suffix, such as `1.2.3-beta.1`. The desktop catalog parser accepts only `MAJOR.MINOR.PATCH` with no leading zeros and no suffix.
 - `extensions` contains lowercase extensions with their leading dot.
 - `basenames` contains exact filename matches, such as `DemoFile`.
 - `basenamePrefixes` contains filename prefixes, such as `Dockerfile.`.
