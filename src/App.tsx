@@ -60,6 +60,7 @@ import { readTreeSelectAction, writeTreeSelectAction, type TreeSelectAction } fr
 import { checkDesktopUpdate, desktopUpdateDelivery, type DesktopUpdate } from "./desktop-updates.js";
 import FileExplorer, { TreeInspector } from "./FileExplorer.js";
 import { resolveSourceDefinition } from "./module-definition.js";
+import { blockSourceFiles } from "./block-source-files.js";
 import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
@@ -851,10 +852,12 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [stateChartOpen, setStateChartOpen] = useState(false);
   const [inspectionTarget, setInspectionTarget] = useState<
     | { readonly kind: "block"; readonly blockId: string }
+    | { readonly kind: "file"; readonly blockId: string; readonly ownerId: string }
     | { readonly kind: "definition"; readonly blockId: string; readonly line: number; readonly column: number; readonly revision: number }
     | null
   >(null);
   const inspectedBlockId = inspectionTarget?.blockId ?? null;
+  const inspectorOwnerId = inspectionTarget?.kind === "file" ? inspectionTarget.ownerId : inspectedBlockId;
   const setInspectedBlockId = useCallback((blockId: string | null) => {
     setInspectionTarget(blockId === null ? null : { kind: "block", blockId });
   }, []);
@@ -1159,6 +1162,7 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setInspectedBlockId(null);
   }, []);
   const map = loadedMap.kind === "ready" && loadedMap.id === mapKey ? loadedMap.map : null;
+  const inspectorFiles = useMemo(() => map === null || inspectorOwnerId === null ? [] : blockSourceFiles(inspectorOwnerId, map.blockById), [map, inspectorOwnerId]);
   const history = mapSource.history;
 
   useEffect(() => {
@@ -2524,6 +2528,17 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       onGoToDefinition={(word) => { void goToDefinition(word); }}
       codeSize={textSize.code}
       autoFocus={inspectionTarget?.kind === "definition" && inspectionTarget.revision === mapRefreshVersion}
+      {...(inspectorOwnerId !== null && inspectedBlockId !== null && !inspectingHistoricalBlock ? {
+        files: {
+          entries: inspectorFiles,
+          selectedBlockId: inspectedBlockId,
+          onSelect: (blockId: string) => {
+            if (!inspectorFiles.some((file) => file.blockId === blockId)) return;
+            setEditorActionError("");
+            setInspectionTarget({ kind: "file", ownerId: inspectorOwnerId, blockId });
+          },
+        },
+      } : {})}
       {...(inspectedBlockId !== null && noteByBlockId.has(inspectedBlockId) ? {
         noteText: noteByBlockId.get(inspectedBlockId)!.text,
         noteStale: noteByBlockId.get(inspectedBlockId)!.stale,

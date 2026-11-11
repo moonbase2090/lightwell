@@ -3,6 +3,7 @@ import { ArrowUpRight, CircleAlert, LoaderCircle, StickyNote, X } from "lucide-r
 import type { BlockDiffDocument, SourceFileDocument } from "./map-source.js";
 import type { ResolvedTheme } from "./theme.js";
 import type { TextSize } from "./type-scale.js";
+import type { BlockSourceFile } from "./block-source-files.js";
 
 const SourceCodeEditor = lazy(() => import("./SourceCodeEditor.js"));
 const SourceDiffEditor = lazy(() => import("./SourceDiffEditor.js"));
@@ -38,6 +39,7 @@ export default function SourceInspectorPanel({
   diff,
   codeSize,
   autoFocus = false,
+  files,
 }: {
   readonly title: string;
   readonly inspection: SourceInspectionState;
@@ -62,7 +64,13 @@ export default function SourceInspectorPanel({
   /** Source text size in pixels. */
   readonly codeSize: TextSize["code"];
   readonly autoFocus?: boolean;
+  readonly files?: {
+    readonly entries: readonly BlockSourceFile[];
+    readonly selectedBlockId: string;
+    readonly onSelect: (blockId: string) => void;
+  };
 }) {
+  const selectedFileId = files?.entries.some((file) => file.blockId === files.selectedBlockId) ? files.selectedBlockId : "";
   return (
     <aside className="source-inspector" aria-label={`Source inspector for ${title}`}>
       <header className="source-inspector-header">
@@ -75,6 +83,16 @@ export default function SourceInspectorPanel({
           <X size={15} />
         </button>
       </header>
+
+      {diff === undefined && files !== undefined && files.entries.length > 1 && (
+        <label className="source-file-picker">
+          Source file
+          <select aria-label="Source file" value={selectedFileId} onChange={(event) => files.onSelect(event.target.value)}>
+            {selectedFileId === "" && <option value="" disabled>Choose a source file</option>}
+            {files.entries.map((file) => <option key={file.blockId} value={file.blockId}>{file.path}</option>)}
+          </select>
+        </label>
+      )}
 
       <button
         className="open-in-editor-button"
