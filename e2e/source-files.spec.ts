@@ -43,7 +43,7 @@ async function openFixture(page: Page, slowHelpers = false) {
 test("switches among a block's files and returns to its primary file", async ({ page }) => {
   await openFixture(page);
   const picker = page.getByRole("combobox", { name: "Source file", exact: true });
-  await expect(picker.locator("option:not([disabled])")).toHaveText(["src/main.rs", "src/helpers.rs"]);
+  await expect(picker.locator("option")).toHaveText(["src/main.rs", "src/helpers.rs"]);
   await picker.selectOption("helpers");
   await expect(page.locator(".source-inspector-title code")).toHaveText("src/helpers.rs");
   await expect(page.locator(".source-code-editor .view-lines")).toContainText("calculate");

@@ -107,7 +107,10 @@ OMP_THREAD_LIMIT=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_CONFIG_HOME="$work/conf
     fi
     grep -Eiq "Source file" "$artifacts/source-files-primary.txt"
     xdotool mousemove --window "$window" 1260 232 click 1
-    xdotool key End Return
+    sleep 0.5
+    xdotool key End
+    sleep 0.2
+    xdotool key Return
     wait_for_source source-files-helper "helpers.rs" "pub fn calculate"
     xdotool mousemove --window "$window" 1270 278 click 1
     for _ in $(seq 1 30); do
@@ -116,7 +119,10 @@ OMP_THREAD_LIMIT=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_CONFIG_HOME="$work/conf
     done
     grep -Eq "/src/helpers.rs$" "$artifacts/editor-target.txt"
     xdotool mousemove --window "$window" 1260 232 click 1
-    xdotool key Home Return
+    sleep 0.5
+    xdotool key Home
+    sleep 0.2
+    xdotool key Return
     wait_for_source source-files-return "main.rs" "mod helpers"
     grep -Eiq "LINE[[:space:]]+1" "$artifacts/source-files-return.txt"
     printf "Block source files switched main.rs -> helpers.rs -> main.rs; external editor received helpers.rs.\n"
