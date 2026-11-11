@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.34 - 2026-11-11
+
+### Added
+
+- F12 and Ctrl/Cmd-click navigate from source to a unique project declaration. Unknown or ambiguous names leave the current file open (#273).
+- The source inspector switches among mapped files owned by a block and its descendants. Editor and project-note actions follow the displayed file (#274).
+
 ## 0.1.33 - 2026-11-07
 
 ### Changed
