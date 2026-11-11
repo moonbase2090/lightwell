@@ -85,6 +85,13 @@ export interface SourceFileDocument {
   readonly column: number;
 }
 
+export interface SourceDefinition {
+  readonly name: string;
+  readonly blockId: string;
+  readonly line: number;
+  readonly column: number;
+}
+
 export interface EditorSettings {
   readonly commandTemplate: string | null;
 }
@@ -95,6 +102,7 @@ export interface EditorTemplatePreset {
 }
 
 export interface MapEditorSource {
+  definitions(workspaceId: string): Promise<readonly SourceDefinition[]>;
   inspectBlock(workspaceId: string, blockId: string): Promise<SourceFileDocument>;
   openBlock(workspaceId: string, blockId: string): Promise<void>;
   loadSettings(): Promise<EditorSettings>;

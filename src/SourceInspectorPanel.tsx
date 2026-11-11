@@ -37,6 +37,7 @@ export default function SourceInspectorPanel({
   onGoToDefinition,
   diff,
   codeSize,
+  autoFocus = false,
 }: {
   readonly title: string;
   readonly inspection: SourceInspectionState;
@@ -60,6 +61,7 @@ export default function SourceInspectorPanel({
   readonly diff?: DiffInspectionState;
   /** Source text size in pixels. */
   readonly codeSize: TextSize["code"];
+  readonly autoFocus?: boolean;
 }) {
   return (
     <aside className="source-inspector" aria-label={`Source inspector for ${title}`}>
@@ -139,6 +141,7 @@ export default function SourceInspectorPanel({
               wordWrapShortcut={wordWrapShortcut}
               onToggleWordWrap={onToggleWordWrap}
               fontSize={codeSize}
+              autoFocus={autoFocus}
               {...(onLineContextMenu === undefined ? {} : { onLineContextMenu })}
               {...(onGoToDefinition === undefined ? {} : { onGoToDefinition })}
             />

@@ -17,6 +17,7 @@ import {
   parseNotesGitStatus,
   parseNoteCommitResult,
   parseSourceFileDocument,
+  parseSourceDefinitions,
   parseWorkspaceMapUpdate,
   parseWorkspaceNotesUpdate,
   parseLanguagePackCatalog,
@@ -185,6 +186,9 @@ export const tauriMapSource: MapSource = {
     ? { languagePacks: languagePacksApi }
     : {}),
   editor: {
+    definitions(workspaceId) {
+      return invoke<unknown>("project_definitions", { workspacePath: workspaceId }).then(parseSourceDefinitions);
+    },
     inspectBlock(workspaceId, blockId) {
       return invoke<unknown>("inspect_block", {
         workspacePath: workspaceId,

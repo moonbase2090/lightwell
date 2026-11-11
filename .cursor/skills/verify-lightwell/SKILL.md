@@ -45,6 +45,8 @@ Read `.cursor/skills/verify-lightwell/features/README.md` and the feature file f
 
 Harness summary:
 
+- **Project symbol definitions:** `scripts/verify/capture-definitions.sh` exercises F12 against a real Rust workspace in the Linux desktop app. See `features/symbol-definitions.md` for prerequisites, browser regressions, source-position checks and retained proof.
+
 - **Modules breadcrumb return:** `scripts/verify/breadcrumb-layout-proof.mjs` measures returning from a child group to the workspace using separate production previews. See `features/breadcrumb-layout.md` for interleaved timing, timeout workload, correctness checks and retained evidence.
 
 - **CLI:** `target/debug/lightwell` (after build) or `cargo run -p lightwell-cli --locked --` with `extract`, `--name`, and `-o`.

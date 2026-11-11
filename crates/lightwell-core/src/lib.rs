@@ -1,5 +1,6 @@
 mod config_infra_source;
 mod cpp_source;
+mod definitions;
 mod diff;
 mod dotnet_source;
 mod editor;
@@ -21,6 +22,7 @@ mod typescript_source;
 mod watch;
 mod workspace_ignore;
 
+pub use definitions::{definitions_for_map, SourceDefinition};
 pub use diff::{
     block_diff, block_diff_for, commit_changes, commit_changes_for,
     filter_commits_that_are_ancestors, path_diff_for, recent_commits, resolve_commit_range,
