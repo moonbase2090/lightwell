@@ -62,10 +62,10 @@ OMP_THREAD_LIMIT=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_CONFIG_HOME="$work/conf
       tesseract "$artifacts/source-ocr.png" stdout --psm 6 2>/dev/null > "$artifacts/$name.txt"
     }
     wait_for_source() {
-      local name="$1" pattern="$2"
+      local name="$1" pattern="$2" content="${3:-.}"
       for _ in $(seq 1 60); do
         capture "$name"
-        if grep -Eiq "$pattern" "$artifacts/$name.txt"; then return 0; fi
+        if grep -Eiq "$pattern" "$artifacts/$name.txt" && grep -Eiq "$content" "$artifacts/$name.txt"; then return 0; fi
         kill -0 "$app_pid" 2>/dev/null || break
         sleep 1
       done
@@ -99,7 +99,8 @@ OMP_THREAD_LIMIT=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_CONFIG_HOME="$work/conf
       xdotool key F12
     }
     select_main
-    wait_for_source definition-call "main.rs"
+    wait_for_source definition-call "main.rs" "helpers"
+    grep -Eiq "main.rs" "$artifacts/definition-call.txt"
     goto_word ":3:17"
     if [[ "$phase" == before ]]; then
       sleep 2
@@ -112,7 +113,8 @@ OMP_THREAD_LIMIT=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 XDG_CONFIG_HOME="$work/conf
     grep -Eiq "LINE[[:space:]]+4" "$artifacts/definition-after.txt"
     grep -Eiq "COLUMN[[:space:]]+8" "$artifacts/definition-after.txt"
     select_main
-    wait_for_source definition-main "main.rs"
+    wait_for_source definition-main "main.rs" "helpers"
+    grep -Eiq "main.rs" "$artifacts/definition-main.txt"
     goto_word ":4:8"
     sleep 1
     capture definition-ambiguous

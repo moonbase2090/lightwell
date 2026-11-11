@@ -21,6 +21,8 @@ Read this index before driving Lightwell. Each feature file is a user-facing rec
 
 ## Features
 
+- [Project symbol definitions](./symbol-definitions.md) verifies F12 and Ctrl/Cmd-click navigation, ambiguity, index refresh and real desktop source positions.
+
 - [Modules breadcrumb return](./breadcrumb-layout.md) verifies completed-layout reuse and repeated before/after timings, including timeout fallback and graph correctness.
 
 - [CLI workspace extract](./cli-extract.md) — produce a schema v1 facts JSON from this repository.
