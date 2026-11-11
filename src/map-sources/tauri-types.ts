@@ -16,6 +16,7 @@ import type {
   NoteCommitResult,
   ProjectNotesSnapshot,
   SourceFileDocument,
+  SourceDefinition,
 } from "../map-source.js";
 import type {
   InvalidLanguagePackEntry,
@@ -28,6 +29,19 @@ import { parseLanguagePackManifest } from "../languages/manifest.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function parseSourceDefinitions(value: unknown): readonly SourceDefinition[] {
+  if (!Array.isArray(value)) throw new Error("The desktop app returned an invalid definition index.");
+  return value.map((entry: unknown) => {
+    if (!isRecord(entry) || typeof entry.name !== "string" || entry.name.length === 0
+      || typeof entry.blockId !== "string" || entry.blockId.length === 0
+      || typeof entry.line !== "number" || !Number.isSafeInteger(entry.line) || entry.line < 1
+      || typeof entry.column !== "number" || !Number.isSafeInteger(entry.column) || entry.column < 1) {
+      throw new Error("The desktop app returned an invalid definition.");
+    }
+    return { name: entry.name, blockId: entry.blockId, line: entry.line, column: entry.column };
+  });
 }
 
 export function parseLanguagePackCatalog(value: unknown): LanguagePackCatalogSnapshot {

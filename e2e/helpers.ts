@@ -1,7 +1,7 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { BlockDiffDocument, CommitChanges, CommitSummary, ResolvedCommitRange, SourceFileDocument } from "../src/map-source.js";
+import type { BlockDiffDocument, CommitChanges, CommitSummary, ResolvedCommitRange, SourceFileDocument, SourceDefinition } from "../src/map-source.js";
 
 // ---------------------------------------------------------------------------
 // Console / pageerror gate
@@ -73,6 +73,8 @@ export async function gotoIpc(page: Page, overrides: {
   readonly workspaces?: readonly { readonly id: string; readonly label: string }[];
   readonly maps?: Readonly<Record<string, unknown>>;
   readonly sources?: Readonly<Record<string, SourceFileDocument>>;
+  readonly definitions?: readonly SourceDefinition[];
+  readonly definitionDelayMs?: number;
   readonly changes?: CommitChanges;
   readonly commits?: readonly CommitSummary[];
   readonly ranges?: Readonly<Record<string, ResolvedCommitRange | string>>;
@@ -84,10 +86,20 @@ export async function gotoIpc(page: Page, overrides: {
   await page.addInitScript(() => {
     const w = window as unknown as Record<string, unknown>;
     const callbacks = new Map<number, (data: unknown) => void>();
+    const eventHandlers = new Map<string, (data: unknown) => void>();
     let capsPromise: Promise<Record<string, unknown>> | undefined;
     const loadCaps = () => {
       capsPromise ??= fetch("/__lw-captures.json").then((r) => r.json());
       return capsPromise;
+    };
+    w.__LW_REFRESH_DEFINITIONS__ = async (workspaceId: string, definitions: readonly SourceDefinition[]) => {
+      const caps = await loadCaps();
+      caps.definitions = definitions;
+      const maps = caps.maps;
+      if (typeof maps !== "object" || maps === null) throw new Error("Missing fixture maps.");
+      const handler = eventHandlers.get("workspace-map-changed");
+      if (handler === undefined) throw new Error("The map subscription is missing.");
+      handler({ event: "workspace-map-changed", id: 1, payload: { workspaceId, document: Reflect.get(maps, workspaceId) } });
     };
     const notesState: { notes: { blockId: string; text: string; sourceFingerprint: string; author: string; updatedAt: string; stale: boolean }[] } = {
       notes: [],
@@ -136,6 +148,8 @@ export async function gotoIpc(page: Page, overrides: {
         workspaces: { id: string; label: string }[];
         maps: Record<string, unknown>;
         sources: Record<string, unknown>;
+        definitions?: readonly SourceDefinition[];
+        definitionDelayMs?: number;
         commits: { id: string }[];
         ranges?: Record<string, unknown>;
         changes: unknown;
@@ -158,6 +172,12 @@ export async function gotoIpc(page: Page, overrides: {
           const doc = caps.sources[String(args.blockId)];
           if (!doc) throw new Error(`no source for block ${String(args.blockId)}`);
           return doc;
+        }
+        case "project_definitions": {
+          w.__LW_DEFINITION_CALLS__ = Number(w.__LW_DEFINITION_CALLS__ ?? 0) + 1;
+          if (caps.definitionDelayMs !== undefined) await new Promise((resolve) => setTimeout(resolve, caps.definitionDelayMs));
+          w.__LW_DEFINITION_COMPLETED__ = true;
+          return caps.definitions ?? [];
         }
         case "open_block_in_editor":
           if ((globalThis as Record<string, unknown>).__LW_FAIL_EDITOR__) {
@@ -273,9 +293,12 @@ export async function gotoIpc(page: Page, overrides: {
           return "manual";
         case "plugin:dialog|open":
           return caps.fixturePath;
-        case "plugin:event|listen":
+        case "plugin:event|listen": {
+          const handler = typeof args.handler === "number" ? callbacks.get(args.handler) : undefined;
+          if (handler !== undefined && typeof args.event === "string") eventHandlers.set(args.event, handler);
           // Mirror mockIPC: the listen call resolves to the handler id.
           return args.handler;
+        }
         case "plugin:event|emit":
         case "plugin:event|emit_to":
           return undefined;

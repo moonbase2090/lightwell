@@ -10,6 +10,7 @@ import {
   parseNotesGitStatus,
   parseNoteCommitResult,
   parseSourceFileDocument,
+  parseSourceDefinitions,
   parseWorkspaceMapUpdate,
   parseResolvedCommitRange,
   parseWorkspaceNotesUpdate,
@@ -17,6 +18,13 @@ import {
 } from "./map-sources/tauri-types.js";
 
 const entry = { id: "/projects/lightwell", label: "Lightwell" };
+
+test("definition IPC validates names, block IDs and one-based positions", () => {
+  assert.deepEqual(parseSourceDefinitions([{ name: "calculate", blockId: "module:helpers", line: 12, column: 8 }]), [{ name: "calculate", blockId: "module:helpers", line: 12, column: 8 }]);
+  for (const invalid of [null, {}, [{ name: "x", blockId: "m", line: 0, column: 1 }], [{ name: "x", blockId: "m", line: 1, column: -1 }], [{ name: "", blockId: "m", line: 1, column: 1 }], [{ name: "x", blockId: "", line: 1, column: 1 }]]) {
+    assert.throws(() => parseSourceDefinitions(invalid), /invalid definition/);
+  }
+});
 const note = {
   blockId: "module:lightwell:workspace",
   text: "Keep the local extraction boundary clear.",

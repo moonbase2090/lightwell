@@ -41,7 +41,7 @@ import {
   type NodeMouseHandler,
 } from "@xyflow/react";
 import { isTauri } from "@tauri-apps/api/core";
-import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNoteView, ProjectNotesSnapshot, ResolvedCommitRange } from "./map-source.js";
+import type { MapSource, MapSourceDocument, MapSourceEntry, ProjectNoteView, ProjectNotesSnapshot, ResolvedCommitRange, SourceDefinition } from "./map-source.js";
 import CommitRangePicker from "./CommitRangePicker.js";
 import {
   closeMapPopoutWindow,
@@ -59,7 +59,7 @@ import { readUpdateCheck, writeUpdateCheck, type UpdateDelivery } from "./app-up
 import { readTreeSelectAction, writeTreeSelectAction, type TreeSelectAction } from "./tree-select.js";
 import { checkDesktopUpdate, desktopUpdateDelivery, type DesktopUpdate } from "./desktop-updates.js";
 import FileExplorer, { TreeInspector } from "./FileExplorer.js";
-import { resolveModuleDefinition } from "./module-definition.js";
+import { resolveSourceDefinition } from "./module-definition.js";
 import SourceInspectorPanel, { type DiffInspectionState, type SourceInspectionState } from "./SourceInspectorPanel.js";
 import type { AnnotationOverlay, DisplayBlock, DisplayFeature, DisplayNode, FactConnection, ResolvedMap } from "./model.js";
 import { parseAnnotationOverlay, parseFactMap, resolveMap } from "./schema.js";
@@ -849,7 +849,19 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [activeFeatureId, setActiveFeatureId] = useState<string | null>(null);
   const [stateChartOpen, setStateChartOpen] = useState(false);
-  const [inspectedBlockId, setInspectedBlockId] = useState<string | null>(null);
+  const [inspectionTarget, setInspectionTarget] = useState<
+    | { readonly kind: "block"; readonly blockId: string }
+    | { readonly kind: "definition"; readonly blockId: string; readonly line: number; readonly column: number; readonly revision: number }
+    | null
+  >(null);
+  const inspectedBlockId = inspectionTarget?.blockId ?? null;
+  const setInspectedBlockId = useCallback((blockId: string | null) => {
+    setInspectionTarget(blockId === null ? null : { kind: "block", blockId });
+  }, []);
+  const definitionIndex = useRef<{ workspaceId: string; revision: number; promise: Promise<readonly SourceDefinition[]> } | null>(null);
+  const definitionRequest = useRef(0);
+  const inspectionContext = useRef({ workspaceId: mapKey, target: inspectionTarget, revision: mapRefreshVersion });
+  inspectionContext.current = { workspaceId: mapKey, target: inspectionTarget, revision: mapRefreshVersion };
   const [inspection, setInspection] = useState<SourceInspectionState>({ kind: "loading" });
   const [openingEditor, setOpeningEditor] = useState(false);
   const [editorActionError, setEditorActionError] = useState("");
@@ -1875,13 +1887,45 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
     setInspection({ kind: "loading" });
     void editor.inspectBlock(mapKey, inspectedBlockId)
       .then((document) => {
-        if (!cancelled) setInspection({ kind: "ready", document });
+        if (!cancelled) setInspection({ kind: "ready", document: inspectionTarget?.kind === "definition" && inspectionTarget.revision === mapRefreshVersion
+          ? { ...document, line: inspectionTarget.line, column: inspectionTarget.column }
+          : document });
       })
       .catch((error: unknown) => {
         if (!cancelled) setInspection({ kind: "error", message: describeError(error, "Could not load this source file.") });
       });
     return () => { cancelled = true; };
-  }, [inspectedBlockId, inspectingHistoricalBlock, mapKey, mapRefreshVersion, mapSource.editor]);
+  }, [inspectedBlockId, inspectionTarget, inspectingHistoricalBlock, mapKey, mapRefreshVersion, mapSource.editor]);
+
+  const goToDefinition = async (word: string) => {
+    const editor = mapSource.editor;
+    if (editor === undefined || mapKey === null || map === null || inspectedBlockId === null || inspectingHistoricalBlock) return;
+    const request = ++definitionRequest.current;
+    const context = inspectionContext.current;
+    const isCurrent = () => request === definitionRequest.current
+      && context.workspaceId === inspectionContext.current.workspaceId
+      && context.target === inspectionContext.current.target
+      && context.revision === inspectionContext.current.revision;
+    let index = definitionIndex.current;
+    try {
+      if (index === null || index.workspaceId !== mapKey || index.revision !== mapRefreshVersion) {
+        index = { workspaceId: mapKey, revision: mapRefreshVersion, promise: editor.definitions(mapKey) };
+        definitionIndex.current = index;
+      }
+      const definitions = await index.promise;
+      if (!isCurrent()) return;
+      const target = resolveSourceDefinition(word, map.blockById.values(), inspectedBlockId, definitions);
+      if (target === null) return;
+      setEditorActionError("");
+      setInspectedDiffPath(null);
+      setBlockDiff(null);
+      if (target.kind === "block") setInspectedBlockId(target.blockId);
+      else setInspectionTarget({ kind: "definition", blockId: target.definition.blockId, line: target.definition.line, column: target.definition.column, revision: mapRefreshVersion });
+    } catch (error: unknown) {
+      if (definitionIndex.current === index) definitionIndex.current = null;
+      if (isCurrent()) setEditorActionError(describeError(error, "Could not load project definitions."));
+    }
+  };
 
   const handleOpenInEditor = useCallback(async () => {
     const editor = mapSource.editor;
@@ -2477,13 +2521,9 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
       wordWrap={wordWrap}
       wordWrapShortcut={wordWrapShortcut}
       onToggleWordWrap={toggleWordWrap}
-      onGoToDefinition={(word) => {
-        const target = resolveModuleDefinition(word, map.blockById.values(), inspectedBlockId);
-        if (target === null) return;
-        setInspectedDiffPath(null);
-        setInspectedBlockId(target.id);
-      }}
+      onGoToDefinition={(word) => { void goToDefinition(word); }}
       codeSize={textSize.code}
+      autoFocus={inspectionTarget?.kind === "definition" && inspectionTarget.revision === mapRefreshVersion}
       {...(inspectedBlockId !== null && noteByBlockId.has(inspectedBlockId) ? {
         noteText: noteByBlockId.get(inspectedBlockId)!.text,
         noteStale: noteByBlockId.get(inspectedBlockId)!.stale,

@@ -1,7 +1,7 @@
 use lightwell_core::{
-    block_diff_for, commit_changes_for, discover_project_workspace, extract_cargo_map,
-    filter_commits_that_are_ancestors, open_target, path_diff_for, project_notes_for_map,
-    recent_commits, remove_project_note_expecting, resolve_block_target,
+    block_diff_for, commit_changes_for, definitions_for_map, discover_project_workspace,
+    extract_cargo_map, filter_commits_that_are_ancestors, open_target, path_diff_for,
+    project_notes_for_map, recent_commits, remove_project_note_expecting, resolve_block_target,
     resolve_block_target_in_map, set_project_note_for_map_expecting,
     update_project_note_text_expecting, BlockDiffDocument, CommitChanges, CommitSummary,
     EditorError, EditorSettings, EditorTarget, EditorTemplatePreset, FactMap, MapExtractionError,
@@ -50,6 +50,15 @@ pub enum ProjectNotesState {
 pub struct SourceFileDocument {
     path: String,
     content: String,
+    line: usize,
+    column: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceDefinition {
+    name: String,
+    block_id: String,
     line: usize,
     column: usize,
 }
@@ -228,6 +237,28 @@ pub fn load_workspace_map(app: AppHandle, path: String) -> Result<WorkspaceMapDo
     let facts = extract_cargo_map(&root, None).map_err(|error| error.to_string())?;
     remember_workspace(&app, &root, &facts)?;
     Ok(workspace_map_document(&root, facts))
+}
+
+#[tauri::command(async)]
+pub fn project_definitions(
+    watchers: State<'_, WorkspaceWatchers>,
+    workspace_path: String,
+) -> Result<Vec<SourceDefinition>, String> {
+    let root = workspace_root(&workspace_path)?;
+    let map = watchers.current_map(&root)?;
+    definitions_for_map(&root, &map)
+        .map(|definitions| {
+            definitions
+                .into_iter()
+                .map(|definition| SourceDefinition {
+                    name: definition.name,
+                    block_id: definition.block_id,
+                    line: definition.position.line(),
+                    column: definition.position.column(),
+                })
+                .collect()
+        })
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command(async)]

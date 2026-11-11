@@ -14,6 +14,7 @@ import type { ResolvedTheme, ThemePreference } from "./theme.js";
 import { DEFAULT_TEXT_SIZE, type TextSize } from "./type-scale.js";
 
 const editor: MapEditorSource = {
+  definitions: () => Promise.reject(new Error("unused")),
   inspectBlock: () => Promise.reject(new Error("unused")),
   openBlock: () => Promise.reject(new Error("unused")),
   loadSettings: () => Promise.reject(new Error("unused")),

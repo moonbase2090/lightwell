@@ -110,8 +110,9 @@ export interface SourceCodeEditorProps {
   readonly fontSize: number;
   /** When set, replaces the browser menu with the app's menu for the clicked or focused line. */
   readonly onLineContextMenu?: (line: number, x: number, y: number) => void;
-  /** When set, F12 and Ctrl/Cmd+click on a word ask the app to open the module it names. */
+  /** F12 and Ctrl/Cmd+click ask the app to open the word's project definition. */
   readonly onGoToDefinition?: (word: string) => void;
+  readonly autoFocus?: boolean;
 }
 
 export const monacoThemes = {
@@ -136,7 +137,7 @@ function monacoKeybinding(text: string): number | null {
   return binding;
 }
 
-export default function SourceCodeEditor({ content, line, column, path, theme, wordWrap, wordWrapShortcut, onToggleWordWrap, onLineContextMenu, onGoToDefinition, fontSize }: SourceCodeEditorProps) {
+export default function SourceCodeEditor({ content, line, column, path, theme, wordWrap, wordWrapShortcut, onToggleWordWrap, onLineContextMenu, onGoToDefinition, fontSize, autoFocus = false }: SourceCodeEditorProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const themeRef = useRef(theme);
   themeRef.current = theme;
@@ -211,7 +212,7 @@ export default function SourceCodeEditor({ content, line, column, path, theme, w
       const word = position === null ? null : editor.getModel()?.getWordAtPosition(position)?.word;
       if (word) definitionRef.current?.(word);
     };
-    editor.addAction({ id: "lightwell.goToDefinition", label: "Go to module", keybindings: [monaco.KeyCode.F12], run: goToDefinition });
+    editor.addAction({ id: "lightwell.goToDefinition", label: "Go to definition", keybindings: [monaco.KeyCode.F12], run: goToDefinition });
     editor.onMouseDown((event) => {
       if (!(event.event.ctrlKey || event.event.metaKey) || event.target.position === null) return;
       editor.setPosition(event.target.position);
@@ -220,13 +221,14 @@ export default function SourceCodeEditor({ content, line, column, path, theme, w
     const targetRange = sourceTargetRange({ content, line, column });
     editor.setSelection(targetRange);
     editor.revealRangeInCenter(targetRange);
+    if (autoFocus) editor.focus();
     return () => {
       disposed = true;
       editorRef.current = null;
       container.removeEventListener("contextmenu", suppressBrowserMenu);
       editor.dispose();
     };
-  }, [column, content, hasContextMenu, line, path, wordWrapShortcut]);
+  }, [autoFocus, column, content, hasContextMenu, line, path, wordWrapShortcut]);
 
   useEffect(() => {
     configureMonaco();
