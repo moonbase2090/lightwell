@@ -75,6 +75,7 @@ export async function gotoIpc(page: Page, overrides: {
   readonly sources?: Readonly<Record<string, SourceFileDocument>>;
   readonly definitions?: readonly SourceDefinition[];
   readonly definitionDelayMs?: number;
+  readonly sourceDelays?: Readonly<Record<string, number>>;
   readonly changes?: CommitChanges;
   readonly commits?: readonly CommitSummary[];
   readonly ranges?: Readonly<Record<string, ResolvedCommitRange | string>>;
@@ -150,6 +151,7 @@ export async function gotoIpc(page: Page, overrides: {
         sources: Record<string, unknown>;
         definitions?: readonly SourceDefinition[];
         definitionDelayMs?: number;
+        sourceDelays?: Record<string, number>;
         commits: { id: string }[];
         ranges?: Record<string, unknown>;
         changes: unknown;
@@ -171,6 +173,8 @@ export async function gotoIpc(page: Page, overrides: {
         case "inspect_block": {
           const doc = caps.sources[String(args.blockId)];
           if (!doc) throw new Error(`no source for block ${String(args.blockId)}`);
+          const delay = caps.sourceDelays?.[String(args.blockId)];
+          if (delay !== undefined) await new Promise((resolve) => setTimeout(resolve, delay));
           return doc;
         }
         case "project_definitions": {
@@ -180,6 +184,7 @@ export async function gotoIpc(page: Page, overrides: {
           return caps.definitions ?? [];
         }
         case "open_block_in_editor":
+          w.__LW_EDITOR_TARGET__ = args.blockId;
           if ((globalThis as Record<string, unknown>).__LW_FAIL_EDITOR__) {
             throw new Error("mock editor launch failure");
           }

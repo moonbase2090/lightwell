@@ -22,6 +22,7 @@ Read this index before driving Lightwell. Each feature file is a user-facing rec
 ## Features
 
 - [Project symbol definitions](./symbol-definitions.md) verifies F12 and Ctrl/Cmd-click navigation, ambiguity, index refresh and real desktop source positions.
+- [Files in a block](./block-source-files.md) verifies mapped file selection, editor and note targets, selection reset and delayed source responses.
 
 - [Modules breadcrumb return](./breadcrumb-layout.md) verifies completed-layout reuse and repeated before/after timings, including timeout fallback and graph correctness.
 

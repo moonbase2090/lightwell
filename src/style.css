@@ -406,6 +406,9 @@ button { color: inherit; }
 .inspector-kicker { color: #7f91a4; font-size: calc(11px * var(--lw-ui-scale, 1)); font-family: var(--mono); letter-spacing: .13em; }
 .source-inspector-title h2 { margin: 0; overflow: hidden; color: #edf2f8; font-size: calc(15px * var(--lw-ui-scale, 1)); line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
 .source-inspector-title code { overflow: hidden; color: #91a2b6; font-size: calc(12px * var(--lw-ui-scale, 1)); font-family: var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.source-file-picker { margin: 12px 13px 0; display: flex; flex-direction: column; gap: 6px; color: inherit; font-size: calc(11px * var(--lw-ui-scale, 1)); }
+.source-file-picker select { width: 100%; min-width: 0; padding: 7px; border: 1px solid #62758a; border-radius: 5px; color: inherit; background: var(--panel-raised); font: inherit; }
+.source-file-picker select:focus-visible { outline: 2px solid #89aaff; outline-offset: 2px; }
 .icon-button { width: 29px; height: 29px; flex: none; display: grid; place-items: center; border: 1px solid #303e4c; border-radius: 6px; color: #9baabd; background: #17222d; cursor: pointer; }
 .icon-button:hover { border-color: #596c81; color: #f0f4fa; background: #202e3b; }
 .open-in-editor-button { min-height: 35px; margin: 12px 13px 10px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #3f5c82; border-radius: 6px; color: #d7e5fa; background: #1d3047; font-size: calc(10px * var(--lw-ui-scale, 1)); font-weight: 620; cursor: pointer; }
@@ -614,6 +617,7 @@ a.update-download { display: inline-flex; align-items: center; text-decoration: 
   --splitter-rail: #c6bdb4;
   --splitter-rail-active: #6b85a8;
 }
+.workspace-shell[data-theme="light"] .source-file-picker select { background: #fdfbf9; }
 .workspace-shell[data-theme="light"] .topbar { border-color: #d4c9c0; background: rgba(245, 243, 240, .97); }
 .workspace-shell[data-theme="light"] .brand-mark { color: #526a89; border: 0; background: none; box-shadow: 0 3px 10px rgba(66,53,41,.12); overflow: hidden; }
 .workspace-shell[data-theme="light"] .brand-name,
