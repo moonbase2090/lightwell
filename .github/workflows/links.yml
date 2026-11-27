@@ -16,4 +16,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: moonbase2090/.github/actions/package-links@0f192a5bb8fa198ab154fb4f721bdd8ca0813946
+      - uses: moonbase2090/.github/actions/package-links@93645e58a5c6e815a7aa167444dcf1a3c2bb5267
