@@ -65,3 +65,26 @@ test("short histories show an explanation and no unsupported Uncommitted option"
  await expect(page.getByText(/This history has only 1 mainline/)).toBeVisible();
  expect(await page.evaluate(() => Reflect.get(window, "__LW_RANGE_DIFF_INPUT__"))).toBeUndefined();
 });
+
+test("the map view toolbar is at the right end of the Show changes row, clear of the map", async ({ page }) => {
+ await gotoIpc(page, { commits: [head, base], changes, ranges: { custom: range } });
+ const row = page.locator(".commit-picker").first();
+ const toolbar = row.locator(".map-depth-controls");
+ await expect(row.getByLabel("Show changes", { exact: true })).toBeVisible();
+ await expect(toolbar.getByRole("group", { name: "Map view" })).toBeVisible();
+ await expect(toolbar.getByLabel("Map depth")).toBeVisible();
+ await expect(toolbar.getByText(/direct children/)).toBeVisible();
+ const [rowBox, selectBox, toolbarBox, canvasBox] = await Promise.all([
+  row.boundingBox(),
+  row.getByLabel("Show changes", { exact: true }).boundingBox(),
+  toolbar.boundingBox(),
+  page.locator(".graph-canvas").first().boundingBox(),
+ ]);
+ if (rowBox === null || selectBox === null || toolbarBox === null || canvasBox === null) throw new Error("missing layout boxes");
+ // Beside the picker when the row is wide enough, on the next line of the same row when it is not.
+ expect(toolbarBox.x >= selectBox.x + selectBox.width || toolbarBox.y >= selectBox.y + selectBox.height).toBe(true);
+ expect(toolbarBox.x + toolbarBox.width).toBeGreaterThan(rowBox.x + rowBox.width - 40);
+ expect(toolbarBox.y).toBeGreaterThanOrEqual(rowBox.y);
+ expect(toolbarBox.y + toolbarBox.height).toBeLessThanOrEqual(canvasBox.y);
+ await expect(page.locator(".canvas-watermark .map-depth-controls")).toHaveCount(0);
+});

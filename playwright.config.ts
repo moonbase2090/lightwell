@@ -26,13 +26,13 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 925 } },
     },
     {
       name: "narrow",
       // style.css sets `body { min-width: 920px }`, so 920px is the smallest
       // width the layout supports without horizontal overflow.
-      use: { ...devices["Desktop Chrome"], viewport: { width: 920, height: 700 } },
+      use: { ...devices["Desktop Chrome"], viewport: { width: 920, height: 725 } },
     },
   ],
 });

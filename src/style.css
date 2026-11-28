@@ -639,6 +639,7 @@ a.update-download { display: inline-flex; align-items: center; text-decoration: 
 .workspace-shell[data-theme="light"] .breadcrumb-segment button,
 .workspace-shell[data-theme="light"] .connection-legend,
 .workspace-shell[data-theme="light"] .canvas-watermark,
+.workspace-shell[data-theme="light"] .commit-picker-trailing,
 .workspace-shell[data-theme="light"] .feature-type,
 .workspace-shell[data-theme="light"] .feature-meta,
 .workspace-shell[data-theme="light"] .detail-kicker,
@@ -706,6 +707,7 @@ a.update-download { display: inline-flex; align-items: center; text-decoration: 
 .workspace-shell[data-theme="light"] .dependency-line { border-color: #7a956f; }
 .workspace-shell[data-theme="light"] .graph-canvas { background-color: #f5f3f0; background-image: radial-gradient(circle at 1px 1px, rgba(125,111,98,.18) 1px, transparent 0); }
 .workspace-shell[data-theme="light"] .graph-canvas::after { background: radial-gradient(ellipse at 50% 40%, transparent 12%, rgba(96,81,66,.045) 80%); }
+.workspace-shell[data-theme="light"] .commit-picker-trailing .child-count,
 .workspace-shell[data-theme="light"] .canvas-watermark .child-count { color: #8c847c; }
 .workspace-shell[data-theme="light"] .react-flow__edge-text { fill: #6b6560 !important; }
 .workspace-shell[data-theme="light"] .react-flow__edge-textbg { fill: #f5f3f0 !important; }
@@ -957,6 +959,8 @@ a.update-download { display: inline-flex; align-items: center; text-decoration: 
 }
 .workspace-shell[data-theme="blueprint"] .graph-canvas::after { background: radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(6,20,40,.3) 100%); }
 .workspace-shell[data-theme="blueprint"] .canvas-watermark,
+.workspace-shell[data-theme="blueprint"] .commit-picker-trailing,
+.workspace-shell[data-theme="blueprint"] .commit-picker-trailing .child-count,
 .workspace-shell[data-theme="blueprint"] .canvas-watermark .child-count { color: #B4CCEA; }
 .workspace-shell[data-theme="blueprint"] .map-rotate,
 .workspace-shell[data-theme="blueprint"] .map-popout-button { border-color: #E3EEFF; color: #E3EEFF; background: #0B2B52; }
@@ -1098,6 +1102,10 @@ button.node-note-badge:hover, button.node-note-badge:focus-visible { background:
 /* Commit diff view (opt out with VITE_ENABLE_COMMIT_DIFF=false). */
 .commit-picker { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid rgba(140,170,220,.2); font-size: calc(12px * var(--lw-ui-scale, 1)); }
 .commit-picker label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.commit-picker-trailing { --mono: var(--code-mono, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace); margin-left: auto; display: inline-flex; align-items: center; color: #526170; font-family: var(--mono); font-size: calc(11px * var(--lw-ui-scale, 1)); letter-spacing: .13em; }
+.commit-picker-trailing .map-depth select { height: 18px; max-width: none; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; color: inherit; background: transparent; font-size: calc(11px * var(--lw-ui-scale, 1)); font-family: var(--mono); letter-spacing: 0; }
+.commit-picker-trailing .child-count { color: #5e6d7d; letter-spacing: .04em; }
+.commit-picker-toolbar-only { padding-top: 3px; padding-bottom: 3px; }
 .commit-picker-label { font-weight: 600; }
 .commit-picker select { max-width: 240px; min-width: 0; padding: 4px 6px; border: 1px solid rgba(140,170,220,.3); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
 .commit-picker option { color: #0c1a30; }

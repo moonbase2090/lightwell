@@ -4,7 +4,9 @@ import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ReactFlowProvider, type NodeProps } from "@xyflow/react";
 import type { DisplayBlock } from "./model.js";
-import BlockNode, { notePreview, type BlockNodeData, type MapNode } from "./viewer/BlockNode.js";
+import { CompoundGroupNode } from "./viewer/CompoundGraphView.js";
+import type { CompoundGroupNode as CompoundGroupNodeType, CompoundGroupNodeData } from "./viewer/compound-graph.js";
+import BlockNode, { mapTooltip, notePreview, type BlockNodeData, type MapNode } from "./viewer/BlockNode.js";
 
 function moduleBlock(): DisplayBlock {
   return {
@@ -150,4 +152,47 @@ test("note previews keep short notes and truncate long ones", () => {
   assert.equal(preview.length <= 40, true);
   assert.equal(preview.endsWith("…"), true);
   assert.equal(long.startsWith(preview.slice(0, -1)), true);
+});
+
+const NO_DESCRIPTION = "No description is written yet.";
+
+test("a block with no written description shows no tooltip on the map", () => {
+  const missing: DisplayBlock = { ...moduleBlock(), annotationState: "missing", description: NO_DESCRIPTION };
+  const html = renderBlock({ block: missing, dimmed: false, highlighted: false, onHover: () => undefined, onActivate: () => undefined });
+  assert.equal(html.includes("title="), false);
+  assert.equal(html.includes(NO_DESCRIPTION), false);
+  assert.equal(mapTooltip(missing), undefined);
+  assert.equal(mapTooltip({ annotationState: "current", description: "  " }), undefined);
+});
+
+test("a block with a written description still shows it as the map tooltip", () => {
+  const html = renderBlock({ block: moduleBlock(), dimmed: false, highlighted: false, onHover: () => undefined, onActivate: () => undefined });
+  assert.match(html, /title="Parses maps"/);
+  assert.equal(mapTooltip({ annotationState: "current", description: "Parses maps" }), "Parses maps");
+});
+
+function groupElement(block: DisplayBlock, onHover: (id: string | null) => void): ReactElement<Record<string, unknown>> {
+  const data: CompoundGroupNodeData = { block, dimmed: false, highlighted: false, hiddenDescendants: 0, onHover, onActivate: () => undefined };
+  const props = { data, selected: false } as unknown as NodeProps<CompoundGroupNodeType>;
+  const view = (CompoundGroupNode as unknown as { type: (props: NodeProps<CompoundGroupNodeType>) => ReactElement<Record<string, unknown>> }).type;
+  return view(props);
+}
+
+test("hovering the workspace root neither focuses it nor shows a tooltip", () => {
+  const hovered: Array<string | null> = [];
+  const root: DisplayBlock = { ...retiredCrate(), id: "workspace:root", label: "root", type: "workspace", memberCount: 1, description: "The whole workspace", annotationKind: "APP", annotationState: "current" };
+  const element = groupElement(root, (id) => hovered.push(id));
+  assert.equal(element.props.onMouseEnter, undefined);
+  assert.equal(element.props.onMouseLeave, undefined);
+  assert.equal(element.props.title, undefined);
+  assert.deepEqual(hovered, []);
+});
+
+test("hovering a child group still focuses it and shows its description", () => {
+  const hovered: Array<string | null> = [];
+  const element = groupElement(retiredCrate(), (id) => hovered.push(id));
+  (element.props.onMouseEnter as () => void)();
+  (element.props.onMouseLeave as () => void)();
+  assert.deepEqual(hovered, ["crate:old", null]);
+  assert.equal(element.props.title, "Retired crate");
 });
