@@ -1,0 +1,62 @@
+signal time=1795877249.337088 sender=org.freedesktop.DBus -> destination=:1.0 serial=2 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameAcquired
+   string ":1.0"
+signal time=1795877249.337121 sender=org.freedesktop.DBus -> destination=:1.0 serial=4 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameLost
+   string ":1.0"
+method call time=1795877254.261431 sender=:1.11 -> destination=org.freedesktop.portal.Desktop serial=3 path=/org/freedesktop/portal/desktop; interface=org.freedesktop.portal.FileChooser; member=OpenFile
+   string ""
+   string "Open a project folder"
+   array [
+      dict entry(
+         string "handle_token"
+         variant             string "rfd_1795877254260805256"
+      )
+      dict entry(
+         string "multiple"
+         variant             boolean false
+      )
+      dict entry(
+         string "directory"
+         variant             boolean true
+      )
+   ]
+signal time=1795877258.207875 sender=:1.4 -> destination=:1.11 serial=91 path=/org/freedesktop/portal/desktop/request/1_11/rfd_1795877254260805256; interface=org.freedesktop.portal.Request; member=Response
+   uint32 0
+   array [
+      dict entry(
+         string "choices"
+         variant             array [
+            ]
+      )
+      dict entry(
+         string "uris"
+         variant             array [
+               string "file://<fixture>"
+            ]
+      )
+   ]
+method call time=1795877290.567761 sender=:1.12 -> destination=org.freedesktop.portal.Desktop serial=3 path=/org/freedesktop/portal/desktop; interface=org.freedesktop.portal.FileChooser; member=OpenFile
+   string ""
+   string "Open a project folder"
+   array [
+      dict entry(
+         string "handle_token"
+         variant             string "rfd_1795877290567220200"
+      )
+      dict entry(
+         string "multiple"
+         variant             boolean false
+      )
+      dict entry(
+         string "directory"
+         variant             boolean true
+      )
+   ]
+signal time=1795877292.329981 sender=:1.4 -> destination=:1.12 serial=99 path=/org/freedesktop/portal/desktop/request/1_12/rfd_1795877290567220200; interface=org.freedesktop.portal.Request; member=Response
+   uint32 2
+   array [
+      dict entry(
+         string "uris"
+         variant             array [
+            ]
+      )
+   ]

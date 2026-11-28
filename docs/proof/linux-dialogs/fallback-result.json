@@ -1,0 +1,7 @@
+{
+  "case": "fallback",
+  "backend": "/usr/bin/zenity",
+  "opened_expected_workspace": true,
+  "source_marker_visible": true,
+  "cancel_preserved_workspace_and_source": true
+}

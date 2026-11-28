@@ -1,0 +1,7 @@
+lightwell 0.1.35 aarch64
+zenity
+libwebkit2gtk-4.1.so.0()(64bit)
+libgtk-3.so.0()(64bit)
+rpmlib(CompressedFileNames) = 3.0.4-1
+rpmlib(FileDigests) = 4.6.0-1
+rpmlib(PayloadFilesHavePrefix) = 4.0-1

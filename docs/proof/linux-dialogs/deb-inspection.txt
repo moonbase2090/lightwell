@@ -1,0 +1,4 @@
+Package: lightwell
+Version: 0.1.35
+Architecture: arm64
+Depends: zenity, libwebkit2gtk-4.1-0, libgtk-3-0

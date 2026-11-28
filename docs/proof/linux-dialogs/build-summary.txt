@@ -1,0 +1,5 @@
+    Finished `release` profile [optimized] target(s) in 2m 08s
+       Built application at: target/release/lightwell
+    Bundling Lightwell_0.1.35_arm64.deb (target/release/bundle/deb/Lightwell_0.1.35_arm64.deb)
+    Bundling Lightwell-0.1.35-1.aarch64.rpm (target/release/bundle/rpm/Lightwell-0.1.35-1.aarch64.rpm)
+    Finished 2 bundles at:
