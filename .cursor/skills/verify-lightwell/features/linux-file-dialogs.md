@@ -27,9 +27,9 @@ env XDG_CONFIG_HOME="$dialog_proof/config" XDG_DATA_HOME="$dialog_proof/data" \
 
 ## Portal drive
 
-1. Choose **Open workspace** and capture the native folder picker before accepting a folder. Select `$dialog_proof/workspace`.
+1. Choose **Choose project folder** in the empty app and capture the **Open a project folder** picker before accepting a folder. Select `$dialog_proof/workspace`.
 2. Require the loaded workspace name `dialog-proof`. Inspect its source and require the literal `folder selection worked` marker.
-3. Open the folder picker again and cancel. Require the same workspace and source to remain visible, without a new error.
+3. Choose **Open project folder** in the loaded app and cancel the picker. Require the same workspace and source to remain visible, without a new error.
 4. Retain the folder-picker and loaded-workspace screenshots. Confirm the portal handled the request using the session bus or portal service log; a fallback picker alone does not pass this case.
 
 ## Fallback drive
