@@ -15,7 +15,11 @@ Run after changing the Linux desktop dependency stack or file-dialog backend. Bu
 dialog_proof=$(mktemp -d)
 mkdir -p "$dialog_proof/workspace/src" "$dialog_proof/config" "$dialog_proof/data" "$dialog_proof/cache"
 printf '[package]\nname = "dialog-proof"\nversion = "0.0.0"\nedition = "2021"\n' > "$dialog_proof/workspace/Cargo.toml"
-printf 'pub const DIALOG_MARKER: &str = "folder selection worked";\n' > "$dialog_proof/workspace/src/lib.rs"
+cat > "$dialog_proof/workspace/src/lib.rs" <<'RS'
+pub fn dialog_marker() -> &'static str {
+    "folder selection worked"
+}
+RS
 ```
 
 Set `app_binary` to the absolute built desktop binary. Launch it from the desktop session:
