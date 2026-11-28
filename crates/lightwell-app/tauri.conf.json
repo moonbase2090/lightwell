@@ -50,6 +50,14 @@
     },
     "macOS": {
       "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["zenity"]
+      },
+      "rpm": {
+        "depends": ["zenity"]
+      }
     }
   },
   "plugins": {

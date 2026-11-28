@@ -737,30 +737,7 @@ mod tests {
     use super::{discover_config_infra, ConfigInfraEntityKind};
     use std::fs;
     use std::path::{Path, PathBuf};
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    struct TempDir(PathBuf);
-
-    impl TempDir {
-        fn new() -> Self {
-            let unique = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("clock")
-                .as_nanos();
-            let path = std::env::temp_dir().join(format!(
-                "lightwell-config-infra-{}-{unique}",
-                std::process::id()
-            ));
-            fs::create_dir_all(&path).expect("temp directory");
-            Self(path)
-        }
-    }
-
-    impl Drop for TempDir {
-        fn drop(&mut self) {
-            let _ = fs::remove_dir_all(&self.0);
-        }
-    }
+    use tempfile::TempDir;
 
     fn fixture_root() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/config-infra-sample")
@@ -859,23 +836,23 @@ mod tests {
 
     #[test]
     fn ignores_generated_directories_and_finds_dockerfile_variants() {
-        let root = TempDir::new();
-        fs::create_dir_all(root.0.join(".github/workflows")).expect("workflow dir");
-        fs::create_dir_all(root.0.join(".terraform")).expect("generated dir");
-        fs::create_dir_all(root.0.join("fixtures")).expect("fixtures dir");
+        let root = TempDir::new().expect("temp directory");
+        fs::create_dir_all(root.path().join(".github/workflows")).expect("workflow dir");
+        fs::create_dir_all(root.path().join(".terraform")).expect("generated dir");
+        fs::create_dir_all(root.path().join("fixtures")).expect("fixtures dir");
         fs::write(
-            root.0.join(".github/workflows/deploy.yml"),
+            root.path().join(".github/workflows/deploy.yml"),
             "jobs:\n  build:\n    runs-on: ubuntu-latest\n",
         )
         .expect("workflow");
         fs::write(
-            root.0.join(".terraform/hidden.tf"),
+            root.path().join(".terraform/hidden.tf"),
             "resource \"x\" \"y\" {}\n",
         )
         .expect("hidden");
-        fs::write(root.0.join("fixtures/hidden.yaml"), "services: {}\n").expect("fixture");
-        fs::write(root.0.join("Dockerfile.dev"), "FROM alpine\n").expect("dockerfile");
-        let workspace = discover_config_infra(&root.0).expect("discover");
+        fs::write(root.path().join("fixtures/hidden.yaml"), "services: {}\n").expect("fixture");
+        fs::write(root.path().join("Dockerfile.dev"), "FROM alpine\n").expect("dockerfile");
+        let workspace = discover_config_infra(root.path()).expect("discover");
         assert_eq!(workspace.files.len(), 2);
         assert!(workspace
             .files
@@ -893,26 +870,26 @@ mod tests {
 
     #[test]
     fn omits_yaml_files_without_config_infra_entities() {
-        let root = TempDir::new();
-        fs::create_dir_all(root.0.join(".github/ISSUE_TEMPLATE")).expect("issue templates");
-        fs::create_dir_all(root.0.join(".github/workflows")).expect("workflows");
+        let root = TempDir::new().expect("temp directory");
+        fs::create_dir_all(root.path().join(".github/ISSUE_TEMPLATE")).expect("issue templates");
+        fs::create_dir_all(root.path().join(".github/workflows")).expect("workflows");
         fs::write(
-            root.0.join(".github/ISSUE_TEMPLATE/bug_report.yml"),
+            root.path().join(".github/ISSUE_TEMPLATE/bug_report.yml"),
             "name: Bug report\ndescription: Report a bug\nbody: []\n",
         )
         .expect("issue template");
         fs::write(
-            root.0.join(".github/dependabot.yml"),
+            root.path().join(".github/dependabot.yml"),
             "version: 2\nupdates: []\n",
         )
         .expect("dependabot config");
         fs::write(
-            root.0.join(".github/workflows/deploy.yml"),
+            root.path().join(".github/workflows/deploy.yml"),
             "jobs:\n  deploy:\n    runs-on: ubuntu-latest\n",
         )
         .expect("workflow");
 
-        let workspace = discover_config_infra(&root.0).expect("discover");
+        let workspace = discover_config_infra(root.path()).expect("discover");
 
         assert_eq!(workspace.files.len(), 1);
         assert!(workspace.files[0].path.ends_with("deploy.yml"));

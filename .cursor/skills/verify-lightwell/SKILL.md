@@ -9,6 +9,8 @@ Lightwell ships three surfaces: a **browser preview** (checked-in Prismattyc and
 
 ## Launch
 
+Build with Rust 1.92 or newer. Linux desktop builds use GTK 0.19 and glib 0.22 bindings, and require the system D-Bus development package. For native dialog proof, install a desktop portal backend and `zenity`; the latter also covers minimal sessions without a portal. Follow [Linux file dialogs](features/linux-file-dialogs.md) when changing the desktop dependency stack or dialog backend.
+
 **CLI (isolated, per drive):** from the repository root, build once:
 
 ```sh
