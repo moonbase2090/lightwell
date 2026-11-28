@@ -95,6 +95,8 @@ scripts/verify/browser-preview-proof.sh 127.0.0.1 "$PORT" /tmp/lightwell-verify-
 
 ## Windows
 
+For every batched Windows release proof, run [Native MSI update](features/windows-msi-update.md) on a clean Windows x64 VM. It verifies an app-initiated update from the preceding signed release and checks the installed version and preserved user state.
+
 On Windows, `scripts/verify/doctor.sh` is a bash script. Run the same checks from the repository root with Node.js 22, Python 3, Git Bash, `ar` and `strings` on `PATH`, and the MSVC Rust toolchain:
 
 ```powershell
