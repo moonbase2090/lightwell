@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.35 - 2026-11-28
+
+### Fixed
+
+- Updated the Windows updater to use `tauri-plugin-updater` 2.14.1 and `zip` 9.0.5 (#285).
+- Updated `cookie` to 0.18.3 and `url` to 2.5.9 to address dependency security advisories, with `form_urlencoded` updated to 1.2.3 (#280).
+- CI link checks re-check server errors before reporting broken links, and desktop screenshot captures install the required fonts (#281, #283).
+
+### Changed
+
+- Standardized Linux CI runner selection (#282).
+- Updated the web-project fixture to Next.js 15.5.29 and excluded fixture manifests from automated dependency updates.
+
 ## 0.1.34 - 2026-11-11
 
 ### Added
