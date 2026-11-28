@@ -22,6 +22,8 @@ sudo apt install ./Lightwell_0.1.35_amd64.deb
 
 Other x86_64 distributions can use [`Lightwell_0.1.35_amd64.AppImage`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.35/Lightwell_0.1.35_amd64.AppImage), [`Lightwell_0.1.35_x86_64.rpm`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.35/Lightwell_0.1.35_x86_64.rpm) for Fedora, RHEL and openSUSE, or the portable [`Lightwell_0.1.35_linux_x86_64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.35/Lightwell_0.1.35_linux_x86_64.tar.gz), which unpacks to `lightwell/` with an `install.sh`. `packaging/arch/PKGBUILD` builds an Arch package from the tarball. For Linux on ARM64, [`Lightwell_0.1.35_linux_aarch64.tar.gz`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.35/Lightwell_0.1.35_linux_aarch64.tar.gz) carries the command line tool.
 
+Linux desktop file dialogs use the system portal when available. On minimal desktops, install `zenity` for the fallback picker. The deb, rpm and Arch packages declare this dependency.
+
 ### Windows
 
 Download [`Lightwell_0.1.35_x64.msi`](https://github.com/moonbase2090/lightwell/releases/download/v0.1.35/Lightwell_0.1.35_x64.msi) (x64) and run it to install Lightwell.

@@ -31,6 +31,7 @@ Read this index before driving Lightwell. Each feature file is a user-facing rec
 - [Browser preview maps](./browser-preview-maps.md) — serve the built viewer and confirm the preview responds.
 - [Map search](./map-search.md) — keyboard search over the architecture map (manual or browser automation).
 - [Project notes capture](./project-notes-capture.md) — desktop create, edit, stale, and remove on Linux with Xvfb (skip when Tauri display tools are missing).
+- [Linux file dialogs](./linux-file-dialogs.md) — open and cancel folder selection through the desktop portal and the fallback picker after desktop dependency or dialog-backend changes.
 - [Live map refresh capture](./live-refresh-capture.md) — add a Rust module and verify its visible label in the built Linux app, with bounded waits and failure diagnostics.
 
 - [Concurrent commit maps](./commit-map-concurrency.md) verifies repository ownership and temporary-worktree cleanup through concurrent public API calls.
