@@ -20,6 +20,8 @@ cargo build --release --locked -p lightwell-cli
 
 All 398 frontend tests passed. The optimized desktop build and both packages passed. The dependency graph selected only glib 0.22.11, with no git sources. The CLI reported `lightwell 0.1.35` and extracted the fixture map.
 
+Package hashes use stable `lightwell.deb` and `lightwell.rpm` labels; version and architecture are retained in the inspected metadata.
+
 The deb declares `zenity, libwebkit2gtk-4.1-0, libgtk-3-0`; the ARM64 rpm also declares `zenity`. See [build output](build-summary.txt), [deb metadata](deb-inspection.txt), [rpm metadata](rpm-inspection.txt), [package hashes](package-sha256.txt) and [environment](environment.txt).
 
 ## Native drive
