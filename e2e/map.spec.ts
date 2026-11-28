@@ -44,6 +44,40 @@ test.describe("map canvas (web)", () => {
     await expect(node).toBeVisible();
   });
 
+  test("MAP-26: hovering inside the workspace root neither dims it nor shows a tooltip", async ({ page }) => {
+    const root = page.locator(".compound-group.compound-workspace").first();
+    await expect(root).toBeVisible();
+    const box = await root.boundingBox();
+    if (box === null) throw new Error("the workspace root has no box");
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height - 8);
+    await expect(root).not.toHaveClass(/dimmed|highlighted/);
+    expect(await root.getAttribute("title")).toBeNull();
+    await expect(page.locator(".compound-group.dimmed, .block-node.dimmed")).toHaveCount(0);
+  });
+
+  test("MAP-27: the view toolbar sits in the Show changes row and does not overlap the map", async ({ page }) => {
+    const row = page.locator(".commit-picker").first();
+    const toolbar = row.locator(".map-depth-controls");
+    await expect(toolbar).toBeVisible();
+    const rowBox = await row.boundingBox();
+    const toolbarBox = await toolbar.boundingBox();
+    const canvasBox = await page.locator(".graph-canvas").first().boundingBox();
+    if (rowBox === null || toolbarBox === null || canvasBox === null) throw new Error("missing layout boxes");
+    expect(toolbarBox.y).toBeGreaterThanOrEqual(rowBox.y);
+    expect(toolbarBox.y + toolbarBox.height).toBeLessThanOrEqual(rowBox.y + rowBox.height);
+    expect(toolbarBox.x + toolbarBox.width).toBeGreaterThan(rowBox.x + rowBox.width - 40);
+    expect(toolbarBox.y + toolbarBox.height).toBeLessThanOrEqual(canvasBox.y);
+    await expect(page.locator(".canvas-watermark .map-depth-controls")).toHaveCount(0);
+  });
+
+  test("MAP-28: a block with no description has no tooltip on the map", async ({ page }) => {
+    const nodes = page.locator(".block-node, .compound-group");
+    await expect(nodes.first()).toBeVisible();
+    for (const title of await nodes.evaluateAll((elements) => elements.map((element) => element.getAttribute("title")))) {
+      expect(title).not.toBe("No description is written yet.");
+    }
+  });
+
   test("MAP-10: canvas controls are present", async ({ page }) => {
     await expect(page.locator(".react-flow__controls")).toBeVisible();
   });

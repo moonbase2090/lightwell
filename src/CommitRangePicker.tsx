@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { GitCommitHorizontal } from "lucide-react";
 import type { CommitRangePreset, CommitSummary, MapHistorySource, ResolvedCommitRange } from "./map-source.js";
 
@@ -50,13 +50,15 @@ function CustomRange({ history, workspaceId, commits, choice, onChange }: {
     </div>;
 }
 
-export default function CommitRangePicker({ history, workspaceId, commits, loading, error, onResolved }: {
+export default function CommitRangePicker({ history, workspaceId, commits, loading, error, onResolved, trailing }: {
   readonly history: MapHistorySource;
   readonly workspaceId: string;
   readonly commits: readonly CommitSummary[];
   readonly loading: boolean;
   readonly error: string | null;
   readonly onResolved: (range: ResolvedCommitRange | null) => void;
+  /** Controls shown at the right end of this row, such as the map view toolbar. */
+  readonly trailing?: ReactNode;
 }) {
   const [choice, setChoice] = useState<Choice>({ kind: "off" });
   const [notice, setNotice] = useState<string | null>(null);
@@ -99,5 +101,6 @@ export default function CommitRangePicker({ history, workspaceId, commits, loadi
     {(loading || error || commits.length === 0 || notice) && <span className="commit-range-notice" role="status">
       {loading ? "Reading history…" : error ?? (commits.length === 0 ? "No commit history available." : notice)}
     </span>}
+    {trailing !== undefined && trailing !== null && <div className="commit-picker-trailing">{trailing}</div>}
   </div>;
 }

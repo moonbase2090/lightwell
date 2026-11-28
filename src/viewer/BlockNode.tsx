@@ -21,6 +21,12 @@ export interface BlockNodeData extends Record<string, unknown> {
 
 export type MapNode = Node<BlockNodeData, "codeBlock">;
 
+/** The map tooltip for a block: its written description, or nothing when none is written. */
+export function mapTooltip(block: Pick<DisplayBlock, "annotationState" | "description">): string | undefined {
+  if (block.annotationState === "missing") return undefined;
+  return block.description.trim() === "" ? undefined : block.description;
+}
+
 function shortPath(sourcePath: string | null): string {
   if (sourcePath === null) return "source path unresolved";
   const parts = sourcePath.split("/");
@@ -76,7 +82,7 @@ function BlockNodeView({ data, selected }: NodeProps<MapNode>) {
           activate();
         }
       }}
-      title={block.description}
+      title={mapTooltip(block)}
     >
       <Handle type="target" position={Position.Top} isConnectable={false} />
       <div className="node-topline">

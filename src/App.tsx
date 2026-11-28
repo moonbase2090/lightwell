@@ -2190,50 +2190,52 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
   const atlasMode = mapView === "atlas" && fileTree !== null;
   const selectedTreeNode = mapView === "files" && fileTree !== null ? fileTree.nodeById.get(selectedId) : undefined;
   const folderSelection = selectedTreeNode?.folder === true ? selectedTreeNode : undefined;
+  const mapViewControls = verticalFiles ? null : (
+    <span className="map-depth-controls">
+      <div className="map-view" role="group" aria-label="Map view">
+        <button type="button" aria-pressed={mapView === "atlas"} onClick={() => chooseMapView("atlas")}>Atlas</button>
+        <button type="button" aria-pressed={mapView === "modules"} onClick={() => chooseMapView("modules")}>Modules</button>
+        <button type="button" aria-pressed={mapView === "files"} onClick={() => chooseMapView("files")}>Files</button>
+        {import.meta.env.VITE_ENABLE_STATE_CHART !== "false" && (
+          <button
+            type="button"
+            aria-pressed={stateChartOpen}
+            disabled={stateChartTarget === null || mapSource.editor === undefined}
+            title={stateChartTarget === null ? "Select a source-backed block" : "Chart explicit states in this source file"}
+            onClick={() => setStateChartOpen(true)}
+          >States</button>
+        )}
+      </div>
+      {mapView !== "atlas" && <label className="map-depth">
+        Depth
+        <select
+          aria-label="Map depth"
+          value={mapDepth === "all" ? "all" : String(mapDepth)}
+          onChange={(event) => {
+            const next: MapDepth = event.target.value === "all" ? "all" : Number(event.target.value);
+            setMapDepth(next);
+            if (mapKey !== null) writeMapDepth(mapDepthStorage(), mapKey, next);
+          }}
+        >
+          {(scope === undefined || map === null ? [DEFAULT_MAP_DEPTH, "all" as const] : depthOptions(
+            mapView === "files" && fileRoot !== undefined && fileTree !== null
+              ? subtreeDepth(fileRoot, fileTree.nodeById)
+              : subtreeDepth(scope, map.blockById),
+            mapDepth,
+          )).map((choice) => (
+            <option key={String(choice)} value={choice === "all" ? "all" : String(choice)}>
+              {choice === "all" ? "All" : String(choice)}
+            </option>
+          ))}
+        </select>
+      </label>}
+      {mapView !== "atlas" && <span className="child-count">{mapView === "files" && fileRoot !== undefined ? fileRoot.children.length : scopeChildren.length} direct children</span>}
+    </span>
+  );
   const graphCanvas = (
     <div className={`graph-canvas${verticalFiles ? " is-vertical" : ""}`} aria-label={`${map.facts.project.name} architecture map`}>
       {!verticalFiles && <div className="canvas-watermark">
         <span>{mapView === "atlas" ? "WORKSPACE ATLAS" : mapView === "files" ? "FILE TREE" : scope?.type === "workspace" ? "WORKSPACE MAP" : `${scope?.annotationKind ?? "BLOCK"} DETAIL`}</span>
-        <span className="map-depth-controls">
-          <div className="map-view" role="group" aria-label="Map view">
-            <button type="button" aria-pressed={mapView === "atlas"} onClick={() => chooseMapView("atlas")}>Atlas</button>
-            <button type="button" aria-pressed={mapView === "modules"} onClick={() => chooseMapView("modules")}>Modules</button>
-            <button type="button" aria-pressed={mapView === "files"} onClick={() => chooseMapView("files")}>Files</button>
-            {import.meta.env.VITE_ENABLE_STATE_CHART !== "false" && (
-              <button
-                type="button"
-                aria-pressed={stateChartOpen}
-                disabled={stateChartTarget === null || mapSource.editor === undefined}
-                title={stateChartTarget === null ? "Select a source-backed block" : "Chart explicit states in this source file"}
-                onClick={() => setStateChartOpen(true)}
-              >States</button>
-            )}
-          </div>
-          {mapView !== "atlas" && <label className="map-depth">
-            Depth
-            <select
-              aria-label="Map depth"
-              value={mapDepth === "all" ? "all" : String(mapDepth)}
-              onChange={(event) => {
-                const next: MapDepth = event.target.value === "all" ? "all" : Number(event.target.value);
-                setMapDepth(next);
-                if (mapKey !== null) writeMapDepth(mapDepthStorage(), mapKey, next);
-              }}
-            >
-              {(scope === undefined || map === null ? [DEFAULT_MAP_DEPTH, "all" as const] : depthOptions(
-                mapView === "files" && fileRoot !== undefined && fileTree !== null
-                  ? subtreeDepth(fileRoot, fileTree.nodeById)
-                  : subtreeDepth(scope, map.blockById),
-                mapDepth,
-              )).map((choice) => (
-                <option key={String(choice)} value={choice === "all" ? "all" : String(choice)}>
-                  {choice === "all" ? "All" : String(choice)}
-                </option>
-              ))}
-            </select>
-          </label>}
-          {mapView !== "atlas" && <span className="child-count">{mapView === "files" && fileRoot !== undefined ? fileRoot.children.length : scopeChildren.length} direct children</span>}
-        </span>
       </div>}
       {atlasMode && (
         <AtlasView
@@ -2447,10 +2449,11 @@ function App({ mapSource }: { readonly mapSource: MapSource }) {
           </button>
         )}
       </div>
-        {history !== undefined && mapKey !== null && (
+        {history !== undefined && mapKey !== null ? (
           <CommitRangePicker key={`${mapKey}:${rangeReset}`} history={history} workspaceId={mapKey}
-            commits={commits} loading={commitsLoading} error={commitHistoryError} onResolved={setSelectedRange} />
-        )}
+            commits={commits} loading={commitsLoading} error={commitHistoryError} onResolved={setSelectedRange}
+            trailing={mapViewControls} />
+        ) : mapViewControls !== null && <div className="commit-picker commit-picker-toolbar-only"><div className="commit-picker-trailing">{mapViewControls}</div></div>}
       {selectedRange?.commitCount === 0 && <div className="commit-diff-banner" role="status">
         <span>0 commits after release {selectedRange.releaseTag} through <code>{selectedRange.commit.shortId}</code>; 0 blocks changed.</span>
         <button type="button" className="commit-diff-clear" onClick={clearCommitRange}>Clear</button>

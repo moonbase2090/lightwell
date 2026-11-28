@@ -7,6 +7,7 @@ import {
   type EdgeProps,
   type NodeProps,
 } from "@xyflow/react";
+import { mapTooltip } from "./BlockNode.js";
 import type { CompoundLayoutStats } from "./compound-layout.js";
 import type {
   CompoundGroupNode as CompoundGroupNodeType,
@@ -16,12 +17,14 @@ import type {
 
 function CompoundGroupNodeView({ data, selected }: NodeProps<CompoundGroupNodeType>) {
   const { block } = data;
+  // The workspace root fills the map, so hovering anywhere inside it must not focus it or show its tooltip.
+  const root = block.type === "workspace";
   return (
     <div
       className={`compound-group compound-${block.type}${selected ? " selected" : ""}${data.dimmed ? " dimmed" : ""}${data.highlighted ? " highlighted" : ""}`}
-      title={block.description}
-      onMouseEnter={() => data.onHover(block.id)}
-      onMouseLeave={() => data.onHover(null)}
+      title={root ? undefined : mapTooltip(block)}
+      onMouseEnter={root ? undefined : () => data.onHover(block.id)}
+      onMouseLeave={root ? undefined : () => data.onHover(null)}
       onContextMenu={data.onContextMenu === undefined ? undefined : (event) => {
         event.preventDefault();
         event.stopPropagation();
