@@ -38,8 +38,6 @@ wildcards = "warn"
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-# Every git dependency must name a tag, so the pin below is enforced.
+# Git dependencies must name a release tag.
 required-git-spec = "tag"
-# zip is pinned to an upstream release tag.
-allow-git = ["https://github.com/zip-rs/zip2"]
 
